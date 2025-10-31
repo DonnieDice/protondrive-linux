@@ -1,21 +1,88 @@
 # ProtonDrive Linux Client
+## 🎮 **RGX Mods** - *RealmGX Community Project*
 
-[![GitHub Release](https://img.shields.io/github/v/release/donniedice/protondrive-linux)](https://github.com/donniedice/protondrive-linux/releases)
-[![AUR Version](https://img.shields.io/aur/version/protondrive-linux)](https://aur.archlinux.org/packages/protondrive-linux)
-[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
-[![CI/CD](https://github.com/donniedice/protondrive-linux/actions/workflows/ci.yml/badge.svg)](https://github.com/donniedice/protondrive-linux/actions)
+<div align="center">
 
-An unofficial Linux desktop client for ProtonDrive, featuring a premium GUI that matches Proton's signature design. Built with Python and Tkinter, this client provides a beautiful, modern interface for managing your ProtonDrive files on Linux systems.
+<img src="https://yt3.ggpht.com/PyNZgnIiCRDaZZhlfcWS44jYqodrQJaxONOceXhjmmR_q_vSn6liZUobThSRJxC95RM71LIORg=s600-c-k-c0x00ffffff-no-rj-rp-mo" alt="RGX Mods Kiwi Logo" width="256" height="256">
+
+<br>
+
+<img src="https://yt3.googleusercontent.com/iCVw5J2SOcK90j2YYaP8VDZCwY1BOGJiCJQLl5W5qSqnPYRBrzrFKb8YUGtiSBdA9OxgKqgpJDc=w1707-fcrop64=1,00005a57ffffa5a8-k-c0xffffffff-no-nd-rj" alt="RGX Mods Banner" width="512">
+
+[![GitHub Release](https://img.shields.io/github/v/release/donniedice/protondrive-linux?style=for-the-badge)](https://github.com/donniedice/protondrive-linux/releases)
+[![AUR Version](https://img.shields.io/aur/version/protondrive-linux?style=for-the-badge)](https://aur.archlinux.org/packages/protondrive-linux)
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg?style=for-the-badge)](https://www.gnu.org/licenses/gpl-3.0)
+
+### 🌟 **Join the <span style="color:#ff6b6b">R</span>ealmGX Community - <span style="color:#4ecdc4">G</span>amers e<span style="color:#4ecdc4">X</span>treme!** 🌟
+[![Discord](https://img.shields.io/badge/Discord-Join%20Our%20Server-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/N7kdKAHVVF)
+
+**An unofficial Linux desktop client for ProtonDrive, featuring a premium GUI that matches Proton's signature design.**
+
+**🎯 Connect with fellow Linux enthusiasts, get support, and be part of the RGX Mods family!**
+
+[![GitHub stars](https://img.shields.io/github/stars/donniedice/protondrive-linux?style=for-the-badge&logo=github&color=yellow)](https://github.com/donniedice/protondrive-linux/stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/donniedice/protondrive-linux?style=for-the-badge&logo=github&color=blue)](https://github.com/donniedice/protondrive-linux/network/members)
+[![GitHub issues](https://img.shields.io/github/issues/donniedice/protondrive-linux?style=for-the-badge&logo=github&color=red)](https://github.com/donniedice/protondrive-linux/issues)
+[![GitHub license](https://img.shields.io/github/license/donniedice/protondrive-linux?style=for-the-badge&logo=github&color=lightgrey)](https://github.com/donniedice/protondrive-linux/blob/main/LICENSE)
+
+[![GitHub last commit](https://img.shields.io/github/last-commit/donniedice/protondrive-linux?style=flat-square&logo=github)](https://github.com/donniedice/protondrive-linux/commits/main)
+[![GitHub commit activity](https://img.shields.io/github/commit-activity/m/donniedice/protondrive-linux?style=flat-square&logo=github)](https://github.com/donniedice/protondrive-linux/graphs/contributors)
+[![GitHub repo size](https://img.shields.io/github/repo-size/donniedice/protondrive-linux?style=flat-square&logo=github)](https://github.com/donniedice/protondrive-linux)
+
+</div>
+
+## 🌟 Join the RGX Mods Community!
+
+<div align="center">
+
+### 💬 **RealmGX Discord - Your Tech Home!**
+
+[![Join Discord](https://img.shields.io/badge/Join%20Our%20Discord-RealmGX%20Community-7289da?style=for-the-badge&logo=discord&logoColor=white&labelColor=5865F2)](https://discord.gg/N7kdKAHVVF)
+
+**🎮 <span style="color:#ff6b6b">R</span>ealm <span style="color:#4ecdc4">G</span>amers e<span style="color:#4ecdc4">X</span>treme - Where Linux Enthusiasts Unite!**
+
+✨ **What awaits you in our Discord:**
+- 🛠️  **Instant support** from the RGX Mods team
+- 🎯 **Feature requests** and direct dev communication
+- 🚀 **Beta testing** opportunities for new releases
+- 🤝 **Community of Linux users** sharing tips and experiences
+- 📢 **First to know** about new RGX Mods releases
+- 🎉 **Events, giveaways**, and community activities
+
+</div>
+
+## 💖 Support RGX Mods
+
+<div align="center">
+
+**Your support helps keep RGX Mods alive and constantly improving!**
+
+<a href="https://www.buymeacoffee.com/donniedice" target="_blank"><img src="https://cdn.buymeacoffee.com/buttons/v2/default-yellow.png" alt="Buy Me A Coffee" style="height: 60px !important;width: 217px !important;" ></a>
+
+[![Donate](https://img.shields.io/badge/Donate-CashApp-00C853?style=for-the-badge&logo=cash-app&logoColor=white)](https://bit.ly/3fyxxSU)
+[![GitHub Sponsor](https://img.shields.io/badge/Sponsor-GitHub-ff69b4?style=for-the-badge&logo=github-sponsors&logoColor=white)](https://github.com/sponsors/donniedice)
+
+[![Star this repository](https://img.shields.io/badge/⭐-Star%20this%20repository-yellow?style=for-the-badge&logo=github)](https://github.com/donniedice/protondrive-linux)
+
+*Every coffee helps fund new features and improvements!*
+
+</div>
 
 ## 🚀 Features
 
-- 🎨 **Premium Proton Design** - Beautiful dark theme matching Proton's signature style
-- 🔐 **Secure Authentication** - ProtonMail credentials with full 2FA support
-- 📁 **Sync Folders** - Bi-directional sync between local and ProtonDrive
-- 🔍 **Browse Files** - Navigate your ProtonDrive storage
-- 💾 **Mount as Drive** - Access ProtonDrive as local filesystem
-- 🖥️ **Modern GUI** - Sleek interface with status indicators and activity log
-- 🐧 **Desktop Integration** - System tray, notifications, and .desktop file
+<div align="center">
+
+| Feature | Description |
+|---------|-------------|
+| 🎨 **Premium Proton Design** | Beautiful dark theme matching Proton's signature style |
+| 🔐 **Secure Authentication** | ProtonMail credentials with full 2FA support |
+| 📁 **Sync Folders** | Bi-directional sync between local and ProtonDrive |
+| 🔍 **Browse Files** | Navigate your ProtonDrive storage |
+| 💾 **Mount as Drive** | Access ProtonDrive as local filesystem |
+| 🖥️ **Modern GUI** | Sleek interface with status indicators and activity log |
+| 🐧 **Desktop Integration** | System tray, notifications, and .desktop file |
+
+</div>
 
 ## 📦 Installation
 
@@ -187,6 +254,59 @@ Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTIN
 - 🚧 **Snap Package**: Planned
 - 🚧 **Official Support**: Awaiting Proton response
 
+## 📈 Project Metrics
+
+<div align="center">
+
+| Metric | Value |
+|--------|-------|
+| **Total Lines of Code** | ![Lines of code](https://img.shields.io/tokei/lines/github/donniedice/protondrive-linux?style=flat-square) |
+| **Repository Size** | ![GitHub repo size](https://img.shields.io/github/repo-size/donniedice/protondrive-linux?style=flat-square) |
+| **Last Commit** | ![GitHub last commit](https://img.shields.io/github/last-commit/donniedice/protondrive-linux?style=flat-square) |
+| **Open Issues** | ![GitHub issues](https://img.shields.io/github/issues/donniedice/protondrive-linux?style=flat-square) |
+| **Pull Requests** | ![GitHub pull requests](https://img.shields.io/github/issues-pr/donniedice/protondrive-linux?style=flat-square) |
+| **Contributors** | ![GitHub contributors](https://img.shields.io/github/contributors/donniedice/protondrive-linux?style=flat-square) |
+| **Languages** | ![GitHub top language](https://img.shields.io/github/languages/top/donniedice/protondrive-linux?style=flat-square) |
+| **Watchers** | ![GitHub watchers](https://img.shields.io/github/watchers/donniedice/protondrive-linux?style=flat-square) |
+
+</div>
+
+---
+
+## 🤝 Contributors
+
+<div align="center">
+
+Thanks to all the amazing people who have contributed to ProtonDrive Linux Client! 🎉
+
+<a href="https://github.com/donniedice/protondrive-linux/graphs/contributors">
+  <img src="https://contrib.rocks/image?repo=donniedice/protondrive-linux" alt="Contributors" />
+</a>
+
+</div>
+
+---
+
+## 🏆 GitHub Achievements
+
+<div align="center">
+
+[![trophy](https://github-profile-trophy.vercel.app/?username=donniedice&theme=radical&no-frame=true&row=1&column=6)](https://github.com/donniedice/protondrive-linux)
+
+</div>
+
+---
+
+## 🔥 Streak Stats
+
+<div align="center">
+
+[![GitHub Streak](https://github-readme-streak-stats.herokuapp.com?user=donniedice&theme=radical&hide_border=true)](https://github.com/donniedice/protondrive-linux)
+
+</div>
+
+---
+
 ## 📝 License
 
 This project is licensed under the GNU General Public License v3.0 - see [LICENSE](LICENSE) file.
@@ -205,4 +325,24 @@ This is an **unofficial** client not affiliated with Proton AG. For official sup
 
 ---
 
-**Made with ❤️ for the Linux community while we wait for official support**
+<div align="center">
+
+## 🌟 **Thank you for choosing RGX Mods!** 🌟
+
+**Made with ❤️ by the RealmGX Community**
+**Lead Developer: [DonnieDice](https://github.com/donniedice)**
+
+*"Making Linux better, one project at a time!"*
+
+<div align="center">
+
+[![Join Discord](https://img.shields.io/badge/🎮%20Join%20RealmGX%20Discord-Realm%20Gamers%20eXtreme-7289da?style=for-the-badge&logo=discord&logoColor=white)](https://discord.gg/N7kdKAHVVF)
+
+[![Buy Me a Coffee](https://img.shields.io/badge/Buy%20Me%20a%20Coffee-Support%20RGX%20Mods-yellow?style=for-the-badge)](https://www.buymeacoffee.com/donniedice)
+[![GitHub Stars](https://img.shields.io/github/stars/donniedice/protondrive-linux?style=for-the-badge&logo=github)](https://github.com/donniedice/protondrive-linux)
+
+**🎮 RGX Mods - Powered by RealmGX Community**
+
+</div>
+
+</div>
