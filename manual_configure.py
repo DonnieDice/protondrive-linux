@@ -41,8 +41,8 @@ def configure_protondrive():
         # Create config with interactive mode to handle 2FA properly
         config_cmd = [
             "rclone", "config", "create", "protondrive", "protondrive",
-            f"user={email}",
-            f"pass={obscured_pass}"
+            f"username={email}",
+            f"password={obscured_pass}"
         ]
         
         if twofa_code:
