@@ -467,6 +467,15 @@ class ProtonDriveGUI:
                 if twofa:
                     config_cmd.append(f"2fa={twofa}")
                 
+                # Log the command for debugging, with sensitive info redacted
+                log_cmd = list(config_cmd)
+                for i, item in enumerate(log_cmd):
+                    if "pass=" in item:
+                        log_cmd[i] = "pass=********"
+                    if "2fa=" in item:
+                        log_cmd[i] = "2fa=******"
+                self.log(f"Executing: {' '.join(log_cmd)}", "info")
+                
                 result = subprocess.run(config_cmd, capture_output=True, text=True)
                 
                 if result.returncode == 0:
