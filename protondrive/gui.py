@@ -421,6 +421,22 @@ class ProtonDriveGUI:
         self.log("[CONFIG] Loading existing configuration...", "debug")
         
         try:
+            # Check if protondrive remote exists
+            list_remotes_result = subprocess.run(["rclone", "listremotes"],
+                                                 capture_output=True, text=True, timeout=5)
+            if "protondrive:" in list_remotes_result.stdout:
+                self.log("[CONFIG] Found existing 'protondrive:' remote. Deleting to ensure clean configuration...", "warning")
+                self.debug_log("Running: rclone config delete protondrive")
+                delete_result = subprocess.run(["rclone", "config", "delete", "protondrive"],
+                                               capture_output=True, text=True, timeout=10)
+                if delete_result.returncode == 0:
+                    self.log("✓ Old 'protondrive:' remote deleted successfully.", "success")
+                    self.debug_log("Old protondrive remote deleted.")
+                else:
+                    self.log(f"✗ Failed to delete old 'protondrive:' remote: {delete_result.stderr}", "error")
+                    self.debug_log(f"Error deleting old remote: {delete_result.stderr}")
+                    # Continue anyway, as the user might fix it by re-configuring
+            
             result = subprocess.run(["rclone", "config", "show", "protondrive"], 
                                   capture_output=True, text=True, timeout=5)
             
