@@ -345,23 +345,29 @@ class ProtonDriveGUI:
                     self.debug_log(f"listremotes output: {result.stdout}")
                     
                     if "protondrive:" in result.stdout:
-                        self.log("[CHECK] ProtonDrive remote found, testing connection...", "debug")
-                        self.debug_log("Running: rclone lsd protondrive:")
-                        
-                        # Verify it actually works
-                        test = subprocess.run(["rclone", "lsd", "protondrive:"],
-                                            capture_output=True, text=True, timeout=10)
-                        
-                        if test.returncode == 0:
-                            self.log("✓ Connection verified successfully", "success")
-                            self.debug_log("Connection test passed")
-                            self.update_status("Connected", self.colors['success'])
-                            self.root.after(0, self.show_actions)
+                        # Only test connection if email is provided (i.e., user has attempted to configure)
+                        if self.email_var.get().strip():
+                            self.log("[CHECK] ProtonDrive remote found, testing connection...", "debug")
+                            self.debug_log("Running: rclone lsd protondrive:")
+                            
+                            # Verify it actually works
+                            test = subprocess.run(["rclone", "lsd", "protondrive:"],
+                                                capture_output=True, text=True, timeout=10)
+                            
+                            if test.returncode == 0:
+                                self.log("✓ Connection verified successfully", "success")
+                                self.debug_log("Connection test passed")
+                                self.update_status("Connected", self.colors['success'])
+                                self.root.after(0, self.show_actions)
+                            else:
+                                self.log("⚠ Configuration exists but connection failed", "warning")
+                                self.log(f"[DEBUG] Error: {test.stderr[:200]}", "debug")
+                                self.debug_log(f"Connection test failed: {test.stderr}")
+                                self.update_status("Configuration error", self.colors['warning'])
                         else:
-                            self.log("⚠ Configuration exists but connection failed", "warning")
-                            self.log(f"[DEBUG] Error: {test.stderr[:200]}", "debug")
-                            self.debug_log(f"Connection test failed: {test.stderr}")
-                            self.update_status("Configuration error", self.colors['warning'])
+                            self.log("[CHECK] ProtonDrive remote found, but no email configured. Skipping connection test.", "debug")
+                            self.debug_log("protondrive: found, but email_var is empty. Skipping test.")
+                            self.update_status("Not connected", self.colors['error'])
                     else:
                         self.log("[CHECK] No ProtonDrive remote configured", "debug")
                         self.debug_log("protondrive: not found in remotes")
@@ -504,15 +510,14 @@ class ProtonDriveGUI:
                 self.log("[STEP 3/5] Building configuration...", "info")
                 config_cmd = [
                     "rclone", "config", "create", "protondrive", "protondrive",
-                    f"username={email}",
-                    f"password={obscured_pass}",
+                    "--non-interactive", # Add this flag
+                    "username", email,
+                    "password", obscured_pass,
                     "--obscure"
                 ]
                 
                 if twofa:
-                    config_cmd.append(f"2fa={twofa}")
-                    self.log("[STEP 3/5] ✓ Added 2FA code to configuration", "debug")
-                    self.debug_log("2FA included in config")
+                    config_cmd.extend(["2fa", twofa])
                 
                 # Log the command (safely)
                 safe_cmd = config_cmd.copy()

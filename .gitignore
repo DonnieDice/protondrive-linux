@@ -1,0 +1,17 @@
+# Untracked files related to Claude
+CLAUDE.md
+.claude/
+
+# Python
+__pycache__/
+*.pyc
+*.egg-info/
+.venv/
+venv/
+build/
+dist/
+.mypy_cache/
+.pytest_cache/
+
+# rclone
+.rclone_cache/
