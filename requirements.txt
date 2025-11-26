@@ -1,3 +1,0 @@
-# ProtonDrive Linux Client Requirements
-# Note: tkinter comes with Python, not installed via pip
-# Note: rclone must be installed via system package manager
