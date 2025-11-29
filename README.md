@@ -172,8 +172,8 @@ We welcome contributions from the community! Please refer to our [CONTRIBUTING.m
 ## Documentation
 
 *   **User Guide**: [docs/guides/user-guide.md](docs/guides/user-guide.md)
-*   **API Documentation**: [docs/api/](docs/api/) (generated with TypeDoc)
-*   **Architecture**: [docs/architecture/](docs/architecture/)
+*   **API Documentation**: [docs/api/](docs/api/index.md) (generated with TypeDoc)
+*   **Architecture**: [docs/architecture/](docs/architecture/index.md)
 *   **Security Policy**: [SECURITY.md](SECURITY.md)
 *   **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 *   **Detailed Project Context for AI Agents**: [.gemini/GEMINI.md](.gemini/GEMINI.md)
