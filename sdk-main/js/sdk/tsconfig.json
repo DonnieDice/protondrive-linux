@@ -1,0 +1,31 @@
+{
+    "compilerOptions": {
+        "allowJs": false,
+        "esModuleInterop": true,
+        "forceConsistentCasingInFileNames": true,
+        "module": "commonjs",
+        "moduleResolution": "node",
+        "noEmit": false,
+        "noImplicitAny": true,
+        // Many variables are unused during prototyping - uncomment later once more modules are implemented.
+        //"noUnusedLocals": true,
+        "strict": true,
+        "skipLibCheck": true,
+        "target": "esnext",
+        "declaration": true,
+        "sourceMap": true,
+        "outDir": "dist",
+        "rootDir": "src",
+        "resolveJsonModule": true,
+        "lib": ["dom", "dom.iterable", "esnext"]
+    },
+    "include": [
+        "src/**/*.ts",
+        "typings/index.d.ts",
+    ],
+    "exclude": [
+        "**/node_modules/*",
+        "**/coreTypes.ts",
+        "**/driveTypes.ts"
+    ],
+}

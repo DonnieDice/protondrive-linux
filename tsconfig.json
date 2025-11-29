@@ -1,0 +1,24 @@
+{
+  "compilerOptions": {
+    "allowJs": true,
+    "module": "commonjs",
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "noImplicitAny": true,
+    "sourceMap": true,
+    "baseUrl": "./src",
+    "outDir": "dist",
+    "moduleResolution": "node",
+    "resolveJsonModule": true,
+    "jsx": "react",
+    "paths": {
+      "@shared/*": ["shared/*"],
+      "@main/*": ["main/*"],
+      "*": ["node_modules/*"]
+    }
+  },
+  "include": [
+    "src/**/*",
+    "__mocks__/**/*"
+  ]
+}

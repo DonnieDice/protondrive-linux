@@ -1,0 +1,14 @@
+name: CI
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-node@v3
+        with:
+          node-version: '18' # Or your preferred Node.js version
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build

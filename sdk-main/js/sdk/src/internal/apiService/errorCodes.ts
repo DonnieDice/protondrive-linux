@@ -1,0 +1,40 @@
+export const enum HTTPErrorCode {
+    OK = 200,
+    UNAUTHORIZED = 401,
+    NOT_FOUND = 404,
+    TOO_MANY_REQUESTS = 429,
+    INTERNAL_SERVER_ERROR = 500,
+}
+
+export function isCodeOk(code: number): boolean {
+    return code === ErrorCode.OK || code === ErrorCode.OK_MANY || code === ErrorCode.OK_ASYNC;
+}
+
+export function isCodeOkAsync(code: number): boolean {
+    return code === ErrorCode.OK_ASYNC;
+}
+
+export const enum ErrorCode {
+    OK = 1000,
+    OK_MANY = 1001,
+    OK_ASYNC = 1002,
+    INVALID_VALUE = 2001,
+    NOT_ENOUGH_PERMISSIONS = 2011,
+    NOT_ENOUGH_PERMISSIONS_TO_GRANT_PERMISSIONS = 2026,
+    // Following codes takes name from the API documentation.
+    ALREADY_EXISTS = 2500,
+    NOT_EXISTS = 2501,
+    INSUFFICIENT_QUOTA = 200001,
+    INSUFFICIENT_SPACE = 200002,
+    MAX_FILE_SIZE_FOR_FREE_USER = 200003,
+    MAX_PUBLIC_EDIT_MODE_FOR_FREE_USER = 200004,
+    INSUFFICIENT_VOLUME_QUOTA = 200100,
+    INSUFFICIENT_DEVICE_QUOTA = 200101,
+    ALREADY_MEMBER_OF_SHARE_IN_VOLUME_WITH_ANOTHER_ADDRESS = 200201,
+    TOO_MANY_CHILDREN = 200300,
+    NESTING_TOO_DEEP = 200301,
+    INSUFFICIENT_INVITATION_QUOTA = 200600,
+    INSUFFICIENT_SHARE_QUOTA = 200601,
+    INSUFFICIENT_SHARE_JOINED_QUOTA = 200602,
+    INSUFFICIENT_BOOKMARKS_QUOTA = 200800,
+}
