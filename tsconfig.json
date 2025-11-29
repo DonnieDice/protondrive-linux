@@ -11,6 +11,8 @@
     "moduleResolution": "node",
     "resolveJsonModule": true,
     "jsx": "react",
+    "types": ["jest", "node"],
+    "typeRoots": ["./node_modules/@types", "./src/@types"],
     "paths": {
       "@shared/*": ["shared/*"],
       "@main/*": ["main/*"],
@@ -18,7 +20,6 @@
     }
   },
   "include": [
-    "src/**/*",
-    "__mocks__/**/*"
+    "src/**/*"
   ]
 }

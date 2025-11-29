@@ -36,8 +36,3 @@ Thumbs.db
 /.env.development.local
 /.env.test.local
 /.env.production.local
-
-# Agent-specific files
-/AGENT_DOCS.md
-/GEMINI.md
-/scripts

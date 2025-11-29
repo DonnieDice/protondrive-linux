@@ -1,7 +1,26 @@
+// Clean, standard, conflict-free mocking of @aptabase/electron
+jest.mock('@aptabase/electron', () => ({
+  init: jest.fn(),
+  trackEvent: jest.fn(),
+}));
+
+// Type-safe access to the mocks
+import { init, trackEvent } from '@aptabase/electron';
 import { initializeAnalytics, recordAnalyticsEvent } from '@main/analytics';
 import { appConfig } from '@shared/config/app-config';
 import logger from '@shared/utils/logger';
-import { init, trackEvent } from '@aptabase/electron'; // This will now resolve to __mocks__/@aptabase/electron.ts
+
+// Optional: add types if your linter complains (most don't)
+type MockedAptabase = {
+  init: jest.Mock;
+  trackEvent: jest.Mock;
+};
+const mocked = { init, trackEvent } satisfies MockedAptabase;
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Your existing tests continue unchanged below
+// ──────────────────────────────────────────────────────────────────────────────
+
 
 // Mock the appConfig module
 jest.mock('@shared/config/app-config', () => ({
@@ -28,8 +47,11 @@ describe('analytics', () => {
   const loggerInfoSpy = jest.spyOn(logger, 'info');
   const loggerDebugSpy = jest.spyOn(logger, 'debug');
 
-  beforeEach(() => {
+  afterEach(() => {
     jest.clearAllMocks();
+  });
+
+  beforeEach(() => {
     // Reset appConfig.APTABASE_APP_KEY for each test
     (appConfig as any).APTABASE_APP_KEY = undefined;
   });
