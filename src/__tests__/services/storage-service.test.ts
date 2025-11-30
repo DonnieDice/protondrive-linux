@@ -87,7 +87,7 @@ jest.mock('@shared/utils/logger', () => ({
   },
 }));
 
-const MOCK_USER_DATA_PATH = '/mock/user/data';
+const MOCK_USER_DATA_PATH = '/tmp/mock-user-data';
 const MOCK_TEST_DB_PATH = path.join(MOCK_USER_DATA_PATH, 'protondrive.sqlite');
 // Note: TEMP_USER_DATA_DIR is for cleanup and actual file system interaction,
 // which is independent of the mocked app.getPath() in initializeDatabase's internal logic.
@@ -162,7 +162,9 @@ describe('storage-service', () => {
       expect(MockBetterSqlite3).toHaveBeenCalledTimes(1);
       // The function that calls initializeDatabase should have caught the error
       expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize database'), expect.any(Error));
-      expect(app.quit).toHaveBeenCalledTimes(1);
+      // quitApp is imported from app-utils, not app.quit directly
+      const { quitApp } = require('@main/utils/app-utils');
+      expect(quitApp).toHaveBeenCalledTimes(1);
     });
   });
 
