@@ -14,7 +14,7 @@ interface Migration {
 /**
  * Ensures the migrations table exists to track applied migrations.
  */
-function ensureMigrationsTable(): void {
+export function ensureMigrationsTable(): void {
   const db = getDbInstance();
   db.exec(`
     CREATE TABLE IF NOT EXISTS schema_migrations (
@@ -29,7 +29,7 @@ function ensureMigrationsTable(): void {
  * Gets the current schema version from the database.
  * @returns The current schema version.
  */
-function getCurrentSchemaVersion(): number {
+export function getCurrentSchemaVersion(): number {
   const db = getDbInstance();
   const result = db.prepare('PRAGMA user_version').get() as { user_version: number };
   return result.user_version;
@@ -39,7 +39,7 @@ function getCurrentSchemaVersion(): number {
  * Sets the schema version in the database.
  * @param version The new schema version.
  */
-function setSchemaVersion(version: number): void {
+export function setSchemaVersion(version: number): void {
   const db = getDbInstance();
   db.exec(`PRAGMA user_version = ${version}`);
 }
@@ -48,7 +48,7 @@ function setSchemaVersion(version: number): void {
  * Loads all SQL migration files from the migrations directory.
  * @returns An array of Migration objects, sorted by version.
  */
-function loadMigrations(): Migration[] {
+export function loadMigrations(): Migration[] {
   const migrationFiles = fs.readdirSync(MIGRATIONS_DIR)
     .filter(file => file.match(/^\d{3}_.*\.sql$/))
     .sort(); // Sorts alphabetically, which should be numerically for 001, 002, etc.
