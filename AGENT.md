@@ -35,7 +35,7 @@
 1. **Initialization**
    ```
    [2024-11-30 14:30:00] INIT: Agent session started
-   [2024-11-30 14:30:01] INIT: Reading GEMINI.md task list
+   [2024-11-30 14:30:01] INIT: Reading TASKS.md
    [2024-11-30 14:30:02] INIT: Context window: 190000 tokens, used: 45000 tokens
    ```
 
@@ -48,7 +48,7 @@
 
 3. **File Operations**
    ```
-   [2024-11-30 14:30:10] FILE_READ: GEMINI.md (15 tasks found)
+   [2024-11-30 14:30:10] FILE_READ: TASKS.md (15 tasks found in Phase 2)
    [2024-11-30 14:30:12] FILE_WRITE: src/shared/config/env-validator.ts (250 lines)
    [2024-11-30 14:30:15] FILE_CREATE: .env.example
    ```
@@ -134,7 +134,7 @@ mkdir -p .agent_logs
 # Log initialization
 echo "[$(date -Iseconds)] INIT: Agent session started" >> "$AGENT_LOG"
 echo "[$(date -Iseconds)] INIT: Session ID: ${SESSION_START}" >> "$AGENT_LOG"
-echo "[$(date -Iseconds)] INIT: Reading GEMINI.md task list" >> "$AGENT_LOG"
+echo "[$(date -Iseconds)] INIT: Reading TASKS.md" >> "$AGENT_LOG"
 ```
 
 **Continuous logging throughout session**:
@@ -156,7 +156,7 @@ Before ANY task, agent MUST:
 
 - [ ] Create new agent log file for session
 - [ ] Log initialization with timestamp
-- [ ] Log reading of GEMINI.md task list
+- [ ] Log reading of TASKS.md
 - [ ] Log current context window usage
 - [ ] Log task selection decision
 - [ ] Log all file operations
@@ -234,7 +234,7 @@ def check_for_loops():
 - Log loop detection checks
 - Mark looping task as permanently blocked
 - Move to independent task immediately
-- Update GEMINI.md task list with status
+- Update TASKS.md with blocked status and reason
 - Log reason for blocking
 
 ---
@@ -272,11 +272,11 @@ echo "[$(date -Iseconds)] CMD_RESULT: exit_code=$EXIT_CODE" >> "$AGENT_LOG"
 # Step 7: Make decision
 if [ $EXIT_CODE -ne 0 ]; then
     echo "[$(date -Iseconds)] DECISION: Task failed, marking blocked" >> "$AGENT_LOG"
-    # Update GEMINI.md task list
+    # Update TASKS.md with blocked status
     # Move to next task
 else
     echo "[$(date -Iseconds)] DECISION: Task succeeded" >> "$AGENT_LOG"
-    # Update GEMINI.md task list
+    # Update TASKS.md with complete status
     # Continue to dependent task
 fi
 ```
@@ -286,8 +286,8 @@ fi
 **When command blocks or fails**:
 
 1. Log the failure in agent log
-2. Mark task as `⚠️ Blocked` in GEMINI.md
-3. Add note with reason
+2. Mark task as blocked in TASKS.md with ⚠️
+3. Add blocking reason and date
 4. DO NOT ask user to run it
 5. DO NOT mention it again
 6. Move to independent task
@@ -333,18 +333,18 @@ echo "[$(date -Iseconds)] CONTEXT: Token usage: 75000/190000 (39%)" >> "$AGENT_L
 **When approaching 50% capacity (95,000 tokens)**:
 1. Log warning in agent log
 2. Summarize current session progress
-3. Update GEMINI.md with detailed status
+3. Update TASKS.md with detailed status
 4. Consider starting new session
 
 **When approaching 80% capacity (152,000 tokens)**:
 1. Log critical warning
 2. Complete current task
-3. Save all state to GEMINI.md
+3. Save all state to TASKS.md
 4. Create summary document in .agent_logs/
 5. Start fresh session
 
 **When context full**:
-1. Emergency save to GEMINI.md
+1. Emergency save to TASKS.md
 2. Create session summary in agent log
 3. Start new session with fresh context
 
@@ -629,10 +629,12 @@ Before committing, ensure:
 
 ### 7.1 Task Selection Algorithm
 
+**Task list location**: `TASKS.md`
+
 ```python
 def select_next_task():
-    # 1. Read GEMINI.md task list
-    tasks = read_gemini_task_list()
+    # 1. Read TASKS.md for complete task list
+    tasks = read_tasks_md()
     
     # 2. Log current state
     log(f"STATE: Total tasks: {len(tasks)}")
@@ -640,7 +642,7 @@ def select_next_task():
     log(f"STATE: Completed: {count_completed(tasks)}")
     
     # 3. Filter available tasks
-    available = [t for t in tasks if t.status != "⚠️ Blocked" and t.status != "✅ Complete"]
+    available = [t for t in tasks if not t.completed and not t.blocked]
     log(f"STATE: Available tasks: {len(available)}")
     
     # 4. Check dependencies
@@ -653,7 +655,7 @@ def select_next_task():
     
     log(f"STATE: Ready tasks: {len(ready)}")
     
-    # 5. Sort by priority
+    # 5. Sort by priority (P0 → P1 → P2 → P3)
     sorted_tasks = sorted(ready, key=lambda t: (t.priority, t.created_at))
     
     # 6. Select highest priority
@@ -693,16 +695,28 @@ def select_next_task():
 **After EVERY task, agent MUST**:
 
 1. Log completion in agent log
-2. Update GEMINI.md task list with new status
+2. Update TASKS.md with new status ([ ] → [x])
 3. Mark timestamp of completion
 4. Note any issues or blockers
 5. Update dependency chain
 
 ```bash
 echo "[$(date -Iseconds)] STATE: Task 'env-validator.ts' completed" >> "$AGENT_LOG"
-# Update GEMINI.md
-echo "[$(date -Iseconds)] STATE: Updated GEMINI.md task list" >> "$AGENT_LOG"
+# Update TASKS.md
+echo "[$(date -Iseconds)] STATE: Updated TASKS.md" >> "$AGENT_LOG"
 echo "[$(date -Iseconds)] NEXT_STEP: Proceeding to 'app-config.ts'" >> "$AGENT_LOG"
+```
+
+**Format for updating tasks in TASKS.md:**
+
+```markdown
+# Mark complete
+- [x] Create src/services/logger.ts
+
+# Mark blocked
+- [ ] ⚠️ Create src/services/auth-service.ts
+  **Blocked**: SDK integration not complete
+  **Date Blocked**: 2024-11-30
 ```
 
 ---
@@ -751,7 +765,7 @@ def handle_error(error, context):
     else:
         log(f"ERROR_UNRESOLVED: Manual intervention required")
         
-        # 3. Mark task as blocked in GEMINI.md
+        # 3. Mark task as blocked in TASKS.md
         mark_task_blocked(context.task, reason=error.message)
         
         # 4. Move to next task
@@ -905,8 +919,9 @@ def perform_health_check():
 ### Appendix A: File Locations Quick Reference
 
 ```
-GEMINI.md                      - Project context & complete task list
+GEMINI.md                      - Project context (WHY/HOW to build)
 AGENT.md                       - This file (operational rules)
+TASKS.md                       - Complete task list & roadmap
 README.md                      - User documentation
 logs/command-*.json            - Command execution logs
 .agent_logs/agent_thought_*.log - Agent decision logs
@@ -948,24 +963,25 @@ scripts/run-command.sh         - Command wrapper
 ```
 START
   │
-  ├─ Read GEMINI.md task list
+  ├─ Read TASKS.md
   │
-  ├─ Filter blocked tasks
+  ├─ Filter blocked tasks (⚠️)
   │   └─ Count: Log to agent log
   │
-  ├─ Filter completed tasks
+  ├─ Filter completed tasks ([x])
   │   └─ Count: Log to agent log
   │
   ├─ Check dependencies for each
   │   ├─ Has blockers? → Skip
   │   └─ Ready? → Add to candidates
   │
-  ├─ Sort candidates by priority
+  ├─ Sort candidates by priority (P0 → P1 → P2 → P3)
   │
   ├─ Select highest priority
   │   └─ Log decision to agent log
   │
   └─ Execute task
+      └─ Update TASKS.md when complete
 ```
 
 ---
@@ -974,4 +990,5 @@ START
 **Last Updated**: 2024-11-30  
 **Status**: ACTIVE - COMPLETE OPERATIONAL MANUAL  
 **For Project Context**: See GEMINI.md  
+**For Complete Task List**: See TASKS.md  
 **For User Documentation**: See README.md
