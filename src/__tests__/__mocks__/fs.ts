@@ -1,6 +1,6 @@
-const actual = jest.requireActual('fs');
+const actualFs = jest.requireActual('fs');
 module.exports = {
-  ...actual,
+  ...actualFs,
   readdirSync: jest.fn(),
   readFileSync: jest.fn(),
 };

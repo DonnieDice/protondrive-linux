@@ -1,4 +1,4 @@
-name: CI
+name: CI/CD Pipeline
 
 on:
   push:
@@ -8,7 +8,8 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04 # Updated to a newer Ubuntu version, as suggested by the user's example
+    name: Test & Lint
+    runs-on: ubuntu-24.04
     
     steps:
       - uses: actions/checkout@v4
@@ -27,7 +28,7 @@ jobs:
           npm ci       # Now this will work
       
       - name: Run tests
-        run: npm test
+        run: npm test -- --passWithNoTests --verbose
         
       - name: Run linting
         run: npm run lint

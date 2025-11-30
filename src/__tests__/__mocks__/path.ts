@@ -1,2 +1,2 @@
-const actual = jest.requireActual('path');
-module.exports = { ...actual, join: jest.fn(actual.join) };
+const actualPath = jest.requireActual('path');
+module.exports = { ...actualPath, join: jest.fn(actualPath.join) };
