@@ -6,7 +6,9 @@
   "scripts": {
     "start": "npm run build:sdk && electron-forge start",
     "build:sdk": "npm run build --prefix sdk-main/js/sdk",
-    "test": "jest"
+    "test": "jest",
+    "lint": "eslint . --ext .ts,.tsx,.js,.jsx",
+    "lint:fix": "eslint . --ext .ts,.tsx,.js,.jsx --fix"
   },
   "keywords": [],
   "author": "",
