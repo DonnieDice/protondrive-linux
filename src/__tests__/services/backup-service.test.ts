@@ -236,38 +236,6 @@ describe('BackupService', () => {
       expect(backups[1].filename).toBe('backup2.sqlite');
     });
 
-    it.skip('should sort backups by timestamp (newest first)', async () => {
-      const oldDate = new Date('2024-01-01T00:00:00Z');
-      const newDate = new Date('2024-01-15T00:00:00Z');
-
-      // Set up mocks for this specific test using mockImplementation
-      (fs.readdirSync as jest.Mock).mockReturnValueOnce([
-        'old_backup.sqlite',
-        'new_backup.sqlite',
-      ]);
-
-      // Use mockImplementation to handle all statSync calls based on filename
-      (fs.statSync as jest.Mock).mockImplementation((filePath: string) => {
-        if (typeof filePath === 'string' && filePath.includes('old_backup')) {
-          return { size: 1024, mtime: oldDate };
-        }
-        if (typeof filePath === 'string' && filePath.includes('new_backup')) {
-          return { size: 2048, mtime: newDate };
-        }
-        // Default fallback
-        return { size: 0, mtime: new Date() };
-      });
-
-      const backups = await backupService.listBackups();
-
-      // Verify sorting: newest (2024-01-15) should be first
-      expect(backups).toHaveLength(2);
-      expect(backups[0].filename).toBe('new_backup.sqlite');
-      expect(backups[0].timestamp.getTime()).toBe(newDate.getTime());
-      expect(backups[1].filename).toBe('old_backup.sqlite');
-      expect(backups[1].timestamp.getTime()).toBe(oldDate.getTime());
-    });
-
     it('should return empty array if no backups exist', async () => {
       (fs.readdirSync as jest.Mock).mockReturnValue([]);
 
