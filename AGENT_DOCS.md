@@ -1,8 +1,8 @@
 # Agent Operations Manual
 
-**Version**: 2.0  
-**Last Updated**: 2024-11-29  
-**Purpose**: Complete operational guidelines for Gemini AI agent
+**Version**: 2.1  
+**Last Updated**: 2024-11-30  
+**Purpose**: Complete operational guidelines for AI agents
 
 ---
 
@@ -34,58 +34,58 @@
 
 1. **Initialization**
    ```
-   [2024-11-29 14:30:00] INIT: Agent session started
-   [2024-11-29 14:30:01] INIT: Reading task-log.md
-   [2024-11-29 14:30:02] INIT: Context window: 190000 tokens, used: 45000 tokens
+   [2024-11-30 14:30:00] INIT: Agent session started
+   [2024-11-30 14:30:01] INIT: Reading GEMINI.md task list
+   [2024-11-30 14:30:02] INIT: Context window: 190000 tokens, used: 45000 tokens
    ```
 
 2. **Decision Making**
    ```
-   [2024-11-29 14:30:05] DECISION: Task "npm test" blocked (exit code 1)
-   [2024-11-29 14:30:06] DECISION: Selecting next task from queue
-   [2024-11-29 14:30:07] DECISION: Chose "create .env.example" (P0, no blockers)
+   [2024-11-30 14:30:05] DECISION: Task "npm test" blocked (exit code 1)
+   [2024-11-30 14:30:06] DECISION: Selecting next task from queue
+   [2024-11-30 14:30:07] DECISION: Chose "create .env.example" (P0, no blockers)
    ```
 
 3. **File Operations**
    ```
-   [2024-11-29 14:30:10] FILE_READ: .gemini/task-log.md (15 tasks found)
-   [2024-11-29 14:30:12] FILE_WRITE: src/shared/config/env-validator.ts (250 lines)
-   [2024-11-29 14:30:15] FILE_CREATE: .env.example
+   [2024-11-30 14:30:10] FILE_READ: GEMINI.md (15 tasks found)
+   [2024-11-30 14:30:12] FILE_WRITE: src/shared/config/env-validator.ts (250 lines)
+   [2024-11-30 14:30:15] FILE_CREATE: .env.example
    ```
 
 4. **Command Execution**
    ```
-   [2024-11-29 14:30:20] CMD_START: ./scripts/run-command.sh "npm test"
-   [2024-11-29 14:30:25] CMD_WAIT: Waiting 5s for log file
-   [2024-11-29 14:30:30] CMD_PARSE: Reading logs/command-20241129143020.json
-   [2024-11-29 14:30:31] CMD_RESULT: exit_code=0, success
+   [2024-11-30 14:30:20] CMD_START: ./scripts/run-command.sh "npm test"
+   [2024-11-30 14:30:25] CMD_WAIT: Waiting 5s for log file
+   [2024-11-30 14:30:30] CMD_PARSE: Reading logs/command-20241130143020.json
+   [2024-11-30 14:30:31] CMD_RESULT: exit_code=0, success
    ```
 
 5. **Internal State Changes**
    ```
-   [2024-11-29 14:30:35] STATE: Current task queue size: 8
-   [2024-11-29 14:30:36] STATE: Blocked tasks: 2
-   [2024-11-29 14:30:37] STATE: Completed tasks this session: 3
+   [2024-11-30 14:30:35] STATE: Current task queue size: 8
+   [2024-11-30 14:30:36] STATE: Blocked tasks: 2
+   [2024-11-30 14:30:37] STATE: Completed tasks this session: 3
    ```
 
 6. **Loop Detection**
    ```
-   [2024-11-29 14:30:40] LOOP_CHECK: Counting "npm test" mentions
-   [2024-11-29 14:30:41] LOOP_CHECK: "npm test" mentioned 4 times
-   [2024-11-29 14:30:42] LOOP_DETECTED: Blocking "npm test" permanently
+   [2024-11-30 14:30:40] LOOP_CHECK: Counting "npm test" mentions
+   [2024-11-30 14:30:41] LOOP_CHECK: "npm test" mentioned 4 times
+   [2024-11-30 14:30:42] LOOP_DETECTED: Blocking "npm test" permanently
    ```
 
 7. **Context Management**
    ```
-   [2024-11-29 14:30:45] CONTEXT: Token usage: 75000/190000 (39%)
-   [2024-11-29 14:30:46] CONTEXT: Warning - approaching 50% capacity
+   [2024-11-30 14:30:45] CONTEXT: Token usage: 75000/190000 (39%)
+   [2024-11-30 14:30:46] CONTEXT: Warning - approaching 50% capacity
    ```
 
 8. **Error Handling**
    ```
-   [2024-11-29 14:30:50] ERROR: Failed to parse JSON from logs/command-*.json
-   [2024-11-29 14:30:51] ERROR_RECOVERY: Attempting to read previous log
-   [2024-11-29 14:30:52] ERROR_RESOLVED: Successfully parsed backup log
+   [2024-11-30 14:30:50] ERROR: Failed to parse JSON from logs/command-*.json
+   [2024-11-30 14:30:51] ERROR_RECOVERY: Attempting to read previous log
+   [2024-11-30 14:30:52] ERROR_RESOLVED: Successfully parsed backup log
    ```
 
 ### 1.3 Agent Log File Format
@@ -134,7 +134,7 @@ mkdir -p .agent_logs
 # Log initialization
 echo "[$(date -Iseconds)] INIT: Agent session started" >> "$AGENT_LOG"
 echo "[$(date -Iseconds)] INIT: Session ID: ${SESSION_START}" >> "$AGENT_LOG"
-echo "[$(date -Iseconds)] INIT: Reading task-log.md" >> "$AGENT_LOG"
+echo "[$(date -Iseconds)] INIT: Reading GEMINI.md task list" >> "$AGENT_LOG"
 ```
 
 **Continuous logging throughout session**:
@@ -156,7 +156,7 @@ Before ANY task, agent MUST:
 
 - [ ] Create new agent log file for session
 - [ ] Log initialization with timestamp
-- [ ] Log reading of task-log.md
+- [ ] Log reading of GEMINI.md task list
 - [ ] Log current context window usage
 - [ ] Log task selection decision
 - [ ] Log all file operations
@@ -234,7 +234,7 @@ def check_for_loops():
 - Log loop detection checks
 - Mark looping task as permanently blocked
 - Move to independent task immediately
-- Update task-log.md with loop status
+- Update GEMINI.md task list with status
 - Log reason for blocking
 
 ---
@@ -272,11 +272,11 @@ echo "[$(date -Iseconds)] CMD_RESULT: exit_code=$EXIT_CODE" >> "$AGENT_LOG"
 # Step 7: Make decision
 if [ $EXIT_CODE -ne 0 ]; then
     echo "[$(date -Iseconds)] DECISION: Task failed, marking blocked" >> "$AGENT_LOG"
-    # Update task-log.md
+    # Update GEMINI.md task list
     # Move to next task
 else
     echo "[$(date -Iseconds)] DECISION: Task succeeded" >> "$AGENT_LOG"
-    # Update task-log.md
+    # Update GEMINI.md task list
     # Continue to dependent task
 fi
 ```
@@ -286,22 +286,11 @@ fi
 **When command blocks or fails**:
 
 1. Log the failure in agent log
-2. Mark task as `⚠️ Blocked` in task-log.md
-3. Add to blocked commands table
+2. Mark task as `⚠️ Blocked` in GEMINI.md
+3. Add note with reason
 4. DO NOT ask user to run it
 5. DO NOT mention it again
 6. Move to independent task
-
-**Blocked Commands Table** (in task-log.md):
-
-```markdown
-## Blocked Commands
-
-| Command | Purpose | Status | Date | Reason | Attempts |
-|---------|---------|--------|------|--------|----------|
-| npm test | Run tests | ⚠️ Blocked | 2024-11-29 | Exit code 1 | 1 |
-| npm run build --prefix sdk-main | Build SDK | ⚠️ Blocked | 2024-11-29 | Manual required | 1 |
-```
 
 ---
 
@@ -344,18 +333,18 @@ echo "[$(date -Iseconds)] CONTEXT: Token usage: 75000/190000 (39%)" >> "$AGENT_L
 **When approaching 50% capacity (95,000 tokens)**:
 1. Log warning in agent log
 2. Summarize current session progress
-3. Update task-log.md with detailed status
+3. Update GEMINI.md with detailed status
 4. Consider starting new session
 
 **When approaching 80% capacity (152,000 tokens)**:
 1. Log critical warning
 2. Complete current task
-3. Save all state to task-log.md
-4. Create summary document
+3. Save all state to GEMINI.md
+4. Create summary document in .agent_logs/
 5. Start fresh session
 
 **When context full**:
-1. Emergency save to task-log.md
+1. Emergency save to GEMINI.md
 2. Create session summary in agent log
 3. Start new session with fresh context
 
@@ -478,22 +467,22 @@ npm start -- --verbose
 
 **Log file location**:
 ```
-browser_console_logs/console-2024-11-29T14-30-00-000Z.log
+browser_console_logs/console-2024-11-30T14-30-00-000Z.log
 ```
 
 **Log file format**:
 ```json
-{"timestamp":"2024-11-29T14:30:00.123Z","level":"info","message":"App initialized","source":"webpack:///src/renderer/App.tsx","line":42}
-{"timestamp":"2024-11-29T14:30:01.456Z","level":"error","message":"Button click failed","source":"webpack:///src/renderer/components/Button.tsx","line":28}
+{"timestamp":"2024-11-30T14:30:00.123Z","level":"info","message":"App initialized","source":"webpack:///src/renderer/App.tsx","line":42}
+{"timestamp":"2024-11-30T14:30:01.456Z","level":"error","message":"Button click failed","source":"webpack:///src/renderer/components/Button.tsx","line":28}
 ```
 
 ### 5.5 Directory Structure
 
 ```
 browser_console_logs/
-├── console-2024-11-29T14-30-00-000Z.log
-├── console-2024-11-29T15-45-00-000Z.log
-└── console-2024-11-29T16-20-00-000Z.log
+├── console-2024-11-30T14-30-00-000Z.log
+├── console-2024-11-30T15-45-00-000Z.log
+└── console-2024-11-30T16-20-00-000Z.log
 ```
 
 **Note**: Add to `.gitignore`:
@@ -609,7 +598,7 @@ Sync status queries now 10x faster with proper indexing.
 ```markdown
 # Changelog
 
-## [0.2.0] - 2024-11-29
+## [0.2.0] - 2024-11-30
 
 ### Features
 - **auth**: add ProtonDrive authentication flow (#12)
@@ -642,8 +631,8 @@ Before committing, ensure:
 
 ```python
 def select_next_task():
-    # 1. Read task log
-    tasks = read_task_log()
+    # 1. Read GEMINI.md task list
+    tasks = read_gemini_task_list()
     
     # 2. Log current state
     log(f"STATE: Total tasks: {len(tasks)}")
@@ -685,14 +674,13 @@ def select_next_task():
 - Legal documents
 - Core infrastructure
 
-**P1 (High)** - Should complete in Week 0:
+**P1 (High)** - Should complete early:
 - Documentation
 - Helper scripts
-- SDK strategy
+- Foundation services
 
 **P2 (Medium)** - Can do during implementation:
-- i18n setup
-- Additional documentation
+- Additional features
 - Nice-to-have features
 
 **P3 (Low)** - Future enhancements:
@@ -700,33 +688,20 @@ def select_next_task():
 - Polish
 - Extra features
 
-### 7.3 Task Dependencies
-
-**Define dependencies explicitly**:
-
-```markdown
-| Task | Status | Priority | Dependencies | Notes |
-|------|--------|----------|--------------|-------|
-| env-validator.ts | ⏳ Ready | P0 | None | Can start |
-| app-config.ts | ⏳ Ready | P0 | env-validator.ts | Needs validator |
-| logger.ts | ⏳ Ready | P0 | app-config.ts | Needs config |
-| auth-service.ts | ⏳ Ready | P1 | logger.ts, sdk-bridge.ts | Needs both |
-```
-
-### 7.4 Task Status Updates
+### 7.3 Task Status Updates
 
 **After EVERY task, agent MUST**:
 
 1. Log completion in agent log
-2. Update task-log.md with new status
+2. Update GEMINI.md task list with new status
 3. Mark timestamp of completion
 4. Note any issues or blockers
 5. Update dependency chain
 
 ```bash
 echo "[$(date -Iseconds)] STATE: Task 'env-validator.ts' completed" >> "$AGENT_LOG"
-# Update task-log.md
-echo "[$(date -Iseconds)] STATE: Updated task-log.md" >> "$AGENT_LOG"
+# Update GEMINI.md
+echo "[$(date -Iseconds)] STATE: Updated GEMINI.md task list" >> "$AGENT_LOG"
 echo "[$(date -Iseconds)] NEXT_STEP: Proceeding to 'app-config.ts'" >> "$AGENT_LOG"
 ```
 
@@ -776,7 +751,7 @@ def handle_error(error, context):
     else:
         log(f"ERROR_UNRESOLVED: Manual intervention required")
         
-        # 3. Mark task as blocked
+        # 3. Mark task as blocked in GEMINI.md
         mark_task_blocked(context.task, reason=error.message)
         
         # 4. Move to next task
@@ -918,7 +893,7 @@ def perform_health_check():
 - ❌ Asking same question repeatedly
 - ❌ Waiting indefinitely
 - ❌ No progress for extended period
-- ❌ Task log not updated
+- ❌ Task list not updated
 - ❌ Decisions not logged
 - ❌ Context usage not tracked
 - ❌ Agent log empty or incomplete
@@ -930,14 +905,13 @@ def perform_health_check():
 ### Appendix A: File Locations Quick Reference
 
 ```
-.gemini/GEMINI.md              - Project context ("why")
-.gemini/agent-docs.md          - This file (operational rules)
-.gemini/task-log.md            - Task tracking
+GEMINI.md                      - Project context & complete task list
+AGENT.md                       - This file (operational rules)
+README.md                      - User documentation
 logs/command-*.json            - Command execution logs
 .agent_logs/agent_thought_*.log - Agent decision logs
 browser_console_logs/console-*.log - Electron console logs
 scripts/run-command.sh         - Command wrapper
-README.md                      - User documentation
 ```
 
 ### Appendix B: Log File Formats
@@ -974,7 +948,7 @@ README.md                      - User documentation
 ```
 START
   │
-  ├─ Read task-log.md
+  ├─ Read GEMINI.md task list
   │
   ├─ Filter blocked tasks
   │   └─ Count: Log to agent log
@@ -996,7 +970,8 @@ START
 
 ---
 
-**Version**: 2.0  
-**Last Updated**: 2024-11-29  
+**Version**: 2.1  
+**Last Updated**: 2024-11-30  
 **Status**: ACTIVE - COMPLETE OPERATIONAL MANUAL  
-**Next Review**: After implementation of verbose logging
+**For Project Context**: See GEMINI.md  
+**For User Documentation**: See README.md

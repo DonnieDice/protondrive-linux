@@ -25,7 +25,6 @@ Unofficial open-source desktop client for ProtonDrive on Linux.
 - [Architecture](#architecture)
 - [Contributing](#contributing)
 - [Documentation](#documentation)
-- [Roadmap](#roadmap)
 - [Security](#security)
 - [Performance](#performance)
 - [Quality Assurance](#quality-assurance)
@@ -82,16 +81,7 @@ Unofficial open-source desktop client for ProtonDrive on Linux.
 
 **WARNING: Not Ready for Production Use**
 
-This project is in active alpha development (Phase 2: Core Services). There are no stable releases yet. 
-
-**Current Status:**
-- Phase 1: Project infrastructure complete
-- Phase 2: Core services implementation in progress
-- Phase 3-4: UI and sync engine pending
-- Phase 5: Advanced features and optimization
-- Phase 6: Beta release and distribution
-
-Check back later or star the repository to get notified of releases.
+This project is in active alpha development. There are no stable releases yet. Check back later or star the repository to get notified of releases.
 
 ### For Developers
 
@@ -284,28 +274,26 @@ protondrive-linux/
 │   ├── shared/            # Shared utilities and types
 │   │   ├── types/         # TypeScript type definitions
 │   │   └── utils/         # Utility functions
-│   └── preload/           # Secure IPC bridge (contextBridge)
-│       └── index.ts       # Preload script
-├── tests/                 # Test files
-│   ├── unit/              # Jest unit tests
-│   ├── integration/       # Integration tests
-│   └── e2e/               # Playwright E2E tests
+│   ├── preload/           # Secure IPC bridge (contextBridge)
+│   │   └── index.ts       # Preload script
+│   └── __tests__/         # Test files
 ├── scripts/               # Build and utility scripts
-│   ├── run-command.sh     # Command wrapper (prevents lockup)
-│   └── memory-test.js     # Memory profiling
+│   └── run-command.sh     # Command wrapper (prevents lockup)
 ├── docs/                  # Documentation
 │   ├── architecture/      # Architecture Decision Records (ADRs)
 │   ├── development/       # Developer guides
-│   └── guides/            # User guides
+│   ├── guides/            # User guides
+│   └── api/               # API documentation (generated)
 ├── logs/                  # Command execution logs (gitignored)
 ├── browser_console_logs/  # Electron console logs (gitignored)
-├── .agent_logs/           # AI agent logs (gitignored)
-├── .gemini/               # AI agent configuration
-│   ├── GEMINI.md          # Project context (for AI)
-│   ├── agent-docs.md      # Agent operational rules
-│   └── task-log.md        # Task tracking
-└── sdk-main/              # ProtonDrive SDK (local patched copy)
-    └── js/sdk/            # SDK source (excluded from context)
+├── .agent_logs/           # AI agent session logs (gitignored)
+├── sdk-main/              # ProtonDrive SDK (local patched copy)
+│   └── js/sdk/            # SDK source (excluded from context)
+├── GEMINI.md              # Project context for AI agents
+├── AGENT.md               # AI agent operational rules
+├── CONTRIBUTING.md        # Contribution guidelines
+├── CODE_OF_CONDUCT.md     # Community standards
+└── SECURITY.md            # Security policy
 ```
 
 ---
@@ -448,7 +436,7 @@ Classic Electron architecture with service layer isolation:
 - **Repository Pattern** - Database access abstracted in storage service
 - **Observer Pattern** - Zustand for reactive state management
 
-For detailed architectural decisions, see [Architecture Decision Records](docs/architecture/).
+For detailed architectural decisions, see [docs/architecture/](docs/architecture/).
 
 ---
 
@@ -524,107 +512,28 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for complete guidelines.
 - **Line length**: 100 characters maximum
 - **Indentation**: 2 spaces, no tabs
 
-### Pull Request Process
-
-1. Ensure all tests pass
-2. Update documentation if needed
-3. Add entry to CHANGELOG.md if significant change
-4. Request review from maintainers
-5. Address review feedback
-6. Squash commits if requested
-
 ---
 
 ## Documentation
 
 ### For Users
 - **README** - This file (installation and usage)
-- **User Guide** - docs/guides/user-guide.md
-- **Troubleshooting** - docs/guides/troubleshooting.md
+- **Security Policy** - [SECURITY.md](SECURITY.md)
+- **Code of Conduct** - [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
 
 ### For Developers
-- **Setup Guide** - docs/development/setup-guide.md
-- **Architecture Guide** - docs/development/architecture-guide.md
-- **Service Documentation** - docs/development/service-guide.md
-- **Testing Guide** - docs/development/testing-guide.md
-- **Release Guide** - docs/development/release-guide.md
+- **Contributing Guide** - [CONTRIBUTING.md](CONTRIBUTING.md)
+- **Architecture Documentation** - [docs/architecture/](docs/architecture/)
+- **Development Guides** - [docs/development/](docs/development/)
+- **API Documentation** - [docs/api/](docs/api/) (generated via TypeDoc)
 
 ### For AI Agents
-- **Project Context** - .gemini/GEMINI.md
-- **Agent Operations** - .gemini/agent-docs.md
-- **Task Tracking** - .gemini/task-log.md
+- **Project Context** - [GEMINI.md](GEMINI.md) (complete project overview and tasks)
+- **Agent Operations** - [AGENT.md](AGENT.md) (operational rules and protocols)
 
-### Architecture
-- **Performance Budget** - docs/architecture/performance-budget.md
-- **Security Checklist** - docs/architecture/security-checklist.md
-- **SDK Integration** - docs/architecture/sdk-integration.md
-- **Threat Model** - docs/architecture/threat-model.md
-
-### API Documentation
-Generate TypeDoc API documentation:
-```bash
-npm run docs
-npm run docs:serve
-```
-
----
-
-## Roadmap
-
-### Phase 1: Infrastructure (COMPLETE)
-- [x] Project structure and tooling
-- [x] Security hardening
-- [x] CI/CD pipeline
-- [x] Testing framework
-- [x] Documentation structure
-- [x] Agent logging system
-- [x] Legal documents
-
-### Phase 2: Core Services (IN PROGRESS)
-- [ ] Environment validation (env-validator.ts)
-- [ ] Configuration loader (app-config.ts)
-- [ ] Logging system (logger.ts)
-- [ ] Database layer (storage-service.ts)
-- [ ] Database migrations
-- [ ] SDK bridge (sdk-bridge.ts)
-- [ ] Authentication service (auth-service.ts)
-- [ ] Input validation (Zod schemas)
-- [ ] Secure credential storage
-
-### Phase 3: UI Foundation
-- [ ] React component library
-- [ ] Authentication UI
-- [ ] Settings UI
-- [ ] File browser UI
-- [ ] System tray integration
-- [ ] Desktop notifications
-- [ ] Theme support
-
-### Phase 4: Sync Engine
-- [ ] File watcher service
-- [ ] Upload/download queue
-- [ ] Conflict resolution
-- [ ] Delta sync optimization
-- [ ] Bandwidth throttling
-- [ ] Offline mode
-
-### Phase 5: Advanced Features
-- [ ] Selective sync
-- [ ] Shared folders
-- [ ] File versioning UI
-- [ ] Search functionality
-- [ ] Performance optimization
-- [ ] Additional languages
-
-### Phase 6: Distribution
-- [ ] Beta testing
-- [ ] Package creation (AppImage, deb, rpm)
-- [ ] Auto-update system
-- [ ] Release automation
-- [ ] User documentation
-- [ ] Marketing materials
-
-See [.gemini/task-log.md](.gemini/task-log.md) for detailed task tracking.
+### Additional Resources
+- **User Guides** - [docs/guides/](docs/guides/)
+- **Changelog** - Generated automatically via semantic-release
 
 ---
 
@@ -652,9 +561,8 @@ Please report security issues via email or see [SECURITY.md](SECURITY.md) for ou
 
 ### Security Documentation
 
-- [Security Checklist](docs/architecture/security-checklist.md)
-- [Threat Model](docs/architecture/threat-model.md)
-- [Security Policy](SECURITY.md)
+- [Security Policy](SECURITY.md) - Vulnerability reporting and security practices
+- [Security Architecture](docs/architecture/) - Security design documentation
 
 ---
 
@@ -665,20 +573,20 @@ Please report security issues via email or see [SECURITY.md](SECURITY.md) for ou
 Application performance adapts to available hardware:
 
 **Low-End Hardware (2-4GB RAM):**
-- <100MB RAM idle
-- <3s cold start
+- Under 100MB RAM idle
+- Under 3s cold start
 - 30 FPS UI minimum
 - 1-2 files/second sync
 
 **Standard Hardware (4-8GB RAM):**
-- <150MB RAM idle
-- <2s cold start
+- Under 150MB RAM idle
+- Under 2s cold start
 - 60 FPS UI
 - 5 files/second sync
 
 **High-End Hardware (8GB+ RAM):**
-- <200MB RAM idle
-- <1.5s cold start
+- Under 200MB RAM idle
+- Under 1.5s cold start
 - 60 FPS UI
 - 10+ files/second sync
 
@@ -691,7 +599,7 @@ Application performance adapts to available hardware:
 - **Bundle Optimization** - Webpack tree-shaking and code splitting
 - **Memory Profiling** - Automated leak detection
 
-See [Performance Budget](docs/architecture/performance-budget.md) for details.
+See [docs/architecture/](docs/architecture/) for performance details.
 
 ---
 
@@ -822,7 +730,8 @@ Built with and for the Linux community.
 
 **Project Status**: Active Development  
 **Current Phase**: Phase 2 - Core Services Implementation  
-**Last Updated**: 2024-11-29  
+**Last Updated**: 2024-11-30  
 **Maintainers**: See [CONTRIBUTING.md](CONTRIBUTING.md)
 
-For complete project context and development guidelines, see [.gemini/GEMINI.md](.gemini/GEMINI.md)
+For complete project context and development guidelines, see [GEMINI.md](GEMINI.md)  
+For AI agent operational rules, see [AGENT.md](AGENT.md)
