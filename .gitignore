@@ -25,6 +25,7 @@ lerna-debug.log*
 .agent_logs
 browser_console_logs/*
 !browser_console_logs/.gitkeep
+!browser_console_logs/README.md
 
 # Runtime data
 pids
