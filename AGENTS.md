@@ -232,7 +232,7 @@ class MemoryMonitor {
         logger.warn('High memory usage, clearing caches')
         this.clearCaches()
       }
-    }, 10000) // Check every 10s
+    }, 10000) // Check every 10s.
   }
   
   clearCaches() {

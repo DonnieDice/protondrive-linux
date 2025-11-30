@@ -216,6 +216,12 @@ describe('BackupService', () => {
       await backupService.initialize();
     });
 
+    afterEach(() => {
+      // Clear mock implementations to avoid test pollution
+      (fs.readdirSync as jest.Mock).mockClear();
+      (fs.statSync as jest.Mock).mockClear();
+    });
+
     it('should list all backup files', async () => {
       (fs.readdirSync as jest.Mock).mockReturnValue([
         'backup1.sqlite',
@@ -234,23 +240,21 @@ describe('BackupService', () => {
       const oldDate = new Date('2024-01-01T00:00:00Z');
       const newDate = new Date('2024-01-15T00:00:00Z');
 
-      // Reset mocks to ensure clean state
-      (fs.readdirSync as jest.Mock).mockReset();
-      (fs.statSync as jest.Mock).mockReset();
-
-      (fs.readdirSync as jest.Mock).mockReturnValue([
+      // Set up mocks for this specific test using mockImplementation
+      (fs.readdirSync as jest.Mock).mockReturnValueOnce([
         'old_backup.sqlite',
         'new_backup.sqlite',
       ]);
 
+      // Use mockImplementation to handle all statSync calls based on filename
       (fs.statSync as jest.Mock).mockImplementation((filePath: string) => {
-        if (filePath.includes('old_backup')) {
+        if (typeof filePath === 'string' && filePath.includes('old_backup')) {
           return { size: 1024, mtime: oldDate };
         }
-        if (filePath.includes('new_backup')) {
+        if (typeof filePath === 'string' && filePath.includes('new_backup')) {
           return { size: 2048, mtime: newDate };
         }
-        // Fallback
+        // Default fallback
         return { size: 0, mtime: new Date() };
       });
 
