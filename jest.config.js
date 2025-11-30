@@ -8,6 +8,7 @@ module.exports = {
     '^@shared/(.*)$': '<rootDir>/src/shared/$1',
     '^@main/(.*)$': '<rootDir>/src/main/$1',
     '^@services/(.*)$': '<rootDir>/src/services/$1',
+    '^@main/utils/app-utils': '<rootDir>/src/__tests__/__mocks__/@main/utils/app-utils.ts',
     '^@aptabase/electron$': '<rootDir>/src/__tests__/__mocks__/@aptabase/electron.ts',
   },
   coverageThreshold: {

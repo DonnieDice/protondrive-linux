@@ -1,11 +1,11 @@
 import Database from 'better-sqlite3';
 import path from 'path';
-import { app } from 'electron';
-import logger from '../shared/utils/logger';
+import logger from '@shared/utils/logger';
+import { getUserDataPath, quitApp } from '@main/utils/app-utils';
 
 // Determine the database file path
 const isDevelopment = process.env.NODE_ENV === 'development';
-const userDataPath = app.getPath('userData'); // This is usually ~/.config/<app-name> on Linux
+const userDataPath = getUserDataPath(); // This is usually ~/.config/<app-name> on Linux
 
 // In development, the DB can be in the project root for easier access,
 // but in production, it should be in the user data directory.
@@ -37,7 +37,7 @@ export const initializeDatabase = (): void => {
   } catch (error) {
     logger.error(`Failed to initialize database at ${dbPath}:`, error);
     // In a real application, you might want to show an error dialog and exit.
-    app.quit();
+    quitApp();
   }
 };
 

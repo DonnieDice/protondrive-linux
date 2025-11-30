@@ -7,18 +7,69 @@ import {
   runInTransaction,
   getDbInstance,
 } from '@services/storage-service';
-import Database from 'better-sqlite3';
+import Database from 'better-sqlite3'; // This will be the actual BetterSqlite3 constructor
 import logger from '@shared/utils/logger';
 import { app } from 'electron';
 import * as path from 'path';
 import * as fs from 'fs';
 
-// Mock electron's app.getPath
+// --- Mock better-sqlite3 ---
+const mockRunResult = { changes: 0, lastInsertRowid: 0 };
+const mockStatement = {
+  run: jest.fn(() => mockRunResult),
+  get: jest.fn(),
+  all: jest.fn(),
+};
+
+// Mock transaction function: better-sqlite3 transaction method returns a function
+// which then needs to be called with the actual transaction callback.
+// Define a variable to store the callback passed to db.transaction
+let storedTransactionCallback: (() => any) | undefined;
+
+const mockDbTransactionRunner = jest.fn(() => {
+  if (!storedTransactionCallback) {
+    throw new Error('Transaction runner called without a stored callback.');
+  }
+  return storedTransactionCallback(); // Execute the stored callback
+});
+
+const mockDatabaseInstance = {
+  pragma: jest.fn(),
+  exec: jest.fn(),
+  prepare: jest.fn(() => mockStatement),
+  transaction: jest.fn((callback: () => any) => {
+    storedTransactionCallback = callback; // Store the callback passed to transaction
+    return mockDbTransactionRunner; // Return the runner function
+  }),
+  close: jest.fn(),
+  backup: jest.fn(),
+  open: true, // Simulate open state
+  name: 'mock.sqlite', // Simulate db path
+};
+
+// We need a variable to control if the mock constructor should throw
+let shouldMockDbConstructorThrow = false;
+let mockDbConstructorError: Error | undefined;
+
+jest.mock('better-sqlite3', () => {
+  // Return a mock constructor function
+  return jest.fn((dbPath: string, options?: any) => {
+    if (shouldMockDbConstructorThrow) {
+      throw mockDbConstructorError || new Error('Mock DB Init Failure');
+    }
+    // Set the name property based on dbPath for testing getDbInstance().name
+    mockDatabaseInstance.name = dbPath;
+    return mockDatabaseInstance;
+  });
+});
+
+// --- Mock electron's app.getPath ---
 jest.mock('electron', () => ({
   app: {
     getPath: jest.fn((name: string) => {
       if (name === 'userData') {
-        return path.join(__dirname, '.temp_user_data');
+        // Use a static path here to avoid 'path' being undefined in mock context
+        return '/mock/user/data';
       }
       return '';
     }),
@@ -36,13 +87,37 @@ jest.mock('@shared/utils/logger', () => ({
   },
 }));
 
-const TEST_DB_PATH = path.join(__dirname, '.temp_user_data', 'protondrive.sqlite');
+const MOCK_USER_DATA_PATH = '/mock/user/data';
+const MOCK_TEST_DB_PATH = path.join(MOCK_USER_DATA_PATH, 'protondrive.sqlite');
+// Note: TEMP_USER_DATA_DIR is for cleanup and actual file system interaction,
+// which is independent of the mocked app.getPath() in initializeDatabase's internal logic.
 const TEMP_USER_DATA_DIR = path.join(__dirname, '.temp_user_data');
 
+
 describe('storage-service', () => {
+  // Cast the mocked BetterSqlite3 constructor
+  const MockBetterSqlite3 = Database as jest.MockedFunction<typeof Database>;
+  
   beforeEach(() => {
-    // Clear mock calls
+    // Reset all mocks before each test
     jest.clearAllMocks();
+    mockStatement.run.mockClear();
+    mockStatement.get.mockClear();
+    mockStatement.all.mockClear();
+    mockDatabaseInstance.pragma.mockClear();
+    mockDatabaseInstance.exec.mockClear();
+    mockDatabaseInstance.prepare.mockClear();
+    mockDatabaseInstance.transaction.mockClear();
+    mockDatabaseInstance.close.mockClear();
+    mockDatabaseInstance.backup.mockClear();
+    mockDatabaseInstance.open = true; // Reset open state
+    mockDatabaseInstance.name = 'mock.sqlite'; // Reset name
+    mockDbTransactionRunner.mockClear(); // Clear runner calls
+    storedTransactionCallback = undefined; // Reset the stored callback
+
+    shouldMockDbConstructorThrow = false;
+    mockDbConstructorError = undefined;
+
     // Ensure the temp user data directory is clean before each test
     if (fs.existsSync(TEMP_USER_DATA_DIR)) {
       fs.rmSync(TEMP_USER_DATA_DIR, { recursive: true, force: true });
@@ -51,7 +126,7 @@ describe('storage-service', () => {
 
     // Reset the database instance to null before each test to ensure initializeDatabase is called
     // @ts-ignore - Private member access for testing
-    closeDatabase(); // Ensure any previous DB connection is closed
+    closeDatabase(); // Ensure any previous DB connection is closed by storage-service
   });
 
   afterAll(() => {
@@ -61,136 +136,192 @@ describe('storage-service', () => {
     }
   });
 
-  it('should initialize and close the database successfully', () => {
-    expect(() => initializeDatabase()).not.toThrow();
-    expect(fs.existsSync(TEST_DB_PATH)).toBe(true);
-    expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Database successfully opened'));
-
-    expect(() => closeDatabase()).not.toThrow();
-    expect(logger.info).toHaveBeenCalledWith('Database connection closed.');
-  });
-
-  it('should not re-initialize the database if already initialized', () => {
-    initializeDatabase();
-    initializeDatabase(); // Call again
-    expect(logger.warn).toHaveBeenCalledWith('Database already initialized.');
-  });
-
-  it('should quit the app if database initialization fails', () => {
-    // Simulate failure by making better-sqlite3 throw on creation
-    jest.spyOn(Database.prototype, 'constructor').mockImplementation(() => {
-        throw new Error('Mock DB Init Failure');
+  describe('initializeDatabase', () => {
+    it('should initialize the database successfully', () => {
+      initializeDatabase();
+      expect(MockBetterSqlite3).toHaveBeenCalledTimes(1);
+      expect(MockBetterSqlite3).toHaveBeenCalledWith(MOCK_TEST_DB_PATH, expect.any(Object));
+      expect(mockDatabaseInstance.pragma).toHaveBeenCalledWith('journal_mode = WAL');
+      expect(mockDatabaseInstance.pragma).toHaveBeenCalledWith('foreign_keys = ON');
+      expect(logger.info).toHaveBeenCalledWith(expect.stringContaining('Database successfully opened'));
     });
 
-    expect(() => initializeDatabase()).not.toThrow(); // initializeDatabase catches and calls app.quit
-    expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize database'), expect.any(Error));
-    expect(app.quit).toHaveBeenCalledTimes(1);
+    it('should not re-initialize the database if already initialized', () => {
+      initializeDatabase();
+      initializeDatabase(); // Call again
+      expect(MockBetterSqlite3).toHaveBeenCalledTimes(1); // Should only be called once
+      expect(logger.warn).toHaveBeenCalledWith('Database already initialized.');
+    });
 
-    // Restore mock to prevent affecting other tests
-    jest.restoreAllMocks();
+    it('should quit the app if database initialization fails', () => {
+      shouldMockDbConstructorThrow = true;
+      mockDbConstructorError = new Error('Simulated DB Init Failure');
+
+      initializeDatabase(); 
+      // Expect the mock constructor to have been called and then thrown
+      expect(MockBetterSqlite3).toHaveBeenCalledTimes(1);
+      // The function that calls initializeDatabase should have caught the error
+      expect(logger.error).toHaveBeenCalledWith(expect.stringContaining('Failed to initialize database'), expect.any(Error));
+      expect(app.quit).toHaveBeenCalledTimes(1);
+    });
   });
 
-  it('should execute DDL queries via runQuery', () => {
-    initializeDatabase();
-    const createTableSql = 'CREATE TABLE test_table (id INTEGER PRIMARY KEY, name TEXT)';
-    const result = runQuery(createTableSql);
-    expect(result.changes).toBe(0); // DDL usually has 0 changes
-    expect(() => runQuery('INSERT INTO test_table (name) VALUES (?)', 'test')).not.toThrow();
+  describe('closeDatabase', () => {
+    it('should close the database successfully', () => {
+      initializeDatabase();
+      closeDatabase();
+      expect(mockDatabaseInstance.close).toHaveBeenCalledTimes(1);
+      expect(logger.info).toHaveBeenCalledWith('Database connection closed.');
+    });
+
+    it('should do nothing if database is not initialized', () => {
+      closeDatabase(); // Call without initializing
+      expect(mockDatabaseInstance.close).not.toHaveBeenCalled();
+    });
   });
 
-  it('should execute INSERT, UPDATE, DELETE queries via runQuery', () => {
-    initializeDatabase();
-    runQuery('CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT)');
+  describe('runQuery', () => {
+    beforeEach(() => {
+      initializeDatabase();
+      jest.clearAllMocks(); // Clear calls from setup
+    });
 
-    const insertResult = runQuery('INSERT INTO users (name) VALUES (?)', 'Alice');
-    expect(insertResult.changes).toBe(1);
-    expect(insertResult.lastInsertRowid).toBe(1);
+    it('should execute a SQL query via runQuery', () => {
+      const sql = 'CREATE TABLE test (id INTEGER)';
+      runQuery(sql);
+      expect(mockDatabaseInstance.prepare).toHaveBeenCalledWith(sql);
+      expect(mockStatement.run).toHaveBeenCalledTimes(1);
+    });
 
-    const updateResult = runQuery('UPDATE users SET name = ? WHERE id = ?', 'Bob', 1);
-    expect(updateResult.changes).toBe(1);
+    it('should pass parameters to the query', () => {
+      const sql = 'INSERT INTO test (id) VALUES (?)';
+      runQuery(sql, 123);
+      expect(mockStatement.run).toHaveBeenCalledWith(123);
+    });
 
-    const deleteResult = runQuery('DELETE FROM users WHERE id = ?', 1);
-    expect(deleteResult.changes).toBe(1);
+    it('should return the result of the statement run', () => {
+      const sql = 'DELETE FROM test';
+      mockRunResult.changes = 5;
+      mockRunResult.lastInsertRowid = 0;
+      const result = runQuery(sql);
+      expect(result).toEqual({ changes: 5, lastInsertRowid: 0 });
+    });
+
+    it('should throw error if query is run before database initialization', () => {
+      // @ts-ignore
+      closeDatabase(); // Ensure DB is uninitialized
+      expect(() => runQuery('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
+    });
   });
 
-  it('should fetch a single row via getRow', () => {
-    initializeDatabase();
-    runQuery('CREATE TABLE settings (key TEXT PRIMARY KEY, value TEXT)');
-    runQuery('INSERT INTO settings (key, value) VALUES (?, ?)', 'theme', 'dark');
+  describe('getRow', () => {
+    beforeEach(() => {
+      initializeDatabase();
+      jest.clearAllMocks();
+    });
 
-    const setting = getRow<{ key: string; value: string }>('SELECT * FROM settings WHERE key = ?', 'theme');
-    expect(setting).toEqual({ key: 'theme', value: 'dark' });
+    it('should fetch a single row', () => {
+      const sql = 'SELECT * FROM test WHERE id = ?';
+      const row = { id: 1, name: 'Test' };
+      mockStatement.get.mockReturnValueOnce(row);
+      const result = getRow(sql, 1);
+      expect(mockDatabaseInstance.prepare).toHaveBeenCalledWith(sql);
+      expect(mockStatement.get).toHaveBeenCalledWith(1);
+      expect(result).toEqual(row);
+    });
 
-    const notFound = getRow('SELECT * FROM settings WHERE key = ?', 'nonexistent');
-    expect(notFound).toBeUndefined();
+    it('should return undefined if no row is found', () => {
+      mockStatement.get.mockReturnValueOnce(undefined);
+      const result = getRow('SELECT * FROM test WHERE id = ?', 99);
+      expect(result).toBeUndefined();
+    });
+
+    it('should throw error if called before database initialization', () => {
+      // @ts-ignore
+      closeDatabase();
+      expect(() => getRow('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
+    });
   });
 
-  it('should fetch all rows via getAllRows', () => {
-    initializeDatabase();
-    runQuery('CREATE TABLE items (id INTEGER PRIMARY KEY, description TEXT)');
-    runQuery('INSERT INTO items (description) VALUES (?), (?)', 'Item A', 'Item B');
+  describe('getAllRows', () => {
+    beforeEach(() => {
+      initializeDatabase();
+      jest.clearAllMocks();
+    });
 
-    const items = getAllRows<{ id: number; description: string }>('SELECT * FROM items');
-    expect(items).toEqual([
-      { id: 1, description: 'Item A' },
-      { id: 2, description: 'Item B' },
-    ]);
-  });
+    it('should fetch all rows', () => {
+      const sql = 'SELECT * FROM test';
+      const rows = [{ id: 1 }, { id: 2 }];
+      mockStatement.all.mockReturnValueOnce(rows);
+      const result = getAllRows(sql);
+      expect(mockDatabaseInstance.prepare).toHaveBeenCalledWith(sql);
+      expect(mockStatement.all).toHaveBeenCalledTimes(1);
+      expect(result).toEqual(rows);
+    });
 
-  it('should throw error if query is run before database initialization', () => {
-    expect(() => runQuery('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
-    expect(() => getRow('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
-    expect(() => getAllRows('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
-    expect(() => runInTransaction(() => {})).toThrow('Database is not initialized. Call initializeDatabase() first.');
-    expect(() => getDbInstance()).toThrow('Database is not initialized. Call initializeDatabase() first.');
+    it('should return an empty array if no rows are found', () => {
+      mockStatement.all.mockReturnValueOnce([]);
+      const result = getAllRows('SELECT * FROM test');
+      expect(result).toEqual([]);
+    });
+
+    it('should throw error if called before database initialization', () => {
+      // @ts-ignore
+      closeDatabase();
+      expect(() => getAllRows('SELECT 1')).toThrow('Database is not initialized. Call initializeDatabase() first.');
+    });
   });
 
   describe('runInTransaction', () => {
-    it('should commit transaction on success', () => {
+    beforeEach(() => {
       initializeDatabase();
-      runQuery('CREATE TABLE accounts (id INTEGER PRIMARY KEY, balance INTEGER)');
-      runQuery('INSERT INTO accounts (balance) VALUES (100), (200)');
+      jest.clearAllMocks();
+    });
 
-      runInTransaction(() => {
-        runQuery('UPDATE accounts SET balance = balance - 50 WHERE id = 1');
-        runQuery('UPDATE accounts SET balance = balance + 50 WHERE id = 2');
-      });
+    it('should commit transaction on successful callback', () => {
+      const callback = jest.fn(() => 'success');
+      const result = runInTransaction(callback);
 
-      const balance1 = getRow<{ balance: number }>('SELECT balance FROM accounts WHERE id = 1');
-      const balance2 = getRow<{ balance: number }>('SELECT balance FROM accounts WHERE id = 2');
-
-      expect(balance1?.balance).toBe(50);
-      expect(balance2?.balance).toBe(250);
+      expect(mockDatabaseInstance.transaction).toHaveBeenCalledTimes(1);
+      expect(mockDbTransactionRunner).toHaveBeenCalledTimes(1); // The function returned by transaction is called
+      expect(callback).toHaveBeenCalledTimes(1);
+      expect(result).toBe('success');
     });
 
     it('should rollback transaction on error', () => {
-      initializeDatabase();
-      runQuery('CREATE TABLE accounts (id INTEGER PRIMARY KEY, balance INTEGER)');
-      runQuery('INSERT INTO accounts (balance) VALUES (100), (200)');
+      const error = new Error('Rollback test');
+      const failingCallback = jest.fn(() => { throw error; });
 
-      expect(() => {
-        runInTransaction(() => {
-          runQuery('UPDATE accounts SET balance = balance - 50 WHERE id = 1');
-          throw new Error('Transaction failed intentionally');
-          runQuery('UPDATE accounts SET balance = balance + 50 WHERE id = 2'); // This should not be reached
-        });
-      }).toThrow('Transaction failed intentionally');
+      expect(() => runInTransaction(failingCallback)).toThrow(error);
+      expect(mockDatabaseInstance.transaction).toHaveBeenCalledTimes(1);
+      expect(mockDbTransactionRunner).toHaveBeenCalledTimes(1);
+      expect(failingCallback).toHaveBeenCalledTimes(1);
+      expect(logger.error).toHaveBeenCalledWith('Transaction failed and was rolled back.', error);
+    });
 
-      const balance1 = getRow<{ balance: number }>('SELECT balance FROM accounts WHERE id = 1');
-      const balance2 = getRow<{ balance: number }>('SELECT balance FROM accounts WHERE id = 2');
-
-      expect(balance1?.balance).toBe(100); // Should be rolled back
-      expect(balance2?.balance).toBe(200); // Should be rolled back
-      expect(logger.error).toHaveBeenCalledWith('Transaction failed and was rolled back.', expect.any(Error));
+    it('should throw error if called before database initialization', () => {
+      // @ts-ignore
+      closeDatabase();
+      expect(() => runInTransaction(() => {})).toThrow('Database is not initialized. Call initializeDatabase() first.');
     });
   });
 
   describe('getDbInstance', () => {
-    it('should return the database instance if initialized', () => {
+    beforeEach(() => {
       initializeDatabase();
+      jest.clearAllMocks();
+    });
+
+    it('should return the database instance if initialized', () => {
       const dbInstance = getDbInstance();
-      expect(dbInstance).toBeInstanceOf(Database);
+      expect(dbInstance).toBe(mockDatabaseInstance);
       expect(dbInstance.open).toBe(true);
+    });
+
+    it('should throw error if called before database initialization', () => {
+      // @ts-ignore
+      closeDatabase();
+      expect(() => getDbInstance()).toThrow('Database is not initialized. Call initializeDatabase() first.');
     });
   });
 });

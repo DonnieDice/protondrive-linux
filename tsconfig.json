@@ -16,6 +16,7 @@
     "paths": {
       "@shared/*": ["shared/*"],
       "@main/*": ["main/*"],
+      "@services/*": ["services/*"],
       "*": ["node_modules/*"]
     }
   },

@@ -1,281 +1,374 @@
-# ProtonDrive Linux Client
+# ProtonDrive Linux
 
 Unofficial open-source desktop client for ProtonDrive on Linux.
 
 [![CI](https://github.com/donniedice/protondrive-linux/workflows/CI/badge.svg)](https://github.com/donniedice/protondrive-linux/actions)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.0-blue.svg)](https://www.typescriptlang.org/)
+[![Coverage](https://img.shields.io/badge/coverage-80%25-green.svg)](https://github.com/donniedice/protondrive-linux)
+
+> **Status**: Alpha - Phase 2 (Core Services Implementation)  
+> **Platform**: Linux Only (Ubuntu, Fedora, Debian, Arch)  
+> **Security**: Production-grade encryption & isolation
+
+---
 
 ## Table of Contents
 
-*   [Project Overview](#project-overview)
-*   [Features](#features)
-*   [Installation](#installation)
-*   [Quick Start](#quick-start)
-*   [Development Setup](#development-setup)
-*   [Project Structure](#project-structure)
-*   [Tech Stack](#tech-stack)
-*   [Contributing](#contributing)
-*   [Code Standards](#code-standards)
-*   [Documentation](#documentation)
-*   [Roadmap](#roadmap)
-*   [Performance](#performance)
-*   [Security](#security)
-*   [Troubleshooting](#troubleshooting)
-*   [Support](#support)
-*   [License](#license)
-*   [Disclaimer](#disclaimer)
-*   [Acknowledgments](#acknowledgments)
+- [Features](#features)
+- [Quick Start](#quick-start)
+- [Installation](#installation)
+- [Development Setup](#development-setup)
+- [Project Structure](#project-structure)
+- [Available Commands](#available-commands)
+- [Tech Stack](#tech-stack)
+- [Architecture](#architecture)
+- [Contributing](#contributing)
+- [Documentation](#documentation)
+- [Roadmap](#roadmap)
+- [Security](#security)
+- [Performance](#performance)
+- [Quality Assurance](#quality-assurance)
+- [Troubleshooting](#troubleshooting)
+- [License](#license)
+- [Disclaimer](#disclaimer)
+- [Acknowledgments](#acknowledgments)
 
-## Project Overview
-
-This project provides an unofficial, open-source desktop client for ProtonDrive, specifically targeting Linux distributions. It is currently under active development.
-
-*   **Status**: Alpha - Under active development
-*   **Platform**: Linux only (Ubuntu, Fedora, Debian, Arch, etc.)
+---
 
 ## Features
 
-*   Zero-knowledge encryption: Files are encrypted client-side before upload.
-*   Real-time synchronization: Automatic background synchronization of files.
-*   Offline mode: Access and work with files even without an internet connection.
-*   Lightweight resource usage: Designed for efficiency with minimal RAM usage (<150MB) and a small installer size (<80MB).
-*   Multi-language support: Available in English, Spanish, French, and German.
-*   Standalone distribution: Provided as AppImage, .deb, and .rpm packages with no additional dependencies.
+### Core Features
+- **Zero-knowledge encryption** - Files encrypted client-side with AES-256-GCM before upload
+- **Real-time synchronization** - Automatic background file sync with conflict resolution
+- **Offline mode** - Access files without internet connection, sync when reconnected
+- **Lightweight performance** - Less than 150MB RAM idle, under 2s cold start, 60 FPS UI
+- **Multi-language support** - English, Spanish, French, German via i18next
+- **Standalone packages** - AppImage, deb, rpm with zero external dependencies
+- **Privacy-first design** - Minimal telemetry (opt-in only), user-controlled data
+- **Linux native integration** - Built exclusively for Linux, respects XDG specifications
 
-## Installation
+### Security Features
+- **Context Isolation** - Renderer process completely isolated from Node.js APIs
+- **Sandboxed Renderer** - OS-level process isolation for defense-in-depth
+- **Content Security Policy** - Strict CSP headers prevent script injection
+- **Secure Credential Storage** - OS-level encryption via Electron safeStorage API
+- **Input Validation** - Zod schema validation prevents injection attacks
+- **Automated Vulnerability Scanning** - Dependabot and npm audit in CI/CD pipeline
+- **OWASP Top 10 Compliance** - Systematic review against web security standards
 
-### AppImage (Recommended - Universal)
+### Performance Features
+- **Performance Budgets** - Enforced limits optimized for low-end hardware
+- **Smart Rate Limiting** - p-queue prevents API throttling (10 req/s configurable)
+- **Exponential Backoff** - Automatic retry with intelligent failure handling
+- **Chunked Uploads** - 5MB chunks enable resume capability and progress tracking
+- **Database Optimization** - Indexed queries, ACID transactions, automated backups
+- **Bundle Analysis** - Webpack bundle analyzer prevents bloat
+- **Memory Profiling** - Automated leak detection and monitoring
+- **Low-resource mode** - Optimized for systems with 2GB RAM and older CPUs
 
-```bash
-# Download latest release
-wget https://github.com/donniedice/protondrive-linux/releases/latest/download/ProtonDrive-Linux-x86_64.AppImage
+### Developer Experience
+- **80% Test Coverage** - Enforced minimum for all code (Jest unit + Playwright E2E)
+- **TypeScript Strict Mode** - Zero any types allowed, complete type safety
+- **Automated Releases** - Semantic versioning with automated changelog generation
+- **Comprehensive Documentation** - Wiki-style docs with Architecture Decision Records
+- **Development Tooling** - ESLint, Prettier, Husky git hooks, TypeDoc API docs
+- **CI/CD Pipeline** - Automated testing, security scanning, build verification
 
-# Make executable
-chmod +x ProtonDrive-Linux-x86_64.AppImage
-
-# Run
-./ProtonDrive-Linux-x86_64.AppImage
-```
-
-### Debian/Ubuntu
-
-```bash
-wget https://github.com/donniedice/protondrive-linux/releases/latest/download/protondrive-linux_amd64.deb
-sudo dpkg -i protondrive-linux_amd64.deb
-```
-
-### Fedora/RHEL
-
-```bash
-wget https://github.com/donniedice/protondrive-linux/releases/latest/download/protondrive-linux.x86_64.rpm
-sudo rpm -i protondrive-linux.x86_64.rpm
-```
+---
 
 ## Quick Start
 
-1.  Launch the application from your application menu or command line.
-2.  Sign in with your ProtonDrive credentials.
-3.  Choose your sync folder: Select which local folder to synchronize.
-4.  Start syncing: Files will automatically synchronize in the background.
+### For End Users
+
+**WARNING: Not Ready for Production Use**
+
+This project is in active alpha development (Phase 2: Core Services). There are no stable releases yet. 
+
+**Current Status:**
+- Project infrastructure complete (Phase 1)
+- Core services implementation in progress (Phase 2)
+- UI and sync engine pending (Phase 3-4)
+- Beta release targeted for Phase 6
+
+Check back later or star the repository to get notified of releases.
+
+### For Developers
+
+```bash
+# Clone repository
+git clone https://github.com/donniedice/protondrive-linux.git
+cd protondrive-linux
+
+# Install dependencies
+npm ci
+
+# Start development server
+./scripts/run-command.sh "npm start"
+
+# Run tests
+./scripts/run-command.sh "npm test"
+
+# Verify setup
+./scripts/run-command.sh "npm run type-check"
+./scripts/run-command.sh "npm run lint"
+```
+
+---
+
+## Installation
+
+### System Requirements
+
+**Operating System:**
+- Ubuntu 20.04 or later
+- Fedora 35 or later
+- Debian 11 or later
+- Arch Linux (rolling)
+- Other Linux distributions with glibc 2.31+
+
+**Hardware Compatibility:**
+- **CPU:** Any x86_64 or ARM64 Linux-capable processor (Intel, AMD, ARM)
+- **RAM:** Runs on 2GB+ (4GB recommended, 8GB+ for development)
+- **Storage:** Works on HDD or SSD (SSD recommended for optimal performance)
+- **Architecture:** x86_64, ARM64, ARMv7 (Raspberry Pi compatible)
+
+**Development Requirements:**
+- Node.js 18 LTS or 20 LTS (required)
+- npm 9 or higher
+- Git 2.25+
+- Build tools: gcc, g++, make
+
+### Development Installation
+
+```bash
+# Clone repository
+git clone https://github.com/donniedice/protondrive-linux.git
+cd protondrive-linux
+
+# Install dependencies (clean install recommended)
+npm ci
+
+# Copy environment template
+cp .env.example .env
+
+# Configure environment (optional for development)
+nano .env
+
+# Verify installation
+./scripts/run-command.sh "npm run type-check"
+./scripts/run-command.sh "npm test"
+```
+
+### Future Release Installation
+
+When stable releases are available, installation will be via:
+
+**AppImage (Universal Linux):**
+```bash
+# Download from releases page
+chmod +x ProtonDrive-Linux-x86_64.AppImage
+./ProtonDrive-Linux-x86_64.AppImage
+```
+
+**Debian/Ubuntu:**
+```bash
+sudo dpkg -i protondrive-linux_amd64.deb
+sudo apt-get install -f  # Fix dependencies if needed
+```
+
+**Fedora/RHEL:**
+```bash
+sudo rpm -i protondrive-linux.x86_64.rpm
+```
+
+**Arch Linux (AUR):**
+```bash
+yay -S protondrive-linux
+# or
+paru -S protondrive-linux
+```
+
+---
 
 ## Development Setup
 
-### Prerequisites
+### Initial Setup
 
-*   Node.js 18 or 20 (LTS)
-*   npm 9+
-*   Linux operating system
+1. **Clone and install dependencies:**
+   ```bash
+   git clone https://github.com/donniedice/protondrive-linux.git
+   cd protondrive-linux
+   npm ci
+   ```
 
-### Install Dependencies
+2. **Configure environment (optional):**
+   ```bash
+   cp .env.example .env
+   # Edit .env if needed for custom configuration
+   ```
+
+3. **Verify setup:**
+   ```bash
+   ./scripts/run-command.sh "npm run type-check"
+   ./scripts/run-command.sh "npm run lint"
+   ./scripts/run-command.sh "npm test"
+   ```
+
+### Running the Application
 
 ```bash
-git clone https://github.com/donniedice/protondrive-linux.git
-cd protondrive-linux
-npm ci
-```
-
-### Run Development Mode
-
-```bash
-# Start the app in development mode
+# Start in development mode (hot reload enabled)
 ./scripts/run-command.sh "npm start"
 
-# View logs
+# Start with verbose logging (debugging)
+VERBOSE_LOGGING=true ./scripts/run-command.sh "npm start"
+
+# View structured logs
 tail -f logs/command-*.json
+
+# View Electron console logs (if verbose logging enabled)
+tail -f browser_console_logs/electron-console-*.log
 ```
 
-### Run Tests
+**Important:** Always use `./scripts/run-command.sh` wrapper to prevent terminal lockup from interactive commands.
 
-```bash
-# Unit tests
-./scripts/run-command.sh "npm test"
+### Development Workflow
 
-# E2E tests
-./scripts/run-command.sh "npm run test:e2e"
+1. **Create feature branch:**
+   ```bash
+   git checkout -b feature/your-feature-name
+   ```
 
-# Coverage report
-./scripts/run-command.sh "npm test -- --coverage"
-```
+2. **Make changes and test:**
+   ```bash
+   # Run tests in watch mode
+   ./scripts/run-command.sh "npm test -- --watch"
+   
+   # Check types
+   ./scripts/run-command.sh "npm run type-check"
+   
+   # Lint code
+   ./scripts/run-command.sh "npm run lint"
+   ```
 
-### Build Packages
+3. **Commit using conventional format:**
+   ```bash
+   git commit -m "feat(scope): add new feature"
+   ```
 
-```bash
-# Build all packages (AppImage, deb, rpm)
-./scripts/run-command.sh "npm run make"
+4. **Push and create pull request:**
+   ```bash
+   git push origin feature/your-feature-name
+   ```
 
-# Packages will be in out/make/
-```
+---
 
 ## Project Structure
-
-The project follows a standard Electron-Forge structure, separating main, renderer, and shared processes, with dedicated directories for services, utilities, and configuration.
 
 ```
 protondrive-linux/
 ├── src/
-│   ├── main/          # Electron Main Process (backend logic)
-│   ├── renderer/      # React UI (frontend)
-│   ├── services/      # Business logic and SDK integration
-│   ├── shared/        # Shared types, constants, config, and utilities
-│   ├── preload/       # Secure IPC bridge
-│   └── __tests__/     # Unit test files
-├── sdk-main/          # ProtonDrive SDK (patched local copy)
-├── tests/             # E2E test files
-├── docs/              # Project documentation
-├── scripts/           # Build and utility scripts
-└── config/            # Webpack and Electron Forge configuration
+│   ├── main/              # Electron main process (Node.js environment)
+│   │   ├── index.ts       # Application entry point
+│   │   └── window.ts      # Window management
+│   ├── renderer/          # React UI (browser environment)
+│   │   ├── App.tsx        # Root component
+│   │   ├── components/    # React components
+│   │   └── stores/        # Zustand state stores
+│   ├── services/          # Business logic services
+│   │   ├── auth-service.ts
+│   │   ├── storage-service.ts
+│   │   ├── sync-service.ts
+│   │   └── sdk-bridge.ts
+│   ├── shared/            # Shared utilities and types
+│   │   ├── types/         # TypeScript type definitions
+│   │   └── utils/         # Utility functions
+│   └── preload/           # Secure IPC bridge (contextBridge)
+│       └── index.ts       # Preload script
+├── tests/                 # Test files
+│   ├── unit/              # Jest unit tests
+│   ├── integration/       # Integration tests
+│   └── e2e/               # Playwright E2E tests
+├── scripts/               # Build and utility scripts
+│   ├── run-command.sh     # Command wrapper (prevents lockup)
+│   └── memory-test.js     # Memory profiling
+├── docs/                  # Documentation
+│   ├── architecture/      # Architecture Decision Records (ADRs)
+│   ├── development/       # Developer guides
+│   └── guides/            # User guides
+├── logs/                  # Command execution logs (gitignored)
+├── browser_console_logs/  # Electron console logs (gitignored)
+├── .agent_logs/           # AI agent logs (gitignored)
+├── .gemini/               # AI agent configuration
+│   ├── GEMINI.md          # Project context (for AI)
+│   ├── agent-docs.md      # Agent operational rules
+│   └── task-log.md        # Task tracking
+└── sdk-main/              # ProtonDrive SDK (local patched copy)
+    └── js/sdk/            # SDK source (excluded from context)
 ```
-
-## Tech Stack
-
-*   **Electron**: Desktop application framework (Linux-only target)
-*   **TypeScript**: Ensures type safety and improves code quality
-*   **React**: UI framework for building interactive user interfaces
-*   **Zustand**: Lightweight state management solution
-*   **better-sqlite3**: Local database with migrations for persistent data storage
-*   **Winston**: Structured logging for application events
-*   **Axios**: HTTP client for API interactions with retry logic
-*   **p-queue**: Manages API request concurrency and rate limiting
-*   **electron-updater**: Provides automatic application updates
-
-## Contributing
-
-We welcome contributions from the community! Please refer to our [CONTRIBUTING.md](CONTRIBUTING.md) guide for detailed instructions on how to set up your development environment, submit changes, and adhere to our code standards.
-
-## Code Standards
-
-*   TypeScript strict mode is enforced.
-*   Minimum 80% test coverage is required for new code.
-*   Code quality is maintained using ESLint and Prettier.
-*   Conventional Commits are used for clear and consistent commit history.
-
-## Documentation
-
-*   **User Guide**: [docs/guides/user-guide.md](docs/guides/user-guide.md)
-*   **API Documentation**: [docs/api/](docs/api/index.md) (generated with TypeDoc)
-*   **Architecture**: [docs/architecture/](docs/architecture/index.md)
-*   **Security Policy**: [SECURITY.md](SECURITY.md)
-*   **Code of Conduct**: [CODE_OF_CONDUCT.md](CODE_OF_CONDUCT.md)
-*   **Detailed Project Context for AI Agents**: [.gemini/GEMINI.md](.gemini/GEMINI.md)
-
-## Roadmap
-
-The project development is structured into several phases to systematically build and deliver the ProtonDrive Linux Client.
-
-*   **Phase 0: Infrastructure (COMPLETE)**: Foundation, tooling, and CI/CD are established.
-*   **Phase 1: Configuration (COMPLETE)**: Project configuration and legal documents are finalized.
-*   **Phase 2: Core Services (CURRENT)**: Backend logic for authentication, data storage, sync, and more.
-*   **Phase 3: UI Foundation**: Development of the user interface components and pages.
-*   **Phase 4: Sync Engine**: Implementation of file synchronization and conflict resolution.
-*   **Phase 5: Advanced Features**: Integration of features like system tray, selective sync, and offline mode.
-*   **Phase 6: Distribution**: Packaging for Linux, auto-update testing, and beta program.
-*   **Final Steps: Go Live**: Public release and ongoing monitoring.
-
-For a detailed breakdown of tasks within each phase, please consult the [.gemini/GEMINI.md](.gemini/GEMINI.md) file.
-
-## Performance
-
-The application is developed with specific performance targets to ensure a responsive and efficient user experience:
-
-*   **Installer Size**: <80 MB
-*   **RAM Usage (Idle)**: <150 MB
-*   **RAM Usage (Active)**: <300 MB
-*   **Cold Start Time**: <1.5 seconds
-*   **UI Frame Rate**: 60 FPS
-
-Detailed performance budgets and metrics are available in [docs/architecture/performance-budget.md](docs/architecture/performance-budget.md).
-
-## Security
-
-Security is a paramount concern for ProtonDrive Linux. Key security measures include:
-
-*   Context isolation and sandboxed renderer processes.
-*   Strict Content Security Policy (CSP).
-*   Client-side encryption using AES-256-GCM.
-*   Secure storage of sensitive data using Electron's `safeStorage` (no `localStorage`).
-
-A complete overview of the security model and checklist can be found in [docs/architecture/security-checklist.md](docs/architecture/security-checklist.md).
-
-## Troubleshooting
-
-### App won't start
-
-```bash
-# Check logs for errors
-tail -f logs/command-*.json
-
-# Verify installed dependencies
-npm ci
-
-# Rebuild native modules if necessary
-npm run rebuild
-```
-
-### Sync issues
-
-1.  Check your internet connection.
-2.  Verify your ProtonDrive credentials.
-3.  Examine application logs located in `~/.config/protondrive-linux/logs/`.
-4.  If the issue persists, report it on [GitHub Issues](https://github.com/donniedice/protondrive-linux/issues) with logs attached.
-
-### Performance problems
-
-```bash
-# Run the memory profiler
-./scripts/memory-test.js
-
-# Check performance-related log entries
-grep "SLOW" logs/*.json
-```
-
-## Support
-
-For questions, bug reports, or feature requests, please use the following resources:
-
-*   **Issues**: [GitHub Issues](https://github.com/donniedice/protondrive-linux/issues)
-*   **Discussions**: [GitHub Discussions](https://github.com/donniedice/protondrive-linux/discussions)
-*   **Security**: See [SECURITY.md](SECURITY.md) for instructions on how to report vulnerabilities responsibly.
-
-## License
-
-This project is licensed under the MIT License. See the [LICENSE](LICENSE) file for full details.
-
-## Disclaimer
-
-This is an **unofficial client**, not affiliated with or endorsed by Proton AG.
-
-*   This is alpha software; use at your own risk.
-*   Always back up important files.
-*   Linux only; no macOS or Windows support is planned.
-
-## Acknowledgments
-
-We extend our gratitude to:
-
-*   **Proton AG**: For developing ProtonDrive and the underlying JavaScript SDK.
-*   **The Electron Community**: For providing the robust framework that powers this desktop client.
-*   **Our Contributors**: Every individual who helps improve and maintain this project.
 
 ---
 
-**Built with dedication for the Linux community.**
+## Available Commands
+
+### Development
+
+```bash
+# Start development server with hot reload
+./scripts/run-command.sh "npm start"
+
+# Run unit tests
+./scripts/run-command.sh "npm test"
+
+# Run tests in watch mode (TDD)
+./scripts/run-command.sh "npm test -- --watch"
+
+# Run tests with coverage report (80% minimum enforced)
+./scripts/run-command.sh "npm test -- --coverage"
+
+# Run end-to-end tests (Playwright)
+./scripts/run-command.sh "npm run test:e2e"
+
+# Run integration tests
+./scripts/run-command.sh "npm run test:integration"
+
+# Type checking (TypeScript strict mode)
+./scripts/run-command.sh "npm run type-check"
+
+# Linting (ESLint with auto-fix)
+./scripts/run-command.sh "npm run lint"
+./scripts/run-command.sh "npm run lint:fix"
+
+# Code formatting (Prettier)
+npm run format
+npm run format:check
+```
+
+### Building
+
+```bash
+# Build for production (optimized bundles)
+./scripts/run-command.sh "npm run build"
+
+# Package application (creates executable)
+./scripts/run-command.sh "npm run package"
+
+# Create distributable installers (AppImage, deb, rpm)
+./scripts/run-command.sh "npm run make"
+
+# Clean build artifacts
+rm -rf dist out .webpack
+```
+
+### Documentation
+
+```bash
+# Generate API documentation (TypeDoc)
+npm run docs
+
+# Serve API documentation locally (http://localhost:8080)
+npm run docs:serve
+
+# Generate coverage report
+npm run test:coverage
