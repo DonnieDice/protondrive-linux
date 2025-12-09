@@ -1,4 +1,4 @@
-# ProtonDrive Linux Client - Project Context (Go Stack)
+# ProtonDrive Linux Client - Complete Project Context (Go Stack)
 
 **Version**: 8.0 - STRATEGIC PIVOT  
 **Last Updated**: 2024-12-09  
@@ -8,7 +8,6 @@
 
 ---
 
-# doc links
 @./AGENT.md
 
 ---
@@ -34,6 +33,22 @@
 
 ---
 
+## TABLE OF CONTENTS
+
+1. [What This Document Is](#what-this-document-is)
+2. [Project Overview](#project-overview)
+3. [Architecture](#architecture-go-stack)
+4. [Why Go Is Perfect](#why-go-is-perfect-for-this-project)
+5. [Universal Hardware Compatibility](#universal-hardware-compatibility-go-approach)
+6. [Project Structure](#project-structure-go)
+7. [Development Patterns](#development-patterns)
+8. [Migration Plan](#migration-plan-from-electron-project)
+9. [Performance Budgets](#performance-budgets-go)
+10. [Key Principles](#key-principles-updated-for-go)
+11. [Agent Operational Rules](#agent-operational-rules)
+
+---
+
 ## WHAT THIS DOCUMENT IS
 
 This is the complete project context for building ProtonDrive Linux client in **Go**.
@@ -46,11 +61,11 @@ This is the complete project context for building ProtonDrive Linux client in **
 - Why Go over TypeScript/Electron
 - Development patterns and best practices
 - Migration plan from Electron
+- **Agent operational rules and commands**
 
 **This document does NOT contain:**
 - Learning roadmaps (see separate learning docs)
 - Task lists (see TASKS.md)
-- Operational rules (see AGENT.md)
 - User documentation (see README.md)
 
 ---
@@ -443,7 +458,6 @@ protondrive-linux/
 ├── docs/                    # Documentation
 ├── .agent_logs/             # AI agent logs
 ├── GEMINI.md               # This file
-├── AGENT.md                # Operational rules
 ├── TASKS.md                # Task list
 └── README.md               # User documentation
 ```
@@ -723,7 +737,6 @@ From the existing TypeScript/Electron project:
 - `CODE_OF_CONDUCT.md`
 - `.gitignore` (update for Go)
 - `docs/` directory content
-- `AGENT.md` (update commands)
 - This file (GEMINI.md - already updated)
 
 ### What to Remove
@@ -826,35 +839,6 @@ git commit -m "feat: pivot to Go/Fyne stack"
 git push origin go-pivot
 ```
 
-### Updated TASKS.md Structure
-
-The existing TASKS.md needs to be rewritten for Go development. New phase structure:
-
-**Phase 1: Go Project Setup** (1-2 days)
-- Initialize Go module
-- Set up project structure
-- Integrate Proton-API-Bridge
-- Create basic CLI
-- Basic authentication
-
-**Phase 2: GUI Foundation** (2-3 days)
-- Fyne setup
-- Login form
-- File list view
-- Basic navigation
-
-**Phase 3: Sync Engine** (1-2 weeks)
-- File watcher
-- Upload/download queue
-- Conflict resolution
-- Performance profiling integration
-
-**Phase 4: Polish & Distribution** (1 week)
-- Testing
-- Multi-architecture builds
-- Documentation
-- Release
-
 ---
 
 ## PERFORMANCE BUDGETS (GO)
@@ -892,6 +876,533 @@ The existing TASKS.md needs to be rewritten for Go development. New phase struct
 
 ---
 
+## AGENT OPERATIONAL RULES
+
+### Overview
+
+This section defines how AI agents (Claude, Gemini, GPT-4, etc.) should interact with this project.
+
+### Core Responsibilities
+
+**As an agent working on ProtonDrive Linux, you must:**
+
+1. **Maintain Context**: Always read GEMINI.md before starting work
+2. **Follow Architecture**: Respect the Go/Fyne stack decisions
+3. **Document Changes**: Update relevant documentation when making changes
+4. **Test Your Code**: Write tests for new functionality (80% coverage minimum)
+5. **Preserve Intent**: Keep the universal hardware compatibility philosophy
+6. **Log Your Actions**: Document significant decisions in `.agent_logs/`
+
+### Project Commands (Go Version)
+
+```bash
+# Setup
+go mod download              # Install dependencies
+go mod tidy                 # Clean up dependencies
+
+# Development
+go run main.go              # Run application
+go build -o protondrive     # Build binary
+go test ./...               # Run all tests
+go test -v ./internal/sync  # Run specific package tests
+go test -cover ./...        # Test with coverage
+go test -race ./...         # Test with race detection
+
+# Code Quality
+go fmt ./...                # Format code
+go vet ./...                # Static analysis
+golangci-lint run           # Comprehensive linting
+
+# Build for Multiple Architectures
+./scripts/build-all.sh      # Build for all Linux architectures
+
+# Documentation
+go doc ./internal/sync      # View package documentation
+godoc -http=:6060           # Start documentation server
+```
+
+### Communication Protocol
+
+**When asking for help or clarification:**
+
+1. **Be Specific**: "I need help implementing X in internal/sync/manager.go"
+2. **Provide Context**: Reference relevant parts of GEMINI.md
+3. **Show What You've Tried**: Share code snippets or error messages
+4. **Ask Focused Questions**: One issue at a time
+
+**When reporting progress:**
+
+1. **Update TASKS.md**: Mark completed tasks
+2. **Log Decisions**: Add entry to `.agent_logs/`
+3. **Update Documentation**: If architecture changes
+4. **Commit with Clear Messages**: Follow conventional commits
+
+### Decision-Making Authority
+
+**You CAN decide on:**
+- Implementation details within established patterns
+- Variable/function names following Go conventions
+- Test structure and test data
+- Code organization within packages
+- Performance optimizations that maintain compatibility
+
+**You MUST ask before:**
+- Changing project architecture
+- Adding new major dependencies
+- Modifying performance profiles
+- Changing build/distribution strategy
+- Altering API contracts
+- Removing features
+
+### Code Style Guide (Go)
+
+```go
+// GOOD: Go idiomatic style
+func (m *Manager) Start(ctx context.Context) error {
+    log.Println("Starting sync manager")
+    
+    for i := 0; i < m.profile.MaxConcurrentUploads(); i++ {
+        m.wg.Add(1)
+        go m.uploadWorker(ctx)
+    }
+    
+    return nil
+}
+
+// BAD: Not Go idiomatic
+func (m *Manager) Start(ctx context.Context) error {
+    log.Println("Starting sync manager");
+    
+    for (i := 0; i < m.profile.MaxConcurrentUploads(); i++) {
+        m.wg.Add(1);
+        go m.uploadWorker(ctx);
+    }
+    
+    return nil;
+}
+```
+
+**Go Style Rules:**
+- No semicolons (unless required)
+- Use `gofmt` formatting
+- Short variable names in small scopes (`i`, `err`, `ctx`)
+- Descriptive names in larger scopes
+- Exported names start with capital letter
+- Package names are lowercase, single word
+- Interface names end with `-er` (Reader, Writer, Manager)
+- Error handling with explicit `if err != nil`
+- Defer for cleanup
+
+### Error Handling Pattern
+
+```go
+// GOOD: Explicit error handling
+func processFile(path string) error {
+    f, err := os.Open(path)
+    if err != nil {
+        return fmt.Errorf("open file: %w", err)
+    }
+    defer f.Close()
+    
+    data, err := io.ReadAll(f)
+    if err != nil {
+        return fmt.Errorf("read file: %w", err)
+    }
+    
+    return processData(data)
+}
+
+// BAD: Ignoring errors
+func processFile(path string) error {
+    f, _ := os.Open(path)  // DON'T IGNORE ERRORS
+    data, _ := io.ReadAll(f)
+    processData(data)
+    return nil
+}
+```
+
+### Testing Requirements
+
+**Every new feature must include:**
+
+1. **Unit Tests**: Test individual functions/methods
+2. **Integration Tests**: Test component interactions
+3. **Benchmark Tests**: For performance-critical code
+4. **Example Tests**: For public APIs
+
+```go
+// Unit test
+func TestManagerStart(t *testing.T) {
+    // Test implementation
+}
+
+// Benchmark test
+func BenchmarkUpload(b *testing.B) {
+    for i := 0; i < b.N; i++ {
+        uploadFile("test.txt")
+    }
+}
+
+// Example test (appears in godoc)
+func ExampleManager_Start() {
+    manager := NewManager(StandardProfile{}, client)
+    manager.Start(context.Background())
+    // Output: Starting sync manager
+}
+```
+
+### Documentation Requirements
+
+**Every exported symbol must have a doc comment:**
+
+```go
+// Manager handles file synchronization between local storage
+// and ProtonDrive. It manages upload/download queues and
+// coordinates multiple concurrent operations based on the
+// configured performance profile.
+type Manager struct {
+    profile PerformanceProfile
+    client  *client.ProtonClient
+}
+
+// NewManager creates a new sync manager with the given profile
+// and ProtonDrive client. The manager must be started with
+// Start() before it will process any files.
+func NewManager(profile PerformanceProfile, client *client.ProtonClient) *Manager {
+    return &Manager{
+        profile: profile,
+        client:  client,
+    }
+}
+```
+
+### Git Workflow
+
+**Commit Message Format:**
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**Types:**
+- `feat`: New feature
+- `fix`: Bug fix
+- `docs`: Documentation changes
+- `style`: Code style changes (formatting)
+- `refactor`: Code refactoring
+- `perf`: Performance improvements
+- `test`: Test additions/changes
+- `chore`: Build/tooling changes
+
+**Examples:**
+```bash
+feat(sync): implement adaptive upload concurrency
+
+- Added profile-based upload semaphore
+- Detects system RAM and adjusts concurrency
+- Tested on 1GB, 4GB, and 8GB systems
+
+Closes #23
+
+---
+
+fix(client): handle authentication timeout gracefully
+
+- Added 30s timeout to auth requests
+- Retry with exponential backoff
+- Better error messages
+
+Fixes #45
+```
+
+### Logging Pattern
+
+```go
+import "log"
+
+// Use standard library log package
+log.Println("Starting operation")          // Info
+log.Printf("Processing file: %s", path)    // Info with formatting
+log.Fatal("Critical error:", err)          // Fatal (exits)
+
+// For structured logging (optional: use slog in Go 1.21+)
+import "log/slog"
+
+slog.Info("operation started",
+    "user", username,
+    "files", fileCount,
+)
+
+slog.Error("upload failed",
+    "file", filepath,
+    "error", err,
+)
+```
+
+### Performance Profiling
+
+```go
+// CPU Profiling
+import _ "net/http/pprof"
+
+go func() {
+    log.Println(http.ListenAndServe("localhost:6060", nil))
+}()
+
+// Memory Profiling
+var memStats runtime.MemStats
+runtime.ReadMemStats(&memStats)
+log.Printf("Alloc = %v MiB", memStats.Alloc / 1024 / 1024)
+
+// Benchmark with profiling
+go test -bench=. -cpuprofile=cpu.prof -memprofile=mem.prof
+go tool pprof cpu.prof
+```
+
+### Agent Session Logging
+
+**Create log entry for each session:**
+
+```bash
+# .agent_logs/2024-12-09-session-001.md
+```
+
+```markdown
+# Agent Session Log
+
+**Date**: 2024-12-09
+**Agent**: Claude-3.5-Sonnet
+**Duration**: 2 hours
+**Focus**: Initial Go project setup
+
+## Objectives
+- Initialize Go module
+- Set up project structure
+- Integrate Proton-API-Bridge
+- Create basic main.go
+
+## Actions Taken
+1. Created go.mod with module path
+2. Set up internal/ structure for sync, gui, config packages
+3. Added Proton-API-Bridge dependency
+4. Implemented basic profile detection
+5. Created initial tests
+
+## Decisions Made
+- Used sync.WaitGroup for goroutine coordination
+- Chose buffered channels with size 100 for queues
+- Decided on 3-tier profile system (Low/Standard/High)
+
+## Issues Encountered
+- Proton-API-Bridge documentation sparse
+- Had to examine source code for API usage
+- SQLite driver requires CGO
+
+## Next Steps
+- Implement file watcher
+- Create GUI login screen
+- Test on Raspberry Pi
+
+## Files Modified
+- go.mod, go.sum
+- internal/sync/manager.go
+- internal/config/profiles.go
+- TASKS.md (marked Phase 1 tasks complete)
+```
+
+### Working with Dependencies
+
+```bash
+# Add dependency
+go get github.com/some/package
+
+# Update dependency
+go get -u github.com/some/package
+
+# Update all dependencies
+go get -u ./...
+
+# Remove unused dependencies
+go mod tidy
+
+# Vendor dependencies (optional)
+go mod vendor
+
+# Check for updates
+go list -m -u all
+```
+
+### Build Tags and Conditional Compilation
+
+```go
+//go:build linux
+// +build linux
+
+package main
+
+// This file only compiles on Linux
+
+import "syscall"
+
+func getPlatformInfo() string {
+    var utsname syscall.Utsname
+    syscall.Uname(&utsname)
+    return string(utsname.Sysname[:])
+}
+```
+
+### Cross-Compilation Tips
+
+```bash
+# Check available platforms
+go tool dist list
+
+# Build for specific platform
+GOOS=linux GOARCH=arm64 go build
+
+# Build with custom flags
+go build -ldflags="-s -w" -o protondrive  # Strip symbols, reduce size
+
+# Build with version info
+VERSION=$(git describe --tags)
+go build -ldflags="-X main.Version=$VERSION"
+```
+
+### Dependency Management Philosophy
+
+**Prefer:**
+- Standard library when possible
+- Well-maintained, popular libraries
+- Minimal dependency trees
+- Pure Go libraries (avoid CGO when possible)
+
+**Avoid:**
+- Abandoned libraries
+- Libraries with many transitive dependencies
+- Libraries requiring system libraries
+- Overengineered solutions
+
+**Current Dependencies:**
+- `github.com/henrybear327/Proton-API-Bridge` - ProtonDrive integration
+- `fyne.io/fyne/v2` - GUI framework
+- `github.com/mattn/go-sqlite3` - Database (CGO required)
+
+### Troubleshooting Common Issues
+
+**Issue: CGO_ENABLED=1 required for SQLite**
+```bash
+# Solution: Install GCC/build tools
+sudo apt-get install build-essential  # Debian/Ubuntu
+sudo yum install gcc                   # RHEL/CentOS
+
+# Or use pure Go alternative
+go get modernc.org/sqlite  # Pure Go SQLite
+```
+
+**Issue: Fyne build fails**
+```bash
+# Solution: Install development libraries
+sudo apt-get install libgl1-mesa-dev xorg-dev  # Debian/Ubuntu
+```
+
+**Issue: Cross-compilation fails**
+```bash
+# Solution: Set CGO_ENABLED=0 for pure Go builds
+CGO_ENABLED=0 GOOS=linux GOARCH=arm64 go build
+```
+
+### Success Criteria
+
+**Before considering a feature "done":**
+
+- [ ] Code compiles without warnings
+- [ ] All tests pass (`go test ./...`)
+- [ ] Test coverage ≥80% for new code
+- [ ] No race conditions (`go test -race ./...`)
+- [ ] Code formatted (`go fmt ./...`)
+- [ ] No lint errors (`golangci-lint run`)
+- [ ] Documentation complete (godoc)
+- [ ] TASKS.md updated
+- [ ] Agent log created
+- [ ] Git commit with proper message
+
+### Communication Examples
+
+**Good Agent Response:**
+```
+I've implemented the upload queue in internal/sync/manager.go.
+
+What I did:
+- Created buffered channel with capacity 100
+- Implemented worker pool pattern
+- Added graceful shutdown with WaitGroup
+- Wrote tests achieving 85% coverage
+
+Files modified:
+- internal/sync/manager.go (new)
+- internal/sync/manager_test.go (new)
+- go.mod (added testify dependency)
+
+Next steps:
+- Implement download queue (similar pattern)
+- Add retry logic for failed uploads
+- Test on low-end hardware
+
+Ready for review. Should I proceed with download queue?
+```
+
+**Bad Agent Response:**
+```
+Done. Added upload stuff. Works now.
+```
+
+### When to Ask for Help
+
+**Ask immediately if:**
+- Architecture change seems necessary
+- Performance budget might be violated
+- Major dependency needed
+- Breaking change required
+- Security concern discovered
+- Platform compatibility issue found
+
+**Don't ask for:**
+- Variable name choices
+- Standard Go idioms
+- Test data generation
+- Code formatting decisions
+- Import organization
+
+### Project Health Indicators
+
+**Green (10/10):**
+- All tests passing
+- Coverage ≥80%
+- No lint errors
+- Documentation complete
+- Builds on all targets
+
+**Yellow (6-9/10):**
+- Some tests failing
+- Coverage 60-79%
+- Minor lint issues
+- Some docs missing
+- Builds on most targets
+
+**Red (0-5/10):**
+- Many tests failing
+- Coverage <60%
+- Major lint issues
+- No documentation
+- Doesn't build
+
+**Current Status**: 10/10 (Fresh start with solid foundation)
+
+---
+
 ## SUCCESS METRICS
 
 **Go version is successful when**:
@@ -906,6 +1417,5 @@ The existing TASKS.md needs to be rewritten for Go development. New phase struct
 
 ---
 
-**For Task Management**: See TASKS.md (will be updated for Go)  
-**For Operational Rules**: See AGENT.md (update commands for Go)  
+**For Task Management**: See TASKS.md  
 **For User Documentation**: See README.md (update tech stack)
