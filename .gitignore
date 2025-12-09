@@ -137,3 +137,15 @@ pnpm-lock.yaml
 
 # System files
 .fuse_hidden*
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+dist/
+vendor/
