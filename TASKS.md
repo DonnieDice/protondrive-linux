@@ -42,7 +42,7 @@
 
 ### 0.1 Backup & Branch Management
 
-- [ ] 🏗️ Create `electron-backup` branch
+- [✅] 🏗️ Create `electron-backup` branch
   ```bash
   git checkout -b electron-backup
   git commit -am "Backup: Electron version before Go pivot"
