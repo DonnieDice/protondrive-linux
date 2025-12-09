@@ -1,7 +1,7 @@
 package client
 
 import (
-	"github.com/henrybear327/Proton-API-Bridge/pkg/drive"
+	"github.com/henrybear327/Proton-API-Bridge"
 )
 
 // ProtonClient defines the interface for interacting with the ProtonDrive API.
@@ -16,15 +16,15 @@ type ProtonClient interface {
 
 // realProtonClient is the concrete implementation of the ProtonClient interface.
 type realProtonClient struct {
-	bridge    *drive.Client
+	bridge    *ProtonAPIBridge.Client
 	username  string
-	session   *drive.Session
+	session   *ProtonAPIBridge.Session
 }
 
 // NewProtonClient creates a new instance of the real ProtonDrive client.
 func NewProtonClient() *realProtonClient {
 	return &realProtonClient{
-		bridge: drive.NewClient(),
+		bridge: ProtonAPIBridge.NewClient(),
 	}
 }
 

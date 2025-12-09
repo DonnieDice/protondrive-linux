@@ -57,7 +57,7 @@
   ```bash
   go mod init github.com/yourusername/protondrive-linux
   ```
-- [ ] 🏗️ Create project structure
+- [✅] 🏗️ Create project structure
   ```bash
   mkdir -p cmd/protondrive
   mkdir -p internal/{sync,gui,config,client,storage}
@@ -65,7 +65,7 @@
   mkdir -p scripts
   mkdir -p .agent_logs
   ```
-- [ ] 🏗️ Create initial files
+- [✅] 🏗️ Create initial files
   ```bash
   touch main.go
   touch cmd/protondrive/main.go
@@ -74,7 +74,7 @@
 
 ### 0.4 Update Configuration Files
 
-- [ ] 📝 Update .gitignore for Go
+- [✅] 📝 Update .gitignore for Go
   ```gitignore
   # Go
   *.exe

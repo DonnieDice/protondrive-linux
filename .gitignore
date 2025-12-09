@@ -147,6 +147,7 @@ pnpm-lock.yaml
 *.test
 *.out
 go.work
+dist/
 vendor/
 
 # IDE

@@ -4,14 +4,14 @@ import (
 	"log"
 	"time"
 
-	"github.com/henrybear327/Proton-API-Bridge/pkg/drive"
+	"github.com/henrybear327/Proton-API-Bridge"
 )
 
 // SaveSession saves the ProtonDrive session data.
 // This might involve storing specific tokens or session identifiers
 // provided by the Proton-API-Bridge to allow re-initialization
 // without full re-authentication.
-func SaveSession(session *drive.Session) error {
+func SaveSession(session *ProtonAPIBridge.Session) error {
 	log.Println("[client] Attempting to save session (placeholder).")
 	// TODO: Implement actual session saving.
 	// This would typically involve serializing parts of the drive.Session struct
@@ -22,9 +22,9 @@ func SaveSession(session *drive.Session) error {
 }
 
 // LoadSession loads the ProtonDrive session data.
-// It should return a drive.Session object that can be used to
+// It should return a ProtonAPIBridge.Session object that can be used to
 // restore the client's authenticated state.
-func LoadSession() (*drive.Session, error) {
+func LoadSession() (*ProtonAPIBridge.Session, error) {
 	log.Println("[client] Attempting to load session (placeholder).")
 	// TODO: Implement actual session loading.
 	time.Sleep(50 * time.Millisecond) // Simulate work
