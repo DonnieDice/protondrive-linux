@@ -18,6 +18,43 @@
 
 ---
 
+## ⚙️ SELF-CORRECTION PROTOCOL
+
+**To prevent logging failures, the agent MUST run the following script every 3-5 tasks.**
+
+This script checks if the log file has been updated in the last 5 minutes. If not, it exits with an error, forcing the agent to address the logging failure before proceeding.
+
+```bash
+#!/bin/bash
+AGENT_LOG_FILE=$(ls -t .agent_logs/agent_thought_*.log | head -n 1)
+
+if [ -z "$AGENT_LOG_FILE" ]; then
+    echo "CRITICAL FAILURE: No agent log file found."
+    exit 1
+fi
+
+LAST_MODIFIED=$(stat -c %Y "$AGENT_LOG_FILE")
+CURRENT_TIME=$(date +%s)
+TIME_DIFF=$((CURRENT_TIME - LAST_MODIFIED))
+
+# Threshold: 5 minutes (300 seconds)
+if [ "$TIME_DIFF" -gt 300 ]; then
+    echo "CRITICAL FAILURE: Agent log has not been updated in over 5 minutes."
+    echo "Last update was $TIME_DIFF seconds ago. The agent MUST retrospectively log its actions before proceeding."
+    exit 1
+else
+    echo "SUCCESS: Agent log is up-to-date (last updated $TIME_DIFF seconds ago)."
+fi
+```
+
+**If this check fails, the agent MUST:**
+1.  **STOP** all other tasks.
+2.  Retrospectively log all actions taken since the last log entry.
+3.  Re-run the self-correction script to verify the log is now up-to-date.
+4.  Only then, resume normal operations.
+
+---
+
 ## TABLE OF CONTENTS
 
 1. [Agent Self-Logging](#1-agent-self-logging) ✅
