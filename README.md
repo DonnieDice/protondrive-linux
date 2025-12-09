@@ -6,6 +6,15 @@ This project has undergone a significant architectural pivot from a TypeScript/E
 
 ## **Go/Fyne Stack**
 
+This project is built using the Go programming language and the Fyne GUI toolkit. It leverages several key libraries to interact with ProtonDrive and manage local data.
+
+### Dependencies
+
+-   **[Proton-API-Bridge](https://github.com/henrybear327/Proton-API-Bridge)**: A Go library that provides a bridge to interact with the ProtonDrive API, handling authentication, encryption, and file transfers.
+-   **[Fyne](https://fyne.io/)**: A cross-platform GUI toolkit for Go, used to build the native user interface.
+-   **[go-sqlite3](https://github.com/mattn/go-sqlite3)**: A CGO-based SQLite driver for Go, used for local database storage.
+-   **[testify](https://github.com/stretchr/testify)**: A set of Go test assertion libraries, used for writing more expressive and readable tests.
+
 ### Build Instructions
 
 To build the project:
