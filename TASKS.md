@@ -48,12 +48,12 @@
   git commit -am "Backup: Electron version before Go pivot"
   git push origin electron-backup
   ```
-- [ ] 🏗️ Create `go-pivot` branch from main
+- [✅] 🏗️ Create `go-pivot` branch from main
   ```bash
   git checkout main
   git checkout -b go-pivot
   ```
-- [ ] 📝 Add migration note to README.md
+- [✅] 📝 Add migration note to README.md
 
 ### 0.2 Clean Electron Files
 
