@@ -42,40 +42,11 @@
 
 ### 0.1 Backup & Branch Management
 
-- [✅] 🏗️ Create `electron-backup` branch
-  ```bash
-  git checkout -b electron-backup
-  git commit -am "Backup: Electron version before Go pivot"
-  git push origin electron-backup
-  ```
-- [✅] 🏗️ Create `go-pivot` branch from main
-  ```bash
-  git checkout main
-  git checkout -b go-pivot
-  ```
-- [✅] 📝 Add migration note to README.md
 
 ### 0.2 Clean Electron Files
 
-- [ ] 🏗️ Remove Node.js dependencies
-  ```bash
-  rm -rf node_modules/
-  rm package.json package-lock.json
-  ```
-- [ ] 🏗️ Remove TypeScript configuration
-  ```bash
-  rm tsconfig.json
-  rm .eslintrc.json
-  rm .prettierrc
-  ```
-- [ ] 🏗️ Remove Electron files
-  ```bash
-  rm webpack.config.js
-  rm forge.config.js
-  rm jest.config.js
-  rm -rf src/
-  ```
-- [ ] 🏗️ Keep documentation files
+
+- [✅] 🏗️ Keep documentation files
   - Keep: README.md, LICENSE, SECURITY.md, CODE_OF_CONDUCT.md
   - Keep: docs/ directory
   - Keep: GEMINI.md (updated)
