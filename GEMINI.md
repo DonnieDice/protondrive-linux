@@ -1,26 +1,54 @@
-# ProtonDrive Linux Client - Project Context for AI Agents
+# ProtonDrive Linux Client - Project Context (Go Stack)
 
-**Version**: 6.0  
-**Last Updated**: 2024-11-30  
-**Phase**: Core Services Implementation (Phase 2)  
-**Project Health**: 9.5/10
+**Version**: 8.0 - STRATEGIC PIVOT  
+**Last Updated**: 2024-12-09  
+**Phase**: Project Restart - Technology Stack Change  
+**Previous Stack**: TypeScript/Electron → **New Stack**: Go/Fyne
+**Project Health**: 10/10 (Better foundation chosen)
+
+---
+
+# doc links
+@./AGENT.md
+
+---
+
+## 🔄 STRATEGIC PIVOT ANNOUNCEMENT
+
+**This project is pivoting from TypeScript/Electron to Go/Fyne.**
+
+**Why the Pivot?**
+
+1. **Proven Foundation**: Proton-API-Bridge (Go) already solves ProtonDrive API integration
+2. **Better Performance**: Native Go binary vs Electron overhead
+3. **Easier Distribution**: Single binary vs complex Electron packaging
+4. **Lower Resource Usage**: 10-20MB RAM vs 80-150MB for Electron
+5. **Community Support**: Active Go ProtonDrive ecosystem
+6. **Simpler Stack**: Go is easier to learn and maintain than TypeScript + Node.js + Electron
+
+**What This Means:**
+- Restart project with Go
+- Leverage existing Proton-API-Bridge
+- Build native Linux client with Fyne GUI
+- Much faster path to working product
 
 ---
 
 ## WHAT THIS DOCUMENT IS
 
-This is the complete project context for AI agents. It explains WHY decisions were made, WHAT the architecture is, and HOW to build it correctly.
+This is the complete project context for building ProtonDrive Linux client in **Go**.
 
-**Purpose**: Help AI agents understand project goals, architecture decisions, and implementation patterns.
+**Purpose**: Guide development of a native Linux client for ProtonDrive using Go and leveraging the existing Proton-API-Bridge.
 
 **This document contains:**
 - Project overview and goals
-- Architecture decisions and rationale
-- Universal hardware compatibility strategy
-- Security architecture
+- Architecture decisions (Go-specific)
+- Why Go over TypeScript/Electron
 - Development patterns and best practices
+- Migration plan from Electron
 
 **This document does NOT contain:**
+- Learning roadmaps (see separate learning docs)
 - Task lists (see TASKS.md)
 - Operational rules (see AGENT.md)
 - User documentation (see README.md)
@@ -31,704 +59,853 @@ This is the complete project context for AI agents. It explains WHY decisions we
 
 ### What We're Building
 
-ProtonDrive Linux is an unofficial, open-source desktop client for ProtonDrive targeting Linux users exclusively. Native GUI application providing seamless file synchronization with ProtonDrive's zero-knowledge encryption.
+ProtonDrive Linux is an unofficial, open-source desktop client for ProtonDrive targeting Linux users exclusively. **Native Go application** providing seamless file synchronization with ProtonDrive's zero-knowledge encryption.
 
-**Critical Design Goal**: Universal hardware compatibility - runs on ANY Linux device (Raspberry Pi to workstations) with adaptive performance.
+**Critical Design Goal**: Universal hardware compatibility - runs on ANY Linux device (Raspberry Pi to workstations) with minimal resource usage.
 
-### Why Linux Only
+### Why Go Instead of Electron
 
-**Decision**: Focus exclusively on Linux platform.
-
-**Reasoning**:
-- ProtonDrive lacks official Linux client
-- Linux community values privacy and open source
-- Focused development yields better quality
-- Avoids cross-platform complexity
-- Electron handles different Linux distros
-- Linux runs on widest hardware range
-
-### Why Electron
-
-**Decision**: Use Electron instead of native Qt/GTK or Tauri.
+**Decision**: Use Go with Fyne GUI instead of TypeScript/Electron.
 
 **Reasoning**:
-- Mature ecosystem with extensive libraries
-- TypeScript/JavaScript enables rapid development
-- ProtonDrive SDK is JavaScript-based (perfect integration)
-- Cross-distro compatibility without rebuilding
-- Multi-architecture support (x86_64, ARM64, ARMv7)
-- Rich UI with React
-- Well-tested security model
 
-**Trade-offs Accepted**:
-- Higher base RAM (50-80MB) vs native (10-20MB)
-- Larger installer (60-80MB) vs native (5-10MB)
-- Worth it: Development speed + SDK integration
+| Aspect | Electron (Old) | Go + Fyne (New) | Winner |
+|--------|----------------|-----------------|---------|
+| **Binary Size** | 60-80MB | 10-20MB | 🏆 Go |
+| **RAM Usage** | 80-150MB | 20-40MB | 🏆 Go |
+| **Startup Time** | 1-2 seconds | <500ms | 🏆 Go |
+| **Distribution** | Complex packaging | Single binary | 🏆 Go |
+| **Cross-compile** | Difficult | Easy | 🏆 Go |
+| **Learning Curve** | Steep (TS+Node+Electron) | Easier | 🏆 Go |
+| **ProtonDrive Integration** | Build from scratch | Use Proton-API-Bridge | 🏆 Go |
+| **Community** | General Electron | ProtonDrive-specific | 🏆 Go |
+
+**The Killer Advantage**: Proton-API-Bridge already exists in Go and handles:
+- ProtonDrive authentication
+- File encryption/decryption
+- API communication
+- Rate limiting
+- Error handling
+
+We can build on top of this instead of reimplementing everything.
 
 ---
 
-## UNIVERSAL HARDWARE COMPATIBILITY
+## ARCHITECTURE (GO STACK)
+
+### Overall Architecture
+
+```
+┌─────────────────────────────────────────┐
+│         GUI (Fyne Framework)            │
+│   - Cross-platform native widgets       │
+│   - Lightweight (not web-based)         │
+│   - No JavaScript runtime               │
+└──────────────┬──────────────────────────┘
+               │ Direct Go function calls
+┌──────────────┴──────────────────────────┐
+│         Application Logic (Go)          │
+│   - File synchronization                │
+│   - Conflict resolution                 │
+│   - Local state management              │
+│   - Performance profiling               │
+└──────────────┬──────────────────────────┘
+               │ Go API calls
+┌──────────────┴──────────────────────────┐
+│     Proton-API-Bridge (Go Library)      │
+│   - ProtonDrive SDK integration         │
+│   - Authentication & encryption         │
+│   - API communication                   │
+│   - Rate limiting                       │
+└──────────────┬──────────────────────────┘
+               │ HTTPS
+┌──────────────┴──────────────────────────┐
+│         ProtonDrive API                 │
+└─────────────────────────────────────────┘
+```
+
+**Key Advantages vs Electron**:
+- No IPC (Inter-Process Communication) needed
+- No preload scripts or context isolation complexity
+- Direct function calls between GUI and logic
+- Single process, not multi-process like Electron
+- Native performance throughout
+
+---
+
+## WHY GO IS PERFECT FOR THIS PROJECT
+
+### 1. Built-in Concurrency
+
+**Perfect for sync operations:**
+
+```go
+// Upload multiple files concurrently - built into language
+func uploadFiles(files []string) {
+    var wg sync.WaitGroup
+    
+    for _, file := range files {
+        wg.Add(1)
+        go func(f string) {
+            defer wg.Done()
+            uploadFile(f)
+        }(file)
+    }
+    
+    wg.Wait() // Wait for all uploads to complete
+}
+```
+
+**Why This Matters**:
+- File sync requires concurrent operations
+- Go's goroutines are lightweight (2KB each)
+- Can handle thousands of concurrent uploads/downloads
+- Built into language, no external libraries needed
+
+### 2. Single Binary Distribution
+
+**Build once, run anywhere:**
+
+```bash
+# Build for current system
+go build -o protondrive-linux
+
+# Cross-compile for different architectures (ONE command)
+GOOS=linux GOARCH=amd64 go build -o protondrive-linux-x64
+GOOS=linux GOARCH=arm64 go build -o protondrive-linux-arm64
+GOOS=linux GOARCH=arm go build -o protondrive-linux-armv7
+
+# Result: Single 10-20MB binary
+# No dependencies, no runtime needed
+# Just copy and run
+```
+
+**Compare to Electron**:
+- Electron: 60-80MB package + Node.js runtime + platform-specific installers
+- Go: Single 10-20MB binary, works immediately
+
+### 3. Resource Efficiency
+
+**Memory footprint comparison:**
+
+| Application | Idle RAM | Active RAM | Binary Size |
+|-------------|----------|------------|-------------|
+| Electron ProtonDrive | 80-100MB | 150-200MB | 60-80MB |
+| **Go ProtonDrive** | **15-25MB** | **30-50MB** | **10-20MB** |
+
+**Why this matters:**
+- Runs on Raspberry Pi with 1GB RAM
+- Multiple instances possible
+- Battery efficient on laptops
+- Fast startup (no V8 initialization)
+
+### 4. Proton-API-Bridge Integration
+
+**This is the game-changer:**
+
+Instead of building from scratch:
+
+```go
+// Literally this simple with Proton-API-Bridge
+import "github.com/henrybear327/Proton-API-Bridge/pkg/drive"
+
+func main() {
+    client := drive.NewClient()
+    client.Login(username, password)
+    
+    files, _ := client.ListFiles("/")
+    for _, file := range files {
+        println(file.Name)
+    }
+}
+```
+
+vs TypeScript/Electron approach:
+- Study ProtonDrive API docs
+- Implement authentication (SRP protocol)
+- Handle encryption/decryption
+- Deal with API quirks
+- Debug for weeks
+
+Proton-API-Bridge: **Already done.**
+
+### 5. Simplicity
+
+**Go Philosophy**: "Less is more"
+
+```go
+// HTTP client in Go - standard library
+package main
+
+import (
+    "net/http"
+    "io"
+    "os"
+)
+
+func main() {
+    resp, _ := http.Get("https://example.com")
+    defer resp.Body.Close()
+    io.Copy(os.Stdout, resp.Body)
+}
+```
+
+**No need for**:
+- package.json
+- webpack
+- tsconfig.json
+- node_modules (5000+ files)
+- Complex build pipeline
+
+**Just**: `go run main.go`
+
+---
+
+## UNIVERSAL HARDWARE COMPATIBILITY (GO APPROACH)
 
 ### Design Philosophy
 
 **"If it runs Linux, it should run ProtonDrive Linux"**
 
-No artificial hardware requirements. Application adapts to available resources.
+Go makes this even easier than Electron:
 
-### How to Build for Universal Compatibility
+### 1. Adaptive Resource Management
 
-#### 1. Adaptive Resource Management
-
-**Implementation Pattern**:
-```typescript
+```go
 // Detect system capabilities at startup
-interface SystemCapabilities {
-  totalRAM: number        // MB
-  availableRAM: number    // MB at startup
-  cpuCores: number
-  architecture: string    // x86_64, ARM64, ARMv7
-  storageType: string     // Estimated: SSD, HDD, eMMC
+type SystemCapabilities struct {
+    TotalRAM      uint64 // Bytes
+    AvailableRAM  uint64 // Bytes
+    CPUCores      int
+    Architecture  string // amd64, arm64, arm
+    StorageType   string // SSD, HDD, UNKNOWN
 }
 
-// Adjust behavior based on hardware
-class PerformanceProfile {
-  static detect(): PerformanceProfile {
-    const caps = this.getSystemCapabilities()
+// Performance profiles
+type PerformanceProfile interface {
+    MaxConcurrentUploads() int
+    MaxConcurrentDownloads() int
+    CacheSizeMB() int
+    ChunkSizeMB() int
+}
+
+type LowEndProfile struct{}
+func (p LowEndProfile) MaxConcurrentUploads() int { return 1 }
+func (p LowEndProfile) MaxConcurrentDownloads() int { return 2 }
+func (p LowEndProfile) CacheSizeMB() int { return 50 }
+func (p LowEndProfile) ChunkSizeMB() int { return 5 }
+
+type StandardProfile struct{}
+func (p StandardProfile) MaxConcurrentUploads() int { return 3 }
+func (p StandardProfile) MaxConcurrentDownloads() int { return 5 }
+func (p StandardProfile) CacheSizeMB() int { return 100 }
+func (p StandardProfile) ChunkSizeMB() int { return 5 }
+
+type HighEndProfile struct{}
+func (p HighEndProfile) MaxConcurrentUploads() int { return 5 }
+func (p HighEndProfile) MaxConcurrentDownloads() int { return 10 }
+func (p HighEndProfile) CacheSizeMB() int { return 200 }
+func (p HighEndProfile) ChunkSizeMB() int { return 10 }
+
+func DetectProfile() PerformanceProfile {
+    caps := detectSystemCapabilities()
     
-    if (caps.totalRAM < 4096) {
-      return new LowEndProfile()    // 2-4GB RAM
-    } else if (caps.totalRAM < 8192) {
-      return new StandardProfile()  // 4-8GB RAM
+    totalRAMMB := caps.TotalRAM / 1024 / 1024
+    
+    if totalRAMMB < 4096 {
+        return LowEndProfile{}
+    } else if totalRAMMB < 8192 {
+        return StandardProfile{}
+    }
+    return HighEndProfile{}
+}
+```
+
+### 2. Graceful Degradation
+
+```go
+// Adaptive concurrency
+type SyncManager struct {
+    profile PerformanceProfile
+    uploadSem chan struct{} // Semaphore for uploads
+}
+
+func NewSyncManager(profile PerformanceProfile) *SyncManager {
+    return &SyncManager{
+        profile: profile,
+        uploadSem: make(chan struct{}, profile.MaxConcurrentUploads()),
+    }
+}
+
+func (sm *SyncManager) Upload(file string) error {
+    sm.uploadSem <- struct{}{} // Acquire
+    defer func() { <-sm.uploadSem }() // Release
+    
+    // Actual upload logic
+    return uploadFile(file)
+}
+```
+
+### 3. Storage Type Optimization
+
+```go
+func detectStorageType(path string) string {
+    testFile := filepath.Join(path, ".storage-test")
+    testData := make([]byte, 10*1024*1024) // 10MB
+    
+    start := time.Now()
+    
+    // Write test
+    f, _ := os.Create(testFile)
+    f.Write(testData)
+    f.Sync() // Force flush to disk
+    f.Close()
+    
+    duration := time.Since(start)
+    os.Remove(testFile)
+    
+    // SSD: <100ms, HDD: >200ms for 10MB sync write
+    if duration < 100*time.Millisecond {
+        return "SSD"
+    } else if duration > 150*time.Millisecond {
+        return "HDD"
+    }
+    return "UNKNOWN"
+}
+
+// Adjust behavior
+func optimizeForStorage(storageType string, db *sql.DB) {
+    if storageType == "HDD" {
+        // More aggressive batching for HDD
+        db.Exec("PRAGMA synchronous = NORMAL")
+        db.Exec("PRAGMA journal_mode = WAL")
+        db.Exec("PRAGMA cache_size = -4000") // 4MB
     } else {
-      return new HighEndProfile()   // 8GB+ RAM
+        db.Exec("PRAGMA synchronous = FULL")
+        db.Exec("PRAGMA cache_size = -8000") // 8MB
     }
-  }
-}
-
-class LowEndProfile extends PerformanceProfile {
-  maxConcurrentUploads = 1
-  maxConcurrentDownloads = 2
-  cacheSizeMB = 50
-  enableAnimations = false
-  chunkSizeMB = 5
-  maxMemoryUsageMB = 100
-}
-
-class StandardProfile extends PerformanceProfile {
-  maxConcurrentUploads = 3
-  maxConcurrentDownloads = 5
-  cacheSizeMB = 100
-  enableAnimations = true
-  chunkSizeMB = 5
-  maxMemoryUsageMB = 150
-}
-
-class HighEndProfile extends PerformanceProfile {
-  maxConcurrentUploads = 5
-  maxConcurrentDownloads = 10
-  cacheSizeMB = 200
-  enableAnimations = true
-  chunkSizeMB = 10
-  maxMemoryUsageMB = 200
 }
 ```
 
-#### 2. Graceful Degradation Strategy
+### 4. Multi-Architecture Support
 
-**Rule**: Never fail hard on resource constraints. Always provide reduced functionality.
+```bash
+# Build for all architectures
+#!/bin/bash
 
-**Examples**:
-```typescript
-// Animation handling
-if (performanceProfile.enableAnimations) {
-  // Full animations
-  transition: 'all 0.3s ease'
-} else {
-  // Instant, no animation
-  transition: 'none'
-}
+# x86_64 (Intel/AMD)
+GOOS=linux GOARCH=amd64 go build -o dist/protondrive-linux-x64
 
-// Cache management
-if (memoryUsage > profile.maxMemoryUsageMB * 0.8) {
-  // Aggressively clear cache
-  cache.clear()
-}
+# ARM64 (Raspberry Pi 3+, modern ARM)
+GOOS=linux GOARCH=arm64 go build -o dist/protondrive-linux-arm64
 
-// Concurrent operations
-const maxConcurrent = Math.min(
-  profile.maxConcurrentUploads,
-  Math.floor(availableRAM / 50) // 50MB per upload
-)
+# ARMv7 (Raspberry Pi 2, older ARM)
+GOOS=linux GOARCH=arm GOARM=7 go build -o dist/protondrive-linux-armv7
+
+# ARMv6 (Raspberry Pi 1, very old ARM)
+GOOS=linux GOARCH=arm GOARM=6 go build -o dist/protondrive-linux-armv6
 ```
 
-#### 3. Storage Type Optimization
-
-**Problem**: HDD vs SSD performance varies 10x.
-
-**Solution**: Detect and optimize:
-```typescript
-// Estimate storage type from write performance
-async function detectStorageType(): Promise<'SSD' | 'HDD' | 'UNKNOWN'> {
-  const testFile = path.join(app.getPath('temp'), 'storage-test')
-  const testData = Buffer.alloc(10 * 1024 * 1024) // 10MB
-  
-  const start = performance.now()
-  await fs.writeFile(testFile, testData)
-  await fs.fsync(testFile)
-  const duration = performance.now() - start
-  
-  await fs.unlink(testFile)
-  
-  // SSD: <50ms, HDD: >200ms for 10MB sync write
-  if (duration < 100) return 'SSD'
-  if (duration > 150) return 'HDD'
-  return 'UNKNOWN'
-}
-
-// Adjust database behavior
-if (storageType === 'HDD') {
-  // Batch writes more aggressively
-  db.pragma('synchronous = NORMAL') // vs FULL for SSD
-  db.pragma('journal_mode = WAL')   // Better for HDD
-  db.pragma('cache_size = -4000')   // 4MB cache (smaller for HDD)
-} else {
-  db.pragma('synchronous = FULL')
-  db.pragma('cache_size = -8000')   // 8MB cache
-}
-```
-
-#### 4. Architecture-Specific Builds
-
-**Multi-architecture support**:
-- x86_64: Intel/AMD processors
-- ARM64: Raspberry Pi 3+, modern ARM SBCs
-- ARMv7: Raspberry Pi 2, older ARM devices
-
-**Electron Forge Configuration**:
-```javascript
-// forge.config.js
-module.exports = {
-  makers: [
-    {
-      name: '@electron-forge/maker-appimage',
-      config: {
-        options: {
-          arch: ['x64', 'arm64', 'armv7l']
-        }
-      }
-    }
-  ]
-}
-```
-
-#### 5. Memory Management Strategies
-
-**Critical Rules**:
-- Never load entire files into memory (use streams)
-- Clear caches proactively when approaching limits
-- Use weak references for large objects
-- Monitor memory usage continuously
-
-**Implementation**:
-```typescript
-// Memory monitor service
-class MemoryMonitor {
-  private interval: NodeJS.Timeout
-  
-  start() {
-    this.interval = setInterval(() => {
-      const usage = process.memoryUsage()
-      const heapUsedMB = usage.heapUsed / 1024 / 1024
-      
-      if (heapUsedMB > performanceProfile.maxMemoryUsageMB * 0.9) {
-        logger.warn('High memory usage, clearing caches')
-        this.clearCaches()
-      }
-    }, 10000) // Check every 10s
-  }
-  
-  clearCaches() {
-    // Clear various caches
-    thumbnailCache.clear()
-    metadataCache.clear()
-    // Force garbage collection if available
-    if (global.gc) global.gc()
-  }
-}
-```
-
-#### 6. CPU Optimization
-
-**Strategies**:
-- Detect CPU core count and adjust parallelism
-- Use Web Workers for CPU-intensive tasks
-- Throttle on single-core systems
-
-```typescript
-const cpuCores = os.cpus().length
-
-// Adjust worker pool size
-const workerPoolSize = Math.max(1, Math.floor(cpuCores / 2))
-
-// Throttle expensive operations on low-core systems
-if (cpuCores <= 2) {
-  // Single-threaded processing
-  processQueue.concurrency = 1
-} else {
-  processQueue.concurrency = Math.min(cpuCores - 1, 4)
-}
-```
+**Result**: 4 binaries, each 10-20MB, ready to distribute.
 
 ---
 
-## ARCHITECTURE DECISIONS
-
-### Overall Architecture Pattern
+## PROJECT STRUCTURE (GO)
 
 ```
-┌─────────────────────────────────────────┐
-│         Renderer Process (React)        │
-│   - UI Components                       │
-│   - Zustand State (lightweight)         │
-│   - No Node.js Access (security)        │
-└──────────────┬──────────────────────────┘
-               │ IPC (contextBridge)
-┌──────────────┴──────────────────────────┐
-│           Preload Script                │
-│   - Secure IPC Bridge                   │
-│   - Input Validation (Zod)              │
-└──────────────┬──────────────────────────┘
-               │
-┌──────────────┴──────────────────────────┐
-│         Main Process (Node.js)          │
-│   - Window Management                   │
-│   - Service Layer (business logic)      │
-│   - Database Access (SQLite)            │
-│   - File System Operations              │
-│   - ProtonDrive SDK Integration         │
-│   - Performance Profiling               │
-└─────────────────────────────────────────┘
+protondrive-linux/
+├── go.mod                    # Dependencies (like package.json)
+├── go.sum                    # Dependency checksums
+├── main.go                   # Entry point
+├── cmd/                      # Command-line tools
+│   └── protondrive/
+│       └── main.go
+├── internal/                 # Private application code
+│   ├── sync/                # Sync engine
+│   │   ├── manager.go
+│   │   ├── uploader.go
+│   │   └── downloader.go
+│   ├── gui/                 # GUI components (Fyne)
+│   │   ├── app.go
+│   │   ├── login.go
+│   │   └── filelist.go
+│   ├── config/              # Configuration
+│   │   ├── config.go
+│   │   └── profiles.go
+│   ├── client/              # ProtonDrive client wrapper
+│   │   └── client.go
+│   └── storage/             # Local database
+│       ├── db.go
+│       └── migrations.go
+├── pkg/                     # Public libraries (if any)
+├── scripts/                 # Build scripts
+│   └── build-all.sh
+├── docs/                    # Documentation
+├── .agent_logs/             # AI agent logs
+├── GEMINI.md               # This file
+├── AGENT.md                # Operational rules
+├── TASKS.md                # Task list
+└── README.md               # User documentation
 ```
 
-### State Management: Zustand
-
-**Why Zustand over Redux**:
-- Lightweight (4KB vs 20KB+)
-- Minimal overhead on low-end hardware
-- Simple API, less boilerplate
-- TypeScript-first
-- No Provider hell
-
-### Database: SQLite with better-sqlite3
-
-**Why SQLite**:
-- Serverless, no separate process
-- ACID transactions
-- Synchronous API (simpler code)
-- Efficient on embedded systems (Raspberry Pi uses SQLite)
-- Small memory footprint (<10MB)
-
-**Optimization for HDD**:
-```sql
-PRAGMA synchronous = NORMAL;  -- Balance safety/speed
-PRAGMA journal_mode = WAL;     -- Better concurrent access
-PRAGMA temp_store = MEMORY;    -- Faster temp operations
-PRAGMA cache_size = -4000;     -- 4MB cache for HDD
-```
-
-### Logging: Winston
-
-**Configuration**:
-- File rotation to prevent disk space issues
-- Structured JSON logging
-- Adjustable log levels (error/warn/info/debug)
-- Minimal overhead (<1MB RAM)
-
-### Network: axios + p-queue + axios-retry
-
-**Rate Limiting** (p-queue):
-- Prevents API throttling
-- Adaptive concurrency based on hardware profile
-- Low-end: 1-2 concurrent, High-end: 5-10 concurrent
-
-**Retry Logic** (axios-retry):
-- Exponential backoff
-- Essential for unreliable connections (WiFi on Raspberry Pi)
-
----
-
-## SECURITY ARCHITECTURE
-
-### Context Isolation
-
-**Why**: Prevents renderer from accessing Node.js APIs
-
-**Implementation**: Enabled in BrowserWindow configuration
-```typescript
-webPreferences: {
-  contextIsolation: true,
-  nodeIntegration: false,
-  sandbox: true,
-  preload: path.join(__dirname, 'preload.js')
-}
-```
-
-### Sandboxed Renderer
-
-**Why**: OS-level process isolation, limits malicious code damage
-
-### Input Validation with Zod
-
-**All IPC messages validated**:
-```typescript
-const FilePathSchema = z.object({
-  path: z.string().min(1).max(4096),
-  name: z.string().min(1).max(255)
-})
-
-// In preload script
-ipcRenderer.on('file-selected', (event, data) => {
-  const validated = FilePathSchema.parse(data)
-  // Safe to use
-})
-```
-
-### Credential Storage
-
-**Use Electron safeStorage**:
-```typescript
-import { safeStorage } from 'electron'
-
-// Store
-const encrypted = safeStorage.encryptString(token)
-await db.set('auth_token', encrypted)
-
-// Retrieve
-const encrypted = await db.get('auth_token')
-const token = safeStorage.decryptString(encrypted)
-```
+**Key Differences from Electron Structure**:
+- No `src/main/`, `src/renderer/`, `src/preload/` split
+- No `node_modules/` directory
+- `internal/` for application code (private)
+- `pkg/` for reusable libraries (public)
+- `cmd/` for multiple binaries if needed
 
 ---
 
 ## DEVELOPMENT PATTERNS
 
-### How to Implement a Service
+### How to Implement a Service (Go Style)
 
-**Template for all services**:
-```typescript
-// src/services/example-service.ts
+```go
+// internal/sync/manager.go
+package sync
 
-import { logger } from './logger'
+import (
+    "context"
+    "log"
+    "sync"
+)
 
-/**
- * ExampleService - Brief description
- * 
- * Responsibilities:
- * - List what this service does
- * - Be specific about scope
- * 
- * Dependencies:
- * - List required services
- */
-export class ExampleService {
-  private initialized = false
-  
-  constructor(
-    private readonly config: AppConfig,
-    private readonly storage: StorageService
-  ) {}
-  
-  /**
-   * Initialize service
-   * Should be idempotent (safe to call multiple times)
-   */
-  async initialize(): Promise<void> {
-    if (this.initialized) return
-    
-    logger.info('Initializing ExampleService')
-    
-    try {
-      // Initialization logic
-      this.initialized = true
-      logger.info('ExampleService initialized successfully')
-    } catch (error) {
-      logger.error('Failed to initialize ExampleService', { error })
-      throw error
+// Manager handles file synchronization
+type Manager struct {
+    profile       PerformanceProfile
+    client        *client.ProtonClient
+    uploadQueue   chan string
+    downloadQueue chan string
+    wg            sync.WaitGroup
+}
+
+// NewManager creates a new sync manager
+func NewManager(profile PerformanceProfile, client *client.ProtonClient) *Manager {
+    return &Manager{
+        profile:       profile,
+        client:        client,
+        uploadQueue:   make(chan string, 100),
+        downloadQueue: make(chan string, 100),
     }
-  }
-  
-  /**
-   * Cleanup resources
-   */
-  async shutdown(): Promise<void> {
-    logger.info('Shutting down ExampleService')
-    // Cleanup logic
-    this.initialized = false
-  }
+}
+
+// Start begins sync operations
+func (m *Manager) Start(ctx context.Context) error {
+    log.Println("Starting sync manager")
+    
+    // Start upload workers
+    for i := 0; i < m.profile.MaxConcurrentUploads(); i++ {
+        m.wg.Add(1)
+        go m.uploadWorker(ctx)
+    }
+    
+    // Start download workers
+    for i := 0; i < m.profile.MaxConcurrentDownloads(); i++ {
+        m.wg.Add(1)
+        go m.downloadWorker(ctx)
+    }
+    
+    log.Println("Sync manager started")
+    return nil
+}
+
+// Stop gracefully stops sync operations
+func (m *Manager) Stop() {
+    log.Println("Stopping sync manager")
+    close(m.uploadQueue)
+    close(m.downloadQueue)
+    m.wg.Wait()
+    log.Println("Sync manager stopped")
+}
+
+// QueueUpload adds file to upload queue
+func (m *Manager) QueueUpload(filepath string) {
+    m.uploadQueue <- filepath
+}
+
+// uploadWorker processes upload queue
+func (m *Manager) uploadWorker(ctx context.Context) {
+    defer m.wg.Done()
+    
+    for {
+        select {
+        case filepath, ok := <-m.uploadQueue:
+            if !ok {
+                return // Channel closed
+            }
+            
+            log.Printf("Uploading: %s", filepath)
+            if err := m.client.Upload(filepath); err != nil {
+                log.Printf("Upload failed: %v", err)
+            }
+            
+        case <-ctx.Done():
+            return
+        }
+    }
+}
+
+// downloadWorker processes download queue
+func (m *Manager) downloadWorker(ctx context.Context) {
+    defer m.wg.Done()
+    
+    for {
+        select {
+        case filepath, ok := <-m.downloadQueue:
+            if !ok {
+                return // Channel closed
+            }
+            
+            log.Printf("Downloading: %s", filepath)
+            if err := m.client.Download(filepath); err != nil {
+                log.Printf("Download failed: %v", err)
+            }
+            
+        case <-ctx.Done():
+            return
+        }
+    }
 }
 ```
 
-### How to Write Tests
+### How to Write Tests (Go Style)
 
-**Test structure**:
-```typescript
-// tests/unit/services/example-service.test.ts
+```go
+// internal/sync/manager_test.go
+package sync
 
-import { ExampleService } from '@/services/example-service'
+import (
+    "context"
+    "testing"
+    "time"
+)
 
-describe('ExampleService', () => {
-  let service: ExampleService
-  let mockConfig: AppConfig
-  let mockStorage: StorageService
-  
-  beforeEach(() => {
-    // Set up mocks
-    mockConfig = createMockConfig()
-    mockStorage = createMockStorage()
-    service = new ExampleService(mockConfig, mockStorage)
-  })
-  
-  afterEach(() => {
-    // Cleanup
-  })
-  
-  describe('initialize', () => {
-    it('should initialize successfully', async () => {
-      await service.initialize()
-      expect(service.isInitialized()).toBe(true)
-    })
+// Mock client
+type mockProtonClient struct {
+    uploadCalled   int
+    downloadCalled int
+}
+
+func (m *mockProtonClient) Upload(filepath string) error {
+    m.uploadCalled++
+    return nil
+}
+
+func (m *mockProtonClient) Download(filepath string) error {
+    m.downloadCalled++
+    return nil
+}
+
+func TestManagerStart(t *testing.T) {
+    profile := StandardProfile{}
+    mockClient := &mockProtonClient{}
     
-    it('should be idempotent', async () => {
-      await service.initialize()
-      await service.initialize() // Should not throw
-      expect(service.isInitialized()).toBe(true)
-    })
+    manager := NewManager(profile, mockClient)
     
-    it('should handle initialization errors', async () => {
-      mockStorage.setup.mockRejectedValue(new Error('DB error'))
-      await expect(service.initialize()).rejects.toThrow('DB error')
-    })
-  })
-})
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    
+    if err := manager.Start(ctx); err != nil {
+        t.Fatalf("Start failed: %v", err)
+    }
+    
+    // Queue some uploads
+    manager.QueueUpload("file1.txt")
+    manager.QueueUpload("file2.txt")
+    
+    // Wait a bit for processing
+    time.Sleep(100 * time.Millisecond)
+    
+    manager.Stop()
+    
+    if mockClient.uploadCalled != 2 {
+        t.Errorf("Expected 2 uploads, got %d", mockClient.uploadCalled)
+    }
+}
+
+func TestManagerConcurrency(t *testing.T) {
+    profile := HighEndProfile{}
+    mockClient := &mockProtonClient{}
+    
+    manager := NewManager(profile, mockClient)
+    
+    ctx, cancel := context.WithCancel(context.Background())
+    defer cancel()
+    
+    manager.Start(ctx)
+    
+    // Queue many files
+    for i := 0; i < 50; i++ {
+        manager.QueueUpload("file.txt")
+    }
+    
+    time.Sleep(500 * time.Millisecond)
+    manager.Stop()
+    
+    if mockClient.uploadCalled != 50 {
+        t.Errorf("Expected 50 uploads, got %d", mockClient.uploadCalled)
+    }
+}
 ```
 
-### How to Handle Performance Budgets
-
-**Always check before committing**:
+**Run tests:**
 ```bash
-# Memory test
-./scripts/run-command.sh "node scripts/memory-test.js"
-# Should report < 150MB for standard profile
-
-# Build size check
-./scripts/run-command.sh "npm run build"
-du -sh out/
-# Should be < 80MB
-
-# Startup time check
-time ./scripts/run-command.sh "npm start"
-# Should be < 2s cold start
+go test ./...                    # All tests
+go test -v ./internal/sync       # Verbose, specific package
+go test -cover ./...             # With coverage
+go test -race ./...              # Race detection
 ```
 
-### Command Wrapper Usage
+### Error Handling (Go Style)
 
-**Always use wrapper for commands**:
-```bash
-# Good
-./scripts/run-command.sh "npm start"
-./scripts/run-command.sh "npm test"
+```go
+// internal/errors/errors.go
+package errors
 
-# Bad (will lock up terminal)
-npm start
-npm test
+import "errors"
+
+var (
+    ErrAuthenticationFailed = errors.New("authentication failed")
+    ErrNetworkTimeout      = errors.New("network timeout")
+    ErrFileNotFound        = errors.New("file not found")
+    ErrInvalidConfig       = errors.New("invalid configuration")
+)
+
+// Wrap errors with context
+func WrapAuthentication(err error) error {
+    return fmt.Errorf("authentication: %w", err)
+}
+
+func WrapNetwork(err error) error {
+    return fmt.Errorf("network: %w", err)
+}
 ```
 
-### Conventional Commits
+**Usage:**
+```go
+func (c *ProtonClient) Login(username, password string) error {
+    if err := c.api.Authenticate(username, password); err != nil {
+        return errors.WrapAuthentication(err)
+    }
+    return nil
+}
 
-**Format**:
-```
-<type>(<scope>): <subject>
-
-<body>
-
-<footer>
-```
-
-**Examples**:
-```bash
-feat(auth): add OAuth2 authentication
-fix(sync): resolve duplicate upload bug
-perf(db): optimize query with index
-test(upload): add chunked upload tests
-docs(readme): update installation instructions
+// In caller
+if err := client.Login(username, password); err != nil {
+    if errors.Is(err, errors.ErrAuthenticationFailed) {
+        // Handle auth error specifically
+    }
+    return err
+}
 ```
 
 ---
 
-## TESTING REQUIREMENTS
+## MIGRATION PLAN FROM ELECTRON PROJECT
 
-### Coverage Requirements
+### What to Keep
 
-**80% minimum coverage enforced in CI**:
-- Unit tests: Business logic and services
-- Integration tests: Service interactions
-- E2E tests: Critical user workflows
-- Performance tests: Budget validation
+From the existing TypeScript/Electron project:
 
-### What to Test
+✅ **Keep these concepts**:
+- Overall architecture decisions (security, privacy)
+- Universal hardware compatibility philosophy
+- Performance profiling concepts
+- Documentation structure
+- Testing philosophy (80% coverage)
+- Git workflow
 
-**Unit Tests** (Jest):
-- All service methods
-- Utility functions
-- Error handling
-- Edge cases
+✅ **Keep these files**:
+- `README.md` (update tech stack section)
+- `LICENSE`
+- `SECURITY.md`
+- `CODE_OF_CONDUCT.md`
+- `.gitignore` (update for Go)
+- `docs/` directory content
+- `AGENT.md` (update commands)
+- This file (GEMINI.md - already updated)
 
-**Integration Tests**:
-- SDK bridge + storage service
-- Sync service + conflict resolver
-- Auth service + credential storage
+### What to Remove
 
-**E2E Tests** (Playwright):
-- Login flow
-- File upload/download
-- Conflict resolution UI
-- Settings changes
+❌ **Delete Electron-specific files**:
+```bash
+rm -rf node_modules/
+rm package.json package-lock.json
+rm tsconfig.json
+rm webpack.config.js
+rm forge.config.js
+rm -rf src/
+rm .eslintrc.json
+rm .prettierrc
+rm jest.config.js
+```
 
-**Performance Tests**:
-- Memory usage over time
-- Startup time
-- Sync speed
-- Database query performance
+### What to Create
+
+✅ **Create Go-specific files**:
+```bash
+# Initialize Go module
+go mod init github.com/yourusername/protondrive-linux
+
+# Create project structure
+mkdir -p cmd/protondrive
+mkdir -p internal/{sync,gui,config,client,storage}
+mkdir -p pkg
+mkdir -p scripts
+
+# Create main.go
+touch main.go
+touch cmd/protondrive/main.go
+
+# Add dependencies
+go get github.com/henrybear327/Proton-API-Bridge
+go get fyne.io/fyne/v2
+go get github.com/mattn/go-sqlite3
+```
+
+### Migration Steps
+
+```bash
+# 1. Backup existing project
+git checkout -b electron-backup
+git commit -am "Backup Electron version before Go pivot"
+git push origin electron-backup
+
+# 2. Create Go branch
+git checkout main
+git checkout -b go-pivot
+
+# 3. Clean Electron files
+rm -rf node_modules src package*.json tsconfig.json webpack.config.js forge.config.js
+
+# 4. Initialize Go
+go mod init github.com/yourusername/protondrive-linux
+
+# 5. Create structure
+mkdir -p cmd/protondrive internal/{sync,gui,config,client,storage} pkg scripts
+
+# 6. Add dependencies
+go get github.com/henrybear327/Proton-API-Bridge
+go get fyne.io/fyne/v2
+go get github.com/mattn/go-sqlite3
+
+# 7. Update .gitignore
+cat >> .gitignore << 'EOF'
+
+# Go
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+go.work
+dist/
+vendor/
+EOF
+
+# 8. Create initial main.go
+cat > main.go << 'EOF'
+package main
+
+import "fmt"
+
+func main() {
+    fmt.Println("ProtonDrive Linux - Go Edition")
+}
+EOF
+
+# 9. Test build
+go build -o protondrive-linux
+
+# 10. Commit
+git add .
+git commit -m "feat: pivot to Go/Fyne stack"
+git push origin go-pivot
+```
+
+### Updated TASKS.md Structure
+
+The existing TASKS.md needs to be rewritten for Go development. New phase structure:
+
+**Phase 1: Go Project Setup** (1-2 days)
+- Initialize Go module
+- Set up project structure
+- Integrate Proton-API-Bridge
+- Create basic CLI
+- Basic authentication
+
+**Phase 2: GUI Foundation** (2-3 days)
+- Fyne setup
+- Login form
+- File list view
+- Basic navigation
+
+**Phase 3: Sync Engine** (1-2 weeks)
+- File watcher
+- Upload/download queue
+- Conflict resolution
+- Performance profiling integration
+
+**Phase 4: Polish & Distribution** (1 week)
+- Testing
+- Multi-architecture builds
+- Documentation
+- Release
 
 ---
 
-## DOCUMENTATION REQUIREMENTS
-
-### Code Documentation
-
-**All public APIs must have JSDoc**:
-```typescript
-/**
- * Upload file to ProtonDrive
- * 
- * @param filePath - Local file path
- * @param remotePath - Remote destination path
- * @param options - Upload options
- * @returns Upload result with file ID
- * @throws {AuthenticationError} If not authenticated
- * @throws {NetworkError} If upload fails
- * 
- * @example
- * ```typescript
- * const result = await uploadFile(
- *   '/home/user/document.pdf',
- *   '/Documents/document.pdf'
- * )
- * console.log('Uploaded:', result.fileId)
- * ```
- */
-async uploadFile(
-  filePath: string,
-  remotePath: string,
-  options?: UploadOptions
-): Promise<UploadResult>
-```
-
-### Architecture Decision Records
-
-**Document all major decisions**:
-```markdown
-# ADR 003: Use Zustand for State Management
-
-## Status
-Accepted
-
-## Context
-Need lightweight state management for React UI.
-
-## Decision
-Use Zustand instead of Redux.
-
-## Consequences
-Positive:
-- Smaller bundle size (4KB vs 20KB)
-- Less boilerplate
-- Better TypeScript support
-
-Negative:
-- Less ecosystem/plugins than Redux
-- Team may need to learn new library
-
-## Alternatives Considered
-- Redux: Too much boilerplate
-- Context API: Not sufficient for complex state
-```
-
----
-
-## PERFORMANCE BUDGETS
+## PERFORMANCE BUDGETS (GO)
 
 ### Startup Time
-- **Cold start**: < 2 seconds
-- **Warm start**: < 1 second
+- **Cold start**: < 500ms (was 2s for Electron)
+- **Warm start**: < 200ms (was 1s for Electron)
 
 ### Memory Usage
-- **Low-end profile**: < 100MB
-- **Standard profile**: < 150MB
-- **High-end profile**: < 200MB
+- **Low-end profile**: < 30MB (was 100MB)
+- **Standard profile**: < 50MB (was 150MB)
+- **High-end profile**: < 80MB (was 200MB)
 
-### Bundle Size
-- **Total installer**: < 80MB
-- **Unpacked**: < 200MB
+### Binary Size
+- **Single binary**: < 20MB (was 60-80MB)
+- **No unpacking needed** (Electron required 200MB unpacked)
 
 ### UI Performance
-- **FPS**: 30+ on low-end hardware
-- **First paint**: < 500ms
-- **Time to interactive**: < 1.5s
-
-### Network
-- **API timeout**: 30s default
-- **Rate limit**: 10 req/s default
-- **Concurrent uploads**: 1-5 (adaptive)
-- **Concurrent downloads**: 2-10 (adaptive)
+- **FPS**: 60 on all hardware (native rendering)
+- **First paint**: < 100ms (was 500ms)
+- **Time to interactive**: < 500ms (was 1.5s)
 
 ---
 
-## PROJECT STRUCTURE
-
-```
-protondrive-linux/
-├── src/
-│   ├── main/              # Main process (Node.js)
-│   ├── renderer/          # Renderer process (React)
-│   ├── preload/           # Preload scripts (IPC bridge)
-│   ├── services/          # Business logic services
-│   ├── shared/            # Shared code (types, utils)
-│   └── __tests__/         # Test files
-├── scripts/               # Build and utility scripts
-├── .agent_logs/           # AI agent session logs
-├── docs/                  # Documentation
-├── TASKS.md              # Complete task list
-├── AGENT.md              # Operational rules for AI
-├── GEMINI.md             # This file (project context)
-└── README.md             # User documentation
-```
-
----
-
-## KEY PRINCIPLES
+## KEY PRINCIPLES (UPDATED FOR GO)
 
 1. **Universal Compatibility**: Must run on any Linux device
 2. **Adaptive Performance**: Adjust to available hardware
-3. **Security First**: Context isolation, input validation, secure storage
-4. **Privacy Focused**: Zero-knowledge encryption, minimal tracking
-5. **Test Coverage**: 80% minimum on all code
-6. **Documentation**: JSDoc on all public APIs
-7. **Performance Budgets**: Enforced in CI/CD
+3. **Leverage Existing Work**: Build on Proton-API-Bridge
+4. **Native Performance**: No V8/Chromium overhead
+5. **Simple Distribution**: Single binary
+6. **Test Coverage**: 80% minimum on all code
+7. **Documentation**: GoDoc on all public APIs
 8. **Graceful Degradation**: Never fail hard, reduce features instead
 
 ---
 
-**For Task Management**: See TASKS.md  
-**For Operational Rules**: See AGENT.md  
-**For User Documentation**: See README.md
+## SUCCESS METRICS
+
+**Go version is successful when**:
+- ✅ Binary < 20MB
+- ✅ RAM usage < 50MB under normal operation
+- ✅ Startup < 500ms
+- ✅ Successfully authenticates with ProtonDrive
+- ✅ Can list, upload, download files
+- ✅ Runs on Raspberry Pi with 1GB RAM
+- ✅ Single binary distribution works
+- ✅ 80% test coverage maintained
+
+---
+
+**For Task Management**: See TASKS.md (will be updated for Go)  
+**For Operational Rules**: See AGENT.md (update commands for Go)  
+**For User Documentation**: See README.md (update tech stack)
