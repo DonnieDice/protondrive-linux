@@ -147,19 +147,6 @@ pnpm-lock.yaml
 *.test
 *.out
 go.work
-dist/
-vendor/
-
-# Go
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-*.test
-*.out
-go.work
-dist/
 vendor/
 
 # IDE
