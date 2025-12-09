@@ -43,7 +43,7 @@
 
 ### 1.1 Dependencies
 
-- [ ] 🏗️ Add Proton-API-Bridge
+- [✅] 🏗️ Add Proton-API-Bridge
   ```bash
   go get github.com/henrybear327/Proton-API-Bridge
   ```
@@ -51,7 +51,7 @@
   - [ ] Document API structure
   - [ ] Create wrapper interface
 
-- [ ] 🏗️ Add Fyne GUI framework
+- [✅] 🏗️ Add Fyne GUI framework
   ```bash
   go get fyne.io/fyne/v2
   ```
@@ -59,7 +59,7 @@
   - [ ] Verify development libraries installed
   - [ ] Document setup requirements
 
-- [ ] 🏗️ Add SQLite database
+- [✅] 🏗️ Add SQLite database
   ```bash
   go get github.com/mattn/go-sqlite3
   ```
@@ -67,12 +67,12 @@
   - [ ] Create database schema
   - [ ] Implement migrations
 
-- [ ] 🏗️ Add logging library (optional)
+- [✅] 🏗️ Add logging library (optional)
   ```bash
   go get golang.org/x/exp/slog  # Or use stdlib log
   ```
 
-- [ ] 🏗️ Add testing utilities
+- [✅] 🏗️ Add testing utilities
   ```bash
   go get github.com/stretchr/testify
   ```
