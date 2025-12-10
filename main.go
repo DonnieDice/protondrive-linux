@@ -9,9 +9,9 @@ func main() {
 	fmt.Println("ProtonDrive Linux - Go Edition")
 
 	caps := config.DetectCapabilities()
-	// profile := config.DetectProfile(caps) // This will be implemented later
+	profile := config.DetectProfile(caps)
 
-	fmt.Printf("Detected profile: %T\n", "UNKNOWN") // Placeholder
+	fmt.Printf("Detected profile: %T\n", profile)
 	fmt.Printf("RAM: %d MB\n", caps.TotalRAM/1024/1024)
 	fmt.Printf("CPU Cores: %d\n", caps.CPUCores)
 }

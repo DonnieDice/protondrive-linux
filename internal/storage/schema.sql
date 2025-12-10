@@ -1,0 +1,1 @@
+CREATE TABLE files (id TEXT);

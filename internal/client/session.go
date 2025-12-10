@@ -1,46 +1,113 @@
 package client
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 	"log"
-	"time"
+	"os"
+	"path/filepath"
 
-	"github.com/henrybear327/Proton-API-Bridge"
+	"github.com/henrybear327/Proton-API-Bridge/common" // Import common
+	"github.com/yourusername/protondrive-linux/internal/encryption"
 )
 
-// SaveSession saves the ProtonDrive session data.
-// This might involve storing specific tokens or session identifiers
-// provided by the Proton-API-Bridge to allow re-initialization
-// without full re-authentication.
-func SaveSession(session *ProtonAPIBridge.Session) error {
-	log.Println("[client] Attempting to save session (placeholder).")
-	// TODO: Implement actual session saving.
-	// This would typically involve serializing parts of the drive.Session struct
-	// that can be used to restore the session, possibly encrypted.
-	_ = session // Avoid unused variable warning
-	time.Sleep(50 * time.Millisecond) // Simulate work
+const (
+	sessionFileName = "session.json.enc"
+	appName = "protondrive-linux" // Should match the one in storage package or be centralized
+)
+
+// getSessionFilePath determines the path where the encrypted session file will be stored.
+func getSessionFilePath() (string, error) {
+	configDir, err := os.UserConfigDir()
+	if err != nil {
+		return "", fmt.Errorf("failed to get user config directory: %w", err)
+	}
+	appConfigDir := filepath.Join(configDir, appName)
+	if err := os.MkdirAll(appConfigDir, 0700); err != nil {
+		return "", fmt.Errorf("failed to create application config directory %s: %w", appConfigDir, err)
+	}
+	return filepath.Join(appConfigDir, sessionFileName), nil
+}
+
+// SaveSession saves the ProtonDrive session data encrypted with the provided key.
+func SaveSession(session *common.ProtonDriveCredential, key []byte) error {
+	if session == nil {
+		return fmt.Errorf("session cannot be nil")
+	}
+	if len(key) != encryption.KeySize {
+		return fmt.Errorf("encryption key must be %d bytes long", encryption.KeySize)
+	}
+
+	sessionFilePath, err := getSessionFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get session file path: %w", err)
+	}
+
+	jsonData, err := json.Marshal(session)
+	if err != nil {
+		return fmt.Errorf("failed to marshal session data: %w", err)
+	}
+
+	encryptedData, err := encryption.EncryptBytes(jsonData, key)
+	if err != nil {
+		return fmt.Errorf("failed to encrypt session data: %w", err)
+	}
+
+	if err := ioutil.WriteFile(sessionFilePath, encryptedData, 0600); err != nil {
+		return fmt.Errorf("failed to write encrypted session file: %w", err)
+	}
+
+	log.Println("[client] Session saved successfully.")
 	return nil
 }
 
-// LoadSession loads the ProtonDrive session data.
-// It should return a ProtonAPIBridge.Session object that can be used to
-// restore the client's authenticated state.
-func LoadSession() (*ProtonAPIBridge.Session, error) {
-	log.Println("[client] Attempting to load session (placeholder).")
-	// TODO: Implement actual session loading.
-	time.Sleep(50 * time.Millisecond) // Simulate work
-	return nil, nil // Return nil session and nil error for now
+// LoadSession loads and decrypts the ProtonDrive session data using the provided key.
+func LoadSession(key []byte) (*common.ProtonDriveCredential, error) {
+	if len(key) != encryption.KeySize {
+		return nil, fmt.Errorf("encryption key must be %d bytes long", encryption.KeySize)
+	}
+
+	sessionFilePath, err := getSessionFilePath()
+	if err != nil {
+		return nil, fmt.Errorf("failed to get session file path: %w", err)
+	}
+
+	encryptedData, err := ioutil.ReadFile(sessionFilePath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, fmt.Errorf("session file not found: %w", err)
+		}
+		return nil, fmt.Errorf("failed to read encrypted session file: %w", err)
+	}
+
+	decryptedData, err := encryption.DecryptBytes(encryptedData, key)
+	if err != nil {
+		return nil, fmt.Errorf("failed to decrypt session data: %w", err)
+	}
+
+	var session common.ProtonDriveCredential
+	if err := json.Unmarshal(decryptedData, &session); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal session data: %w", err)
+	}
+
+	log.Println("[client] Session loaded successfully.")
+	return &session, nil
 }
 
-// RefreshSession attempts to refresh an expired session.
-// This might involve using a refresh token or stored credentials
-// to perform a silent re-login.
-func RefreshSession(username, password string) error {
-	log.Printf("[client] Attempting to refresh session for user: %s (placeholder).", username)
-	// TODO: Implement actual session refresh logic.
-	// This would likely involve a call to the Proton-API-Bridge's login or refresh endpoint
-	// using securely stored credentials.
-	_ = username // Avoid unused variable warning
-	_ = password // Avoid unused variable warning
-	time.Sleep(100 * time.Millisecond) // Simulate work
+// ClearSession deletes the encrypted session file.
+func ClearSession() error {
+	sessionFilePath, err := getSessionFilePath()
+	if err != nil {
+		return fmt.Errorf("failed to get session file path: %w", err)
+	}
+
+	if err := os.Remove(sessionFilePath); err != nil {
+		if os.IsNotExist(err) {
+			return nil // Already deleted
+		}
+		return fmt.Errorf("failed to delete session file: %w", err)
+	}
+	log.Println("[client] Session file cleared.")
 	return nil
 }

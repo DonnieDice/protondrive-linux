@@ -1,737 +1,439 @@
-# ProtonDrive Linux - Task List (Go Edition)
+# ProtonDrive Linux - Task List
 
-**Last Updated**: 2024-12-09  
-**Project Phase**: Pre-Development (Planning Complete)  
-**Technology Stack**: Go + Fyne  
-**Estimated Timeline**: 4-6 weeks to MVP
+**Last Updated**: 2024-12-10  
+**Project Phase**: Foundation & Core Integration  
+**Technology Stack**: Go + Fyne + GopenPGP (Proton Official)  
+**Estimated Timeline**: 6 weeks to MVP
 
 ---
 
 ## PHASES OVERVIEW
 
-- **Phase 0**: Migration & Setup (1-2 days) ⬅️ **START HERE**
-- **Phase 1**: Project Foundation (2-3 days)
-- **Phase 2**: Core Integration (3-5 days)
-- **Phase 3**: GUI Development (5-7 days)
-- **Phase 4**: Sync Engine (7-10 days)
-- **Phase 5**: Testing & Optimization (5-7 days)
-- **Phase 6**: Distribution (3-5 days)
-- **Phase 7**: Documentation & Release (2-3 days)
+| Phase | Description | Duration | Status |
+|-------|-------------|----------|--------|
+| 0 | Migration & Setup | 1-2 days | ✅ Complete |
+| 1 | Project Foundation + Encryption | 4-5 days | ⬅️ Current |
+| 2 | Core Integration | 3-5 days | Not Started |
+| 3 | GUI Development | 5-7 days | Not Started |
+| 4 | Sync Engine | 7-10 days | Not Started |
+| 5 | Testing & Optimization | 5-7 days | Not Started |
+| 6 | Distribution | 3-5 days | Not Started |
 
-**Total Estimated Time**: 27-37 days (4-6 weeks)
+**Total**: ~28-41 days (6 weeks)
 
 ---
 
 ## LEGEND
 
-- [ ] Not Started
-- [⏳] In Progress
-- [✅] Complete
-- [🔄] Needs Revision
-- [❌] Blocked
-- [📝] Documentation Task
-- [🧪] Testing Task
-- [🏗️] Infrastructure Task
-- [🔍] Research Task
+```
+[ ] Not Started
+[⏳] In Progress  
+[✅] Complete
+[🔄] Needs Revision
+[❌] Blocked
+
+🏗️ Infrastructure    🔒 Security-Critical
+📝 Documentation     🧪 Testing
+🔍 Research          🚀 Release
+```
 
 ---
 
+## DEPENDENCY SUMMARY
+
+**Core (5-6 total):**
+```go
+require (
+    github.com/ProtonMail/gopenpgp/v3      // Proton crypto (OFFICIAL)
+    github.com/henrybear327/Proton-API-Bridge // Drive API
+    fyne.io/fyne/v2                         // GUI
+    github.com/fsnotify/fsnotify            // File watching
+    github.com/zalando/go-keyring           // Credentials
+    github.com/stretchr/testify             // Testing
+)
+```
+
+---
+
+## PHASE 0: MIGRATION & SETUP ✅ COMPLETE
+
+- [✅] 🏗️ Backup Electron project (git branch)
+- [✅] 🏗️ Clean Electron artifacts
+- [✅] 🏗️ Initialize Go module
+- [✅] 🏗️ Create directory structure
+- [✅] 📝 Update README.md with new tech stack
+- [✅] 🔍 Review project context documents
+
+---
+
+## PHASE 1: FOUNDATION + ENCRYPTION (4-5 DAYS) ⬅️ CURRENT
+
+### 1.1 Configuration System
+- [✅] 🏗️ Create `internal/config/config.go`
+- [✅] 🏗️ Define `Config` struct
+- [✅] 🏗️ Load from `~/.config/protondrive-linux/config.json`
+- [✅] 🏗️ Implement validation and defaults
+- [✅] 🧪 Write config tests
+- [ ] 🔒 Audit: ensure no sensitive data stored unencrypted
+- [ ] 🧪 Test: verify no filenames/credentials in config.json
+
+### 1.2 Local Encryption Layer (GopenPGP)
+**Using Proton's official crypto library - RFC 9580 profile (Argon2 + AEAD automatic)**
+
+- [ ] 🔒 Create `internal/encryption/` package
+- [ ] 🔒 Implement GopenPGP wrapper (`gopenpgp.go`)
+  - [ ] Initialize PGP with RFC 9580 profile
+  - [ ] Password-based encryption (Argon2 handled internally)
+  - [ ] Password-based decryption
+  - [ ] Streaming encryption for large files
+- [ ] 🔒 Implement keyring integration (`keyring.go`)
+  - [ ] Store session in OS keyring (primary)
+  - [ ] Encrypted file fallback (secondary)
+  - [ ] Password prompt fallback (tertiary)
+- [ ] 🔒 Implement local storage encryption (`storage.go`)
+  - [ ] Encrypt metadata files (.gpg format)
+  - [ ] Encrypt sync state files
+  - [ ] Filename obfuscation (SHA256 hash)
+- [ ] 🔒 Implement memory security (`memory.go`)
+  - [ ] Secure byte slice wiping
+  - [ ] Defer cleanup patterns
+  - [ ] Force garbage collection
+- [ ] 🧪 Write comprehensive tests (100% coverage required)
+  - [ ] TestGopenPGPEncryptDecrypt
+  - [ ] TestKeyringIntegration
+  - [ ] TestKeyringFallback
+  - [ ] TestFilenameObfuscation
+  - [ ] TestMemoryWiping
+  - [ ] BenchmarkEncryption (target: >100 MB/s with AES-NI)
+
+### 1.3 Performance Profiling
+- [✅] 🏗️ Create `internal/profile/detector.go`
+- [✅] 🔍 Detect RAM, CPU cores, storage type
+- [✅] 🏗️ Select performance profile (Low/Standard/High)
+- [✅] 🧪 Write detection tests
+- [ ] 🔍 Detect hardware AES support (AES-NI/ARM crypto)
+
+### 1.4 Database Layer (Encrypted with GopenPGP)
+**Note: Using file-based encrypted storage, NOT SQLCipher**
+
+- [ ] 🏗️ Create `internal/storage/` package
+- [ ] 🏗️ Implement encrypted JSON storage
+  - [ ] Load: Read file → Decrypt with GopenPGP → Parse JSON
+  - [ ] Save: Serialize JSON → Encrypt with GopenPGP → Write file
+- [ ] 🏗️ Define data models (`models.go`)
+  - [ ] FileMetadata struct
+  - [ ] SyncState struct
+  - [ ] ConflictRecord struct
+- [ ] 🏗️ Implement CRUD operations
+- [ ] 🧪 Write storage tests
+- [ ] 🧪 Test: verify storage cannot be read without password
+
+### 1.5 Error Handling
+- [✅] 🏗️ Define custom error types (`internal/errors/`)
+- [✅] 🏗️ Create error wrapper
+- [✅] 🔒 Ensure errors contain no sensitive data (file IDs only)
+- [✅] 🧪 Write error handling tests
+
+### 1.6 Testing Infrastructure
+- [✅] 🏗️ Set up test helpers (`internal/testutil/`)
+- [✅] 🏗️ Create mock ProtonClient
+- [ ] 🏗️ Create mock encryption layer
+- [✅] 🏗️ Prepare test fixtures
+- [ ] 🔒 Create security test helpers (`tests/security/`)
+
+---
 
 ## PHASE 2: CORE INTEGRATION (3-5 DAYS)
 
-**Goal**: Integrate Proton-API-Bridge and implement authentication.
-
 ### 2.1 Proton Client Wrapper
+- [✅] 🔍 Research Proton-API-Bridge
+- [✅] 📝 Create `internal/client/client.go`
+- [✅] 🏗️ Implement client initialization
+- [✅] 🏗️ Implement authentication
+- [ ] 🔒 Implement session management
+  - [ ] Store tokens in OS keyring
+  - [ ] Never store passwords
+  - [ ] Auto-refresh tokens
+- [ ] 🏗️ Add error handling
 
-- [ ] 🔍 Research Proton-API-Bridge
-  - [ ] Study repository documentation
-  - [ ] Examine example code
-  - [ ] Understand authentication flow
-  - [ ] Document API endpoints used
-
-- [ ] 📝 Create `internal/client/client.go`
-  ```go
-  package client
-  
-  import (
-      "github.com/henrybear327/Proton-API-Bridge/pkg/drive"
-  )
-  
-  type ProtonClient struct {
-      bridge    *drive.Client
-      username  string
-      session   *drive.Session
-  }
-  
-  func NewProtonClient() *ProtonClient
-  func (c *ProtonClient) Login(username, password string) error
-  func (c *ProtonClient) Logout() error
-  func (c *ProtonClient) IsAuthenticated() bool
-  ```
-  - [ ] Implement client initialization
-  - [ ] Implement authentication
-  - [ ] Handle session management
-  - [ ] Add error handling
-
-- [ ] 🧪 Write tests for client
-  - [ ] Test login with valid credentials
-  - [ ] Test login with invalid credentials
-  - [ ] Test session persistence
-  - [ ] Test logout
-
-### 2.2 Authentication & Session Management
-
-- [ ] 📝 Implement secure credential storage
-  ```go
-  // internal/client/keyring.go
-  func SaveCredentials(username, password string) error
-  func LoadCredentials() (string, string, error)
-  func ClearCredentials() error
-  ```
-  - [ ] Use Linux keyring (libsecret/gnome-keyring)
-  - [ ] Fallback to encrypted file if keyring unavailable
-  - [ ] Never log or print credentials
-
-- [ ] 📝 Implement session token management
-  ```go
-  // internal/client/session.go
-  func SaveSession(session *drive.Session) error
-  func LoadSession() (*drive.Session, error)
-  func RefreshSession() error
-  ```
-  - [ ] Save session tokens securely
-  - [ ] Auto-refresh expired tokens
-  - [ ] Handle refresh failures gracefully
-
+### 2.2 Session Management
+- [ ] 📝 Create `internal/client/session.go`
+  - [ ] Token storage in keyring
+  - [ ] Token refresh logic
+  - [ ] Re-authentication on failure
+- [ ] 📝 Create `internal/client/keyring.go`
+  - [ ] Primary: OS Secret Service
+  - [ ] Fallback: GopenPGP encrypted file
 - [ ] 🧪 Security testing
-  - [ ] Verify credentials never logged
+  - [ ] Verify credentials never stored
   - [ ] Test session refresh
-  - [ ] Test session expiration handling
+  - [ ] Test keyring fallback
 
 ### 2.3 File Operations
+- [ ] 📝 Create `internal/client/files.go`
+  - [ ] ListFiles
+  - [ ] CreateFolder
+  - [ ] UploadFile (with progress)
+  - [ ] DownloadFile (with progress)
+  - [ ] DeleteFile
+  - [ ] MoveFile
+- [ ] 🏗️ Handle large files (chunking)
+- [ ] 🏗️ Add rate limiting
+- [ ] 🔒 Encrypt all metadata before storing
+- [ ] 🧪 Write file operation tests
 
-- [ ] 📝 Implement basic file operations
-  ```go
-  // internal/client/files.go
-  func (c *ProtonClient) ListFiles(path string) ([]File, error)
-  func (c *ProtonClient) CreateFolder(path string) error
-  func (c *ProtonClient) UploadFile(localPath, remotePath string) error
-  func (c *ProtonClient) DownloadFile(remotePath, localPath string) error
-  func (c *ProtonClient) DeleteFile(path string) error
-  func (c *ProtonClient) MoveFile(oldPath, newPath string) error
-  ```
-  - [ ] Implement each operation
-  - [ ] Add progress reporting
-  - [ ] Handle large files (chunking)
-  - [ ] Add rate limiting
-
-- [ ] 🧪 Write tests for file operations
-  - [ ] Test file listing
-  - [ ] Test upload (small file)
-  - [ ] Test upload (large file)
-  - [ ] Test download
-  - [ ] Test folder creation
-  - [ ] Test delete/move
-
-### 2.4 Metadata & State
-
-- [ ] 📝 Define file metadata structure
-  ```go
-  type FileMetadata struct {
-      ID           string
-      Name         string
-      Size         int64
-      ModTime      time.Time
-      IsDir        bool
-      Hash         string
-      RemotePath   string
-      LocalPath    string
-      SyncStatus   SyncStatus
-  }
-  
-  type SyncStatus int
-  const (
-      SyncPending SyncStatus = iota
-      SyncInProgress
-      SyncComplete
-      SyncFailed
-  )
-  ```
-
-- [ ] 📝 Implement `internal/storage/db.go`
-  ```go
-  type Database struct {
-      db *sql.DB
-  }
-  
-  func NewDatabase(path string) (*Database, error)
-  func (db *Database) SaveFile(metadata FileMetadata) error
-  func (db *Database) GetFile(id string) (FileMetadata, error)
-  func (db *Database) ListFiles() ([]FileMetadata, error)
-  func (db *Database) DeleteFile(id string) error
-  ```
-  - [ ] Create database schema
-  - [ ] Implement CRUD operations
-  - [ ] Add indexes for performance
-  - [ ] Implement migrations
-
-- [ ] 🧪 Database tests
-  - [ ] Test file save/retrieve
-  - [ ] Test query performance
-  - [ ] Test migration system
-
-### 2.5 Network & Error Handling
-
-- [ ] 📝 Implement retry logic
-  ```go
-  // internal/client/retry.go
-  func WithRetry(fn func() error, maxAttempts int) error
-  ```
+### 2.4 Network & Retry Logic
+- [ ] 📝 Create `internal/client/retry.go`
   - [ ] Exponential backoff
-  - [ ] Maximum retry limits
-  - [ ] Network error detection
-
-- [ ] 📝 Implement rate limiting
-  ```go
-  // internal/client/ratelimit.go
-  type RateLimiter struct {
-      requestsPerSecond int
-      burst             int
-  }
-  ```
-  - [ ] Respect ProtonDrive API limits
-  - [ ] Implement token bucket algorithm
-
+  - [ ] Max retry attempts
+  - [ ] Jitter to prevent thundering herd
+- [ ] 📝 Create `internal/client/ratelimit.go`
+  - [ ] Token bucket algorithm
+  - [ ] Respect API limits
 - [ ] 🧪 Test error scenarios
-  - [ ] Network timeout
-  - [ ] API rate limit
-  - [ ] Invalid auth
-  - [ ] Server error (5xx)
+
+### 2.5 Command-Line Interface
+- [ ] 🏗️ Create `cmd/protondrive/main.go`
+- [ ] 🏗️ Implement flags: `--verbose`, `--config`, `--profile`, `--version`, `--health`
+- [ ] 🔒 Ensure verbose output has no plaintext filenames
+- [ ] 📝 Add help text
+- [ ] 🧪 Write CLI tests
 
 ---
 
 ## PHASE 3: GUI DEVELOPMENT (5-7 DAYS)
 
-**Goal**: Build Fyne-based GUI for user interaction.
-
 ### 3.1 Application Window
-
-- [ ] 📝 Create `internal/gui/app.go`
-  ```go
-  package gui
-  
-  import "fyne.io/fyne/v2/app"
-  
-  type App struct {
-      fyneApp fyne.App
-      window  fyne.Window
-      client  *client.ProtonClient
-      config  *config.Config
-  }
-  
-  func NewApp(client *client.ProtonClient, config *config.Config) *App
-  func (a *App) Run()
-  func (a *App) ShowLogin()
-  func (a *App) ShowMainView()
-  ```
-  - [ ] Initialize Fyne application
-  - [ ] Create main window
-  - [ ] Set window size and position
-  - [ ] Add window icon
+- [ ] 🏗️ Create `internal/gui/app.go`
+- [ ] 🏗️ Initialize Fyne application
+- [ ] 🏗️ Set window properties
 
 ### 3.2 Login Screen
-
-- [ ] 📝 Create `internal/gui/login.go`
-  ```go
-  func (a *App) createLoginView() fyne.CanvasObject {
-      usernameEntry := widget.NewEntry()
-      passwordEntry := widget.NewPasswordEntry()
-      loginButton := widget.NewButton("Login", a.handleLogin)
-      
-      return container.NewVBox(
-          widget.NewLabel("ProtonDrive Login"),
-          usernameEntry,
-          passwordEntry,
-          loginButton,
-      )
-  }
-  
-  func (a *App) handleLogin() {
-      // Authenticate and switch to main view
-  }
-  ```
-  - [ ] Username field
-  - [ ] Password field (masked)
+- [ ] 🏗️ Create `internal/gui/login.go`
+  - [ ] Username/password fields
   - [ ] Login button
-  - [ ] "Remember me" checkbox
-  - [ ] Error message display
-  - [ ] Loading indicator during auth
-
+  - [ ] Error display
+  - [ ] Loading indicator
+- [ ] 🔒 Ensure password never logged
 - [ ] 🧪 Test login UI
-  - [ ] Test valid credentials
-  - [ ] Test invalid credentials
-  - [ ] Test network errors
-  - [ ] Test UI responsiveness
 
 ### 3.3 Main View (File List)
-
-- [ ] 📝 Create `internal/gui/filelist.go`
-  ```go
-  type FileListView struct {
-      tree    *widget.Tree
-      toolbar *widget.Toolbar
-  }
-  
-  func (a *App) createFileListView() fyne.CanvasObject {
-      // Create tree widget
-      // Add toolbar with actions
-      // Handle file selection
-  }
-  ```
+- [ ] 🏗️ Create `internal/gui/filelist.go`
   - [ ] Tree view for folders
-  - [ ] File list with icons
-  - [ ] Sort by name/size/date
-  - [ ] Context menu (right-click)
-  - [ ] Multi-select support
-  - [ ] Drag & drop (future)
+  - [ ] File list with sorting
+  - [ ] Sync status indicators
+- [ ] 🔒 Decrypt filenames in memory only
+- [ ] 🧪 Test file list display
 
 ### 3.4 Toolbar & Actions
+- [ ] 🏗️ Implement toolbar
+  - [ ] Upload, Download
+  - [ ] New Folder, Delete
+  - [ ] Settings, Refresh
+- [ ] 🧪 Test toolbar actions
 
-- [ ] 📝 Create toolbar
-  ```go
-  toolbar := widget.NewToolbar(
-      widget.NewToolbarAction(theme.FolderNewIcon(), createFolder),
-      widget.NewToolbarAction(theme.UploadIcon(), uploadFiles),
-      widget.NewToolbarAction(theme.DownloadIcon(), downloadFiles),
-      widget.NewToolbarSeparator(),
-      widget.NewToolbarAction(theme.DeleteIcon(), deleteFiles),
-      widget.NewToolbarSpacer(),
-      widget.NewToolbarAction(theme.SettingsIcon(), openSettings),
-  )
-  ```
-  - [ ] Upload button
-  - [ ] Download button
-  - [ ] New folder button
-  - [ ] Delete button
-  - [ ] Settings button
-  - [ ] Refresh button
-
-### 3.5 File Operations Dialogs
-
-- [ ] 📝 Upload dialog
-  ```go
-  func (a *App) showUploadDialog() {
-      dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
-          if err != nil {
-              dialog.ShowError(err, a.window)
-              return
-          }
-          // Upload file
-      }, a.window)
-  }
-  ```
-  - [ ] File picker integration
-  - [ ] Multiple file selection
-  - [ ] Progress bar
-  - [ ] Cancel button
-
-- [ ] 📝 Download dialog
-  ```go
-  func (a *App) showDownloadDialog(file FileMetadata) {
-      dialog.ShowFileSave(func(writer fyne.URIWriteCloser, err error) {
-          // Download file
-      }, a.window)
-  }
-  ```
-  - [ ] Save location picker
-  - [ ] Progress bar
-  - [ ] Cancel button
-
-- [ ] 📝 Delete confirmation
-  ```go
-  func (a *App) confirmDelete(files []FileMetadata) {
-      dialog.ShowConfirm("Delete Files",
-          fmt.Sprintf("Delete %d file(s)?", len(files)),
-          func(confirmed bool) {
-              if confirmed {
-                  // Delete files
-              }
-          }, a.window)
-  }
-  ```
-
-### 3.6 Settings Dialog
-
-- [ ] 📝 Create `internal/gui/settings.go`
-  ```go
-  func (a *App) showSettings() {
-      syncDirEntry := widget.NewEntry()
-      profileSelect := widget.NewSelect(
-          []string{"Low-End", "Standard", "High-End"},
-          nil,
-      )
-      
-      dialog.ShowCustomConfirm("Settings",
-          "Save", "Cancel",
-          container.NewVBox(
-              widget.NewLabel("Sync Directory:"),
-              syncDirEntry,
-              widget.NewLabel("Performance Profile:"),
-              profileSelect,
-          ),
-          a.handleSettingsSave,
-          a.window,
-      )
-  }
-  ```
+### 3.5 Settings Dialog
+- [ ] 🏗️ Create `internal/gui/settings.go`
   - [ ] Sync directory chooser
   - [ ] Performance profile selector
-  - [ ] Auto-start option
-  - [ ] Log level selector
+  - [ ] Theme toggle
   - [ ] About section
+- [ ] 🔒 Add "Clear Session Data" button
+- [ ] 🔒 Add "Delete All Local Data" option
+- [ ] 🧪 Test settings UI
 
-### 3.7 Status Bar & Notifications
+### 3.6 System Tray
+- [ ] 🏗️ Create `internal/gui/tray.go`
+- [ ] 🏗️ Add tray icon with menu
+- [ ] 🏗️ Handle tray events
 
-- [ ] 📝 Create status bar
-  ```go
-  statusBar := container.NewHBox(
-      widget.NewLabel("Connected"),
-      layout.NewSpacer(),
-      widget.NewProgressBarInfinite(),
-      widget.NewLabel("Syncing..."),
-  )
-  ```
-  - [ ] Connection status
-  - [ ] Sync status
-  - [ ] Storage usage
-  - [ ] Upload/download speed
-
-- [ ] 📝 System notifications
-  ```go
-  func (a *App) sendNotification(title, message string) {
-      fyne.CurrentApp().SendNotification(&fyne.Notification{
-          Title:   title,
-          Content: message,
-      })
-  }
-  ```
-  - [ ] Upload complete
-  - [ ] Download complete
-  - [ ] Sync errors
-  - [ ] Connection issues
-
-### 3.8 Themes & Styling
-
-- [ ] 📝 Apply custom theme (optional)
-  ```go
-  customTheme := &myTheme{}
-  app.Settings().SetTheme(customTheme)
-  ```
-  - [ ] Dark/light mode toggle
-  - [ ] Custom colors
-  - [ ] Custom fonts
-  - [ ] Icon set
+### 3.7 Notifications
+- [ ] 🏗️ Implement desktop notifications
+- [ ] 🔒 Ensure notifications have no filenames
 
 ---
 
 ## PHASE 4: SYNC ENGINE (7-10 DAYS)
 
-**Goal**: Implement bidirectional file synchronization.
-
 ### 4.1 File Watcher
-
-- [ ] 📝 Create `internal/sync/watcher.go`
-  ```go
-  package sync
-  
-  import "github.com/fsnotify/fsnotify"
-  
-  type Watcher struct {
-      watcher *fsnotify.Watcher
-      events  chan FileEvent
-  }
-  
-  type FileEvent struct {
-      Path   string
-      Op     FileOp
-      IsDir  bool
-  }
-  
-  type FileOp int
-  const (
-      OpCreate FileOp = iota
-      OpModify
-      OpDelete
-      OpRename
-  )
-  
-  func NewWatcher(path string) (*Watcher, error)
-  func (w *Watcher) Start() error
-  func (w *Watcher) Stop()
-  func (w *Watcher) Events() <-chan FileEvent
-  ```
-  - [ ] Monitor sync directory
-  - [ ] Detect file changes
-  - [ ] Handle renames
-  - [ ] Ignore temporary files
-  - [ ] Debounce rapid changes
-
+- [ ] 🏗️ Create `internal/sync/watcher.go`
+  - [ ] Primary: fsnotify (inotify)
+  - [ ] Fallback: polling for NFS/FUSE
+- [ ] 🏗️ Monitor sync directory
+- [ ] 🏗️ Ignore temp/system files
 - [ ] 🧪 Test file watcher
-  - [ ] Test file create
-  - [ ] Test file modify
-  - [ ] Test file delete
-  - [ ] Test folder operations
-  - [ ] Test performance (many files)
 
 ### 4.2 Sync Manager
-
-- [ ] 📝 Create `internal/sync/manager.go`
-  ```go
-  type Manager struct {
-      client        *client.ProtonClient
-      db            *storage.Database
-      watcher       *Watcher
-      profile       config.PerformanceProfile
-      uploadQueue   chan string
-      downloadQueue chan string
-      wg            sync.WaitGroup
-      ctx           context.Context
-      cancel        context.CancelFunc
-  }
-  
-  func NewManager(...) *Manager
-  func (m *Manager) Start() error
-  func (m *Manager) Stop()
-  func (m *Manager) QueueUpload(filepath string)
-  func (m *Manager) QueueDownload(filepath string)
-  ```
-  - [ ] Initialize worker pools
-  - [ ] Handle file events
-  - [ ] Queue management
+- [ ] 🏗️ Create `internal/sync/manager.go`
+  - [ ] Worker pools based on profile
+  - [ ] Event queue processing
   - [ ] Graceful shutdown
-
-- [ ] 📝 Implement upload workers
-  ```go
-  func (m *Manager) uploadWorker(ctx context.Context) {
-      for {
-          select {
-          case filepath := <-m.uploadQueue:
-              m.uploadFile(filepath)
-          case <-ctx.Done():
-              return
-          }
-      }
-  }
-  
-  func (m *Manager) uploadFile(filepath string) error {
-      // Read file
-      // Compute hash
-      // Check if changed
-      // Upload to ProtonDrive
-      // Update database
-  }
-  ```
-  - [ ] Implement upload logic
-  - [ ] Handle chunked uploads
-  - [ ] Progress reporting
-  - [ ] Error handling
-  - [ ] Retry logic
-
-- [ ] 📝 Implement download workers
-  ```go
-  func (m *Manager) downloadWorker(ctx context.Context) {
-      // Similar to uploadWorker
-  }
-  
-  func (m *Manager) downloadFile(remotePath string) error {
-      // Download from ProtonDrive
-      // Verify hash
-      // Write to disk
-      // Update database
-  }
-  ```
+- [ ] 🏗️ Implement upload workers
+- [ ] 🏗️ Implement download workers
+- [ ] 🔒 Encrypt all sync state
+- [ ] 🧪 Test sync manager
 
 ### 4.3 Conflict Resolution
-
-- [ ] 📝 Create `internal/sync/conflict.go`
-  ```go
-  type ConflictResolution int
-  const (
-      ResolveLocal ConflictResolution = iota
-      ResolveRemote
-      ResolveKeepBoth
-      ResolveManual
-  )
-  
-  type Conflict struct {
-      LocalFile  FileMetadata
-      RemoteFile FileMetadata
-      Resolution ConflictResolution
-  }
-  
-  func DetectConflict(local, remote FileMetadata) bool
-  func ResolveConflict(conflict Conflict) error
-  ```
-  - [ ] Detect conflicts (both sides modified)
-  - [ ] Implement resolution strategies
-  - [ ] Notify user of conflicts
-  - [ ] Create conflict copies
-
+- [ ] 🏗️ Create `internal/sync/conflict.go`
+  - [ ] Detect conflicts
+  - [ ] Strategies: Server Wins, Local Wins, Keep Both, Manual
+  - [ ] User notification
+- [ ] 🔒 Log conflicts with file IDs only
 - [ ] 🧪 Test conflict scenarios
-  - [ ] Both sides modify same file
-  - [ ] One side deletes, other modifies
-  - [ ] Both sides create same name
-  - [ ] Test all resolution strategies
 
-### 4.4 Change Detection & Hashing
+### 4.4 Change Detection
+- [ ] 🏗️ Create `internal/sync/hash.go`
+  - [ ] SHA-256 file hashing
+  - [ ] Hash caching (encrypted)
+  - [ ] Large file optimization
+- [ ] 🧪 Test hashing (target: >100 MB/s)
 
-- [ ] 📝 Create `internal/sync/hash.go`
-  ```go
-  func ComputeFileHash(filepath string) (string, error) {
-      // Use SHA-256
-      f, _ := os.Open(filepath)
-      defer f.Close()
-      
-      h := sha256.New()
-      io.Copy(h, f)
-      return hex.EncodeToString(h.Sum(nil)), nil
-  }
-  
-  func HasFileChanged(filepath string, lastHash string) bool {
-      currentHash, _ := ComputeFileHash(filepath)
-      return currentHash != lastHash
-  }
-  ```
-  - [ ] Use SHA-256 for hashing
-  - [ ] Cache hashes in database
-  - [ ] Optimize for large files
-
-- [ ] 🧪 Test hashing
-  - [ ] Test small files
-  - [ ] Test large files (GB+)
-  - [ ] Test performance
-
-### 4.5 Sync States & Recovery
-
-- [ ] 📝 Implement sync state machine
-  ```go
-  type SyncState int
-  const (
-      StateIdle SyncState = iota
-      StateScanning
-      StateSyncing
-      StatePaused
-      StateError
-  )
-  
-  func (m *Manager) SetState(state SyncState)
-  func (m *Manager) GetState() SyncState
-  ```
-
-- [ ] 📝 Implement recovery mechanisms
-  ```go
-  func (m *Manager) RecoverFromCrash() error {
-      // Load incomplete uploads
-      // Resume or restart them
-  }
-  
-  func (m *Manager) PauseSync()
-  func (m *Manager) ResumeSync()
-  ```
-
-### 4.6 Performance Profiling Integration
-
-- [ ] 📝 Add profiling hooks
-  ```go
-  func (m *Manager) GetStats() SyncStats {
-      return SyncStats{
-          FilesUploaded:   m.filesUploaded,
-          FilesDownloaded: m.filesDownloaded,
-          BytesUploaded:   m.bytesUploaded,
-          BytesDownloaded: m.bytesDownloaded,
-          Errors:          m.errors,
-          CurrentRAM:      m.getCurrentRAM(),
-      }
-  }
-  ```
-  - [ ] Track memory usage
-  - [ ] Track CPU usage
-  - [ ] Track network usage
-  - [ ] Adjust concurrency dynamically
-
-- [ ] 🧪 Performance testing
-  - [ ] Test with 10 files
-  - [ ] Test with 1000 files
-  - [ ] Test with 10,000 files
-  - [ ] Measure resource usage
-  - [ ] Verify profile scaling works
-
-### 4.7 Sync Testing
-
-- [ ] 🧪 Create test scenarios
-  ```go
-  func TestFullSync(t *testing.T) {
-      // Create local files
-      // Start sync
-      // Verify upload
-      // Modify remote
-      // Verify download
-  }
-  ```
-  - [ ] Test initial sync
-  - [ ] Test incremental sync
-  - [ ] Test large file sync
-  - [ ] Test many small files
-  - [ ] Test sync interruption/resume
+### 4.5 Sync State & Recovery
+- [ ] 🏗️ Implement state machine
+- [ ] 🏗️ Crash recovery
+- [ ] 🏗️ Pause/Resume
+- [ ] 🔒 Encrypt all state data
 
 ---
 
 ## PHASE 5: TESTING & OPTIMIZATION (5-7 DAYS)
 
-**Goal**: Comprehensive testing and performance optimization.
-
 ### 5.1 Unit Tests
-
-- [ ] 🧪 Test coverage audit
-  ```bash
-  go test -cover ./... | grep -v "100.0%"
-  ```
-  - [ ] Ensure ≥80% coverage in all packages
-  - [ ] Write missing tests
-  - [ ] Document untested code (if any)
-
+- [ ] 🧪 Coverage audit (target: 80% overall, 100% security)
 - [ ] 🧪 Package-specific tests
-  - [ ] internal/config (100%)
-  - [ ] internal/client (≥80%)
-  - [ ] internal/sync (≥80%)
-  - [ ] internal/storage (≥80%)
-  - [ ] internal/gui (≥60%, harder to test)
 
 ### 5.2 Integration Tests
+- [ ] 🧪 Create `tests/integration/`
+  - [ ] Full auth flow
+  - [ ] E2E file operations
+  - [ ] Sync cycles
+  - [ ] Encryption verification
 
-- [ ] 🧪 Create `integration_test.go`
-  ```go
-  //go:build integration
-  
-  func TestFullWorkflow(t *testing.T) {
-      // Real ProtonDrive account
-      // Create files
-      // Upload
-      // Download
-      // Verify
-  }
-  ```
-  - [ ] Test with real ProtonDrive account
-  - [ ] Test authentication flow
-  - [ ] Test file operations
-  - [ ] Test sync engine
-  - [ ] Document setup requirements
+### 5.3 Security Tests
+- [ ] 🔒 Create `tests/security/`
+- [ ] 🔒 TestStorageIsEncrypted
+- [ ] 🔒 TestCacheFilesEncrypted
+- [ ] 🔒 TestLogsContainNoPlaintext
+- [ ] 🔒 TestMemoryWiping
+- [ ] 🔒 TestConfigNoSensitiveData
 
-### 5.3 Hardware Compatibility Tests
+### 5.4 Performance Tests
+- [ ] 🧪 Create `tests/performance/`
+- [ ] 🧪 BenchmarkColdStart (<500ms)
+- [ ] 🧪 BenchmarkWarmStart (<200ms)
+- [ ] 🧪 TestMemoryUsage per profile
+- [ ] 🧪 BenchmarkEncryption (>100 MB/s)
 
-- [ ] 🧪 Test on different systems
-  - [ ] Ubuntu 22.04 (x64)
-  - [ ] Debian 12 (x64)
-  - [ ] Fedora 39 (x64)
-  - [ ] Arch Linux (x64)
-  - [ ]
+### 5.5 Cross-Platform Tests
+- [ ] 🧪 Test on Ubuntu, Fedora, Arch (x86_64)
+- [ ] 🧪 Test on Raspberry Pi (ARM64, ARMv7)
+- [ ] 🧪 Test hardware AES detection
+
+### 5.6 Privacy Audit
+- [ ] 🔍 Grep for `log.Print*` (should be 0 in production)
+- [ ] 🔍 Verify no analytics/telemetry
+- [ ] 🔍 Verify no crash reporting
+- [ ] 🔍 Network calls are ProtonDrive only
+- [ ] 📝 Create `PRIVACY_AUDIT.md`
+
+---
+
+## PHASE 6: DISTRIBUTION (3-5 DAYS)
+
+### 6.1 Package Formats
+- [ ] 🏗️ Build `.deb` (Debian/Ubuntu)
+- [ ] 🏗️ Build `.rpm` (Fedora/openSUSE)
+- [ ] 🏗️ Build Flatpak
+- [ ] 🏗️ Build AppImage
+
+### 6.2 Release Automation
+- [ ] 🏗️ CI/CD pipeline (GitHub Actions)
+- [ ] 🏗️ Cross-compilation scripts
+- [ ] 🏗️ Signed releases
+
+### 6.3 Documentation
+- [ ] 📝 Complete README.md
+- [ ] 📝 Create user manual
+- [ ] 📝 Installation guides per distro
+- [ ] 📝 Security documentation
+
+### 6.4 Release
+- [ ] 🚀 Final QA
+- [ ] 🚀 Create GitHub release
+- [ ] 🚀 Announce release
+
+---
+
+## PRIORITY MATRIX
+
+### P0 - Critical (MVP Blockers)
+- [ ] GopenPGP encryption layer
+- [ ] Encrypted local storage
+- [ ] Memory security (wiping)
+- [ ] Basic authentication
+- [ ] Basic file operations
+- [ ] Basic sync engine
+- [ ] Security tests passing
+
+### P1 - High (MVP Quality)
+- [ ] Conflict resolution
+- [ ] Performance profiling
+- [ ] GUI implementation
+- [ ] System tray
+- [ ] Unit tests (80% coverage)
+
+### P2 - Medium (v1.0)
+- [ ] Selective sync
+- [ ] Desktop notifications
+- [ ] Advanced settings
+- [ ] Performance optimization
+
+### P3 - Low (Future)
+- [ ] File versioning UI
+- [ ] Share link generation
+- [ ] Multiple accounts
+- [ ] LAN sync
+
+---
+
+## CRITICAL PATH
+
+```
+1. Encryption Layer (Phase 1.2) ──┐
+                                  ├─→ 3. Auth + File Ops (Phase 2)
+2. Storage Layer (Phase 1.4) ─────┘              │
+                                                 ↓
+                              4. Sync Engine (Phase 4)
+                                                 │
+                                                 ↓
+                              5. Security Tests (Phase 5.3)
+                                                 │
+                                                 ↓
+                              6. Release (Phase 6)
+```
+
+---
+
+## NOTES
+
+### Key Simplifications (v11.0)
+1. **GopenPGP replaces multiple crypto packages** - RFC 9580 profile handles Argon2 + AEAD automatically
+2. **No SQLCipher** - Using GopenPGP-encrypted JSON files instead (simpler, no CGO)
+3. **5-6 dependencies total** - Down from ~15 in original plan
+4. **Consistent crypto** - Same library for local and remote encryption
+
+### Dependencies Removed
+- ~~SQLCipher~~ (CGO complexity)
+- ~~golang.org/x/crypto~~ (GopenPGP includes this)
+- ~~Manual Argon2 setup~~ (RFC 9580 handles it)
+
+### Testing Requirements
+- **Overall coverage**: 80% minimum
+- **Security-critical**: 100% coverage
+- **GUI code**: 60% minimum
+
+---
+
+**Document Version**: 2.0 - GopenPGP Edition  
+**Last Updated**: 2024-12-10  
+**Maintained By**: Project team

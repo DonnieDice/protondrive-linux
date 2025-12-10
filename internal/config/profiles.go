@@ -8,47 +8,47 @@ type PerformanceProfile interface {
 	ChunkSizeMB() int
 }
 
-// LowEndProfile is for systems with limited resources.
+// LowEndProfile implements PerformanceProfile for low-end systems.
 type LowEndProfile struct{}
 
-// MaxConcurrentUploads returns the maximum number of concurrent uploads for the low-end profile.
+// MaxConcurrentUploads returns the maximum concurrent uploads for a low-end profile.
 func (p LowEndProfile) MaxConcurrentUploads() int { return 1 }
 
-// MaxConcurrentDownloads returns the maximum number of concurrent downloads for the low-end profile.
+// MaxConcurrentDownloads returns the maximum concurrent downloads for a low-end profile.
 func (p LowEndProfile) MaxConcurrentDownloads() int { return 2 }
 
-// CacheSizeMB returns the cache size in megabytes for the low-end profile.
+// CacheSizeMB returns the cache size in MB for a low-end profile.
 func (p LowEndProfile) CacheSizeMB() int { return 50 }
 
-// ChunkSizeMB returns the chunk size in megabytes for the low-end profile.
+// ChunkSizeMB returns the chunk size in MB for a low-end profile.
 func (p LowEndProfile) ChunkSizeMB() int { return 5 }
 
-// StandardProfile is for systems with moderate resources.
+// StandardProfile implements PerformanceProfile for standard systems.
 type StandardProfile struct{}
 
-// MaxConcurrentUploads returns the maximum number of concurrent uploads for the standard profile.
+// MaxConcurrentUploads returns the maximum concurrent uploads for a standard profile.
 func (p StandardProfile) MaxConcurrentUploads() int { return 3 }
 
-// MaxConcurrentDownloads returns the maximum number of concurrent downloads for the standard profile.
+// MaxConcurrentDownloads returns the maximum concurrent downloads for a standard profile.
 func (p StandardProfile) MaxConcurrentDownloads() int { return 5 }
 
-// CacheSizeMB returns the cache size in megabytes for the standard profile.
+// CacheSizeMB returns the cache size in MB for a standard profile.
 func (p StandardProfile) CacheSizeMB() int { return 100 }
 
-// ChunkSizeMB returns the chunk size in megabytes for the standard profile.
+// ChunkSizeMB returns the chunk size in MB for a standard profile.
 func (p StandardProfile) ChunkSizeMB() int { return 5 }
 
-// HighEndProfile is for systems with ample resources.
+// HighEndProfile implements PerformanceProfile for high-end systems.
 type HighEndProfile struct{}
 
-// MaxConcurrentUploads returns the maximum number of concurrent uploads for the high-end profile.
+// MaxConcurrentUploads returns the maximum concurrent uploads for a high-end profile.
 func (p HighEndProfile) MaxConcurrentUploads() int { return 5 }
 
-// MaxConcurrentDownloads returns the maximum number of concurrent downloads for the high-end profile.
+// MaxConcurrentDownloads returns the maximum concurrent downloads for a high-end profile.
 func (p HighEndProfile) MaxConcurrentDownloads() int { return 10 }
 
-// CacheSizeMB returns the cache size in megabytes for the high-end profile.
+// CacheSizeMB returns the cache size in MB for a high-end profile.
 func (p HighEndProfile) CacheSizeMB() int { return 200 }
 
-// ChunkSizeMB returns the chunk size in megabytes for the high-end profile.
+// ChunkSizeMB returns the chunk size in MB for a high-end profile.
 func (p HighEndProfile) ChunkSizeMB() int { return 10 }
