@@ -31,7 +31,16 @@ This client is built with a **zero-trust privacy philosophy**:
 | Credentials | OS keyring (GNOME Keyring, KWallet, etc.) |
 | Memory | Sensitive data wiped after use |
 
+**Even if an attacker gains filesystem access, they find only encrypted data.**
 
+### What We Don't Do
+
+- ❌ No telemetry or analytics
+- ❌ No crash reporting
+- ❌ No plaintext logging
+- ❌ No unencrypted local storage
+
+---
 
 ## Installation
 
