@@ -1,3 +1,4 @@
+# .github/workflows/ci.yml
 name: CI/CD Pipeline
 
 on:
@@ -5,8 +6,16 @@ on:
     branches: [main, alpha, dev]
   pull_request:
     branches: [main, alpha, dev]
+  release:
+    types: [created]
+
+env:
+  GO_VERSION: '1.21'
 
 jobs:
+  # ============================================
+  # TEST & LINT
+  # ============================================
   test:
     name: Test & Lint
     runs-on: ubuntu-24.04
@@ -14,21 +23,199 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      # Use Node.js 20+
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
         with:
-          node-version: '20'
-          cache: 'npm'
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
       
-      # Fix lockfile sync issue and install dependencies
       - name: Install dependencies
         run: |
-          npm install  # Regenerates correct lockfile
-          npm ci       # Now this will work
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      
+      - name: Download Go modules
+        run: go mod download
+      
+      - name: Verify dependencies
+        run: go mod verify
+      
+      - name: Run go vet
+        run: go vet ./...
+      
+      - name: Install staticcheck
+        run: go install honnef.co/go/tools/cmd/staticcheck@latest
+      
+      - name: Run staticcheck
+        run: staticcheck ./...
       
       - name: Run tests
-        run: npm test -- --passWithNoTests --verbose
-        
-      - name: Run linting
-        run: npm run lint
+        run: go test -v -race -coverprofile=coverage.out ./...
+      
+      - name: Check coverage
+        run: |
+          go tool cover -func=coverage.out
+          # Fail if coverage below 80% (adjust as needed)
+          # go tool cover -func=coverage.out | grep total | awk '{print $3}' | sed 's/%//' | awk '{if ($1 < 80) exit 1}'
+      
+      - name: Upload coverage
+        uses: codecov/codecov-action@v4
+        with:
+          files: ./coverage.out
+          fail_ci_if_error: false
+
+  # ============================================
+  # SECURITY TESTS
+  # ============================================
+  security:
+    name: Security Scan
+    runs-on: ubuntu-24.04
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Install govulncheck
+        run: go install golang.org/x/vuln/cmd/govulncheck@latest
+      
+      - name: Run vulnerability check
+        run: govulncheck ./...
+      
+      - name: Run security tests
+        run: go test -v ./tests/security/...
+        continue-on-error: true  # Remove once security tests exist
+
+  # ============================================
+  # BUILD (All Platforms)
+  # ============================================
+  build:
+    name: Build
+    runs-on: ubuntu-24.04
+    needs: test
+    strategy:
+      matrix:
+        include:
+          - goos: linux
+            goarch: amd64
+            name: linux-amd64
+          - goos: linux
+            goarch: arm64
+            name: linux-arm64
+          - goos: linux
+            goarch: arm
+            goarm: 7
+            name: linux-armv7
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Install cross-compile dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+          # For ARM cross-compilation
+          if [ "${{ matrix.goarch }}" = "arm64" ] || [ "${{ matrix.goarch }}" = "arm" ]; then
+            sudo apt-get install -y gcc-aarch64-linux-gnu gcc-arm-linux-gnueabihf
+          fi
+      
+      - name: Build binary
+        env:
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+          GOARM: ${{ matrix.goarm }}
+          CGO_ENABLED: 1
+        run: |
+          # Set cross-compiler for ARM
+          if [ "${{ matrix.goarch }}" = "arm64" ]; then
+            export CC=aarch64-linux-gnu-gcc
+          elif [ "${{ matrix.goarch }}" = "arm" ]; then
+            export CC=arm-linux-gnueabihf-gcc
+          fi
+          
+          go build -ldflags="-s -w" -o protondrive-linux-${{ matrix.name }} ./cmd/protondrive
+      
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: protondrive-linux-${{ matrix.name }}
+          path: protondrive-linux-${{ matrix.name }}
+
+  # ============================================
+  # RELEASE
+  # ============================================
+  release:
+    name: Release
+    runs-on: ubuntu-24.04
+    needs: [test, security, build]
+    if: github.event_name == 'release'
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: ./artifacts
+      
+      - name: Create checksums
+        run: |
+          cd artifacts
+          for dir in */; do
+            cd "$dir"
+            sha256sum * > SHA256SUMS.txt
+            cd ..
+          done
+      
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            artifacts/protondrive-linux-linux-amd64/*
+            artifacts/protondrive-linux-linux-arm64/*
+            artifacts/protondrive-linux-linux-armv7/*
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  # ============================================
+  # BENCHMARKS (Optional, on main only)
+  # ============================================
+  benchmark:
+    name: Benchmarks
+    runs-on: ubuntu-24.04
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache: true
+      
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libgl1-mesa-dev xorg-dev
+      
+      - name: Run benchmarks
+        run: go test -bench=. -benchmem ./... | tee benchmark.txt
+      
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark.txt

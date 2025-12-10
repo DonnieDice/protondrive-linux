@@ -329,7 +329,17 @@ require (
 - [ ] 🧪 Test on Raspberry Pi (ARM64, ARMv7)
 - [ ] 🧪 Test hardware AES detection
 
-### 5.6 Privacy Audit
+### 5.6 CI/CD Pipeline
+- [ ] 🏗️ Create `.github/workflows/ci.yml`
+  - [ ] Test job (go test, go vet, staticcheck)
+  - [ ] Security job (govulncheck)
+  - [ ] Build job (linux-amd64, linux-arm64, linux-armv7)
+  - [ ] Release job (on tag)
+  - [ ] Benchmark job (main branch only)
+- [ ] 🏗️ Configure code coverage reporting
+- [ ] 🏗️ Set up artifact uploads
+
+### 5.7 Privacy Audit
 - [ ] 🔍 Grep for `log.Print*` (should be 0 in production)
 - [ ] 🔍 Verify no analytics/telemetry
 - [ ] 🔍 Verify no crash reporting

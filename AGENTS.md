@@ -103,36 +103,28 @@ Remember important context between sessions.
 
 ---
 
-## 3. CHANGELOG (Project Changes)
+## 3. CHANGELOG (Release Tracking)
 
 ### Purpose
-Track what changed in the codebase for users and future reference.
+Track **releases**, not individual commits. For commit history, see `git log`.
 
 ### Location
 `CHANGELOG.md` (project root)
 
-### Format (Keep It Simple)
+### Format
 ```markdown
 # Changelog
 
 ## [Unreleased]
 ### Added
-- GopenPGP encryption wrapper (internal/encryption/)
-- Keyring integration with fallback chain
+- New feature X
 
-### Changed
-- Simplified crypto stack from 15 to 6 dependencies
-
-### Fixed
-- Config validation now rejects empty sync paths
-
-### Removed
-- SQLCipher dependency (replaced with GopenPGP)
+### Fixed  
+- Bug in Y
 
 ## [0.1.0] - 2024-12-15
 ### Added
-- Initial project structure
-- Basic configuration system
+- Initial release features
 ```
 
 ### Categories
@@ -144,9 +136,26 @@ Track what changed in the codebase for users and future reference.
 - **Deprecated**: Soon-to-be-removed features
 
 ### When to Update
-- After completing any task that changes code/docs
-- Group related changes together
-- Update `[Unreleased]` section; version on release
+- After completing features → add to `[Unreleased]`
+- On release → move items to versioned section with date
+
+### Commit Messages
+
+Use [Conventional Commits](https://www.conventionalcommits.org/):
+
+```
+<type>(<scope>): <description>
+```
+
+**Types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `chore`
+
+**Examples:**
+```bash
+git commit -m "feat(encryption): add GopenPGP wrapper"
+git commit -m "fix(sync): handle 429 rate limit"
+git commit -m "docs(readme): update install instructions"
+git commit -m "chore: release v0.1.0"
+```
 
 ---
 

@@ -20,7 +20,7 @@ This is the **architectural reference document** for ProtonDrive Linux. It defin
 
 **This document is NOT for:**
 - Task tracking → See **TASKS.md**
-- Operational procedures → See **AGENTS.md**
+- Operational procedures → See **AGENT.md**
 - User documentation → See **README.md**
 - Code tutorials → See **docs/**
 
@@ -2258,7 +2258,7 @@ The agent uses three systems to maintain context and prevent confusion:
 2. **Memory File** (`.agent_logs/MEMORY.md`) - Persistent context across sessions  
 3. **Changelog** (`CHANGELOG.md`) - Track project changes for users
 
-See AGENTS.md for operational details.
+See AGENT.md for operational details.
 
 ---
 
