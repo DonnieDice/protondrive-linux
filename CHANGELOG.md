@@ -11,8 +11,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 
 ## [Unreleased]
 
-*Changes here will be included in the next release.*
-
 ### Added
 - Project documentation structure (CLAUDE.md, TASKS.md, AGENT.md)
 - GopenPGP-based encryption architecture design
@@ -20,19 +18,33 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Performance profiling system design
 - Multi-tier keyring fallback strategy
 - CI/CD pipeline for Go (GitHub Actions)
+- `internal/config/paths.go` providing XDG-compliant config, data, and cache directory management
+- `tests/security/config_test.go` with `TestConfigContainsNoSensitiveData` ensuring no sensitive data is written in config files
+- `internal/errors/messages.go` mapping error codes to user-friendly messages and recovery suggestions
+- `internal/errors/retry.go` implementing RetryConfig, exponential backoff, jitter, and retryability logic
+- `internal/errors/retry_test.go` validating retry configuration, IsRetryable behavior, exponential backoff, jitter bounds, and delay caps
 
 ### Changed
-- Simplified crypto stack from ~15 dependencies to 5-6
+- Simplified crypto stack from ~15 dependencies to 5–6
 - Replaced SQLCipher with GopenPGP for local encryption
 - Split project context (CLAUDE.md) from task tracking (TASKS.md)
-- Streamlined AGENT.md for clarity
-- Updated README.md with correct dependency list
+- Streamlined AGENT.md for clarity and consistent agent onboarding
+- Updated README.md with corrected dependency list and architecture notes
+- Updated GitHub username in go.mod
 
 ### Removed
 - SQLCipher dependency (CGO complexity)
-- Separate Argon2 implementation (GopenPGP RFC 9580 handles this)
-- Third-party crypto packages (using Proton official libraries)
-- Node.js CI/CD pipeline (replaced with Go)
+- Separate Argon2 implementation (GopenPGP RFC 9580 provides complete password → key derivation)
+- Misc third-party crypto libraries (replaced by Proton’s official crypto stack)
+- Node.js CI/CD pipeline (replaced with Go-native pipeline)
+
+
+---
+
+## [0.0.2] - 2024-12-10
+
+### Updated
+- Updated README to reflect project scope
 
 ---
 
@@ -43,13 +55,6 @@ This project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.htm
 - Basic project structure
 - Configuration system foundation
 - Technology stack decision (Go + Fyne + GopenPGP)
-
----
-
-## [0.0.2] - 2024-12-10
-
-### Updated
-- Updated README to reflect project scope
 
 ---
 

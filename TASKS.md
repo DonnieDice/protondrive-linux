@@ -1,25 +1,75 @@
-# ProtonDrive Linux - Task List
+# ProtonDrive Linux - Master Task List
 
-**Last Updated**: 2024-12-10  
-**Project Phase**: Foundation & Core Integration  
+**Last Updated**: 2024-12-11  
+**Project Phase**: Planning Complete → Ready for Implementation  
 **Technology Stack**: Go + Fyne + GopenPGP (Proton Official)  
-**Estimated Timeline**: 6 weeks to MVP
+**Architecture Reference**: See `CLAUDE.md`
 
 ---
 
-## PHASES OVERVIEW
+## OVERVIEW
 
-| Phase | Description | Duration | Status |
-|-------|-------------|----------|--------|
-| 0 | Migration & Setup | 1-2 days | ✅ Complete |
-| 1 | Project Foundation + Encryption | 4-5 days | ⬅️ Current |
-| 2 | Core Integration | 3-5 days | Not Started |
-| 3 | GUI Development | 5-7 days | Not Started |
-| 4 | Sync Engine | 7-10 days | Not Started |
-| 5 | Testing & Optimization | 5-7 days | Not Started |
-| 6 | Distribution | 3-5 days | Not Started |
+This is the **master task list**. Each phase has a dedicated detailed document.
 
-**Total**: ~28-41 days (6 weeks)
+**Rule**: Tasks must be completed in dependency order. No skipping phases.
+
+---
+
+## PHASES
+
+| Phase | Name | Status | Details |
+|-------|------|--------|---------|
+| 0 | Project Setup | ✅ **Complete** | N/A - Done |
+| 1 | Foundation & Infrastructure | ⬅️ **CURRENT** | [PHASE_1.md](./docs/phases/PHASE_1.md) |
+| 2 | Core API & Sync Engine | ❌ Blocked | [PHASE_2.md](./docs/phases/PHASE_2.md) |
+| 3 | GUI Development | ❌ Blocked | [PHASE_3.md](./docs/phases/PHASE_3.md) |
+| 4 | Testing & Hardening | ❌ Blocked | [PHASE_4.md](./docs/phases/PHASE_4.md) |
+| 5 | Distribution & Release | ❌ Blocked | [PHASE_5.md](./docs/phases/PHASE_5.md) |
+
+**Total Estimated Timeline**: 25-35 days (~5-7 weeks)
+
+---
+
+## DEPENDENCY GRAPH
+
+```
+Phase 0 ✅
+    │
+    ▼
+Phase 1 (Foundation) ⬅️ CURRENT
+    ├── Config, Errors, Test Infrastructure (parallel)
+    ├── Encryption (needs Errors, Test Infra)
+    ├── Storage (needs Encryption)
+    ├── Profile (needs Config)
+    └── CI/CD (needs all above)
+            │
+            ▼
+Phase 2 (Core API & Sync)
+    ├── Proton Client (needs Encryption, Storage)
+    ├── File Operations (needs Client)
+    ├── Sync Engine (needs File Ops, Storage)
+    └── CLI (needs Client, Sync)
+            │
+            ▼
+Phase 3 (GUI)
+    ├── App Framework, Login, Main View
+    ├── Settings, Tray, Notifications
+    └── All GUI components
+            │
+            ▼
+Phase 4 (Testing & Hardening)
+    ├── Coverage Audit, Integration Tests
+    ├── E2E Tests, Performance Tests
+    ├── Security Audit, Cross-Platform Tests
+    └── All quality gates
+            │
+            ▼
+Phase 5 (Release)
+    ├── Packaging (deb, rpm, flatpak, appimage)
+    ├── CI/CD Release Pipeline
+    ├── Documentation
+    └── v1.0.0 Release
+```
 
 ---
 
@@ -29,421 +79,153 @@
 [ ] Not Started
 [⏳] In Progress  
 [✅] Complete
-[🔄] Needs Revision
-[❌] Blocked
+[❌] Blocked (dependency not met)
 
-🏗️ Infrastructure    🔒 Security-Critical
-📝 Documentation     🧪 Testing
-🔍 Research          🚀 Release
+🏗️ Infrastructure/Code    🔒 Security-Critical (100% test coverage required)
+📝 Documentation          🧪 Testing
+🔍 Research               🚀 Release
+⚡ Performance-Critical
 ```
 
 ---
 
-## DEPENDENCY SUMMARY
+## PHASE SUMMARIES
 
-**Core (5-6 total):**
-```go
-require (
-    github.com/ProtonMail/gopenpgp/v3      // Proton crypto (OFFICIAL)
-    github.com/henrybear327/Proton-API-Bridge // Drive API
-    fyne.io/fyne/v2                         // GUI
-    github.com/fsnotify/fsnotify            // File watching
-    github.com/zalando/go-keyring           // Credentials
-    github.com/stretchr/testify             // Testing
-)
-```
+### Phase 0: Project Setup ✅ COMPLETE
+
+- [✅] Go module initialized
+- [✅] Directory structure created
+- [✅] Documentation files created (CLAUDE.md, TASKS.md, AGENT.md, CHANGELOG.md, README.md)
 
 ---
 
-## PHASE 0: MIGRATION & SETUP ✅ COMPLETE
+### Phase 1: Foundation & Infrastructure
 
-- [✅] 🏗️ Backup Electron project (git branch)
-- [✅] 🏗️ Clean Electron artifacts
-- [✅] 🏗️ Initialize Go module
-- [✅] 🏗️ Create directory structure
-- [✅] 📝 Update README.md with new tech stack
-- [✅] 🔍 Review project context documents
+**Goal**: Core infrastructure that all other components depend on.
 
----
+| Section | Description | Status |
+|---------|-------------|--------|
+| 1.1 | Configuration System | [ ] |
+| 1.2 | Error Handling | [ ] |
+| 1.3 | Testing Infrastructure | [ ] |
+| 1.4 | Encryption Layer (GopenPGP) 🔒 | [ ] |
+| 1.5 | Storage Layer (Encrypted) | [ ] |
+| 1.6 | Performance Profiler | [ ] |
+| 1.7 | CI/CD Foundation | [ ] |
 
-## PHASE 1: FOUNDATION + ENCRYPTION (4-5 DAYS) ⬅️ CURRENT
+**Exit Criteria**: CI/CD green, 100% coverage on encryption, all security tests passing.
 
-### 1.1 Configuration System
-- [✅] 🏗️ Create `internal/config/config.go`
-- [✅] 🏗️ Define `Config` struct
-- [✅] 🏗️ Load from `~/.config/protondrive-linux/config.json`
-- [✅] 🏗️ Implement validation and defaults
-- [✅] 🧪 Write config tests
-- [ ] 🔒 Audit: ensure no sensitive data stored unencrypted
-- [ ] 🧪 Test: verify no filenames/credentials in config.json
-
-### 1.2 Local Encryption Layer (GopenPGP)
-**Using Proton's official crypto library - RFC 9580 profile (Argon2 + AEAD automatic)**
-
-- [ ] 🔒 Create `internal/encryption/` package
-- [ ] 🔒 Implement GopenPGP wrapper (`gopenpgp.go`)
-  - [ ] Initialize PGP with RFC 9580 profile
-  - [ ] Password-based encryption (Argon2 handled internally)
-  - [ ] Password-based decryption
-  - [ ] Streaming encryption for large files
-- [ ] 🔒 Implement keyring integration (`keyring.go`)
-  - [ ] Store session in OS keyring (primary)
-  - [ ] Encrypted file fallback (secondary)
-  - [ ] Password prompt fallback (tertiary)
-- [ ] 🔒 Implement local storage encryption (`storage.go`)
-  - [ ] Encrypt metadata files (.gpg format)
-  - [ ] Encrypt sync state files
-  - [ ] Filename obfuscation (SHA256 hash)
-- [ ] 🔒 Implement memory security (`memory.go`)
-  - [ ] Secure byte slice wiping
-  - [ ] Defer cleanup patterns
-  - [ ] Force garbage collection
-- [ ] 🧪 Write comprehensive tests (100% coverage required)
-  - [ ] TestGopenPGPEncryptDecrypt
-  - [ ] TestKeyringIntegration
-  - [ ] TestKeyringFallback
-  - [ ] TestFilenameObfuscation
-  - [ ] TestMemoryWiping
-  - [ ] BenchmarkEncryption (target: >100 MB/s with AES-NI)
-
-### 1.3 Performance Profiling
-- [✅] 🏗️ Create `internal/profile/detector.go`
-- [✅] 🔍 Detect RAM, CPU cores, storage type
-- [✅] 🏗️ Select performance profile (Low/Standard/High)
-- [✅] 🧪 Write detection tests
-- [ ] 🔍 Detect hardware AES support (AES-NI/ARM crypto)
-
-### 1.4 Database Layer (Encrypted with GopenPGP)
-**Note: Using file-based encrypted storage, NOT SQLCipher**
-
-- [ ] 🏗️ Create `internal/storage/` package
-- [ ] 🏗️ Implement encrypted JSON storage
-  - [ ] Load: Read file → Decrypt with GopenPGP → Parse JSON
-  - [ ] Save: Serialize JSON → Encrypt with GopenPGP → Write file
-- [ ] 🏗️ Define data models (`models.go`)
-  - [ ] FileMetadata struct
-  - [ ] SyncState struct
-  - [ ] ConflictRecord struct
-- [ ] 🏗️ Implement CRUD operations
-- [ ] 🧪 Write storage tests
-- [ ] 🧪 Test: verify storage cannot be read without password
-
-### 1.5 Error Handling
-- [✅] 🏗️ Define custom error types (`internal/errors/`)
-- [✅] 🏗️ Create error wrapper
-- [✅] 🔒 Ensure errors contain no sensitive data (file IDs only)
-- [✅] 🧪 Write error handling tests
-
-### 1.6 Testing Infrastructure
-- [✅] 🏗️ Set up test helpers (`internal/testutil/`)
-- [✅] 🏗️ Create mock ProtonClient
-- [ ] 🏗️ Create mock encryption layer
-- [✅] 🏗️ Prepare test fixtures
-- [ ] 🔒 Create security test helpers (`tests/security/`)
+➡️ **Details**: [PHASE_1.md](./docs/phases/PHASE_1.md)
 
 ---
 
-## PHASE 2: CORE INTEGRATION (3-5 DAYS)
+### Phase 2: Core API & Sync Engine
 
-### 2.1 Proton Client Wrapper
-- [✅] 🔍 Research Proton-API-Bridge
-- [✅] 📝 Create `internal/client/client.go`
-- [✅] 🏗️ Implement client initialization
-- [✅] 🏗️ Implement authentication
-- [ ] 🔒 Implement session management
-  - [ ] Store tokens in OS keyring
-  - [ ] Never store passwords
-  - [ ] Auto-refresh tokens
-- [ ] 🏗️ Add error handling
+**Goal**: ProtonDrive integration and sync functionality.
 
-### 2.2 Session Management
-- [ ] 📝 Create `internal/client/session.go`
-  - [ ] Token storage in keyring
-  - [ ] Token refresh logic
-  - [ ] Re-authentication on failure
-- [ ] 📝 Create `internal/client/keyring.go`
-  - [ ] Primary: OS Secret Service
-  - [ ] Fallback: GopenPGP encrypted file
-- [ ] 🧪 Security testing
-  - [ ] Verify credentials never stored
-  - [ ] Test session refresh
-  - [ ] Test keyring fallback
+| Section | Description | Status |
+|---------|-------------|--------|
+| 2.1 | Proton Client Wrapper | [ ] |
+| 2.2 | File Operations | [ ] |
+| 2.3 | Sync Engine | [ ] |
+| 2.4 | Command-Line Interface | [ ] |
+| 2.5 | Observability (Logging, Health) | [ ] |
 
-### 2.3 File Operations
-- [ ] 📝 Create `internal/client/files.go`
-  - [ ] ListFiles
-  - [ ] CreateFolder
-  - [ ] UploadFile (with progress)
-  - [ ] DownloadFile (with progress)
-  - [ ] DeleteFile
-  - [ ] MoveFile
-- [ ] 🏗️ Handle large files (chunking)
-- [ ] 🏗️ Add rate limiting
-- [ ] 🔒 Encrypt all metadata before storing
-- [ ] 🧪 Write file operation tests
+**Exit Criteria**: Can authenticate, list files, sync files via CLI.
 
-### 2.4 Network & Retry Logic
-- [ ] 📝 Create `internal/client/retry.go`
-  - [ ] Exponential backoff
-  - [ ] Max retry attempts
-  - [ ] Jitter to prevent thundering herd
-- [ ] 📝 Create `internal/client/ratelimit.go`
-  - [ ] Token bucket algorithm
-  - [ ] Respect API limits
-- [ ] 🧪 Test error scenarios
-
-### 2.5 Command-Line Interface
-- [ ] 🏗️ Create `cmd/protondrive/main.go`
-- [ ] 🏗️ Implement flags: `--verbose`, `--config`, `--profile`, `--version`, `--health`
-- [ ] 🔒 Ensure verbose output has no plaintext filenames
-- [ ] 📝 Add help text
-- [ ] 🧪 Write CLI tests
+➡️ **Details**: [PHASE_2.md](./docs/phases/PHASE_2.md)
 
 ---
 
-## PHASE 3: GUI DEVELOPMENT (5-7 DAYS)
+### Phase 3: GUI Development
 
-### 3.1 Application Window
-- [ ] 🏗️ Create `internal/gui/app.go`
-- [ ] 🏗️ Initialize Fyne application
-- [ ] 🏗️ Set window properties
+**Goal**: Fyne-based graphical user interface.
 
-### 3.2 Login Screen
-- [ ] 🏗️ Create `internal/gui/login.go`
-  - [ ] Username/password fields
-  - [ ] Login button
-  - [ ] Error display
-  - [ ] Loading indicator
-- [ ] 🔒 Ensure password never logged
-- [ ] 🧪 Test login UI
+| Section | Description | Status |
+|---------|-------------|--------|
+| 3.1 | Application Framework | [ ] |
+| 3.2 | Login Screen | [ ] |
+| 3.3 | Main View (File Browser) | [ ] |
+| 3.4 | Settings Panel | [ ] |
+| 3.5 | System Tray | [ ] |
+| 3.6 | Notifications | [ ] |
 
-### 3.3 Main View (File List)
-- [ ] 🏗️ Create `internal/gui/filelist.go`
-  - [ ] Tree view for folders
-  - [ ] File list with sorting
-  - [ ] Sync status indicators
-- [ ] 🔒 Decrypt filenames in memory only
-- [ ] 🧪 Test file list display
+**Exit Criteria**: Full GUI functional, usable by end users.
 
-### 3.4 Toolbar & Actions
-- [ ] 🏗️ Implement toolbar
-  - [ ] Upload, Download
-  - [ ] New Folder, Delete
-  - [ ] Settings, Refresh
-- [ ] 🧪 Test toolbar actions
-
-### 3.5 Settings Dialog
-- [ ] 🏗️ Create `internal/gui/settings.go`
-  - [ ] Sync directory chooser
-  - [ ] Performance profile selector
-  - [ ] Theme toggle
-  - [ ] About section
-- [ ] 🔒 Add "Clear Session Data" button
-- [ ] 🔒 Add "Delete All Local Data" option
-- [ ] 🧪 Test settings UI
-
-### 3.6 System Tray
-- [ ] 🏗️ Create `internal/gui/tray.go`
-- [ ] 🏗️ Add tray icon with menu
-- [ ] 🏗️ Handle tray events
-
-### 3.7 Notifications
-- [ ] 🏗️ Implement desktop notifications
-- [ ] 🔒 Ensure notifications have no filenames
+➡️ **Details**: [PHASE_3.md](./docs/phases/PHASE_3.md)
 
 ---
 
-## PHASE 4: SYNC ENGINE (7-10 DAYS)
+### Phase 4: Testing & Hardening
 
-### 4.1 File Watcher
-- [ ] 🏗️ Create `internal/sync/watcher.go`
-  - [ ] Primary: fsnotify (inotify)
-  - [ ] Fallback: polling for NFS/FUSE
-- [ ] 🏗️ Monitor sync directory
-- [ ] 🏗️ Ignore temp/system files
-- [ ] 🧪 Test file watcher
+**Goal**: Comprehensive testing, optimization, security audit.
 
-### 4.2 Sync Manager
-- [ ] 🏗️ Create `internal/sync/manager.go`
-  - [ ] Worker pools based on profile
-  - [ ] Event queue processing
-  - [ ] Graceful shutdown
-- [ ] 🏗️ Implement upload workers
-- [ ] 🏗️ Implement download workers
-- [ ] 🔒 Encrypt all sync state
-- [ ] 🧪 Test sync manager
+| Section | Description | Status |
+|---------|-------------|--------|
+| 4.1 | Unit Test Coverage Audit | [ ] |
+| 4.2 | Integration Tests | [ ] |
+| 4.3 | End-to-End Tests | [ ] |
+| 4.4 | Performance Tests | [ ] |
+| 4.5 | Security Audit | [ ] |
+| 4.6 | Cross-Platform Tests | [ ] |
 
-### 4.3 Conflict Resolution
-- [ ] 🏗️ Create `internal/sync/conflict.go`
-  - [ ] Detect conflicts
-  - [ ] Strategies: Server Wins, Local Wins, Keep Both, Manual
-  - [ ] User notification
-- [ ] 🔒 Log conflicts with file IDs only
-- [ ] 🧪 Test conflict scenarios
+**Exit Criteria**: All quality gates passed, ready for release.
 
-### 4.4 Change Detection
-- [ ] 🏗️ Create `internal/sync/hash.go`
-  - [ ] SHA-256 file hashing
-  - [ ] Hash caching (encrypted)
-  - [ ] Large file optimization
-- [ ] 🧪 Test hashing (target: >100 MB/s)
-
-### 4.5 Sync State & Recovery
-- [ ] 🏗️ Implement state machine
-- [ ] 🏗️ Crash recovery
-- [ ] 🏗️ Pause/Resume
-- [ ] 🔒 Encrypt all state data
+➡️ **Details**: [PHASE_4.md](./docs/phases/PHASE_4.md)
 
 ---
 
-## PHASE 5: TESTING & OPTIMIZATION (5-7 DAYS)
+### Phase 5: Distribution & Release
 
-### 5.1 Unit Tests
-- [ ] 🧪 Coverage audit (target: 80% overall, 100% security)
-- [ ] 🧪 Package-specific tests
+**Goal**: Package, document, and release v1.0.0.
 
-### 5.2 Integration Tests
-- [ ] 🧪 Create `tests/integration/`
-  - [ ] Full auth flow
-  - [ ] E2E file operations
-  - [ ] Sync cycles
-  - [ ] Encryption verification
+| Section | Description | Status |
+|---------|-------------|--------|
+| 5.1 | Packaging | [ ] |
+| 5.2 | CI/CD Release Pipeline | [ ] |
+| 5.3 | Documentation | [ ] |
+| 5.4 | v1.0.0 Release | [ ] |
 
-### 5.3 Security Tests
-- [ ] 🔒 Create `tests/security/`
-- [ ] 🔒 TestStorageIsEncrypted
-- [ ] 🔒 TestCacheFilesEncrypted
-- [ ] 🔒 TestLogsContainNoPlaintext
-- [ ] 🔒 TestMemoryWiping
-- [ ] 🔒 TestConfigNoSensitiveData
+**Exit Criteria**: v1.0.0 published, available for download.
 
-### 5.4 Performance Tests
-- [ ] 🧪 Create `tests/performance/`
-- [ ] 🧪 BenchmarkColdStart (<500ms)
-- [ ] 🧪 BenchmarkWarmStart (<200ms)
-- [ ] 🧪 TestMemoryUsage per profile
-- [ ] 🧪 BenchmarkEncryption (>100 MB/s)
-
-### 5.5 Cross-Platform Tests
-- [ ] 🧪 Test on Ubuntu, Fedora, Arch (x86_64)
-- [ ] 🧪 Test on Raspberry Pi (ARM64, ARMv7)
-- [ ] 🧪 Test hardware AES detection
-
-### 5.6 CI/CD Pipeline
-- [ ] 🏗️ Create `.github/workflows/ci.yml`
-  - [ ] Test job (go test, go vet, staticcheck)
-  - [ ] Security job (govulncheck)
-  - [ ] Build job (linux-amd64, linux-arm64, linux-armv7)
-  - [ ] Release job (on tag)
-  - [ ] Benchmark job (main branch only)
-- [ ] 🏗️ Configure code coverage reporting
-- [ ] 🏗️ Set up artifact uploads
-
-### 5.7 Privacy Audit
-- [ ] 🔍 Grep for `log.Print*` (should be 0 in production)
-- [ ] 🔍 Verify no analytics/telemetry
-- [ ] 🔍 Verify no crash reporting
-- [ ] 🔍 Network calls are ProtonDrive only
-- [ ] 📝 Create `PRIVACY_AUDIT.md`
+➡️ **Details**: [PHASE_5.md](./docs/phases/PHASE_5.md)
 
 ---
 
-## PHASE 6: DISTRIBUTION (3-5 DAYS)
+## QUICK REFERENCE
 
-### 6.1 Package Formats
-- [ ] 🏗️ Build `.deb` (Debian/Ubuntu)
-- [ ] 🏗️ Build `.rpm` (Fedora/openSUSE)
-- [ ] 🏗️ Build Flatpak
-- [ ] 🏗️ Build AppImage
+### Security Tests (must all pass)
 
-### 6.2 Release Automation
-- [ ] 🏗️ CI/CD pipeline (GitHub Actions)
-- [ ] 🏗️ Cross-compilation scripts
-- [ ] 🏗️ Signed releases
+| Test | Location | Verifies |
+|------|----------|----------|
+| `TestConfigContainsNoSensitiveData` | `tests/security/` | No credentials in config |
+| `TestEncryptedDataNotPlaintext` | `tests/security/` | Encryption works |
+| `TestMemoryWipedAfterUse` | `tests/security/` | Memory cleanup |
+| `TestStorageFileIsEncrypted` | `tests/security/` | Database encrypted |
+| `TestCacheFilesAreEncrypted` | `tests/security/` | Cache encrypted |
+| `TestPasswordNeverStored` | `tests/security/` | Password not on disk |
+| `TestVerboseOutputNoFilenames` | `tests/security/` | Logs safe |
 
-### 6.3 Documentation
-- [ ] 📝 Complete README.md
-- [ ] 📝 Create user manual
-- [ ] 📝 Installation guides per distro
-- [ ] 📝 Security documentation
+### Performance Targets
 
-### 6.4 Release
-- [ ] 🚀 Final QA
-- [ ] 🚀 Create GitHub release
-- [ ] 🚀 Announce release
+| Metric | Target |
+|--------|--------|
+| Cold start | <500ms |
+| Warm start | <200ms |
+| Memory (Standard) | <50MB |
+| Encryption throughput | >100 MB/s |
+| Binary size | <20MB |
 
----
+### Coverage Requirements
 
-## PRIORITY MATRIX
-
-### P0 - Critical (MVP Blockers)
-- [ ] GopenPGP encryption layer
-- [ ] Encrypted local storage
-- [ ] Memory security (wiping)
-- [ ] Basic authentication
-- [ ] Basic file operations
-- [ ] Basic sync engine
-- [ ] Security tests passing
-
-### P1 - High (MVP Quality)
-- [ ] Conflict resolution
-- [ ] Performance profiling
-- [ ] GUI implementation
-- [ ] System tray
-- [ ] Unit tests (80% coverage)
-
-### P2 - Medium (v1.0)
-- [ ] Selective sync
-- [ ] Desktop notifications
-- [ ] Advanced settings
-- [ ] Performance optimization
-
-### P3 - Low (Future)
-- [ ] File versioning UI
-- [ ] Share link generation
-- [ ] Multiple accounts
-- [ ] LAN sync
+| Package | Minimum Coverage |
+|---------|------------------|
+| `internal/encryption/` | 100% |
+| `internal/client/auth.go` | 100% |
+| All other packages | 80% |
+| GUI packages | 60% |
 
 ---
 
-## CRITICAL PATH
-
-```
-1. Encryption Layer (Phase 1.2) ──┐
-                                  ├─→ 3. Auth + File Ops (Phase 2)
-2. Storage Layer (Phase 1.4) ─────┘              │
-                                                 ↓
-                              4. Sync Engine (Phase 4)
-                                                 │
-                                                 ↓
-                              5. Security Tests (Phase 5.3)
-                                                 │
-                                                 ↓
-                              6. Release (Phase 6)
-```
-
----
-
-## NOTES
-
-### Key Simplifications (v11.0)
-1. **GopenPGP replaces multiple crypto packages** - RFC 9580 profile handles Argon2 + AEAD automatically
-2. **No SQLCipher** - Using GopenPGP-encrypted JSON files instead (simpler, no CGO)
-3. **5-6 dependencies total** - Down from ~15 in original plan
-4. **Consistent crypto** - Same library for local and remote encryption
-
-### Dependencies Removed
-- ~~SQLCipher~~ (CGO complexity)
-- ~~golang.org/x/crypto~~ (GopenPGP includes this)
-- ~~Manual Argon2 setup~~ (RFC 9580 handles it)
-
-### Testing Requirements
-- **Overall coverage**: 80% minimum
-- **Security-critical**: 100% coverage
-- **GUI code**: 60% minimum
-
----
-
-**Document Version**: 2.0 - GopenPGP Edition  
-**Last Updated**: 2024-12-10  
-**Maintained By**: Project team
+**Document Version**: 3.0  
+**Last Updated**: 2024-12-11

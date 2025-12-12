@@ -1,4 +1,4 @@
-module github.com/yourusername/protondrive-linux
+module github.com/donniedice/protondrive-linux
 
 go 1.24.0
 
