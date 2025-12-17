@@ -1,8 +1,0 @@
-"@types/pdf-parse@npm:^1.1.5":
-  version: 1.1.5
-  resolution: "@types/pdf-parse@npm:1.1.5"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/f1f1ca0376160994cd4266d721ce577dd8692130d1aaf76f43bcd1c326ce472353dec5a81fd17cd380ce9c31a483db258ea59cde988d5bc5cb5664d00556f41c
-  languageName: node
-  linkType: hard

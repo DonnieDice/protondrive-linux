@@ -1,8 +1,0 @@
-"tn1150@npm:^0.1.0":
-  version: 0.1.0
-  resolution: "tn1150@npm:0.1.0"
-  dependencies:
-    unorm: "npm:^1.4.1"
-  checksum: 10/ea560e04faebd21e814acf9ba27db280e56ef99d9ea7b68e49aeededbd2b624faa340f2d049c5e9f17258df68ab49063335d074565e3ff88c3d39c87808e098c
-  languageName: node
-  linkType: hard

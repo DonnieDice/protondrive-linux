@@ -1,6 +1,0 @@
-"@types/toastify-js@npm:^1.12.4":
-  version: 1.12.4
-  resolution: "@types/toastify-js@npm:1.12.4"
-  checksum: 10/bd50565d23c56aa6dec496486049d721edc432ec04d304327ae95cfa39d1088a588f8894e198816aa9172df87911c440c9baa264e871959853cbb44b62dab003
-  languageName: node
-  linkType: hard

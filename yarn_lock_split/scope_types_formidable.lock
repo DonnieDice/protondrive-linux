@@ -1,8 +1,0 @@
-"@types/formidable@npm:^1.0.31":
-  version: 1.2.8
-  resolution: "@types/formidable@npm:1.2.8"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/509cd4be281ce5fa06bcc50ad26d87fa6c215b17080c2e94afa8e2b7f9718a612299213d10713567204e1cb8f4d50e79314bf1c791c8ba9fd7dd508a59f540ec
-  languageName: node
-  linkType: hard

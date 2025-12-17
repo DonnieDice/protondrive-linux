@@ -1,6 +1,0 @@
-"@daybrush/utils@npm:^1.1.1, @daybrush/utils@npm:^1.11.0, @daybrush/utils@npm:^1.12.1, @daybrush/utils@npm:^1.13.0, @daybrush/utils@npm:^1.4.0, @daybrush/utils@npm:^1.6.0, @daybrush/utils@npm:^1.7.1":
-  version: 1.13.0
-  resolution: "@daybrush/utils@npm:1.13.0"
-  checksum: 10/79a09fe785868b486d61effe665823642682c843f77b9e6ae840d75e5570975e1c85dc5b882369c05f6c4dee3215df0d954a7747e9c41e0ddeec56573ae49151
-  languageName: node
-  linkType: hard

@@ -1,8 +1,0 @@
-"@types/jest-when@npm:^3.5.5":
-  version: 3.5.5
-  resolution: "@types/jest-when@npm:3.5.5"
-  dependencies:
-    "@types/jest": "npm:*"
-  checksum: 10/816c1ed5554182c43261d23c2902506c316bc0368f2ea1e632a0a93d05d8f6f2918afa6a406c2f5fdd4d277e042b8d2ba797993dc3c2fd2d5f53cda946696772
-  languageName: node
-  linkType: hard

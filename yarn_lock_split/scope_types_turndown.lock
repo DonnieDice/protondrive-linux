@@ -1,6 +1,0 @@
-"@types/turndown@npm:^5.0.6":
-  version: 5.0.6
-  resolution: "@types/turndown@npm:5.0.6"
-  checksum: 10/b406c95f0c2abcde9d00297ce567f8236eeb0733a7f2b3ff2942b298087884f22effa89ebfd755edd9aa81cedd7e091bfae6b66454d4e91de681c6d21fe23c18
-  languageName: node
-  linkType: hard

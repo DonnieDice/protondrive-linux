@@ -1,8 +1,0 @@
-"@cfcs/core@npm:^0.0.6":
-  version: 0.0.6
-  resolution: "@cfcs/core@npm:0.0.6"
-  dependencies:
-    "@egjs/component": "npm:^3.0.2"
-  checksum: 10/62aa560917efee455a653f54ab8da7076641aa285c1bac405384a639ab0bff566b73076261957e075e463697b8b5777e0153e90598ab4b9aebd023a6b903d78b
-  languageName: node
-  linkType: hard

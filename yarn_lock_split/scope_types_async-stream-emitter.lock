@@ -1,9 +1,0 @@
-"@types/async-stream-emitter@npm:*":
-  version: 7.0.0
-  resolution: "@types/async-stream-emitter@npm:7.0.0"
-  dependencies:
-    "@types/consumable-stream": "npm:*"
-    "@types/writable-consumable-stream": "npm:*"
-  checksum: 10/cac7a1259b14cf96ee5a772c3999f609e853e00bfbbf7e2ceb891cf0623e6c1b96c0abd870bb5be403e71887986ffa297060816456128e4c6ec120f4c8f4fd31
-  languageName: node
-  linkType: hard

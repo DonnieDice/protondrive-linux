@@ -1,6 +1,0 @@
-"@mlc-ai/web-llm@npm:0.2.32":
-  version: 0.2.32
-  resolution: "@mlc-ai/web-llm@npm:0.2.32"
-  checksum: 10/44b9ec3dd0632e2d524c48c59cfeb51d602e73bc1ce3b39e17c40e426b61fd9a61c1950284391cb7594b4dbfdcc38f52953ac37deda7c43d514e291194b5cac2
-  languageName: node
-  linkType: hard

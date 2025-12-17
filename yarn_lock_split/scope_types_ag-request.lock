@@ -1,6 +1,0 @@
-"@types/ag-request@npm:*":
-  version: 1.0.0
-  resolution: "@types/ag-request@npm:1.0.0"
-  checksum: 10/33fd34a6c11fc8970b7803ac6bbcff3c7c43902ae844ffaccb0c9707c2f41f7c02afafa7478b84f451d943296af16b00842b8d1b9c7eacff53ec3588d0e59be2
-  languageName: node
-  linkType: hard

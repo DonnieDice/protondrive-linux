@@ -1,8 +1,0 @@
-"bwip-js@npm:^4.6.0":
-  version: 4.7.0
-  resolution: "bwip-js@npm:4.7.0"
-  bin:
-    bwip-js: bin/bwip-js.js
-  checksum: 10/ef088090c20cd9c88a46c409a49f69d3c26500e9381f287b36fa5e48d7b0d4b7d20c774abcb25375d0be0e6c6202eccde4f171e424fb9afed982796be3a01987
-  languageName: node
-  linkType: hard

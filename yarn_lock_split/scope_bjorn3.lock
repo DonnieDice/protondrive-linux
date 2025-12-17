@@ -1,6 +1,0 @@
-"@bjorn3/browser_wasi_shim@npm:^0.4.2":
-  version: 0.4.2
-  resolution: "@bjorn3/browser_wasi_shim@npm:0.4.2"
-  checksum: 10/71de5a7ece0ef19765dc2b9aa757de8cd4156454892e01ebd5e9f70e788d47ef17e783cfaf25a5f78f293dafae6f8c2cd1a63761d41169cf216f03fab30dbf2f
-  languageName: node
-  linkType: hard
