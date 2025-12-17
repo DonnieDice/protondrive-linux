@@ -30,13 +30,14 @@ jobs:
         id: release_notes
         run: |
           VERSION=${{ steps.tag.outputs.version }}
-          cat > RELEASE_NOTES.md << 'EOF'
+          RELEASE_DATE=$(date -u +'%Y-%m-%d')
+          cat > RELEASE_NOTES.md << EOF
           # Proton Drive Linux ${{ steps.tag.outputs.version }}
 
           ## Release Information
 
           **Version:** ${{ steps.tag.outputs.version }}
-          **Date:** $(date -u +'%Y-%m-%d')
+          **Date:** $RELEASE_DATE
 
           ## What's New
 
