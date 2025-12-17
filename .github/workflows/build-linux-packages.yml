@@ -71,6 +71,9 @@ jobs:
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
 
+          # Remove yarn.lock to regenerate from package.json
+          rm -f WebClients/yarn.lock
+
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
