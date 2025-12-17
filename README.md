@@ -19,15 +19,15 @@ This repository contains the source code for the Proton Drive Linux Desktop Clie
 ## Features
 
 *   **Secure Proton Drive Integration:** Access your encrypted Proton Drive files directly from your Linux desktop.
-*   **Native Desktop Experience:** Built with Tauri for seamless integration with your operating system.
-*   **Cross-platform Compatibility:** While primarily focused on Linux, Tauri's capabilities allow for potential expansion to other platforms. (Note: Current build scripts are Linux-focused).
+*   **Native Desktop Experience:** Built with Tauri for seamless integration with your Linux desktop environment.
+*   **Multiple Distribution Formats:** Install via deb, rpm, AppImage, Snap, or Flatpak for compatibility with any Linux distribution.
 *   **Privacy-Focused:** Leverages Proton's commitment to privacy and end-to-end encryption.
 
 ## Technologies Used
 
 The Proton Drive Linux Desktop Client is a hybrid application combining:
 
-*   **Tauri (v1.5):** A framework for building multi-platform desktop applications with web technologies.
+*   **Tauri (v1.5):** A lightweight framework for building native desktop applications, providing the shell for the web client.
 *   **Rust:** Powers the secure backend and native functionalities of the Tauri application.
 *   **Node.js:** Used for project scripting, dependency management, and building the web client.
 *   **Yarn:** For managing JavaScript dependencies within the `WebClients` module.
@@ -94,23 +94,33 @@ To create production-ready builds of the application:
     npm run build:web
     ```
 
-3.  **Platform-Specific Builds (Linux):**
-    You can specify targets for specific Linux package formats:
+3.  **Linux Distribution Packages:**
+    Build packages for specific Linux distributions:
 
-    *   **Generic Linux (x86\_64):**
+    *   **DEB Package (Debian/Ubuntu):**
         ```bash
-        npm run build:linux
+        npm run build:deb
         ```
-    *   **RPM Package:**
+    *   **RPM Package (Fedora/Red Hat/CentOS):**
         ```bash
         npm run build:rpm
         ```
-    *   **AppImage:**
+    *   **AppImage (Universal Linux):**
         ```bash
         npm run build:appimage
         ```
 
-    Built executables and packages will be located in the `src-tauri/target/release` or `src-tauri/target/bundle` directory, depending on the build type.
+    Built packages will be located in the `src-tauri/target/release/bundle/` directory.
+
+4.  **Other Distribution Methods:**
+    Packages are also built and distributed via:
+
+    *   **Snap** - Available in Snapcraft store
+    *   **Flatpak** - Available in Flathub
+    *   **AUR** - Arch Linux User Repository (PKGBUILD)
+    *   **COPR** - Fedora Community Build System
+
+    These are automatically built and published when a new version is tagged.
 
 ## Contributing
 
