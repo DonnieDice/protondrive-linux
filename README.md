@@ -1,4 +1,4 @@
-WIP
+WIP - readme is placeholder
 
 # Proton Drive Linux Desktop Client
 
