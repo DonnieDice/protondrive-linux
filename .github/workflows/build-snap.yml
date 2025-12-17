@@ -116,7 +116,7 @@ jobs:
                 # Clone and build WebClients
                 git clone --depth=1 --single-branch --branch main \
                   https://github.com/ProtonMail/WebClients.git WebClients
-                python3 fix_deps.py
+                python3 scripts/fix_deps.py
 
                 cd WebClients
                 export NODE_OPTIONS="--max-old-space-size=8192"
