@@ -1,0 +1,51 @@
+# Declare files that will be checked out with LF line endings
+* text=auto eol=lf
+
+# Specific language files
+*.json  text eol=lf
+*.js    text eol=lf
+*.jsx   text eol=lf
+*.ts    text eol=lf
+*.tsx   text eol=lf
+*.css   text eol=lf
+*.scss  text eol=lf
+*.html  text eol=lf
+*.vue   text eol=lf
+*.toml  text eol=lf
+*.rs    text eol=lf
+*.md    text eol=lf
+*.sh    text eol=lf
+*.py    text eol=lf
+*.yml   text eol=lf
+*.yaml  text eol=lf
+
+# Denote all files that are truly binary and should not be diffed
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.bmp   binary
+*.ico   binary
+*.svg   text eol=lf
+*.webp  binary
+*.mp3   binary
+*.ogg   binary
+*.wav   binary
+*.mp4   binary
+*.mov   binary
+*.avi   binary
+*.pdf   binary
+*.zip   binary
+*.tar   binary
+*.gz    binary
+*.rar   binary
+*.7z    binary
+*.exe   binary
+*.dll   binary
+*.so    binary
+*.dylib binary
+*.app   binary
+*.dmg   binary
+*.deb   binary
+*.rpm   binary
+*.AppImage binary
