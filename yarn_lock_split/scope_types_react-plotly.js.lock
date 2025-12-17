@@ -1,0 +1,9 @@
+"@types/react-plotly.js@npm:^2.6.3":
+  version: 2.6.3
+  resolution: "@types/react-plotly.js@npm:2.6.3"
+  dependencies:
+    "@types/plotly.js": "npm:*"
+    "@types/react": "npm:*"
+  checksum: 10/6fa7a9df0599288f3e658c5a4b34bf5cb8d877637e3607253b53531b1739b99ddd1e1e79e6fdf293f840e2081654476aba0de91ab13a451409dabf1a224176fd
+  languageName: node
+  linkType: hard

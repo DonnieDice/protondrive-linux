@@ -1,0 +1,74 @@
+"@livekit/components-core@npm:0.12.11":
+  version: 0.12.11
+  resolution: "@livekit/components-core@npm:0.12.11"
+  dependencies:
+    "@floating-ui/dom": "npm:1.6.13"
+    loglevel: "npm:1.9.1"
+    rxjs: "npm:7.8.2"
+  peerDependencies:
+    livekit-client: ^2.15.14
+    tslib: ^2.6.2
+  checksum: 10/87d8854d240457d2bc7a34c446927d68b6ca11c14a7a6f7efb25ff778f3ba93dd81e4a70ba1fae29ad99810c3b22c48bc40a826064eca16220de5629b7a48f6e
+  languageName: node
+  linkType: hard
+
+"@livekit/components-react@npm:^2.9.16":
+  version: 2.9.16
+  resolution: "@livekit/components-react@npm:2.9.16"
+  dependencies:
+    "@livekit/components-core": "npm:0.12.11"
+    clsx: "npm:2.1.1"
+    events: "npm:^3.3.0"
+    jose: "npm:^6.0.12"
+    usehooks-ts: "npm:3.1.1"
+  peerDependencies:
+    "@livekit/krisp-noise-filter": ^0.2.12 || ^0.3.0
+    livekit-client: ^2.15.14
+    react: ">=18"
+    react-dom: ">=18"
+    tslib: ^2.6.2
+  peerDependenciesMeta:
+    "@livekit/krisp-noise-filter":
+      optional: true
+  checksum: 10/c6414828feb6b7fe4329d7bc00127fc78eb6720f0c8f61e2e547911edc0aeb2be1dd80edf6ff51493b90df074b75a80180780795f2dd40d488b5bcca081b5230
+  languageName: node
+  linkType: hard
+
+"@livekit/krisp-noise-filter@npm:^0.3.4":
+  version: 0.3.4
+  resolution: "@livekit/krisp-noise-filter@npm:0.3.4"
+  dependencies:
+    "@livekit/mutex": "npm:^1.1.1"
+  peerDependencies:
+    livekit-client: ^2.0.8
+  checksum: 10/bf4fff50e57c74d6fbeca9b3c65c99ebd110587cb81dd320fd2a270d1441831ae1ebf2fc3ecff5ce194f993f7715f0bc442edc725c8197b631dfa1c2908156f9
+  languageName: node
+  linkType: hard
+
+"@livekit/mutex@npm:1.1.1, @livekit/mutex@npm:^1.1.1":
+  version: 1.1.1
+  resolution: "@livekit/mutex@npm:1.1.1"
+  checksum: 10/63e2d402615ad2787c823e0bc55db0d65958e645dc3dff8e11d5f94d35aacdcdf6e8ba75e812e5cca71152183129ec06ebaa0c6dd46258c4524366053cff1212
+  languageName: node
+  linkType: hard
+
+"@livekit/protocol@npm:1.42.2":
+  version: 1.42.2
+  resolution: "@livekit/protocol@npm:1.42.2"
+  dependencies:
+    "@bufbuild/protobuf": "npm:^1.10.0"
+  checksum: 10/96d16b3d4826f0faa4b585578e858352264f05d44a9a402dc8dc0b699c7bf87ab1c4afff0141d4bbe66b08e5b4e6ae6a7cd9d72c797a54968443913967132648
+  languageName: node
+  linkType: hard
+
+"@livekit/track-processors@npm:^0.6.1":
+  version: 0.6.1
+  resolution: "@livekit/track-processors@npm:0.6.1"
+  dependencies:
+    "@mediapipe/tasks-vision": "npm:0.10.14"
+  peerDependencies:
+    "@types/dom-mediacapture-transform": ^0.1.9
+    livekit-client: ^1.12.0 || ^2.1.0
+  checksum: 10/a0bd44fe969989528278f98c9f8d981b83182761c8a660efe4e44bbd1a7324b4b55408355e66247f4db2197b4ef494061b2e992dec7eb07a3ebac3c39b030455
+  languageName: node
+  linkType: hard

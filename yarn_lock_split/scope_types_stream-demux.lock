@@ -1,0 +1,9 @@
+"@types/stream-demux@npm:*":
+  version: 10.0.0
+  resolution: "@types/stream-demux@npm:10.0.0"
+  dependencies:
+    "@types/consumable-stream": "npm:*"
+    "@types/writable-consumable-stream": "npm:*"
+  checksum: 10/62b472831951d8a97e5e2cb843ca846f399fb1416b686d8bf8e6c17bb2aa178c2aa2ecdac03e3bff60aff53cc5b0618a11ebe51b57edc1edd672c1e96a440b91
+  languageName: node
+  linkType: hard

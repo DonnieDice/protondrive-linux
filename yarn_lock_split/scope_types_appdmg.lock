@@ -1,0 +1,8 @@
+"@types/appdmg@npm:^0.5.5":
+  version: 0.5.5
+  resolution: "@types/appdmg@npm:0.5.5"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10/d0d09ee14cea90614bba94843ddbd2389afe233b698fdfdfcc4c79f9db3648ad32067d6001414f30ca32b7d68a5480e4414df8100973033d04fe1354894f65a1
+  languageName: node
+  linkType: hard

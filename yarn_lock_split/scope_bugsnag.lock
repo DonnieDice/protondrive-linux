@@ -1,0 +1,59 @@
+"@bugsnag/browser@npm:^7.25.0":
+  version: 7.25.0
+  resolution: "@bugsnag/browser@npm:7.25.0"
+  dependencies:
+    "@bugsnag/core": "npm:^7.25.0"
+  checksum: 10/0af53675a01974ebe66477774ce07460dacc73353908666ad093afd91c5f53f33e7ceb9e73007c55f99ef0b211254a2825e98fcf25325b9f31b4be2caf197193
+  languageName: node
+  linkType: hard
+
+"@bugsnag/core@npm:^7.25.0":
+  version: 7.25.0
+  resolution: "@bugsnag/core@npm:7.25.0"
+  dependencies:
+    "@bugsnag/cuid": "npm:^3.0.0"
+    "@bugsnag/safe-json-stringify": "npm:^6.0.0"
+    error-stack-parser: "npm:^2.0.3"
+    iserror: "npm:0.0.2"
+    stack-generator: "npm:^2.0.3"
+  checksum: 10/abecd0881663d1ecbe8304fa7c4e643ec62e05ad7a7d8db451e21966b3b63ea903d9d6b21229de317879a88027ed6ef6fed2bf728f0645d6a5be35bfa12a37fb
+  languageName: node
+  linkType: hard
+
+"@bugsnag/cuid@npm:^3.0.0":
+  version: 3.1.1
+  resolution: "@bugsnag/cuid@npm:3.1.1"
+  checksum: 10/7a556bd8a166079e71872244c13f206a7d7e08b47ffa06bb712c04897144ab776ba25aaa63ea8b8e8cf7b3e973d41982bd6ac5d3544af9c988f4ef96bc86f6a3
+  languageName: node
+  linkType: hard
+
+"@bugsnag/js@npm:7.25.0, @bugsnag/js@npm:^7.0.0, @bugsnag/js@npm:^7.20.0":
+  version: 7.25.0
+  resolution: "@bugsnag/js@npm:7.25.0"
+  dependencies:
+    "@bugsnag/browser": "npm:^7.25.0"
+    "@bugsnag/node": "npm:^7.25.0"
+  checksum: 10/820d292644895387a09c8c4b0ddbfc2b3cfcacde88679b3ed9fe508d95d1a4740d6667bcc811eca3b8ed9617830575649fbaa6fd7cfef78a0f2f802c58a575c5
+  languageName: node
+  linkType: hard
+
+"@bugsnag/node@npm:^7.25.0":
+  version: 7.25.0
+  resolution: "@bugsnag/node@npm:7.25.0"
+  dependencies:
+    "@bugsnag/core": "npm:^7.25.0"
+    byline: "npm:^5.0.0"
+    error-stack-parser: "npm:^2.0.2"
+    iserror: "npm:^0.0.2"
+    pump: "npm:^3.0.0"
+    stack-generator: "npm:^2.0.3"
+  checksum: 10/f721855a29cbe84a74a80f68d21a8e2970bd788e2adba3c9b39d50f3b2de64563f916015c6a65d227be61cff95ff46e34d26aea11c09faf81aee7ec9cd2713c9
+  languageName: node
+  linkType: hard
+
+"@bugsnag/safe-json-stringify@npm:^6.0.0":
+  version: 6.0.0
+  resolution: "@bugsnag/safe-json-stringify@npm:6.0.0"
+  checksum: 10/74f5d96af5f2f14be038ff939093329cdc6b3cc94eca6ce5ecd9e66a6d30819bcfd22f99c0ff229de56c0ef601cbca292f86ef5c9940ed2692bc9e005ac1f261
+  languageName: node
+  linkType: hard

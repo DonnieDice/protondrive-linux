@@ -1,0 +1,8 @@
+"@types/writable-consumable-stream@npm:*":
+  version: 4.1.0
+  resolution: "@types/writable-consumable-stream@npm:4.1.0"
+  dependencies:
+    "@types/consumable-stream": "npm:*"
+  checksum: 10/9311d3b4de402b8d52acf9017619835d98681cc7a84e0e742817e1266eae4b1fc88318a452426bd3d4632e78a76410d5d75b6e94a2132c9b93a17df7898fcfb2
+  languageName: node
+  linkType: hard

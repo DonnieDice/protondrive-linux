@@ -1,0 +1,9 @@
+"@types/react-virtualized@npm:^9.22.3":
+  version: 9.22.3
+  resolution: "@types/react-virtualized@npm:9.22.3"
+  dependencies:
+    "@types/prop-types": "npm:*"
+    "@types/react": "npm:*"
+  checksum: 10/b71f6b99446bc5fbd302be5295eb17f0e8a61f3f621ccb6ebaeb50c14ec5ae26b615b2df8634fdd71cb21b292f1c42c14b31e932081b9dc683dec2f90801ab20
+  languageName: node
+  linkType: hard

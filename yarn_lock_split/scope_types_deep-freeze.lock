@@ -1,0 +1,6 @@
+"@types/deep-freeze@npm:^0.1.5":
+  version: 0.1.5
+  resolution: "@types/deep-freeze@npm:0.1.5"
+  checksum: 10/7d46b4b24e50356f080eee19cf4fe08028114171b8142c49d3baffbac4db4dbc60a486432ccc5671d6f3f8f4e3678a386935c860931a29104765151e18e01c31
+  languageName: node
+  linkType: hard

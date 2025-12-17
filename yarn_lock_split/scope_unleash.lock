@@ -1,0 +1,8 @@
+"@unleash/proxy-client-react@npm:^5.0.1":
+  version: 5.0.1
+  resolution: "@unleash/proxy-client-react@npm:5.0.1"
+  peerDependencies:
+    unleash-proxy-client: ^3.7.3
+  checksum: 10/88d9c391a06f028c8a6cacacc843e0680e664cccc3a9d3668457eb56f831cf146a08b665f798587220ef3a64d444280d4b5995528e3119f0197afc857a9d8209
+  languageName: node
+  linkType: hard

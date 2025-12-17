@@ -1,0 +1,10 @@
+"@fullhuman/postcss-purgecss@npm:^7.0.2":
+  version: 7.0.2
+  resolution: "@fullhuman/postcss-purgecss@npm:7.0.2"
+  dependencies:
+    purgecss: "npm:^7.0.2"
+  peerDependencies:
+    postcss: ^8.0.0
+  checksum: 10/2559781aef80f60277682db79a68320671fe8fdc0d90d8af3f2d82e2762d6636fcb282038f02d079b81c4326fd49570d7738de9da2f219e7aeb1a2108e9215f8
+  languageName: node
+  linkType: hard

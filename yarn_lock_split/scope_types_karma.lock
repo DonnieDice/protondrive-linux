@@ -1,0 +1,9 @@
+"@types/karma@npm:*":
+  version: 6.3.9
+  resolution: "@types/karma@npm:6.3.9"
+  dependencies:
+    "@types/node": "npm:*"
+    log4js: "npm:^6.4.1"
+  checksum: 10/137a81a1ec64b32fa71de23839a6aa0a8f5df01a28433338005ddc46d9aeb05ff4bd9b5c227ff69d48a9ea81276d1a227c09a1ff06e52fc96f9343b3ad6d17b1
+  languageName: node
+  linkType: hard

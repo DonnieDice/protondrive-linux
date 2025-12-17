@@ -1,0 +1,8 @@
+"@types/async-retry@npm:^1.4.9":
+  version: 1.4.9
+  resolution: "@types/async-retry@npm:1.4.9"
+  dependencies:
+    "@types/retry": "npm:*"
+  checksum: 10/9cbfe8fb9a6c3559c7084b359edb7b6bae30e16e023eb959e58362b799fc5a9450961e77d994b86526c8de45815eed02c081a104712fb6f2f55ef4cba7263601
+  languageName: node
+  linkType: hard

@@ -1,0 +1,84 @@
+"@plotly/d3-sankey-circular@npm:0.33.1":
+  version: 0.33.1
+  resolution: "@plotly/d3-sankey-circular@npm:0.33.1"
+  dependencies:
+    d3-array: "npm:^1.2.1"
+    d3-collection: "npm:^1.0.4"
+    d3-shape: "npm:^1.2.0"
+    elementary-circuits-directed-graph: "npm:^1.0.4"
+  checksum: 10/40811051cc25b2bc1783f260c036dd3992063f49db3ba93482c59307ad07ac4b32168028a0a639e2a0f02bf2d8cfcff43479a1b34e28d8906412cb8d74de07a6
+  languageName: node
+  linkType: hard
+
+"@plotly/d3-sankey@npm:0.7.2":
+  version: 0.7.2
+  resolution: "@plotly/d3-sankey@npm:0.7.2"
+  dependencies:
+    d3-array: "npm:1"
+    d3-collection: "npm:1"
+    d3-shape: "npm:^1.2.0"
+  checksum: 10/6a57105fb93cff60d53ec253b80d75a8c003062bdb3d94f1feea17f1ffbf35a32c7fc2dd63c848df834158bf615c93a796c50d6bdccf9e085a3afe1c337a00da
+  languageName: node
+  linkType: hard
+
+"@plotly/d3@npm:3.8.2":
+  version: 3.8.2
+  resolution: "@plotly/d3@npm:3.8.2"
+  checksum: 10/88c78efcb0f41a0e67fb86d7a55b7606f9cd67a1279cc2c50a3ea1151898b4d8ed716aa97942bb1799ccdff68292addbdb6a72a816c75c9debfcda40d80a50f6
+  languageName: node
+  linkType: hard
+
+"@plotly/mapbox-gl@npm:1.13.4":
+  version: 1.13.4
+  resolution: "@plotly/mapbox-gl@npm:1.13.4"
+  dependencies:
+    "@mapbox/geojson-rewind": "npm:^0.5.2"
+    "@mapbox/geojson-types": "npm:^1.0.2"
+    "@mapbox/jsonlint-lines-primitives": "npm:^2.0.2"
+    "@mapbox/mapbox-gl-supported": "npm:^1.5.0"
+    "@mapbox/point-geometry": "npm:^0.1.0"
+    "@mapbox/tiny-sdf": "npm:^1.1.1"
+    "@mapbox/unitbezier": "npm:^0.0.0"
+    "@mapbox/vector-tile": "npm:^1.3.1"
+    "@mapbox/whoots-js": "npm:^3.1.0"
+    csscolorparser: "npm:~1.0.3"
+    earcut: "npm:^2.2.2"
+    geojson-vt: "npm:^3.2.1"
+    gl-matrix: "npm:^3.2.1"
+    grid-index: "npm:^1.1.0"
+    murmurhash-js: "npm:^1.0.0"
+    pbf: "npm:^3.2.1"
+    potpack: "npm:^1.0.1"
+    quickselect: "npm:^2.0.0"
+    rw: "npm:^1.3.3"
+    supercluster: "npm:^7.1.0"
+    tinyqueue: "npm:^2.0.3"
+    vt-pbf: "npm:^3.1.1"
+  checksum: 10/d07cd05fbf3707747128858e153b386a9e01ebe3b7d3a3d81f49690cafc67366ad2be6bd53dadda117491af6ddb04423572866626ae5fff35cb114279ecb6a43
+  languageName: node
+  linkType: hard
+
+"@plotly/point-cluster@npm:^3.1.9":
+  version: 3.1.9
+  resolution: "@plotly/point-cluster@npm:3.1.9"
+  dependencies:
+    array-bounds: "npm:^1.0.1"
+    binary-search-bounds: "npm:^2.0.4"
+    clamp: "npm:^1.0.1"
+    defined: "npm:^1.0.0"
+    dtype: "npm:^2.0.0"
+    flatten-vertex-data: "npm:^1.0.2"
+    is-obj: "npm:^1.0.1"
+    math-log2: "npm:^1.0.1"
+    parse-rect: "npm:^1.2.0"
+    pick-by-alias: "npm:^1.2.0"
+  checksum: 10/6f9b3ce9eaa0e5ac605e93744dc74b14ae9c477bbbbc379998b84b769f36e26015c1c7349acb2cefa8b5d60f33c28d8306f1cf3ddfbdb3f38af9e829a4c2d54d
+  languageName: node
+  linkType: hard
+
+"@plotly/regl@npm:^2.1.2":
+  version: 2.1.2
+  resolution: "@plotly/regl@npm:2.1.2"
+  checksum: 10/1e951d5161c3991efb98e3d33a38089306b4c2119d337d7f128d9474f2ff5eb91dd2fce7a0ca290e459432f10568f65ff3db37122c558fe55a270890093ca661
+  languageName: node
+  linkType: hard

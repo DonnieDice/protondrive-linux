@@ -1,0 +1,35 @@
+"pdf-parse@npm:^1.1.4":
+  version: 1.1.4
+  resolution: "pdf-parse@npm:1.1.4"
+  dependencies:
+    node-ensure: "npm:^0.0.0"
+  checksum: 10/092210d6c93a084c8433232f8e699f90ac7281d0e51aa443752f91e3a1635ef8809fd34217881cde853a5eac532a727bc4bb73ba24c3055110faf8f52b2d5ff2
+  languageName: node
+  linkType: hard
+
+"pdfjs-dist@npm:^3.11.174":
+  version: 3.11.174
+  resolution: "pdfjs-dist@npm:3.11.174"
+  dependencies:
+    canvas: "npm:^2.11.2"
+    path2d-polyfill: "npm:^2.0.1"
+  dependenciesMeta:
+    canvas:
+      optional: true
+    path2d-polyfill:
+      optional: true
+  checksum: 10/f739ffd451718d214e664c943a066dcb4020bc1ed92b5639ae38d6a25ef0bddcc05b35a68c3dfeb95fcfb852377bcb2aef935c780312a229f1f34e682627a8ae
+  languageName: node
+  linkType: hard
+
+"pdfjs-dist@npm:^4.10.38":
+  version: 4.10.38
+  resolution: "pdfjs-dist@npm:4.10.38"
+  dependencies:
+    "@napi-rs/canvas": "npm:^0.1.65"
+  dependenciesMeta:
+    "@napi-rs/canvas":
+      optional: true
+  checksum: 10/2fee929540863a32a368c02fe445550ce6f0992a08ccfaa05f2e2e185e8ac98b43eda6f88c94c366b86fe99149478eeff7ebb57793270b030c7af54169a4a54c
+  languageName: node
+  linkType: hard

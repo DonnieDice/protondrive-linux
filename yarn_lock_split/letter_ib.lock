@@ -1,0 +1,6 @@
+"ibantools@npm:^4.5.1":
+  version: 4.5.1
+  resolution: "ibantools@npm:4.5.1"
+  checksum: 10/8373f380202027003726b297f5f0e53036fc429418d224720e65a6b518db9135d58b6c386c485fde81e599d9ef30c468a1814b04e98f67fb67f02239aa1f13dc
+  languageName: node
+  linkType: hard

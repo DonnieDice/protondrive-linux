@@ -1,0 +1,8 @@
+"bplist-creator@npm:~0.0.3":
+  version: 0.0.8
+  resolution: "bplist-creator@npm:0.0.8"
+  dependencies:
+    stream-buffers: "npm:~2.2.0"
+  checksum: 10/f21a5a521f610027ab3ded29ff8e6b91cba31ef496ec0a4dec14c73bb95a787211dd93558ceef26c40cff7aaf35326811753b4be1476bac97e6e8c0ec6d16147
+  languageName: node
+  linkType: hard

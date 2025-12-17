@@ -1,0 +1,6 @@
+"rn-host-detect@npm:^1.2.0":
+  version: 1.2.0
+  resolution: "rn-host-detect@npm:1.2.0"
+  checksum: 10/90d94a3567ce96a78647aea3f6315266aa580f9c13eccb85b67e105972493a13dd40d27dc4cb28deb2a3d5512599a320384502d8c9e8f93610deeefee07932db
+  languageName: node
+  linkType: hard

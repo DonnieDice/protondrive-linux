@@ -1,0 +1,6 @@
+"@types/sc-errors@npm:*":
+  version: 1.4.3
+  resolution: "@types/sc-errors@npm:1.4.3"
+  checksum: 10/6415b8608b4a7b7c6ad170755fcba686cad505b1cc60a134f755ad00c5b9bf311c8f5e65d17957b1e4b9e8e15eb5ff3946c5d0c34726e66714fc3016157c8a22
+  languageName: node
+  linkType: hard

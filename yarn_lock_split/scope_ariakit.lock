@@ -1,0 +1,32 @@
+"@ariakit/core@npm:0.4.17":
+  version: 0.4.17
+  resolution: "@ariakit/core@npm:0.4.17"
+  checksum: 10/d59a81d0ccf3d8884604bd64f000806588a4c001aeca4a0081c914e0877c581d918a36346c515e575a753dd3f619931d2777616ce050632460917f8704c251d4
+  languageName: node
+  linkType: hard
+
+"@ariakit/react-core@npm:0.4.20, @ariakit/react-core@npm:^0.4.20":
+  version: 0.4.20
+  resolution: "@ariakit/react-core@npm:0.4.20"
+  dependencies:
+    "@ariakit/core": "npm:0.4.17"
+    "@floating-ui/dom": "npm:^1.0.0"
+    use-sync-external-store: "npm:^1.2.0"
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10/479e7d08b93b7b72fa8b483864eef1da7daf5e5ee8c8b3e85e6700dabfa2ba7709a1b5c3846616b521af991b666ba5ce65b1f73c722840fb395191c19353df8f
+  languageName: node
+  linkType: hard
+
+"@ariakit/react@npm:^0.4.20":
+  version: 0.4.20
+  resolution: "@ariakit/react@npm:0.4.20"
+  dependencies:
+    "@ariakit/react-core": "npm:0.4.20"
+  peerDependencies:
+    react: ^17.0.0 || ^18.0.0 || ^19.0.0
+    react-dom: ^17.0.0 || ^18.0.0 || ^19.0.0
+  checksum: 10/7b34188b4f6129f2e73ba7aa68678d09a68390bd75a02237a88a269d1a7543d9ed512055c1592ab225f3548e0810a5da9742afe42647b2418d98f63d5df83b8d
+  languageName: node
+  linkType: hard

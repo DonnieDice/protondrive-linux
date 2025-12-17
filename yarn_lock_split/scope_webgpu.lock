@@ -1,0 +1,6 @@
+"@webgpu/types@npm:*, @webgpu/types@npm:^0.1.66":
+  version: 0.1.66
+  resolution: "@webgpu/types@npm:0.1.66"
+  checksum: 10/97378fb55e20e03d54c176f28e3be0127180bb7dca35175a4d1334c46cbed95a730dff0fb9ad76d6fff6d18e6b87c482203ab435a9a31b9ab520eccbcb8918aa
+  languageName: node
+  linkType: hard
