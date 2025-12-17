@@ -1,0 +1,275 @@
+name: Build Linux Packages
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  RUST_VERSION: "stable"
+
+jobs:
+  build-deb-rpm-appimage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            curl \
+            wget \
+            file \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            python3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Clone and patch WebClients
+        run: |
+          set -euo pipefail
+
+          echo "📥 Cloning WebClients..."
+          rm -rf WebClients
+          git clone --depth=1 --single-branch --branch main \
+            https://github.com/ProtonMail/WebClients.git WebClients
+
+          echo "🔧 Patching dependencies..."
+          python3 scripts/fix_deps.py
+
+      - name: Build WebClients (Proton Drive)
+        run: |
+          set -euo pipefail
+
+          cd WebClients
+
+          echo "📦 Installing WebClients dependencies..."
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+
+          echo "🔨 Building Proton Drive web app..."
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+
+          # Verify build output
+          if [ ! -d "applications/drive/build" ]; then
+            echo "❌ Build failed - no output directory"
+            exit 1
+          fi
+
+          echo "✅ WebClients build complete"
+          ls -la applications/drive/build/
+
+          cd ..
+
+      - name: Install Tauri dependencies
+        run: yarn install
+
+      - name: Build Tauri app (DEB, RPM, AppImage)
+        run: |
+          echo "🔨 Building Tauri packages..."
+          yarn tauri build -- --bundles appimage,deb,rpm
+
+          echo "✅ Tauri build complete"
+          find src-tauri/target/release/bundle -type f \
+            \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+            \) -ls
+
+      - name: Upload Linux artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            src-tauri/target/release/bundle/appimage/*.AppImage
+            src-tauri/target/release/bundle/deb/*.deb
+            src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+          retention-days: 30
+
+  build-flatpak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Flatpak manifest
+        run: |
+          mkdir -p build-flatpak
+          cat > build-flatpak/com.proton.drive.json << 'EOF'
+          {
+            "app-id": "com.proton.drive",
+            "runtime": "org.freedesktop.Platform",
+            "runtime-version": "24.08",
+            "sdk": "org.freedesktop.Sdk",
+            "command": "proton-drive",
+            "modules": [
+              {
+                "name": "proton-drive",
+                "buildsystem": "simple",
+                "build-commands": [
+                  "install -Dm755 proton-drive /app/bin/proton-drive"
+                ],
+                "sources": [
+                  {
+                    "type": "file",
+                    "path": "src-tauri/target/release/proton-drive",
+                    "dest": "."
+                  }
+                ]
+              }
+            ]
+          }
+          EOF
+
+      - name: Upload Flatpak manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-manifest
+          path: build-flatpak/
+          retention-days: 30
+
+  build-snap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Build Snap manifest
+        run: |
+          mkdir -p build-snap
+          cat > build-snap/snapcraft.yaml << 'EOF'
+          name: proton-drive
+          version: '1.0.0'
+          summary: Proton Drive Linux Desktop Client
+          description: |
+            Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+            Built with Tauri and Rust for a native-performance experience.
+
+          grade: stable
+          confinement: strict
+          base: core24
+
+          apps:
+            proton-drive:
+              command: proton-drive
+              plugs:
+                - home
+                - network
+                - desktop
+                - x11
+
+          parts:
+            proton-drive:
+              plugin: nil
+              source: .
+              override-pull: |
+                snapcraftctl pull
+              override-build: |
+                echo "Snap build instructions needed - using pre-built binary"
+          EOF
+
+      - name: Upload Snap manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-manifest
+          path: build-snap/
+          retention-days: 30
+
+  publish-aur:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Generate AUR package
+        run: |
+          mkdir -p build-aur
+          VERSION=${GITHUB_REF#refs/tags/v}
+
+          cat > build-aur/PKGBUILD << 'EOF'
+          pkgname=proton-drive
+          pkgver=1.0.0
+          pkgrel=1
+          pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+          arch=('x86_64' 'aarch64')
+          url="https://github.com/${{ github.repository }}"
+          license=('AGPL-3.0')
+          depends=(
+            'webkit2gtk'
+            'gtk3'
+            'libayatana-appindicator'
+            'libssl'
+            'gcc-libs'
+          )
+          makedepends=(
+            'nodejs'
+            'npm'
+            'rust'
+            'cargo'
+            'python'
+          )
+          source=("${pkgname}-${pkgver}.tar.gz::https://github.com/${{ github.repository }}/archive/refs/tags/v${pkgver}.tar.gz")
+          sha256sums=('SKIP')
+
+          build() {
+            cd "$srcdir/$pkgname-$pkgver"
+            npm install --prefer-offline --no-audit
+            npm run build
+          }
+
+          package() {
+            cd "$srcdir/$pkgname-$pkgver"
+            install -Dm755 src-tauri/target/release/proton-drive "$pkgdir/usr/bin/proton-drive"
+          }
+          EOF
+
+      - name: Upload AUR package files
+        uses: actions/upload-artifact@v4
+        with:
+          name: aur-package
+          path: build-aur/
+          retention-days: 30

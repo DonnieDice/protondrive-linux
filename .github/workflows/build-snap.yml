@@ -1,0 +1,195 @@
+name: Build Snap
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  RUST_VERSION: "stable"
+
+jobs:
+  build-snap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Setup Snapcraft
+        uses: snapcore/action-build@v1
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            build-essential \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            patchelf \
+            python3
+
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: ${{ env.RUST_VERSION }}
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Create snapcraft.yaml
+        run: |
+          mkdir -p snap
+          cat > snap/snapcraft.yaml << 'EOF'
+          name: proton-drive
+          version: '1.0.0'
+          summary: Proton Drive Linux Desktop Client
+          description: |
+            Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+            Built with Tauri and Rust for a native-performance experience.
+
+            Features:
+            - Secure Proton Drive Integration
+            - Native Desktop Experience
+            - Privacy-Focused
+            - Cross-platform Support
+
+          grade: stable
+          confinement: strict
+          base: core24
+          architectures:
+            - build-on: amd64
+            - build-on: arm64
+
+          apps:
+            proton-drive:
+              command: proton-drive
+              desktop: usr/share/applications/com.proton.drive.desktop
+              plugs:
+                - home
+                - network
+                - network-bind
+                - desktop
+                - desktop-legacy
+                - x11
+                - wayland
+                - dbus
+
+          plugs:
+            dbus:
+              interface: dbus
+              bus: session
+              name: com.proton.drive
+
+          parts:
+            proton-drive:
+              plugin: nil
+              source: .
+              override-build: |
+                set -euo pipefail
+
+                # Install Node.js dependencies
+                npm install
+
+                # Clone and build WebClients
+                git clone --depth=1 --single-branch --branch main \
+                  https://github.com/ProtonMail/WebClients.git WebClients
+                python3 fix_deps.py
+
+                cd WebClients
+                export NODE_OPTIONS="--max-old-space-size=8192"
+                node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+                node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+                cd ..
+
+                # Build with Tauri
+                yarn install
+                yarn tauri build -- --bundles appimage
+
+                # Install the binary
+                install -Dm755 src-tauri/target/release/proton-drive \
+                  "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+
+                # Install desktop file
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+                cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
+                [Desktop Entry]
+                Version=1.0
+                Type=Application
+                Name=Proton Drive
+                Comment=Secure cloud storage
+                Exec=proton-drive
+                Icon=com.proton.drive
+                Categories=Utility;
+                DESKTOP
+
+                # Install icon
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
+                cp src-tauri/icons/128x128.png \
+                  "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+
+              build-packages:
+                - curl
+                - wget
+                - file
+                - python3
+                - python3-pip
+                - nodejs
+                - npm
+                - build-essential
+                - libssl-dev
+                - libwebkit2gtk-4.1-dev
+                - libgtk-3-dev
+                - libayatana-appindicator3-dev
+                - librsvg2-dev
+                - patchelf
+
+              stage-packages:
+                - libssl3
+                - libwebkit2gtk-4.1-0
+                - libgtk-3-0
+                - libayatana-appindicator3-1
+                - librsvg2-2
+          EOF
+
+      - name: Build Snap package
+        uses: snapcore/action-build@v1
+        with:
+          snapcraft-channel: latest/edge
+
+      - name: Upload Snap artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-package
+          path: '*.snap'
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload snapcraft.yaml
+        uses: actions/upload-artifact@v4
+        with:
+          name: snap-config
+          path: snap/snapcraft.yaml
+          retention-days: 30

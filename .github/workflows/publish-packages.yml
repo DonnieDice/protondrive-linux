@@ -1,0 +1,273 @@
+name: Publish Packages to Repositories
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  publish-to-aur:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Generate AUR PKGBUILD
+        run: |
+          cat > PKGBUILD << 'EOF'
+          # Maintainer: Your Name <your.email@example.com>
+          pkgname=proton-drive
+          pkgver=${{ steps.tag.outputs.version }}
+          pkgrel=1
+          pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+          arch=('x86_64' 'aarch64')
+          url="https://github.com/${{ github.repository }}"
+          license=('AGPL-3.0')
+          depends=(
+            'webkit2gtk'
+            'gtk3'
+            'libayatana-appindicator'
+            'libssl'
+            'gcc-libs'
+          )
+          makedepends=(
+            'nodejs'
+            'npm'
+            'rust'
+            'python'
+          )
+          optdepends=(
+            'gnome-keyring: for secure credential storage'
+          )
+          options=('!strip')
+          source=("https://github.com/${{ github.repository }}/archive/refs/tags/v${pkgver}.tar.gz")
+          sha256sums=('SKIP')
+
+          build() {
+            cd "$srcdir/protondrive-linux-${pkgver}"
+
+            # Clone and build WebClients
+            git clone --depth=1 --single-branch --branch main \
+              https://github.com/ProtonMail/WebClients.git WebClients
+
+            python3 fix_deps.py
+
+            cd WebClients
+            export NODE_OPTIONS="--max-old-space-size=8192"
+            node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+            node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+            cd ..
+
+            npm install
+            npm run build
+          }
+
+          package() {
+            cd "$srcdir/protondrive-linux-${pkgver}"
+
+            # Install binary
+            install -Dm755 src-tauri/target/release/proton-drive \
+              "$pkgdir/usr/bin/proton-drive"
+
+            # Install desktop file
+            install -Dm644 <(cat << 'DESKTOP'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Encrypted cloud storage
+          Exec=proton-drive
+          Icon=com.proton.drive
+          Categories=Utility;Network;
+          DESKTOP
+            ) "$pkgdir/usr/share/applications/com.proton.drive.desktop"
+
+            # Install icon
+            install -Dm644 src-tauri/icons/128x128.png \
+              "$pkgdir/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+
+            # Install license
+            install -Dm644 LICENSE \
+              "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+          }
+          EOF
+
+      - name: Upload PKGBUILD artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: aur-pkgbuild
+          path: PKGBUILD
+          retention-days: 90
+
+  publish-copr:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create .copr/Makefile
+        run: |
+          mkdir -p .copr
+          cat > .copr/Makefile << 'EOF'
+          .PHONY: srpm
+          srpm:
+            fedpkg --release f40 srpm
+          EOF
+
+      - name: Create spec file
+        run: |
+          cat > proton-drive.spec << 'EOF'
+          Name:           proton-drive
+          Version:        ${{ steps.tag.outputs.version }}
+          Release:        1%{?dist}
+          Summary:        Proton Drive Linux Desktop Client
+          License:        AGPL-3.0
+
+          URL:            https://github.com/${{ github.repository }}
+          Source0:        https://github.com/${{ github.repository }}/archive/refs/tags/v%{version}.tar.gz
+
+          BuildRequires:  rustc
+          BuildRequires:  cargo
+          BuildRequires:  gcc
+          BuildRequires:  make
+          BuildRequires:  pkgconfig(gtk+-3.0)
+          BuildRequires:  webkit2gtk3-devel
+          BuildRequires:  libayatana-appindicator-devel
+          BuildRequires:  openssl-devel
+          BuildRequires:  nodejs
+          BuildRequires:  npm
+          BuildRequires:  python3
+
+          Requires:       gtk3
+          Requires:       webkit2gtk3
+          Requires:       libayatana-appindicator
+          Requires:       openssl-libs
+
+          %description
+          Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+          Built with Tauri and Rust for a native-performance experience.
+
+          %prep
+          %autosetup -n protondrive-linux-%{version}
+
+          %build
+          # Clone and build WebClients
+          git clone --depth=1 --single-branch --branch main \
+            https://github.com/ProtonMail/WebClients.git WebClients
+
+          python3 fix_deps.py
+
+          cd WebClients
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+          cd ..
+
+          npm install
+          npm run build:rpm
+
+          %install
+          install -Dm755 src-tauri/target/release/proton-drive \
+            %{buildroot}%{_bindir}/proton-drive
+
+          install -Dm644 src-tauri/icons/128x128.png \
+            %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+
+          install -Dm644 <(cat << 'DESKTOP'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Encrypted cloud storage
+          Exec=proton-drive
+          Icon=com.proton.drive
+          Categories=Utility;Network;
+          DESKTOP
+          ) %{buildroot}%{_datadir}/applications/com.proton.drive.desktop
+
+          %files
+          %license LICENSE
+          %{_bindir}/proton-drive
+          %{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+          %{_datadir}/applications/com.proton.drive.desktop
+
+          %changelog
+          * $(date +%a\ %b\ %d\ %Y) Build System <build@proton.drive> - %{version}-1
+          - Build from ${{ github.ref }}
+          EOF
+
+      - name: Upload spec file artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-spec
+          path: proton-drive.spec
+          retention-days: 90
+
+  create-source-dist:
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Get version from tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Create source tarball
+        run: |
+          # Create a clean directory with the source
+          mkdir -p dist-tmp/proton-drive-${{ steps.tag.outputs.version }}
+          cp -r . dist-tmp/proton-drive-${{ steps.tag.outputs.version }}/
+
+          # Clean up git and build artifacts
+          cd dist-tmp
+          find . -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
+          find . -name "target" -type d -exec rm -rf {} + 2>/dev/null || true
+          find . -name "node_modules" -type d -exec rm -rf {} + 2>/dev/null || true
+          find . -name "WebClients" -type d -exec rm -rf {} + 2>/dev/null || true
+
+          tar -czf ../proton-drive-${{ steps.tag.outputs.version }}.tar.gz proton-drive-${{ steps.tag.outputs.version }}/
+
+      - name: Generate checksums
+        run: |
+          sha256sum proton-drive-${{ steps.tag.outputs.version }}.tar.gz > \
+            proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
+
+      - name: Upload source distribution
+        uses: actions/upload-artifact@v4
+        with:
+          name: source-distribution
+          path: |
+            proton-drive-${{ steps.tag.outputs.version }}.tar.gz
+            proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
+          retention-days: 90

@@ -1,0 +1,136 @@
+name: Build Flatpak
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  NODE_VERSION: "22"
+  RUST_VERSION: "stable"
+
+jobs:
+  build-flatpak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    container:
+      image: bilelmoussaoui/flatpak-github-actions:latest
+      options: --privileged
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          submodules: recursive
+
+      - name: Install build dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            python3 \
+            nodejs \
+            npm \
+            rustup \
+            cargo
+
+      - name: Setup Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+          source $HOME/.cargo/env
+
+      - name: Clone and patch WebClients
+        run: |
+          set -euo pipefail
+          echo "📥 Cloning WebClients..."
+          git clone --depth=1 --single-branch --branch main \
+            https://github.com/ProtonMail/WebClients.git WebClients
+
+          echo "🔧 Patching dependencies..."
+          python3 scripts/fix_deps.py
+
+      - name: Build WebClients
+        run: |
+          set -euo pipefail
+          cd WebClients
+
+          export NODE_OPTIONS="--max-old-space-size=8192"
+          echo "📦 Installing WebClients dependencies..."
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+
+          echo "🔨 Building Proton Drive web app..."
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+
+          if [ ! -d "applications/drive/build" ]; then
+            echo "❌ Build failed"
+            exit 1
+          fi
+          cd ..
+
+      - name: Create Flatpak manifest
+        run: |
+          mkdir -p flatpak-build
+          cat > com.proton.drive.yml << 'EOF'
+          app-id: com.proton.drive
+          runtime: org.freedesktop.Platform
+          runtime-version: '24.08'
+          sdk: org.freedesktop.Sdk
+          sdk-extensions:
+            - org.freedesktop.Sdk.Extension.rust-stable
+          command: proton-drive
+
+          finish-args:
+            - --share=network
+            - --share=ipc
+            - --socket=x11
+            - --socket=wayland
+            - --device=dri
+            - --filesystem=home
+
+          modules:
+            - name: proton-drive
+              buildsystem: simple
+              build-options:
+                append-path: /usr/lib/sdk/rust-stable/bin
+                env:
+                  CARGO_HOME: /run/build/proton-drive/cargo
+              build-commands:
+                - npm install
+                - npm run build
+                - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive
+                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+              sources:
+                - type: git
+                  url: https://github.com/${{ github.repository }}.git
+                  branch: ${{ github.ref_name }}
+          EOF
+
+      - name: Build Flatpak
+        run: |
+          flatpak-builder --user --disable-rofiles-fuse --repo=repo build-dir com.proton.drive.yml
+
+      - name: Create Flatpak bundle
+        run: |
+          flatpak build-bundle repo proton-drive.flatpak com.proton.drive
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-bundle
+          path: proton-drive.flatpak
+          if-no-files-found: error
+          retention-days: 30
+
+      - name: Upload Flatpak manifest
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-manifest
+          path: com.proton.drive.yml
+          if-no-files-found: error
+          retention-days: 30

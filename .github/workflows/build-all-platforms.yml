@@ -1,4 +1,4 @@
-name: Build and Release
+name: Build All Platforms
 
 on:
   push:
@@ -24,6 +24,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Install system dependencies
         run: |
@@ -60,24 +62,20 @@ jobs:
       - name: Clone and patch WebClients
         run: |
           set -euo pipefail
-          
+
           echo "📥 Cloning WebClients..."
           rm -rf WebClients
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
-          
+
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
-
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
 
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
-          
+
           cd WebClients
-          
-          # Removed touch yarn.lock - now uses the cloned yarn.lock
 
           echo "📦 Installing WebClients dependencies..."
           export NODE_OPTIONS="--max-old-space-size=8192"
@@ -85,30 +83,27 @@ jobs:
 
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
-          
+
           # Verify build output
           if [ ! -d "applications/drive/build" ]; then
             echo "❌ Build failed - no output directory"
             exit 1
           fi
-          
-          echo "✅ WebClients build complete"
-          ls -la applications/drive/build/
 
+          echo "✅ WebClients build complete"
           cd ..
 
       - name: Install Tauri dependencies
         run: yarn install
 
-      - name: Build Tauri app (Linux)
+      - name: Build Tauri app (DEB, RPM, AppImage)
         run: |
-          echo "🔨 Building Tauri desktop app..."
+          echo "🔨 Building Tauri packages for Linux..."
           yarn tauri build -- --bundles appimage,deb,rpm
-          
-          echo "✅ Tauri build complete"
+
+          echo "✅ Linux builds complete"
           find src-tauri/target/release/bundle -type f \
-            \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
-            \)
+            \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \) -ls
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
@@ -119,6 +114,7 @@ jobs:
             src-tauri/target/release/bundle/deb/*.deb
             src-tauri/target/release/bundle/rpm/*.rpm
           if-no-files-found: error
+          retention-days: 30
 
   build-macos:
     runs-on: macos-latest
@@ -127,6 +123,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -147,35 +145,31 @@ jobs:
       - name: Clone and patch WebClients
         run: |
           set -euo pipefail
-          
+
           echo "📥 Cloning WebClients..."
           rm -rf WebClients
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
-          
+
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
-
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
 
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
           cd WebClients
-          
+
           export NODE_OPTIONS="--max-old-space-size=8192"
-          
-          # Removed touch yarn.lock - now uses the cloned yarn.lock
 
           echo "📦 Installing WebClients dependencies..."
           node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
-          
+
           if [ ! -d "applications/drive/build" ]; then
             echo "❌ Build failed"
             exit 1
           fi
-          
+
           cd ..
 
       - name: Install Tauri dependencies
@@ -183,11 +177,12 @@ jobs:
 
       - name: Build Tauri app (macOS)
         run: |
+          echo "🔨 Building Tauri app for macOS..."
           yarn tauri build -- --bundles app,dmg
-          
+
+          echo "✅ macOS build complete"
           find src-tauri/target/release/bundle -type f \
-            \( -name "*.app" -o -name "*.dmg" \
-            \)
+            \( -name "*.app" -o -name "*.dmg" \) -ls
 
       - name: Upload macOS artifacts
         uses: actions/upload-artifact@v4
@@ -197,6 +192,7 @@ jobs:
             src-tauri/target/release/bundle/macos/*.app
             src-tauri/target/release/bundle/dmg/*.dmg
           if-no-files-found: error
+          retention-days: 30
 
   build-windows:
     runs-on: windows-latest
@@ -205,6 +201,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          submodules: recursive
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -225,39 +223,35 @@ jobs:
       - name: Clone and patch WebClients
         shell: bash
         env:
-          PYTHONIOENCODING: utf-8 # Fix UnicodeEncodeError on Windows
+          PYTHONIOENCODING: utf-8
         run: |
           set -euo pipefail
-          
+
           echo "📥 Cloning WebClients..."
           rm -rf WebClients
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
-          
+
           echo "🔧 Patching dependencies..."
           python fix_deps.py
-          
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
 
       - name: Build WebClients (Proton Drive)
         shell: bash
         run: |
           set -euo pipefail
           cd WebClients
-          
+
           export NODE_OPTIONS="--max-old-space-size=8192"
-          
-          # Removed touch yarn.lock - now uses the cloned yarn.lock
 
           echo "📦 Installing WebClients dependencies..."
           node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
-          
+
           if [ ! -d "applications/drive/build" ]; then
             echo "❌ Build failed"
             exit 1
           fi
-          
+
           cd ..
 
       - name: Install Tauri dependencies
@@ -265,8 +259,10 @@ jobs:
 
       - name: Build Tauri app (Windows)
         run: |
+          echo "🔨 Building Tauri app for Windows..."
           yarn tauri build -- --bundles msi,nsis
-          
+
+          echo "✅ Windows build complete"
           Get-ChildItem -Path src-tauri/target/release/bundle -Recurse -Include *.msi,*.exe
 
       - name: Upload Windows artifacts
@@ -277,11 +273,13 @@ jobs:
             src-tauri/target/release/bundle/msi/*.msi
             src-tauri/target/release/bundle/nsis/*.exe
           if-no-files-found: error
+          retention-days: 30
 
-  release:
+  prepare-release:
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    timeout-minutes: 30
 
     steps:
       - name: Checkout repository
@@ -295,39 +293,26 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          
+
           # Find and copy all build artifacts
           find artifacts -type f \
             \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
                -o -name "*.dmg" -o -name "*.app" \
-               -o -name "*.exe" -o -name "*.msi" \)
+               -o -name "*.exe" -o -name "*.msi" \) \
             -exec cp {} release/ \;
-          
-          # List what we're releasing
+
           echo "📦 Release artifacts:"
           ls -lah release/
-          
+
           # Generate checksums
           cd release
           sha256sum * > SHA256SUMS
           cat SHA256SUMS
           cd ..
 
-      - name: Create release notes
-        id: create_release
-        uses: softprops/action-gh-release@v1
+      - name: Upload release artifacts
+        uses: actions/upload-artifact@v4
         with:
-          files: release/*
-          body_path: release_notes.md
-          draft: false
-          prerelease: false
-          generate_release_notes: true
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Update latest release tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -f latest
-          git push -f origin latest
+          name: release-packages
+          path: release/
+          retention-days: 90

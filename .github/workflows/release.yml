@@ -1,0 +1,104 @@
+name: Create Release
+
+on:
+  push:
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: tag
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "tag_name=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+
+      - name: Create release notes
+        id: release_notes
+        run: |
+          VERSION=${{ steps.tag.outputs.version }}
+          cat > RELEASE_NOTES.md << 'EOF'
+          # Proton Drive Linux ${{ steps.tag.outputs.version }}
+
+          ## Release Information
+
+          **Version:** ${{ steps.tag.outputs.version }}
+          **Date:** $(date -u +'%Y-%m-%d')
+
+          ## What's New
+
+          See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}) for detailed changes.
+
+          ## Installation
+
+          ### Linux
+
+          #### DEB (Debian/Ubuntu)
+          ```bash
+          sudo apt install ./proton-drive_${{ steps.tag.outputs.version }}_amd64.deb
+          ```
+
+          #### RPM (Fedora/Red Hat/CentOS)
+          ```bash
+          sudo dnf install ./proton-drive-${{ steps.tag.outputs.version }}-1.x86_64.rpm
+          ```
+
+          #### AppImage
+          Download the AppImage file and make it executable:
+          ```bash
+          chmod +x proton-drive_${{ steps.tag.outputs.version }}_amd64.AppImage
+          ./proton-drive_${{ steps.tag.outputs.version }}_amd64.AppImage
+          ```
+
+          #### Flatpak
+          Installation instructions coming soon.
+
+          #### Snap
+          Installation instructions coming soon.
+
+          #### AUR (Arch Linux User Repository)
+          Installation instructions coming soon.
+
+          ### macOS
+          Download the DMG or APP bundle from the assets below.
+
+          ### Windows
+          Download the MSI or NSIS installer from the assets below.
+
+          ## Checksums
+
+          All files include SHA256 checksums for verification. See SHA256SUMS file below.
+
+          ## System Requirements
+
+          - Linux: Kernel 5.0+
+          - macOS: 10.13+
+          - Windows: 10+
+
+          ## Known Issues
+
+          None reported yet. Please report any issues on [GitHub](https://github.com/${{ github.repository }}/issues).
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
