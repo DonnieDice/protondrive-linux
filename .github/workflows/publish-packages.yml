@@ -29,7 +29,7 @@ jobs:
       - name: Generate AUR PKGBUILD
         run: |
           cat > PKGBUILD << 'EOF'
-          # Maintainer: Your Name <your.email@example.com>
+          # Maintainer: DonnieDice <your.email@example.com>
           pkgname=proton-drive
           pkgver=${{ steps.tag.outputs.version }}
           pkgrel=1
@@ -61,10 +61,14 @@ jobs:
             cd "$srcdir/protondrive-linux-${pkgver}"
 
             # Clone and build WebClients
+            rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
             git clone --depth=1 --single-branch --branch main \
               https://github.com/ProtonMail/WebClients.git WebClients
 
             python3 scripts/fix_deps.py
+
+            # Remove yarn.lock to regenerate from package.json
+            rm -f WebClients/yarn.lock
 
             cd WebClients
             export NODE_OPTIONS="--max-old-space-size=8192"
@@ -106,11 +110,61 @@ jobs:
           }
           EOF
 
+      - name: Create AUR submission guide
+        run: |
+          cat > AUR_SUBMISSION_GUIDE.md << 'EOF'
+          # Submitting to AUR (Arch Linux User Repository)
+
+          The PKGBUILD has been generated for AUR submission.
+
+          ## Steps to submit to AUR:
+
+          1. **Clone AUR repository** (first time only):
+             ```bash
+             git clone ssh://aur@aur.archlinux.org/proton-drive.git
+             cd proton-drive
+             ```
+
+          2. **Update PKGBUILD**:
+             - Replace PKGBUILD content with the generated PKGBUILD
+             - Update `.SRCINFO`: `makepkg --printsrcinfo > .SRCINFO`
+
+          3. **Commit and push**:
+             ```bash
+             git add PKGBUILD .SRCINFO
+             git commit -m "Update to version $VERSION"
+             git push
+             ```
+
+          4. **For subsequent updates**:
+             ```bash
+             cd proton-drive
+             git pull
+             # Update PKGBUILD with new version
+             makepkg --printsrcinfo > .SRCINFO
+             git add PKGBUILD .SRCINFO
+             git commit -m "Update to version $VERSION"
+             git push
+             ```
+
+          ## Notes:
+          - Requires AUR account and SSH key setup
+          - `.SRCINFO` must be regenerated with each update
+          - Package appears in AUR after first push
+          - Users install with: `yay -S proton-drive` or `pacman -S proton-drive`
+
+          ## Resources:
+          - AUR Wiki: https://wiki.archlinux.org/title/Arch_User_Repository
+          - AUR Package Guidelines: https://wiki.archlinux.org/title/Arch_package_guidelines
+          EOF
+
       - name: Upload PKGBUILD artifact
         uses: actions/upload-artifact@v4
         with:
           name: aur-pkgbuild
-          path: PKGBUILD
+          path: |
+            PKGBUILD
+            AUR_SUBMISSION_GUIDE.md
           retention-days: 90
 
   publish-copr:

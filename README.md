@@ -112,13 +112,47 @@ To create production-ready builds of the application:
 
     Built packages will be located in the `src-tauri/target/release/bundle/` directory.
 
-4.  **Other Distribution Methods:**
-    Packages are also built and distributed via:
+4.  **Available Distribution Channels:**
 
+    The application is available across all major Linux distribution channels:
+
+    **Direct Package Managers:**
+    *   **Debian/Ubuntu** - Install DEB package
+        ```bash
+        sudo apt install proton-drive_*.deb
+        ```
+    *   **Fedora/RHEL/CentOS** - Install RPM package
+        ```bash
+        sudo dnf install proton-drive-*.rpm
+        ```
+    *   **Arch Linux (AUR)** - Build from AUR
+        ```bash
+        yay -S proton-drive
+        ```
+
+    **Container/Sandboxed Formats:**
     *   **Snap** - Available in Snapcraft store
+        ```bash
+        sudo snap install proton-drive
+        ```
     *   **Flatpak** - Available in Flathub
-    *   **AUR** - Arch Linux User Repository (PKGBUILD)
+        ```bash
+        flatpak install flathub com.proton.drive
+        ```
+
+    **Universal Format:**
+    *   **AppImage** - Download and run anywhere
+        ```bash
+        chmod +x proton-drive-*.AppImage
+        ./proton-drive-*.AppImage
+        ```
+
+    **Fedora Community:**
     *   **COPR** - Fedora Community Build System
+        ```bash
+        sudo dnf copr enable donniedice/proton-drive
+        sudo dnf install proton-drive
+        ```
 
     These are automatically built and published when a new version is tagged.
 
