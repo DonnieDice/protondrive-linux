@@ -49,3 +49,6 @@
 *.deb   binary
 *.rpm   binary
 *.AppImage binary
+
+WebClients/** linguist-vendored
+*.rs linguist-detectable=true

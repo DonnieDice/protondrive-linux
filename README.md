@@ -1,8 +1,6 @@
-WIP - readme is placeholder
+🐧 ProtonDrive Linux
 
-# Proton Drive Linux Desktop Client
-
-![Proton Drive Logo](https://proton.me/images/home/proton-logo.svg) <!-- Placeholder: Replace with actual project logo if available -->
+Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri and Rust for a native-performance experience.
 
 This repository contains the source code for the Proton Drive Linux Desktop Client, a secure and private file storage solution for your desktop. Built with a focus on privacy and user control, this application leverages the power of Tauri to deliver a native desktop experience by integrating the official Proton Drive web client.
 
