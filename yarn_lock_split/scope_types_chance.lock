@@ -1,6 +1,0 @@
-"@types/chance@npm:^1.1.7":
-  version: 1.1.7
-  resolution: "@types/chance@npm:1.1.7"
-  checksum: 10/5b3bf4ef0b7a2f6554f7767d7f081b4f613b45e74e74450d4da9c10cd12162420fc6ff5bb0abea143d6f7c43b62776b7a0e75d242cbe25c729fe020a1735e16f
-  languageName: node
-  linkType: hard

@@ -1,8 +1,0 @@
-"@types/react-test-renderer@npm:^16.8.2":
-  version: 16.9.12
-  resolution: "@types/react-test-renderer@npm:16.9.12"
-  dependencies:
-    "@types/react": "npm:^16"
-  checksum: 10/491e2ad6174e2db6ee4a0d0f05b972cb9470da0f71b63c4110f76e7ba7095e7221a3b14c566ddd77e0dfca45044f186c1bad1c5246782712b336837b0243061f
-  languageName: node
-  linkType: hard

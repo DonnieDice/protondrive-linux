@@ -1,8 +1,0 @@
-"@types/ag-auth@npm:*":
-  version: 1.0.3
-  resolution: "@types/ag-auth@npm:1.0.3"
-  dependencies:
-    "@types/jsonwebtoken": "npm:*"
-  checksum: 10/fdcf00897a282982fd03aa9881a2c8226a033f0361acfd56184a7f105fb8b58d8933fe2b1a035e18a3b00a62447608fed72229033dce8652c48cb9cd9c6df975
-  languageName: node
-  linkType: hard

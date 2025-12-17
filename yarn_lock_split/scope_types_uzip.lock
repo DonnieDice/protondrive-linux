@@ -1,6 +1,0 @@
-"@types/uzip@npm:^0.20201231.2":
-  version: 0.20201231.2
-  resolution: "@types/uzip@npm:0.20201231.2"
-  checksum: 10/be6d836af13b645dacaf9fe08293496e3240236fd298d42fa172437698ddf2b86206cc4cc24f433ba71611099c24b9067d0924abc7ea7513dc9b6e676fd87215
-  languageName: node
-  linkType: hard

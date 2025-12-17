@@ -1,8 +1,0 @@
-"@types/papaparse@npm:^5.5.0":
-  version: 5.5.0
-  resolution: "@types/papaparse@npm:5.5.0"
-  dependencies:
-    "@types/node": "npm:*"
-  checksum: 10/53579abbdb069d39e637d1f71717255c42d7cc78bfa8a7d42ead14cdb3bd0d671f8918f9edb21437c7125371b3e43c165f3d8dc96ec5e56d49c61eb9d1a17e86
-  languageName: node
-  linkType: hard
