@@ -2,26 +2,26 @@ package errors
 
 // userMessages maps predefined error codes to friendly messages for end users.
 var userMessages = map[ErrorCode]string{
-	ErrAuthenticationFailed: "Authentication failed. Please check your credentials.",
-	ErrNetworkTimeout:       "Network timeout occurred. Please check your connection and try again.",
-	ErrFileNotFound:         "The requested file could not be found.",
-	ErrInvalidConfig:        "The application configuration is invalid. Consider resetting or reviewing the config.",
-	ErrStorageFull:          "Storage is full. Free up space and try again.",
-	ErrPermissionDenied:     "Permission denied. Ensure you have proper access rights.",
-	ErrDatabase:             "A database error occurred. Please try again later.",
-	ErrInternal:             "An internal error occurred. Please contact support.",
+	ErrCodeAuth:       "Authentication failed. Please check your credentials.",
+	ErrCodeNetwork:    "Network timeout occurred. Please check your connection and try again.",
+	ErrCodeNotFound:   "The requested file could not be found.",
+	ErrCodeConfig:     "The application configuration is invalid. Consider resetting or reviewing the config.",
+	ErrCodeStorage:    "Storage is full. Free up space and try again.",
+	ErrCodePermission: "Permission denied. Ensure you have proper access rights.",
+	ErrCodeDatabase:   "A database error occurred. Please try again later.",
+	ErrCodeInternal:   "An internal error occurred. Please contact support.",
 }
 
 // recoverySuggestions maps error codes to suggested recovery actions.
 var recoverySuggestions = map[ErrorCode]string{
-	ErrAuthenticationFailed: "Try logging in again or resetting your password.",
-	ErrNetworkTimeout:       "Check your internet connection or try again later.",
-	ErrFileNotFound:         "Verify the file path or restore the missing file.",
-	ErrInvalidConfig:        "Restore a valid config or delete the corrupted one to regenerate defaults.",
-	ErrStorageFull:          "Clear disk space and retry the operation.",
-	ErrPermissionDenied:     "Run the application with appropriate permissions.",
-	ErrDatabase:             "Wait and retry, or contact support if the problem persists.",
-	ErrInternal:             "Contact support with error details for further assistance.",
+	ErrCodeAuth:       "Try logging in again or resetting your password.",
+	ErrCodeNetwork:    "Check your internet connection or try again later.",
+	ErrCodeNotFound:   "Verify the file path or restore the missing file.",
+	ErrCodeConfig:     "Restore a valid config or delete the corrupted one to regenerate defaults.",
+	ErrCodeStorage:    "Clear disk space and retry the operation.",
+	ErrCodePermission: "Run the application with appropriate permissions.",
+	ErrCodeDatabase:   "Wait and retry, or contact support if the problem persists.",
+	ErrCodeInternal:   "Contact support with error details for further assistance.",
 }
 
 // UserMessage returns a safe, user-friendly message for the given error.

@@ -1,15 +1,32 @@
 package errors
 
 import (
+	"errors"
 	"fmt"
 	"regexp"
 	"strings"
+)
+
+// ErrorCode represents a category of error for mapping to user messages.
+type ErrorCode string
+
+const (
+	ErrCodeAuth       ErrorCode = "AUTH"
+	ErrCodeNetwork    ErrorCode = "NETWORK"
+	ErrCodeNotFound   ErrorCode = "NOT_FOUND"
+	ErrCodeConfig     ErrorCode = "CONFIG"
+	ErrCodeStorage    ErrorCode = "STORAGE"
+	ErrCodePermission ErrorCode = "PERMISSION"
+	ErrCodeDatabase   ErrorCode = "DATABASE"
+	ErrCodeInternal   ErrorCode = "INTERNAL"
 )
 
 // SafeError is a custom error type that wraps an internal error and provides
 // a safe, non-sensitive message that can be exposed to users or logs.
 // It helps prevent leaking sensitive information from internal error details.
 type SafeError struct {
+	// Code is the error category for mapping to user messages.
+	Code ErrorCode
 	// InternalErr is the underlying, detailed error.
 	InternalErr error
 	// SafeMsg is a user-friendly or sanitized error message.
@@ -38,9 +55,10 @@ func (e *SafeError) SafeMessage() string {
 	return e.SafeMsg
 }
 
-// NewSafeError creates a new SafeError.
-func NewSafeError(internalErr error, safeMsg string, isTemporary, isUserError bool) *SafeError {
+// NewSafeError creates a new SafeError with a code.
+func NewSafeError(code ErrorCode, internalErr error, safeMsg string, isTemporary, isUserError bool) *SafeError {
 	return &SafeError{
+		Code:        code,
 		InternalErr: internalErr,
 		SafeMsg:     safeMsg,
 		IsTemporary: isTemporary,
@@ -50,14 +68,14 @@ func NewSafeError(internalErr error, safeMsg string, isTemporary, isUserError bo
 
 // Predefined common errors
 var (
-	ErrAuthenticationFailed = NewSafeError(nil, "Authentication failed. Please check your credentials.", false, true)
-	ErrNetworkTimeout       = NewSafeError(nil, "Network operation timed out. Please check your internet connection.", true, false)
-	ErrFileNotFound         = NewSafeError(nil, "File not found.", false, true)
-	ErrInvalidConfig        = NewSafeError(nil, "Invalid configuration detected. Please check application settings.", false, true)
-	ErrStorageFull          = NewSafeError(nil, "Storage limit reached. Please free up space.", false, true)
-	ErrPermissionDenied     = NewSafeError(nil, "Permission denied. Please check your access rights.", false, true)
-	ErrDatabase           = NewSafeError(nil, "A database error occurred. Please try again later.", false, false)
-	ErrInternal             = NewSafeError(nil, "An internal error occurred. Please contact support.", false, false)
+	ErrAuthenticationFailed = NewSafeError(ErrCodeAuth, nil, "Authentication failed. Please check your credentials.", false, true)
+	ErrNetworkTimeout       = NewSafeError(ErrCodeNetwork, nil, "Network operation timed out. Please check your internet connection.", true, false)
+	ErrFileNotFound         = NewSafeError(ErrCodeNotFound, nil, "File not found.", false, true)
+	ErrInvalidConfig        = NewSafeError(ErrCodeConfig, nil, "Invalid configuration detected. Please check application settings.", false, true)
+	ErrStorageFull          = NewSafeError(ErrCodeStorage, nil, "Storage limit reached. Please free up space.", false, true)
+	ErrPermissionDenied     = NewSafeError(ErrCodePermission, nil, "Permission denied. Please check your access rights.", false, true)
+	ErrDatabase             = NewSafeError(ErrCodeDatabase, nil, "A database error occurred. Please try again later.", false, false)
+	ErrInternal             = NewSafeError(ErrCodeInternal, nil, "An internal error occurred. Please contact support.", false, false)
 )
 
 // MaskSensitiveData takes an error and returns its safe message.
@@ -105,7 +123,7 @@ func Wrap(err error, safeMsg ...string) *SafeError {
 		ErrDatabase, ErrInternal,
 	} {
 		if errors.Is(err, predErr.InternalErr) {
-			return NewSafeError(err, predErr.SafeMsg, predErr.IsTemporary, predErr.IsUserError)
+			return NewSafeError(predErr.Code, err, predErr.SafeMsg, predErr.IsTemporary, predErr.IsUserError)
 		}
 	}
 
@@ -121,7 +139,7 @@ func Wrap(err error, safeMsg ...string) *SafeError {
 		msg = sanitizeErrorMessage(msg)
 	}
 
-	return NewSafeError(err, msg, false, false)
+	return NewSafeError(ErrCodeInternal, err, msg, false, false)
 }
 
 // sanitizeErrorMessage attempts to remove potentially sensitive details from a given error message string.

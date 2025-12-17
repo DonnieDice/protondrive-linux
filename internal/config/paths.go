@@ -11,8 +11,12 @@ const AppName = "protondrive-linux"
 
 // ConfigDir returns the directory containing the configuration file.
 // It is simply the parent directory of the config path.
-func ConfigDir(baseDir string) string {
-	return filepath.Dir(GetConfigPath(baseDir))
+func ConfigDir(baseDir string) (string, error) {
+	configPath, err := GetConfigPath(baseDir)
+	if err != nil {
+		return "", err
+	}
+	return filepath.Dir(configPath), nil
 }
 
 // GetDataDir returns the absolute path to the data directory.

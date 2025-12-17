@@ -68,10 +68,10 @@ func pow(base, exp float64) float64 {
 // randFloat64 returns a pseudo-random number between 0 and 1.
 func randFloat64() float64 {
 	// Use a simple linear congruential generator for deterministic behavior
-	const a = 1664525
-	const c = 1013904223
-	const m = 1 << 32
-	var seed uint32 = uint32(time.Now().UnixNano())
+	const a uint64 = 1664525
+	const c uint64 = 1013904223
+	const m uint64 = 1 << 32
+	seed := uint64(time.Now().UnixNano())
 	seed = (a*seed + c) % m
-	return float64(seed) / m
+	return float64(seed) / float64(m)
 }
