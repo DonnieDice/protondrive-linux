@@ -111,6 +111,7 @@ jobs:
                 npm install
 
                 # Clone and build WebClients
+                rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
                 git clone --depth=1 --single-branch --branch main \
                   https://github.com/ProtonMail/WebClients.git WebClients
                 python3 scripts/fix_deps.py
