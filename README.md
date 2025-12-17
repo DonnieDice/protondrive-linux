@@ -58,8 +58,8 @@ Follow these instructions to get a copy of the project up and running on your lo
 
 1.  **Clone the Repository:**
     ```bash
-    git clone https://github.com/donniedice/protondrive-tauri.git
-    cd protondrive-tauri
+    git clone https://github.com/DonnieDice/protondrive-linux.git
+    cd protondrive-linux
     ```
 2.  **Run the Setup Script:**
     This script will install necessary system dependencies (requires `sudo`), initialize Git submodules, and install Node.js dependencies.
