@@ -64,7 +64,7 @@ jobs:
             git clone --depth=1 --single-branch --branch main \
               https://github.com/ProtonMail/WebClients.git WebClients
 
-            python3 fix_deps.py
+            python3 scripts/fix_deps.py
 
             cd WebClients
             export NODE_OPTIONS="--max-old-space-size=8192"
@@ -178,7 +178,7 @@ jobs:
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
 
-          python3 fix_deps.py
+          python3 scripts/fix_deps.py
 
           cd WebClients
           export NODE_OPTIONS="--max-old-space-size=8192"
@@ -245,18 +245,11 @@ jobs:
 
       - name: Create source tarball
         run: |
-          # Create a clean directory with the source
-          mkdir -p dist-tmp/proton-drive-${{ steps.tag.outputs.version }}
-          cp -r . dist-tmp/proton-drive-${{ steps.tag.outputs.version }}/
-
-          # Clean up git and build artifacts
-          cd dist-tmp
-          find . -name ".git" -type d -exec rm -rf {} + 2>/dev/null || true
-          find . -name "target" -type d -exec rm -rf {} + 2>/dev/null || true
-          find . -name "node_modules" -type d -exec rm -rf {} + 2>/dev/null || true
-          find . -name "WebClients" -type d -exec rm -rf {} + 2>/dev/null || true
-
-          tar -czf ../proton-drive-${{ steps.tag.outputs.version }}.tar.gz proton-drive-${{ steps.tag.outputs.version }}/
+          # Create tarball from git archive (cleaner and avoids copy issues)
+          git archive --format=tar.gz \
+            --prefix=proton-drive-${{ steps.tag.outputs.version }}/ \
+            -o proton-drive-${{ steps.tag.outputs.version }}.tar.gz \
+            HEAD
 
       - name: Generate checksums
         run: |
