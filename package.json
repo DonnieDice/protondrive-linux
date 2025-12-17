@@ -26,11 +26,11 @@
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "npm run build:web && tauri build",
+    "build": "npm run build:web && tauri build -- --bundles deb,rpm,appimage",
     "build:web": "./scripts/build-webclients.sh",
-    "build:linux": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu",
-    "build:rpm": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu -- --bundles rpm",
-    "build:appimage": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu -- --bundles appimage"
+    "build:deb": "npm run build:web && tauri build -- --bundles deb",
+    "build:rpm": "npm run build:web && tauri build -- --bundles rpm",
+    "build:appimage": "npm run build:web && tauri build -- --bundles appimage"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^1.5.0"
