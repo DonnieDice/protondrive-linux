@@ -76,9 +76,9 @@ jobs:
           grade: stable
           confinement: strict
           base: core24
-          architectures:
-            - build-on: amd64
-            - build-on: arm64
+          platforms:
+            amd64:
+            arm64:
 
           apps:
             proton-drive:
