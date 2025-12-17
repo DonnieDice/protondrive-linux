@@ -1,0 +1,184 @@
+name: Create Release With Build Artifacts
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+  packages: write
+
+jobs:
+  wait-for-builds:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    steps:
+      - name: Wait for build workflows to complete
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const tag = context.ref.replace('refs/tags/', '');
+            console.log(`Waiting for builds for tag: ${tag}`);
+
+            // Give workflows time to start
+            await new Promise(resolve => setTimeout(resolve, 10000));
+
+            // Poll for workflow completion (max 2 hours)
+            const maxAttempts = 60;
+            for (let i = 0; i < maxAttempts; i++) {
+              const runs = await github.rest.actions.listWorkflowRuns({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                head_sha: context.sha,
+              });
+
+              console.log(`Attempt ${i + 1}: Found ${runs.data.workflow_runs.length} workflows`);
+
+              const buildWorkflows = runs.data.workflow_runs.filter(r =>
+                r.name.includes('Build') && r.status !== 'queued'
+              );
+
+              if (buildWorkflows.length > 0) {
+                const allComplete = buildWorkflows.every(r => r.status === 'completed');
+                const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
+
+                console.log(`Workflows: ${buildWorkflows.map(r => `${r.name}:${r.conclusion}`).join(', ')}`);
+
+                if (allComplete) {
+                  if (allSuccess) {
+                    console.log('✅ All builds succeeded!');
+                    return;
+                  } else {
+                    throw new Error(`❌ Some builds failed: ${buildWorkflows.filter(r => r.conclusion !== 'success').map(r => r.name).join(', ')}`);
+                  }
+                }
+              }
+
+              if (i < maxAttempts - 1) {
+                await new Promise(resolve => setTimeout(resolve, 120000)); // Wait 2 minutes
+              }
+            }
+
+            throw new Error('⏱️ Build workflows did not complete within 2 hours');
+
+  create-release:
+    needs: wait-for-builds
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from commit
+        id: version
+        run: |
+          VERSION=$(git describe --tags --always)
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Download all build artifacts
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow_conclusion: success
+          skip_unpack: false
+
+      - name: Prepare release files
+        run: |
+          mkdir -p release
+
+          # Copy all artifacts to release directory
+          find . -type f \
+            \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \
+               -o -name "*.snap" -o -name "*.flatpak" \
+               -o -name "*.tar.gz" -o -name "*.sha256" \) \
+            -exec cp {} release/ \;
+
+          # Generate checksums if not present
+          cd release
+          if [ ! -f SHA256SUMS ]; then
+            sha256sum * > SHA256SUMS
+          fi
+
+          echo "📦 Release artifacts:"
+          ls -lah
+          cd ..
+
+      - name: Create release notes
+        id: release_notes
+        run: |
+          RELEASE_DATE=$(date -u +'%Y-%m-%d')
+          cat > RELEASE_NOTES.md << EOF
+          # Proton Drive Linux ${{ steps.version.outputs.version }}
+
+          **Release Date:** $RELEASE_DATE
+
+          ## What's New
+
+          See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}) for detailed changes.
+
+          ## Installation
+
+          ### Debian/Ubuntu
+          \`\`\`bash
+          sudo apt install ./proton-drive_*.deb
+          \`\`\`
+
+          ### Fedora/RHEL/CentOS
+          \`\`\`bash
+          sudo dnf install ./proton-drive-*.rpm
+          \`\`\`
+
+          ### AppImage
+          \`\`\`bash
+          chmod +x proton-drive_*.AppImage
+          ./proton-drive_*.AppImage
+          \`\`\`
+
+          ### Snap
+          \`\`\`bash
+          sudo snap install proton-drive
+          \`\`\`
+
+          ### Flatpak
+          \`\`\`bash
+          flatpak install proton-drive.flatpak
+          \`\`\`
+
+          ### Arch Linux
+          \`\`\`bash
+          yay -S proton-drive  # or build from AUR
+          \`\`\`
+
+          ## Checksums
+
+          All files have SHA256 checksums available in \`SHA256SUMS\`.
+
+          ## System Requirements
+
+          - Linux with GTK 3.0+
+          - Kernel 5.0+
+          - 200MB disk space
+
+          ## Known Issues
+
+          None reported yet. Please report any issues on [GitHub](https://github.com/${{ github.repository }}/issues).
+          EOF
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          body_path: RELEASE_NOTES.md
+          files: release/*
+          draft: false
+          prerelease: false
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release checksums
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-checksums
+          path: release/SHA256SUMS
+          retention-days: 90
