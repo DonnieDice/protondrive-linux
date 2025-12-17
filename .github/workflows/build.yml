@@ -69,18 +69,18 @@ jobs:
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
 
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
+          # Remove yarn.lock to regenerate from package.json
+          rm -f WebClients/yarn.lock
 
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
           
           cd WebClients
-          
-          # Removed touch yarn.lock - now uses the cloned yarn.lock
+
+          export NODE_OPTIONS="--max-old-space-size=8192"
 
           echo "📦 Installing WebClients dependencies..."
-          export NODE_OPTIONS="--max-old-space-size=8192"
           node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
 
           echo "🔨 Building Proton Drive web app..."
@@ -156,7 +156,8 @@ jobs:
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
 
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
+          # Remove yarn.lock to regenerate from package.json
+          rm -f WebClients/yarn.lock
 
       - name: Build WebClients (Proton Drive)
         run: |
@@ -237,7 +238,8 @@ jobs:
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
 
-          # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
+          # Remove yarn.lock to regenerate from package.json
+          rm -f WebClients/yarn.lock
 
       - name: Build WebClients (Proton Drive)
         shell: bash
