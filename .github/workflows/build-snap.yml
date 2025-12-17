@@ -27,9 +27,6 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Setup Snapcraft
-        uses: snapcore/action-build@v1
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
