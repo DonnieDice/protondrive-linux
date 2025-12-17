@@ -1,0 +1,6 @@
+"@types/toposort@npm:^2.0.7":
+  version: 2.0.7
+  resolution: "@types/toposort@npm:2.0.7"
+  checksum: 10/7424224e96675419f4f2adb1c2f26d2cc94da9f0af7afb6c67e434a6929ff895fbffc6707ec75fe7169df2af73f9fd573c282ae7db991513909a4c5fc03be9f1
+  languageName: node
+  linkType: hard

@@ -1,0 +1,8 @@
+"@types/codemirror@npm:5.60.17":
+  version: 5.60.17
+  resolution: "@types/codemirror@npm:5.60.17"
+  dependencies:
+    "@types/tern": "npm:*"
+  checksum: 10/972e70898206ebb7baf72dd4afb3352fc9e18943c5c6598615065bd1c5a0fc1d8a766d0cc353a689a216611af018d55efe4ba938f3578a98df01623f0474f75e
+  languageName: node
+  linkType: hard

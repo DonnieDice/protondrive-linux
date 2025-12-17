@@ -1,0 +1,8 @@
+"@types/consumable-stream@npm:*":
+  version: 3.0.0
+  resolution: "@types/consumable-stream@npm:3.0.0"
+  dependencies:
+    "@types/node": "npm:*"
+  checksum: 10/91dca5a3a4adc9469d3bb9e6c0e7245acd4b8342e69802bf7131d1fdb6dc8d330c8f100fc761b250748b63587729939ecdd513e710c6fdc6041594a51df0dc21
+  languageName: node
+  linkType: hard

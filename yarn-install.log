@@ -1,0 +1,311 @@
+➤ YN0000: · Yarn 4.12.0
+➤ YN0000: ┌ Project validation
+➤ YN0057: │ proton-drive: Resolutions field will be ignored
+➤ YN0057: │ @proton/drive-store: Resolutions field will be ignored
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Resolution step
+➤ YN0085: │ + @ariakit/react-core@npm:0.4.20, @ariakit/react@npm:0.4.20, @babel/core@npm:7.28.5, @babel/plugin-transform-class-properties@npm:7.27.1, and 3818 more.
+➤ YN0000: └ Completed in 22s 948ms
+➤ YN0000: ┌ Post-resolution validation
+➤ YN0060: │ @tiptap/core is listed by your project with version 2.27.1 (p5472c8), which doesn't satisfy what tiptap-markdown and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p03d442), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p24b9cc), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p24c034), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p3b1625), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p5dd9a1), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p798d0d), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (p90b74c), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pa0ff18), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pa63656), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (paff38c), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pbfd90f), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pc27cc4), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pe83d24), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pf14715), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pf678e3), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ @types/react is listed by your project with version 18.3.27 (pff53f6), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p0b2768), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p155825), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p45c432), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p5ef2d1), which doesn't satisfy what @proton/unleash requests (^3.6.0).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p83863a), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p862c85), which doesn't satisfy what @proton/unleash requests (^3.6.0).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (p951271), which doesn't satisfy what @proton/unleash requests (^3.6.0).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (pa9dbee), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (pc43f96), which doesn't satisfy what @proton/unleash requests (^3.6.0).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (pcc3db2), which doesn't satisfy what @proton/unleash and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ date-fns is listed by your project with version 2.30.0 (pfa59cc), which doesn't satisfy what @proton/unleash requests (^3.6.0).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p067084), which doesn't satisfy what @proton/eslint-config-proton and other dependencies request (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p09f8fd), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p11461d), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p12d8b1), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p1e567d), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p21f566), which doesn't satisfy what @proton/eslint-config-proton and other dependencies request (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p2aa19c), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p2b600b), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p389d8e), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p3c14d4), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p461384), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p477d62), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p4c7df1), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p4e6a64), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p5245a9), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p59c872), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p5a96a0), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p69eddd), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p7cbed5), which doesn't satisfy what @proton/eslint-config-proton and other dependencies request (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p814cd1), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p822a6b), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p863c15), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p8e12c6), which doesn't satisfy what @proton/eslint-config-proton and other dependencies request (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p98061f), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (p98336e), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pa773fb), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pb2736c), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pb4c742), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pb6d232), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pb9e7f4), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pbdd43d), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pbdd78f), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pd34ad7), which doesn't satisfy what @proton/eslint-config-proton and other dependencies request (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pdfc34a), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pf583e6), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pf8b5d3), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pfbcc8c), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ prettier is listed by your project with version 3.7.4 (pfe093a), which doesn't satisfy what @proton/eslint-config-proton requests (3.7.3).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p06d323), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p0be631), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p13c5fa), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p2350e5), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p2e6582), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p50d7f6), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p6d5c1c), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p726f68), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p800ff9), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p803582), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p98ef23), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (p9ee101), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pad2d5e), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pb1f0e9), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pbedfa3), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pc7bb67), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pe92d76), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react is listed by your project with version 18.3.1 (pf00432), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p076515), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p09537b), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p1ef70b), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p34b49a), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p4cafb1), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p5b7aed), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p614afa), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p9150bd), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p96d885), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p9744db), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (p9c8c2a), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pae9339), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pbc09de), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pc9c24d), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pdc2f92), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pee9dcf), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-dom is listed by your project with version 18.3.1 (pfad9fe), which doesn't satisfy what @testing-library/react-hooks and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0060: │ react-test-renderer is listed by your project with version 18.3.1 (p0f8c39), which doesn't satisfy what @testing-library/react-hooks requests (^16.9.0 || ^17.0.0).
+➤ YN0060: │ react-test-renderer is listed by your project with version 18.3.1 (p59f7c7), which doesn't satisfy what @testing-library/react-hooks requests (^16.9.0 || ^17.0.0).
+➤ YN0060: │ storybook is listed by your project with version 8.6.14 (pfa0d76), which doesn't satisfy what @storybook/addon-webpack5-compiler-swc and other dependencies request (but they have non-overlapping ranges!).
+➤ YN0002: │ @proton/account@workspace:packages/account doesn't provide @types/react (p284ec5), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ @proton/account@workspace:packages/account doesn't provide prettier (pfd576f), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/activation@workspace:packages/activation [f806e] doesn't provide @babel/core (pcfd3b7), requested by babel-jest.
+➤ YN0002: │ @proton/activation@workspace:packages/activation [f806e] doesn't provide @proton/cross-storage (pbc27e9), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation [f806e] doesn't provide @proton/crypto (p42ad98), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation [f806e] doesn't provide @proton/key-transparency (pc18bbd), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation [f806e] doesn't provide @proton/srp (p9e5228), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation doesn't provide @babel/core (p523b43), requested by babel-jest.
+➤ YN0002: │ @proton/activation@workspace:packages/activation doesn't provide @proton/cross-storage (p14c229), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation doesn't provide @proton/crypto (p117854), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation doesn't provide @proton/key-transparency (p5bbd05), requested by @proton/components.
+➤ YN0002: │ @proton/activation@workspace:packages/activation doesn't provide @proton/srp (pa15cea), requested by @proton/components.
+➤ YN0002: │ @proton/ai-assistant@workspace:packages/ai-assistant doesn't provide @babel/core (peb305c), requested by babel-jest.
+➤ YN0002: │ @proton/ai-assistant@workspace:packages/ai-assistant doesn't provide rollup (pbe2f0f), requested by vite-plugin-singlefile.
+➤ YN0002: │ @proton/calendar@workspace:packages/calendar doesn't provide @types/react (p8e731e), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ @proton/chargebee@workspace:packages/chargebee doesn't provide rollup (p74f9a8), requested by vite-plugin-singlefile.
+➤ YN0002: │ @proton/components@workspace:packages/components [4a143] doesn't provide @testing-library/dom (pbe541b), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [502c7] doesn't provide @testing-library/dom (pda226b), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [54589] doesn't provide @testing-library/dom (pa9ad1a), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [7123c] doesn't provide @testing-library/dom (p70784d), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [dadbf] doesn't provide @testing-library/dom (paab218), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [ecda5] doesn't provide @testing-library/dom (pf3d3b4), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components [f806e] doesn't provide @testing-library/dom (p96c077), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/components@workspace:packages/components doesn't provide @testing-library/dom (peec3d2), requested by @testing-library/user-event.
+➤ YN0002: │ @proton/cross-storage@workspace:packages/cross-storage doesn't provide prettier (p5836a8), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @babel/core (peccb94), requested by @babel/plugin-transform-class-properties and other dependencies.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @openpgp/web-stream-tools (p2f5933), requested by @proton/drive-store.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @proton/cross-storage (pb6400c), requested by @proton/components.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @proton/key-transparency (pcc6438), requested by @proton/components.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @proton/srp (p2b2eda), requested by @proton/components.
+➤ YN0002: │ @proton/docs-core@workspace:packages/docs-core doesn't provide @types/react (p79407c), requested by @testing-library/react-hooks and other dependencies.
+➤ YN0002: │ @proton/docs-proto@workspace:packages/docs-proto doesn't provide jest (p049cee), requested by ts-jest.
+➤ YN0002: │ @proton/docs-proto@workspace:packages/docs-proto doesn't provide prettier (p19d60a), requested by eslint-plugin-prettier.
+➤ YN0002: │ @proton/docs-shared@workspace:packages/docs-shared doesn't provide prettier (p9f51eb), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/drive-store@workspace:packages/drive-store [80b87] doesn't provide @proton/key-transparency (pe7bb7e), requested by @proton/components.
+➤ YN0002: │ @proton/drive-store@workspace:packages/drive-store [80b87] doesn't provide date-fns (pcb06e9), requested by @proton/components and other dependencies.
+➤ YN0002: │ @proton/drive-store@workspace:packages/drive-store doesn't provide @proton/key-transparency (p2052c0), requested by @proton/components.
+➤ YN0002: │ @proton/drive-store@workspace:packages/drive-store doesn't provide date-fns (pb8c216), requested by @proton/components and other dependencies.
+➤ YN0002: │ @proton/drive@workspace:packages/drive doesn't provide @proton/cross-storage (pd64a7b), requested by @proton/components.
+➤ YN0002: │ @proton/drive@workspace:packages/drive doesn't provide @proton/key-transparency (p8c3cfa), requested by @proton/components.
+➤ YN0002: │ @proton/drive@workspace:packages/drive doesn't provide @proton/srp (pb6c20a), requested by @proton/components.
+➤ YN0002: │ @proton/encrypted-search@workspace:packages/encrypted-search doesn't provide @proton/cross-storage (p5631c9), requested by @proton/components.
+➤ YN0002: │ @proton/encrypted-search@workspace:packages/encrypted-search doesn't provide @proton/key-transparency (p7c35bf), requested by @proton/components.
+➤ YN0002: │ @proton/encrypted-search@workspace:packages/encrypted-search doesn't provide @proton/srp (p40e860), requested by @proton/components.
+➤ YN0002: │ @proton/encrypted-search@workspace:packages/encrypted-search doesn't provide prettier (p559bb7), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/eslint-config-proton@workspace:packages/eslint-config-proton [36a01] doesn't provide @typescript-eslint/parser (p6f06b3), requested by @protontech/eslint-plugin-enforce-uint8array-arraybuffer and other dependencies.
+➤ YN0002: │ @proton/eslint-config-proton@workspace:packages/eslint-config-proton [72567] doesn't provide @typescript-eslint/parser (pf9bda6), requested by @protontech/eslint-plugin-enforce-uint8array-arraybuffer and other dependencies.
+➤ YN0002: │ @proton/eslint-config-proton@workspace:packages/eslint-config-proton [fda33] doesn't provide @typescript-eslint/parser (pe00abb), requested by @protontech/eslint-plugin-enforce-uint8array-arraybuffer and other dependencies.
+➤ YN0002: │ @proton/eslint-config-proton@workspace:packages/eslint-config-proton doesn't provide @typescript-eslint/parser (p2f2214), requested by @protontech/eslint-plugin-enforce-uint8array-arraybuffer and other dependencies.
+➤ YN0002: │ @proton/eslint-config-proton@workspace:packages/eslint-config-proton doesn't provide typescript (p4e1492), requested by @protontech/eslint-plugin-enforce-uint8array-arraybuffer and other dependencies.
+➤ YN0002: │ @proton/hooks@workspace:packages/hooks doesn't provide @types/react (pb65549), requested by @testing-library/react-hooks and other dependencies.
+➤ YN0002: │ @proton/hooks@workspace:packages/hooks doesn't provide prettier (p99048a), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/hooks@workspace:packages/hooks doesn't provide react-dom (p8dc6b0), requested by @testing-library/react-hooks and other dependencies.
+➤ YN0002: │ @proton/key-transparency@workspace:packages/key-transparency doesn't provide prettier (pc89cad), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide @proton/cross-storage (pb947f2), requested by @proton/components.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide @proton/crypto (p6cfaeb), requested by @proton/components.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide @proton/key-transparency (p3edbe8), requested by @proton/components.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide @proton/srp (pb1c71b), requested by @proton/components.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide @types/react (p531e71), requested by @testing-library/react and other dependencies.
+➤ YN0002: │ @proton/llm@workspace:packages/llm doesn't provide date-fns (pe07e61), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @proton/cross-storage (p0c437a), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @proton/crypto (p9e7580), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @proton/key-transparency (p933d75), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @proton/shared (p20fabc), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @proton/srp (p7458ef), requested by @proton/components.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide @types/react (p682671), requested by @testing-library/react and other dependencies.
+➤ YN0002: │ @proton/mail-renderer@workspace:packages/mail-renderer doesn't provide date-fns (p45e5b8), requested by @proton/components.
+➤ YN0002: │ @proton/mail@workspace:packages/mail doesn't provide @types/react (p40fa08), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ @proton/meet@workspace:packages/meet doesn't provide react-dom (p110ce3), requested by @testing-library/react.
+➤ YN0002: │ @proton/meet@workspace:packages/meet doesn't provide vite (pf0fe37), requested by @vitejs/plugin-react-swc.
+➤ YN0002: │ @proton/pack@workspace:packages/pack [59946] doesn't provide typescript (pfd5ea9), requested by fork-ts-checker-webpack-plugin.
+➤ YN0002: │ @proton/pack@workspace:packages/pack doesn't provide typescript (p291ee3), requested by fork-ts-checker-webpack-plugin.
+➤ YN0002: │ @proton/pass@workspace:packages/pass doesn't provide webpack (p27c982), requested by circular-dependency-plugin.
+➤ YN0002: │ @proton/payments@workspace:packages/payments doesn't provide @swc/core (pe6a624), requested by @swc/jest.
+➤ YN0002: │ @proton/payments@workspace:packages/payments doesn't provide @types/react (pb68eac), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ @proton/payments@workspace:packages/payments doesn't provide prettier (pd97d8a), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/polyfill@workspace:packages/polyfill doesn't provide prettier (p743653), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/polyfill@workspace:packages/polyfill doesn't provide typescript (p14702c), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/recovery-kit@workspace:packages/recovery-kit doesn't provide antd (pf0a092), requested by @pdfme/common.
+➤ YN0002: │ @proton/recovery-kit@workspace:packages/recovery-kit doesn't provide form-render (pce60e9), requested by @pdfme/common.
+➤ YN0002: │ @proton/recovery-kit@workspace:packages/recovery-kit doesn't provide prettier (p2f1219), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/redux-shared-store-types@workspace:packages/redux-shared-store-types doesn't provide date-fns (pb825b1), requested by @proton/unleash.
+➤ YN0002: │ @proton/redux-shared-store-types@workspace:packages/redux-shared-store-types doesn't provide react-dom (pa92aaa), requested by @proton/unleash.
+➤ YN0002: │ @proton/redux-shared-store@workspace:packages/redux-shared-store doesn't provide prettier (p998042), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/redux-utilities@workspace:packages/redux-utilities doesn't provide @types/react (p32c337), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ @proton/shared@workspace:packages/shared doesn't provide @babel/core (pba7003), requested by @babel/plugin-transform-runtime.
+➤ YN0002: │ @proton/srp@workspace:packages/srp doesn't provide @babel/core (pc0e218), requested by @babel/preset-env and other dependencies.
+➤ YN0002: │ @proton/stylelint-config-proton@workspace:packages/stylelint-config-proton doesn't provide postcss (p69fec2), requested by stylelint-config-standard-scss.
+➤ YN0002: │ @proton/styles@workspace:packages/styles doesn't provide postcss (p7f11b9), requested by stylelint-config-standard-scss.
+➤ YN0002: │ @proton/types@workspace:packages/types doesn't provide prettier (pb90adc), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/types@workspace:packages/types doesn't provide typescript (p7a9847), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/unleash@workspace:packages/unleash [1fba5] doesn't provide @babel/core (pc4eb0b), requested by @babel/preset-env and other dependencies.
+➤ YN0002: │ @proton/unleash@workspace:packages/unleash [54f8b] doesn't provide @babel/core (p79fc46), requested by @babel/preset-env and other dependencies.
+➤ YN0002: │ @proton/unleash@workspace:packages/unleash [d7b2a] doesn't provide @babel/core (p84f002), requested by @babel/preset-env and other dependencies.
+➤ YN0002: │ @proton/unleash@workspace:packages/unleash doesn't provide @babel/core (p14f82b), requested by @babel/preset-env and other dependencies.
+➤ YN0002: │ @proton/utils@workspace:packages/utils doesn't provide prettier (p1d95e6), requested by @proton/eslint-config-proton.
+➤ YN0002: │ @proton/wallet@workspace:packages/wallet doesn't provide @types/react (pabb2fa), requested by @reduxjs/toolkit and other dependencies.
+➤ YN0002: │ pdf-ui@workspace:applications/pdf-ui doesn't provide antd (p3518e1), requested by @pdfme/common.
+➤ YN0002: │ pdf-ui@workspace:applications/pdf-ui doesn't provide form-render (p525cb5), requested by @pdfme/common.
+➤ YN0002: │ proton-account@workspace:applications/account doesn't provide @proton/crypto (p7b624f), requested by @proton/components.
+➤ YN0002: │ proton-account@workspace:applications/account doesn't provide @proton/srp (p411870), requested by @proton/components.
+➤ YN0002: │ proton-account@workspace:applications/account doesn't provide @testing-library/dom (pdffb54), requested by @testing-library/user-event.
+➤ YN0002: │ proton-authenticator@workspace:applications/authenticator doesn't provide @proton/cross-storage (pda8621), requested by @proton/components.
+➤ YN0002: │ proton-authenticator@workspace:applications/authenticator doesn't provide @proton/key-transparency (p634722), requested by @proton/components.
+➤ YN0002: │ proton-authenticator@workspace:applications/authenticator doesn't provide @proton/srp (p5c8bc0), requested by @proton/components.
+➤ YN0002: │ proton-authenticator@workspace:applications/authenticator doesn't provide prettier (p2fecb8), requested by @proton/eslint-config-proton.
+➤ YN0002: │ proton-authenticator@workspace:applications/authenticator doesn't provide react-refresh (p862001), requested by @pmmmwh/react-refresh-webpack-plugin.
+➤ YN0002: │ proton-calendar@workspace:applications/calendar doesn't provide @babel/core (p244ea6), requested by @babel/preset-typescript and other dependencies.
+➤ YN0002: │ proton-calendar@workspace:applications/calendar doesn't provide @proton/key-transparency (p69b3f8), requested by @proton/components.
+➤ YN0002: │ proton-calendar@workspace:applications/calendar doesn't provide @testing-library/dom (p50d23d), requested by @testing-library/user-event.
+➤ YN0002: │ proton-codeshift@workspace:packages/codeshift doesn't provide @types/node (pd265ef), requested by ts-node.
+➤ YN0002: │ proton-docs-editor@workspace:applications/docs-editor doesn't provide @babel/core (p92d34a), requested by @babel/preset-typescript and other dependencies.
+➤ YN0002: │ proton-docs-editor@workspace:applications/docs-editor doesn't provide @proton/cross-storage (p89824e), requested by @proton/components.
+➤ YN0002: │ proton-docs-editor@workspace:applications/docs-editor doesn't provide @proton/key-transparency (p70a1b5), requested by @proton/components.
+➤ YN0002: │ proton-docs-editor@workspace:applications/docs-editor doesn't provide @proton/srp (p0ae6fb), requested by @proton/components.
+➤ YN0002: │ proton-docs-editor@workspace:applications/docs-editor doesn't provide yjs (p022e76), requested by @lexical/yjs.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide @babel/core (p3dff74), requested by @babel/plugin-transform-private-methods and other dependencies.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide @openpgp/web-stream-tools (p020c01), requested by @proton/drive-store.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide @proton/crypto (pdd46a1), requested by @proton/components.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide @proton/key-transparency (p9284fe), requested by @proton/components.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide @proton/srp (p4ef8fc), requested by @proton/components.
+➤ YN0002: │ proton-docs@workspace:applications/docs doesn't provide date-fns (pc756ff), requested by @proton/unleash.
+➤ YN0002: │ proton-drive@workspace:applications/drive doesn't provide @proton/key-transparency (pc2cb70), requested by @proton/components.
+➤ YN0002: │ proton-drive@workspace:applications/drive doesn't provide @testing-library/dom (p4378dd), requested by @testing-library/user-event.
+➤ YN0002: │ proton-drive@workspace:applications/drive doesn't provide redux (p2761f6), requested by @redux-devtools/extension.
+➤ YN0002: │ proton-inbox-desktop@workspace:applications/inbox-desktop doesn't provide webpack (p52a346), requested by css-loader and other dependencies.
+➤ YN0002: │ proton-mail@workspace:applications/mail doesn't provide @babel/core (p9ed4ff), requested by @babel/plugin-transform-runtime and other dependencies.
+➤ YN0002: │ proton-mail@workspace:applications/mail doesn't provide @proton/key-transparency (p15b857), requested by @proton/components.
+➤ YN0002: │ proton-pass-desktop@workspace:applications/pass-desktop doesn't provide @types/node (p51516c), requested by ts-node.
+➤ YN0002: │ proton-pass-extension@workspace:applications/pass-extension doesn't provide @babel/core (p80efee), requested by babel-loader.
+➤ YN0002: │ proton-pass-extension@workspace:applications/pass-extension doesn't provide @types/node (p411305), requested by ts-node.
+➤ YN0002: │ proton-pass-extension@workspace:applications/pass-extension doesn't provide react (pac4b36), requested by react-helmet.
+➤ YN0002: │ proton-pass-extension@workspace:applications/pass-extension doesn't provide redux (pf9975f), requested by @redux-devtools/remote.
+➤ YN0002: │ proton-pass@workspace:applications/pass doesn't provide @proton/cross-storage (p38da30), requested by @proton/components.
+➤ YN0002: │ proton-pass@workspace:applications/pass doesn't provide @proton/crypto (pe9490b), requested by @proton/components.
+➤ YN0002: │ proton-pass@workspace:applications/pass doesn't provide @proton/key-transparency (p871289), requested by @proton/components.
+➤ YN0002: │ proton-pass@workspace:applications/pass doesn't provide @proton/srp (pf1648f), requested by @proton/components.
+➤ YN0002: │ proton-pass@workspace:applications/pass doesn't provide date-fns (p9698c3), requested by @proton/components.
+➤ YN0002: │ proton-preview-sandbox@workspace:applications/preview-sandbox doesn't provide browserslist (p25d9c7), requested by browserslist-to-esbuild.
+➤ YN0002: │ proton-storybook@workspace:applications/storybook doesn't provide @proton/cross-storage (p0eff67), requested by @proton/components.
+➤ YN0002: │ proton-storybook@workspace:applications/storybook doesn't provide @proton/crypto (p8dd034), requested by @proton/components.
+➤ YN0002: │ proton-storybook@workspace:applications/storybook doesn't provide @proton/key-transparency (pa00caa), requested by @proton/components.
+➤ YN0002: │ proton-storybook@workspace:applications/storybook doesn't provide @proton/srp (p7ae4b3), requested by @proton/components.
+➤ YN0002: │ proton-storybook@workspace:applications/storybook doesn't provide date-fns (p28aba1), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide @babel/core (p8663ab), requested by babel-jest.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide @proton/cross-storage (pa840ec), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide @proton/crypto (p39dab5), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide @proton/key-transparency (pcadce1), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide @proton/srp (pbc11d5), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide date-fns (p5f5ecf), requested by @proton/components.
+➤ YN0002: │ proton-verify@workspace:applications/verify doesn't provide prettier (p8c15df), requested by @proton/eslint-config-proton.
+➤ YN0002: │ proton-vpn-settings@workspace:applications/vpn-settings doesn't provide @proton/cross-storage (padcf42), requested by @proton/components.
+➤ YN0002: │ proton-vpn-settings@workspace:applications/vpn-settings doesn't provide @proton/crypto (p37b527), requested by @proton/components.
+➤ YN0002: │ proton-vpn-settings@workspace:applications/vpn-settings doesn't provide @proton/key-transparency (pdc1390), requested by @proton/components.
+➤ YN0002: │ proton-vpn-settings@workspace:applications/vpn-settings doesn't provide @proton/srp (p6076ec), requested by @proton/components.
+➤ YN0002: │ proton-vpn-settings@workspace:applications/vpn-settings doesn't provide date-fns (pa16da2), requested by @proton/components.
+➤ YN0002: │ proton-wallet@workspace:applications/wallet doesn't provide @proton/key-transparency (p6ee405), requested by @proton/components.
+➤ YN0002: │ proton-wallet@workspace:applications/wallet doesn't provide @proton/srp (pb83017), requested by @proton/components.
+➤ YN0002: │ proton-wallet@workspace:applications/wallet doesn't provide vite (p9c7bc1), requested by @vitejs/plugin-react-swc and other dependencies.
+➤ YN0002: │ root@workspace:. doesn't provide postcss (p76eaca), requested by stylelint-config-standard-scss.
+➤ YN0002: │ root@workspace:. doesn't provide stylelint (pfb9aa8), requested by stylelint-config-standard-scss and other dependencies.
+➤ YN0086: │ Some peer dependencies are incorrectly met by your project; run yarn explain peer-requirements <hash> for details, where <hash> is the six-letter p-prefixed code.
+➤ YN0086: │ Some peer dependencies are incorrectly met by dependencies; run yarn explain peer-requirements for details.
+➤ YN0000: └ Completed
+➤ YN0000: ┌ Fetch step
+➤ YN0013: │ 2 packages were added to the project (+ 6.76 MiB).
+➤ YN0000: └ Completed in 18s 453ms
+➤ YN0000: ┌ Link step
+➤ YN0007: │ unrs-resolver@npm:1.11.1 must be built because it never has been before or the last one failed
+➤ YN0007: │ electron@npm:39.2.4 must be built because it never has been before or the last one failed
+➤ YN0007: │ esbuild@npm:0.27.2 must be built because it never has been before or the last one failed
+➤ YN0007: │ canvas@npm:2.11.2 must be built because it never has been before or the last one failed
+➤ YN0007: │ core-js@npm:2.6.12 must be built because it never has been before or the last one failed
+➤ YN0007: │ core-js@npm:3.47.0 must be built because it never has been before or the last one failed
+➤ YN0007: │ ttag-cli@npm:1.11.2 must be built because it never has been before or the last one failed
+➤ YN0007: │ msw@npm:2.12.4 [948df] must be built because it never has been before or the last one failed
+➤ YN0007: │ @swc/core@npm:1.15.5 [0697b] must be built because it never has been before or the last one failed
+➤ YN0007: │ esbuild@npm:0.25.12 must be built because it never has been before or the last one failed
+➤ YN0007: │ sharp@npm:0.33.5 must be built because it never has been before or the last one failed
+➤ YN0007: │ ejs@npm:2.7.4 must be built because it never has been before or the last one failed
+➤ YN0007: │ exifreader@npm:4.33.1 must be built because it never has been before or the last one failed
+➤ YN0007: │ electron@npm:36.9.5 must be built because it never has been before or the last one failed
+➤ YN0007: │ @parcel/watcher@npm:2.5.1 must be built because it never has been before or the last one failed
+➤ YN0007: │ esbuild@npm:0.21.2 must be built because it never has been before or the last one failed
+➤ YN0007: │ esbuild@npm:0.19.11 must be built because it never has been before or the last one failed
+➤ YN0007: │ esbuild@npm:0.25.4 must be built because it never has been before or the last one failed
+➤ YN0007: │ core-js-pure@npm:3.47.0 must be built because it never has been before or the last one failed
+➤ YN0007: │ @sentry/cli@npm:1.77.3 must be built because it never has been before or the last one failed
+➤ YN0007: │ electron-winstaller@npm:5.4.0 must be built because it never has been before or the last one failed
+➤ YN0007: │ es5-ext@npm:0.10.64 must be built because it never has been before or the last one failed
+➤ YN0007: │ sharp@npm:0.32.6 must be built because it never has been before or the last one failed
+➤ YN0007: │ unix-dgram@npm:2.0.7 must be built because it never has been before or the last one failed
+➤ YN0009: │ sharp@npm:0.32.6 couldn't be built successfully (exit code 1, logs can be found here: /tmp/xfs-13e044ce/build.log)
+➤ YN0007: │ root@workspace:. must be built because it never has been before or the last one failed
+➤ YN0007: │ netlify-cli@npm:17.38.1 must be built because it never has been before or the last one failed
+➤ YN0000: └ Completed in 3m 37s
+➤ YN0000: · Failed with errors in 4m 19s
+Done in 1s 189ms

@@ -1,0 +1,23 @@
+"@hocuspocus/common@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "@hocuspocus/common@npm:3.1.1"
+  dependencies:
+    lib0: "npm:^0.2.87"
+  checksum: 10/2edd8a5485a4d4317e9ae3b8036c0063f33d197da1c581a3a0b57962759d069436e78c3ee531bcd6ca82defe4e7645acb13288e6f7b334ea6b613afadf46453d
+  languageName: node
+  linkType: hard
+
+"@hocuspocus/provider@npm:^3.1.1":
+  version: 3.1.1
+  resolution: "@hocuspocus/provider@npm:3.1.1"
+  dependencies:
+    "@hocuspocus/common": "npm:^3.1.1"
+    "@lifeomic/attempt": "npm:^3.0.2"
+    lib0: "npm:^0.2.87"
+    ws: "npm:^8.17.1"
+  peerDependencies:
+    y-protocols: ^1.0.6
+    yjs: ^13.6.8
+  checksum: 10/c44d7d4b8e886b1f285e231bab0bb55631e9ab84777cb2b069415609d4c0fb62a95774634b50c12e995a094244541c5f42d330a5d8b4f3c6299b831f6f7f24f0
+  languageName: node
+  linkType: hard

@@ -1,0 +1,38 @@
+{
+  "name": "protondrive-tauri",
+  "version": "1.0.0",
+  "description": "Proton Drive desktop client - one-line installer",
+  "main": "install.js",
+  "bin": {
+    "protondrive-tauri": "./install.js"
+  },
+  "files": [
+    "install.js"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/donniedice/protondrive-tauri.git"
+  },
+  "keywords": [
+    "proton",
+    "drive",
+    "desktop",
+    "tauri",
+    "encryption"
+  ],
+  "author": "DonnieDice",
+  "license": "AGPL-3.0",
+  "private": true,
+  "scripts": {
+    "tauri": "tauri",
+    "dev": "tauri dev",
+    "build": "npm run build:web && tauri build",
+    "build:web": "./scripts/build-webclients.sh",
+    "build:linux": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu",
+    "build:rpm": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu -- --bundles rpm",
+    "build:appimage": "npm run build:web && tauri build --target x86_64-unknown-linux-gnu -- --bundles appimage"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "^1.5.0"
+  }
+}

@@ -1,0 +1,8 @@
+"@standardnotes/domain-core@npm:^1.41.3":
+  version: 1.41.3
+  resolution: "@standardnotes/domain-core@npm:1.41.3"
+  dependencies:
+    uuid: "npm:^9.0.0"
+  checksum: 10/f179274252873ec2110c0fa67c149d7422dccc034e6d2cb29461d623466942c481dbfa08209f35597867fffda2c554fe6fce9229ea4a10bde78a13affcede686
+  languageName: node
+  linkType: hard

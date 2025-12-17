@@ -1,0 +1,11 @@
+"@babel/plugin-proposal-optional-chaining@npm:7.6.0":
+  version: 7.6.0
+  resolution: "@babel/plugin-proposal-optional-chaining@npm:7.6.0"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.0.0"
+    "@babel/plugin-syntax-optional-chaining": "npm:^7.2.0"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/66c3d4bb1e8719d7cbfbfbcc1fbae8e69590c374e200df01f1dac14883a49262f3bf68ee7139cb1bc405ac39ea950a62aa3df9909d808fd5c71bcf88064fc941
+  languageName: node
+  linkType: hard

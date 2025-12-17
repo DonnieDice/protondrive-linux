@@ -1,0 +1,8 @@
+"@types/karma-junit-reporter@npm:^2.0.4":
+  version: 2.0.4
+  resolution: "@types/karma-junit-reporter@npm:2.0.4"
+  dependencies:
+    "@types/karma": "npm:*"
+  checksum: 10/816c7a6ad8f000ce4589dcd84cd291250de62b92353c3f099edd227c2fec884929dd1c091021d8991ad79e58cc7b74cf22115fbccd3fc0305a1e8b22f90c4db9
+  languageName: node
+  linkType: hard

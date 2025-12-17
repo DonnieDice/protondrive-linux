@@ -1,0 +1,8 @@
+"@duckdb/duckdb-wasm@npm:^1.30.0":
+  version: 1.31.0
+  resolution: "@duckdb/duckdb-wasm@npm:1.31.0"
+  dependencies:
+    apache-arrow: "npm:^17.0.0"
+  checksum: 10/c5363cead213e84c3e63179be28d7496814c012194cd15bf61b4b2680bcc00a2824309dc307369dacd2aff9fba08c05f5d23c511fedcf79eaa34034d5d109092
+  languageName: node
+  linkType: hard

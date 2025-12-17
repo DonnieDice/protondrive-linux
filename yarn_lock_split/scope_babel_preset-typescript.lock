@@ -1,0 +1,26 @@
+"@babel/preset-typescript@npm:7.7.0":
+  version: 7.7.0
+  resolution: "@babel/preset-typescript@npm:7.7.0"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.0.0"
+    "@babel/plugin-transform-typescript": "npm:^7.7.0"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/9fb526172b9452e80e547766968b69fd7a1213e116ac0d641ed15fca13ecf757b3672c64754a658dd262266f63099280c659fe04d0884878f275b3d55c66fbc3
+  languageName: node
+  linkType: hard
+
+"@babel/preset-typescript@npm:^7.24.7, @babel/preset-typescript@npm:^7.27.1, @babel/preset-typescript@npm:^7.28.5":
+  version: 7.28.5
+  resolution: "@babel/preset-typescript@npm:7.28.5"
+  dependencies:
+    "@babel/helper-plugin-utils": "npm:^7.27.1"
+    "@babel/helper-validator-option": "npm:^7.27.1"
+    "@babel/plugin-syntax-jsx": "npm:^7.27.1"
+    "@babel/plugin-transform-modules-commonjs": "npm:^7.27.1"
+    "@babel/plugin-transform-typescript": "npm:^7.28.5"
+  peerDependencies:
+    "@babel/core": ^7.0.0-0
+  checksum: 10/72c03e01c34906041b1813542761a283c52da1751e7ddf63191bc5fb2a0354eca30a00537c5a92951688bec3975bdc0e50ef4516b5e94cfd6d4cf947f2125bdc
+  languageName: node
+  linkType: hard

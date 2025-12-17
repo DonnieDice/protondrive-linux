@@ -1,0 +1,6 @@
+"@types/plotly.js@npm:*":
+  version: 3.0.7
+  resolution: "@types/plotly.js@npm:3.0.7"
+  checksum: 10/a11932a531b5e4ec21732833534698e2949a960c84c63dd24232d247294c0a9858eb9f5c9f0ab9ac45b88090ce0f7467913d7d626caf4d99363ece35b99c7455
+  languageName: node
+  linkType: hard

@@ -1,0 +1,46 @@
+Creating a production build...
+
+rm -rf /home/joey/protondrive-tauri/WebClients/applications/drive/dist 
+
+/home/joey/protondrive-tauri/WebClients/node_modules/webpack-cli/bin/cli.js --progress --output-path=/home/joey/protondrive-tauri/WebClients/applications/drive/dist --env protonPackOptions={"api":"https://drive.proton.me/api","apiProxy":false,"handleSupportAndErrors":true,"logical":false,"benchmarkBuild":false,"publicPath":"/","sri":true,"appMode":"standalone","optimizeAssets":true}  
+
+[webpack-cli] Failed to load '/home/joey/protondrive-tauri/WebClients/applications/drive/webpack.config.ts' config
+[webpack-cli] Error: Cannot find module '/home/joey/protondrive-tauri/WebClients/node_modules/@proton/pack/lib/config' imported from /home/joey/protondrive-tauri/WebClients/applications/drive/webpack.config.ts
+Did you mean to import "file:///home/joey/protondrive-tauri/WebClients/packages/pack/lib/config.ts"?
+    at finalizeResolution (node:internal/modules/esm/resolve:274:11)
+    at moduleResolve (node:internal/modules/esm/resolve:864:10)
+    at defaultResolve (node:internal/modules/esm/resolve:990:11)
+    at ModuleLoader.#cachedDefaultResolve (node:internal/modules/esm/loader:712:20)
+    at ModuleLoader.#resolveAndMaybeBlockOnLoaderThread (node:internal/modules/esm/loader:729:38)
+    at ModuleLoader.resolveSync (node:internal/modules/esm/loader:758:52)
+    at ModuleLoader.getOrCreateModuleJob (node:internal/modules/esm/loader:611:27)
+    at ModuleJobSync.syncLink (node:internal/modules/esm/module_job:143:33)
+    at ModuleJobSync.link (node:internal/modules/esm/module_job:463:17)
+    at new ModuleJobSync (node:internal/modules/esm/module_job:453:26) {
+  code: 'ERR_MODULE_NOT_FOUND',
+  url: 'file:///home/joey/protondrive-tauri/WebClients/node_modules/@proton/pack/lib/config'
+}
+/home/joey/protondrive-tauri/WebClients/node_modules/execa/lib/error.js:60
+		error = new Error(message);
+		        ^
+
+Error: Command failed with exit code 2: /home/joey/protondrive-tauri/WebClients/node_modules/webpack-cli/bin/cli.js --progress --output-path=/home/joey/protondrive-tauri/WebClients/applications/drive/dist --env protonPackOptions={"api":"https://drive.proton.me/api","apiProxy":false,"handleSupportAndErrors":true,"logical":false,"benchmarkBuild":false,"publicPath":"/","sri":true,"appMode":"standalone","optimizeAssets":true}
+    at makeError (/home/joey/protondrive-tauri/WebClients/node_modules/execa/lib/error.js:60:11)
+    at handlePromise (/home/joey/protondrive-tauri/WebClients/node_modules/execa/index.js:118:26)
+    at process.processTicksAndRejections (node:internal/process/task_queues:103:5)
+    at async Command.<anonymous> (/home/joey/protondrive-tauri/WebClients/packages/pack/bin/protonPack.js:71:9) {
+  shortMessage: 'Command failed with exit code 2: /home/joey/protondrive-tauri/WebClients/node_modules/webpack-cli/bin/cli.js --progress --output-path=/home/joey/protondrive-tauri/WebClients/applications/drive/dist --env protonPackOptions={"api":"https://drive.proton.me/api","apiProxy":false,"handleSupportAndErrors":true,"logical":false,"benchmarkBuild":false,"publicPath":"/","sri":true,"appMode":"standalone","optimizeAssets":true}',
+  command: '/home/joey/protondrive-tauri/WebClients/node_modules/webpack-cli/bin/cli.js --progress --output-path=/home/joey/protondrive-tauri/WebClients/applications/drive/dist --env protonPackOptions={"api":"https://drive.proton.me/api","apiProxy":false,"handleSupportAndErrors":true,"logical":false,"benchmarkBuild":false,"publicPath":"/","sri":true,"appMode":"standalone","optimizeAssets":true}',
+  escapedCommand: '"/home/joey/protondrive-tauri/WebClients/node_modules/webpack-cli/bin/cli.js" --progress "--output-path=/home/joey/protondrive-tauri/WebClients/applications/drive/dist" --env "protonPackOptions={\\"api\\":\\"https://drive.proton.me/api\\",\\"apiProxy\\":false,\\"handleSupportAndErrors\\":true,\\"logical\\":false,\\"benchmarkBuild\\":false,\\"publicPath\\":\\"/\\",\\"sri\\":true,\\"appMode\\":\\"standalone\\",\\"optimizeAssets\\":true}"',
+  exitCode: 2,
+  signal: undefined,
+  signalDescription: undefined,
+  stdout: undefined,
+  stderr: undefined,
+  failed: true,
+  timedOut: false,
+  isCanceled: false,
+  killed: false
+}
+
+Node.js v25.2.1

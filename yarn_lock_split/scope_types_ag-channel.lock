@@ -1,0 +1,10 @@
+"@types/ag-channel@npm:*":
+  version: 5.0.3
+  resolution: "@types/ag-channel@npm:5.0.3"
+  dependencies:
+    "@types/consumable-stream": "npm:*"
+    "@types/stream-demux": "npm:*"
+    "@types/writable-consumable-stream": "npm:*"
+  checksum: 10/766fb93ce3f3f210e00c31b4fc9b1febe41c4df86eeda95171d8899d21383ca61cfec4cd77235edb9638e9e49f91b68ce988ffac2330a3c13dd92c93a2c180c6
+  languageName: node
+  linkType: hard

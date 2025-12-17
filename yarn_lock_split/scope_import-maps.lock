@@ -1,0 +1,6 @@
+"@import-maps/resolve@npm:^1.0.1":
+  version: 1.0.1
+  resolution: "@import-maps/resolve@npm:1.0.1"
+  checksum: 10/3ad4a1622618baf407e68eac7c4ed76f8af5c2238526305a7fea9d2c4e7b1614b44b60d408a97a84f400f6514db101b7b1ae208d23ddbcec3c9d4b068db2301b
+  languageName: node
+  linkType: hard

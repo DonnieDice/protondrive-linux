@@ -1,0 +1,8 @@
+"@ramp-network/ramp-instant-sdk@npm:^4.0.8":
+  version: 4.0.8
+  resolution: "@ramp-network/ramp-instant-sdk@npm:4.0.8"
+  dependencies:
+    body-scroll-lock: "npm:^3.1.5"
+  checksum: 10/268b8daa614bf31f202c6493982362e5a51c4bc31309099bd0c269f743654075e76ae36ff794e5fdf8d720c5d506ca35c81673e371c0a15df8244361888e68c3
+  languageName: node
+  linkType: hard

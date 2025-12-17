@@ -1,0 +1,30 @@
+"ejs-webpack-loader@npm:^2.2.2":
+  version: 2.2.2
+  resolution: "ejs-webpack-loader@npm:2.2.2"
+  dependencies:
+    ejs: "npm:^2.0.0"
+    html-minifier: "npm:^3"
+    loader-utils: "npm:^0.2.7"
+    merge: "npm:^1.2.0"
+    uglify-js: "npm:~2.6.1"
+  checksum: 10/afb0a12df2da81cb69cb8b90e8c9978118d92e28fe73cee7883193341fe54bc24ae10fc61bd1c172135b625a5c17f7fefd20a19c32573d57f0c0d7195defd2b5
+  languageName: node
+  linkType: hard
+
+"ejs@npm:^2.0.0":
+  version: 2.7.4
+  resolution: "ejs@npm:2.7.4"
+  checksum: 10/39f5753d18cfc84c7351341f8d8df0f4abd07fd64be79dea6b32e54686de0e428ad35802893ba9cb7b199baaf3db310d304ef7bcaade5a6a4404d5a855a806fb
+  languageName: node
+  linkType: hard
+
+"ejs@npm:^3.1.6":
+  version: 3.1.10
+  resolution: "ejs@npm:3.1.10"
+  dependencies:
+    jake: "npm:^10.8.5"
+  bin:
+    ejs: bin/cli.js
+  checksum: 10/a9cb7d7cd13b7b1cd0be5c4788e44dd10d92f7285d2f65b942f33e127230c054f99a42db4d99f766d8dbc6c57e94799593ee66a14efd7c8dd70c4812bf6aa384
+  languageName: node
+  linkType: hard

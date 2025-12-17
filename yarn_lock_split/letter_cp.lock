@@ -1,0 +1,38 @@
+"cp-file@npm:^10.0.0":
+  version: 10.0.0
+  resolution: "cp-file@npm:10.0.0"
+  dependencies:
+    graceful-fs: "npm:^4.2.10"
+    nested-error-stacks: "npm:^2.1.1"
+    p-event: "npm:^5.0.1"
+  checksum: 10/9b2432e35f4200ae55b5d120755998a49548813380ea34431c6a1ca148a1df4416fb3a80af14baa926cf4bf021173bce49d5ab7dd51fca4a31c402de39a3fc92
+  languageName: node
+  linkType: hard
+
+"cp-file@npm:^9.1.0":
+  version: 9.1.0
+  resolution: "cp-file@npm:9.1.0"
+  dependencies:
+    graceful-fs: "npm:^4.1.2"
+    make-dir: "npm:^3.0.0"
+    nested-error-stacks: "npm:^2.0.0"
+    p-event: "npm:^4.1.0"
+  checksum: 10/3251e3c895304eeefc2394efea27e5527e79ab747bdd096cf3fac050818ad1e7a62885d5d8dbcc63bc01d8116a23a448407e145d4e9d9c3c1b28305ac5af6f31
+  languageName: node
+  linkType: hard
+
+"cpy@npm:^9.0.0":
+  version: 9.0.1
+  resolution: "cpy@npm:9.0.1"
+  dependencies:
+    arrify: "npm:^3.0.0"
+    cp-file: "npm:^9.1.0"
+    globby: "npm:^13.1.1"
+    junk: "npm:^4.0.0"
+    micromatch: "npm:^4.0.4"
+    nested-error-stacks: "npm:^2.1.0"
+    p-filter: "npm:^3.0.0"
+    p-map: "npm:^5.3.0"
+  checksum: 10/e0306c5508b6c78529aab7f6f8222906744b0519e4eecd5510e4fb6d2484179fdca10ace86aaaf4a49db967b8fb0866e7aa0578eab5a3697abad3a77ed9c5dca
+  languageName: node
+  linkType: hard
