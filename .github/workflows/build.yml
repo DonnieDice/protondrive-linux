@@ -235,8 +235,8 @@ jobs:
             https://github.com/ProtonMail/WebClients.git WebClients
           
           echo "🔧 Patching dependencies..."
-          python fix_deps.py
-          
+          python3 scripts/fix_deps.py
+
           # Removed rm -f WebClients/yarn.lock to keep cloned lockfile
 
       - name: Build WebClients (Proton Drive)
