@@ -36,4 +36,7 @@ dist/
 .env
 .env.local
 .env.*.local
-WebClients/
+
+# WebClients specific ignores
+WebClients/applications/*/node_modules/
+WebClients/applications/*/dist/
