@@ -45,14 +45,11 @@ jobs:
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
 
-          echo "🔧 Patching dependencies..."
+          echo "🔧 Patching dependencies and configuring Yarn..."
           python3 scripts/fix_deps.py
 
           # Delete lockfile to force regeneration after patching
           rm -f WebClients/yarn.lock
-
-          # Disable immutable mode in WebClients to allow lockfile regeneration
-          echo 'enableImmutableInstalls: false' >> WebClients/.yarnrc.yml
 
       - name: Build WebClients
         run: |
