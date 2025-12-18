@@ -54,8 +54,10 @@ jobs:
       - name: Build WebClients
         run: |
           set -euo pipefail
-          # Temporarily move root package.json to avoid workspace conflicts
-          mv package.json package.json.bak || true
+          # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
+          # Yarn detects workspaces if both package.json and yarn.lock exist in parent dir
+          mv package.json package.json.bak 2>/dev/null || true
+          mv yarn.lock yarn.lock.bak 2>/dev/null || true
 
           cd WebClients
 
@@ -63,9 +65,10 @@ jobs:
           echo "📦 Installing WebClients dependencies..."
           node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
 
-          # Restore root package.json
+          # Restore root package.json and yarn.lock
           cd ..
-          mv package.json.bak package.json || true
+          mv package.json.bak package.json 2>/dev/null || true
+          mv yarn.lock.bak yarn.lock 2>/dev/null || true
           cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
