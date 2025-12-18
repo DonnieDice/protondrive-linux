@@ -73,9 +73,6 @@ jobs:
           echo "🔧 Patching dependencies..."
           python3 scripts/fix_deps.py
 
-          # Remove yarn.lock to regenerate from package.json
-          rm -f WebClients/yarn.lock
-
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
@@ -89,7 +86,7 @@ jobs:
 
           echo "📦 Installing WebClients dependencies..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --refresh-lockfile --network-timeout 600000
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
 
           # Restore root package.json and yarn.lock
           cd ..
