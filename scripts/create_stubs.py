@@ -17,10 +17,16 @@ stub_packages = {
 }
 
 stub_index_content = '''// Stub for private Proton package
+class WebpackCollectMetricsPlugin {
+    constructor(options) {}
+    apply(compiler) {}
+}
+
 module.exports = {
+    WebpackCollectMetricsPlugin,
     collectMetrics: () => {},
     reportMetrics: () => {},
-    default: () => {}
+    default: WebpackCollectMetricsPlugin
 };
 '''
 
