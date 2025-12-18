@@ -70,6 +70,12 @@ jobs:
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
 
+          echo "🔧 Patching dependencies..."
+          python3 scripts/fix_deps.py
+
+          # Delete lockfile to force regeneration after patching
+          rm -f WebClients/yarn.lock
+
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail

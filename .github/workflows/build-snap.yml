@@ -115,6 +115,11 @@ jobs:
                 git clone --depth=1 --single-branch --branch main \
                   https://github.com/ProtonMail/WebClients.git WebClients
 
+                python3 scripts/fix_deps.py
+
+                # Delete lockfile to force regeneration after patching
+                rm -f WebClients/yarn.lock
+
                 # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
                 # Yarn detects workspaces if both package.json and yarn.lock exist in parent dir
                 mv package.json package.json.bak 2>/dev/null || true
