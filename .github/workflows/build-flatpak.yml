@@ -107,7 +107,7 @@ jobs:
       - name: Install Flatpak SDK
         run: |
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 org.freedesktop.Sdk.Extension.node22//24.08
 
       - name: Create Flatpak manifest
         run: |
@@ -119,6 +119,7 @@ jobs:
           sdk: org.freedesktop.Sdk
           sdk-extensions:
             - org.freedesktop.Sdk.Extension.rust-stable
+            - org.freedesktop.Sdk.Extension.node22
           command: proton-drive
 
           finish-args:
@@ -133,9 +134,7 @@ jobs:
             - name: proton-drive
               buildsystem: simple
               build-options:
-                append-path: /usr/lib/sdk/rust-stable/bin
-                build-packages:
-                  - libwebkit2gtk-4.1-devel
+                append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
                 env:
                   CARGO_HOME: /run/build/proton-drive/cargo
               build-commands:

@@ -114,6 +114,7 @@ jobs:
                 rm /tmp/node.tar.xz
                 node --version
                 npm --version
+                npm install -g yarn
 
                 # Install Node.js dependencies
                 npm install
