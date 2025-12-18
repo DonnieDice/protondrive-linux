@@ -1,9 +1,0 @@
-.fancy-gradient {
-	color: transparent;
-	background-clip: text;
-
-	/*
-	 * Create a variable of the color: #d783ff
-  */
-	background-image: linear-gradient(213.85deg, var(--promotion-secondary-color) 0%, var(--primary) 100%);
-}

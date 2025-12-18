@@ -1,8 +1,0 @@
-name,url,additional_urls,username,password,note,cardholdername,cardnumber,cvc,pin,expirydate,zipcode,folder,full_name,phone_number,email,address1,address2,city,country,state,type,custom_fields
-folder1/folder2,,,,,,,,,,,,,,,,,,,,,folder,
-folder1,,,,,,,,,,,,,,,,,,,,,folder,
-nobody,https://account.proton.me,,nobody@proton.me,proton123,Secure note,,,,,,,,,,,,,,,,password,
-simplelogin.io,https://simplelogin.io,,test SL,password,,,,,,,,,,,,,,,,,password,
-
-sub-folder,,,,,,,,,,,,,,,,,,,,,folder,
-Test[CustomFields],https://hello.com,"[""hts:/malformed.test.com"",""https://test.me/lol"",""https://test.net""]",CustomFields,CustomFields,note,,,,,,,sub-folder,,,,,,,,,password,"[{""label"":""[TEXT]"",""type"":""text"",""value"":""VALUE""},{""label"":""[HIDDEN]"",""type"":""hidden"",""value"":""VALUE""},{""label"":""[INVALID_DATE]"",""type"":""date"",""value"":""14/12/1990""},{""label"":""[DATE]"",""type"":""date"",""value"":""14 decembre 1990""}]"

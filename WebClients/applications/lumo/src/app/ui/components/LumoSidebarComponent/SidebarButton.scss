@@ -1,9 +1,0 @@
-@use 'sass:math';
-@import '~@proton/styles/scss/lib';
-
-.sidebar-button {
-	&#{&} {
-		--padding-block: #{rem(3)};
-		--padding-inline: #{rem(3)};
-	}
-}
