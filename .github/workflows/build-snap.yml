@@ -108,6 +108,11 @@ jobs:
               override-build: |
                 set -euo pipefail
 
+                # Install Rust
+                curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+                source "$HOME/.cargo/env"
+                rustc --version
+
                 # Install Node.js 22
                 curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz -o /tmp/node.tar.xz
                 tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
@@ -189,8 +194,6 @@ jobs:
                 - git
                 - python3
                 - python3-pip
-                - rustc
-                - cargo
                 - build-essential
                 - libssl-dev
                 - libwebkit2gtk-4.1-dev
