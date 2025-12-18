@@ -207,9 +207,11 @@ jobs:
                 DESKTOP
 
                 # Install icon
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+
                 mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-                cp src-tauri/icons/128x128.png \
-                  "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                rsvg-convert --width 128 --height 128 src-tauri/icons/proton-drive.svg > "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
 
               build-packages:
                 - curl
