@@ -134,6 +134,8 @@ jobs:
               buildsystem: simple
               build-options:
                 append-path: /usr/lib/sdk/rust-stable/bin
+                build-packages:
+                  - libwebkit2gtk-4.1-devel
                 env:
                   CARGO_HOME: /run/build/proton-drive/cargo
               build-commands:
