@@ -89,6 +89,10 @@ jobs:
           cd ..
           mv package.json.bak package.json 2>/dev/null || true
           mv yarn.lock.bak yarn.lock 2>/dev/null || true
+
+          echo "📦 Creating stubs for private packages..."
+          python3 scripts/create_stubs.py
+
           cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
