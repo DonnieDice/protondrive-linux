@@ -141,6 +141,12 @@ jobs:
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
                 cd ..
 
+                # Verify build
+                if [ ! -d "WebClients/applications/drive/dist" ]; then
+                  echo "❌ WebClients build failed"
+                  exit 1
+                fi
+
                 # Build with Tauri
                 yarn install
                 yarn tauri build -- --bundles appimage

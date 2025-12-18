@@ -90,4 +90,3 @@ if 'enableImmutableInstalls' not in yarnrc_content:
 
 yarnrc_path.write_text(yarnrc_content)
 print("✅ Yarn configured with public npm registry (internal Proton registries removed)")
-

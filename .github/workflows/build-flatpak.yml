@@ -97,7 +97,7 @@ jobs:
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
-          if [ ! -d "applications/drive/build" ]; then
+          if [ ! -d "applications/drive/dist" ]; then
             echo "❌ Build failed"
             exit 1
           fi

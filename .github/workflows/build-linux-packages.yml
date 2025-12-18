@@ -105,13 +105,13 @@ jobs:
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
           # Verify build output
-          if [ ! -d "applications/drive/build" ]; then
+          if [ ! -d "applications/drive/dist" ]; then
             echo "❌ Build failed - no output directory"
             exit 1
           fi
 
           echo "✅ WebClients build complete"
-          ls -la applications/drive/build/
+          ls -la applications/drive/dist/
 
           cd ..
 
