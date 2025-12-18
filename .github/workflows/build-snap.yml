@@ -81,9 +81,13 @@ jobs:
             amd64:
             arm64:
 
+          title: Proton Drive Linux Desktop Client
+          contact: https://github.com/${{ github.repository }}/issues
+          license: AGPL-3.0
+
           apps:
             proton-drive:
-              command: proton-drive
+              command: usr/bin/proton-drive
               desktop: usr/share/applications/com.proton.drive.desktop
               plugs:
                 - home
@@ -197,7 +201,7 @@ jobs:
                 Type=Application
                 Name=Proton Drive
                 Comment=Secure cloud storage
-                Exec=proton-drive
+                Exec=usr/bin/proton-drive
                 Icon=com.proton.drive
                 Categories=Utility;
                 DESKTOP
