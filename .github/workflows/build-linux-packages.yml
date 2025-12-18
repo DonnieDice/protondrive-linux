@@ -92,11 +92,8 @@ jobs:
 
           echo "📦 Installing WebClients dependencies..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          # Increase timeouts and add retries for network resilience
-          node .yarn/releases/yarn-4.12.0.cjs install \
-            --network-timeout 900000 \
-            --retry-on-econnreset \
-            --max-retries 3
+          # Increase timeout for network resilience (15 min instead of default)
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
 
           # Restore root package.json and yarn.lock
           cd ..
