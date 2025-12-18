@@ -41,7 +41,8 @@ jobs:
           echo "📦 Installing build dependencies..."
           # Install native module build dependencies
           dnf install -y make gcc gcc-c++ python3 pkg-config \
-            cairo-devel pango-devel libjpeg-turbo-devel giflib-devel librsvg2-devel pixman-devel
+            cairo-devel pango-devel libjpeg-turbo-devel giflib-devel librsvg2-devel pixman-devel \
+            libsoup-devel
 
       - name: Setup Node.js
         run: |
@@ -102,6 +103,11 @@ jobs:
             exit 1
           fi
           cd ..
+
+      - name: Install Flatpak SDK
+        run: |
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
 
       - name: Create Flatpak manifest
         run: |
