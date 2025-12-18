@@ -121,8 +121,17 @@ jobs:
 
       - name: Workaround for javascriptcoregtk-4.0
         run: |
+          ls -l /usr/lib/x86_64-linux-gnu/pkgconfig/
           sudo ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
           sudo ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+          sudo ln -s /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.1.so /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.0.so
+          sudo ln -s /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.1.so /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.0.so
+
+      - name: Create cargo config
+        run: |
+          mkdir -p .cargo
+          echo '[target.x86_64-unknown-linux-gnu]' >> .cargo/config.toml
+          echo 'rustflags = ["-L", "/usr/lib/x86_64-linux-gnu"]' >> .cargo/config.toml
 
       - name: Build Tauri app (DEB, RPM, AppImage)
         run: |

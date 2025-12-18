@@ -108,9 +108,17 @@ jobs:
               override-build: |
                 set -euo pipefail
 
+                case "$SNAPCRAFT_TARGET_ARCH" in
+                  amd64) ARCH_TRIPLET="x86_64-linux-gnu" ;;
+                  arm64) ARCH_TRIPLET="aarch64-linux-gnu" ;;
+                  *) echo "Unsupported architecture: $SNAPCRAFT_TARGET_ARCH"; exit 1 ;;
+                esac
+
                 # Create symlinks for webkitgtk
-                ln -s /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
-                ln -s /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
+                ln -s /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
+                ln -s /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
+                ln -s /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.0.so
+                ln -s /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.0.so
 
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -164,6 +172,13 @@ jobs:
                   echo "❌ WebClients build failed"
                   exit 1
                 fi
+
+                # Create cargo config
+                mkdir -p .cargo
+                echo '[target.x86_64-unknown-linux-gnu]' >> .cargo/config.toml
+                echo 'rustflags = ["-L", "/usr/lib/x86_64-linux-gnu"]' >> .cargo/config.toml
+                echo '[target.aarch64-linux-gnu]' >> .cargo/config.toml
+                echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> .cargo/config.toml
 
                 # Build with Tauri
                 yarn install

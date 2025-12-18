@@ -137,11 +137,13 @@ jobs:
                 append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
                 env:
                   CARGO_HOME: /run/build/proton-drive/cargo
+                  PKG_CONFIG_PATH: /app/lib/pkgconfig:/usr/lib/x86_64-linux-gnu/pkgconfig:/usr/share/pkgconfig
                 build-args:
                   - --share=network
               build-commands:
-                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
-                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+                - mkdir -p /app/lib/pkgconfig
+                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /app/lib/pkgconfig/javascriptcoregtk-4.0.pc
+                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /app/lib/pkgconfig/webkit2gtk-4.0.pc
                 - npm install
                 - npm run build
                 - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive
