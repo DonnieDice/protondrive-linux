@@ -80,11 +80,19 @@ jobs:
         run: |
           set -euo pipefail
 
+          # Temporarily move root package.json to avoid workspace conflicts
+          mv ../package.json ../package.json.bak || true
+
           cd WebClients
 
           echo "📦 Installing WebClients dependencies..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --no-workspaces --network-timeout 600000
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+
+          # Restore root package.json
+          cd ..
+          mv package.json.bak package.json || true
+          cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
