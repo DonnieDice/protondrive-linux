@@ -35,13 +35,13 @@ jobs:
               'Build Flatpak'
             ];
 
-            const runs = await github.rest.actions.listWorkflowRuns({
+            const { data: { workflow_runs } } = await github.rest.actions.listWorkflowRunsForRepo({
               owner: context.repo.owner,
               repo: context.repo.repo,
               head_sha: sha,
             });
 
-            const buildWorkflows = runs.data.workflow_runs.filter(r =>
+            const buildWorkflows = workflow_runs.filter(r =>
               expectedWorkflows.includes(r.name)
             );
 
