@@ -119,6 +119,11 @@ jobs:
       - name: Install Tauri dependencies
         run: yarn install
 
+      - name: Workaround for javascriptcoregtk-4.0
+        run: |
+          sudo ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
+          sudo ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
+
       - name: Build Tauri app (DEB, RPM, AppImage)
         run: |
           echo "🔨 Building Tauri packages..."
