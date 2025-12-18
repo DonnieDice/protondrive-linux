@@ -146,9 +146,19 @@ jobs:
                 - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /app/lib/pkgconfig/javascriptcoregtk-4.0.pc
                 - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /app/lib/pkgconfig/webkit2gtk-4.0.pc
                 - npm install
-                - npm run build
+
+                # Build web clients
+                - mv package.json package.json.bak
+                - mv yarn.lock yarn.lock.bak
+                - sh scripts/build-webclients.sh
+                - mv package.json.bak package.json
+                - mv yarn.lock.bak yarn.lock
+
+                # Build tauri app
+                - tauri build
+
                 - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive
-                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
               sources:
                 - type: git
                   url: https://github.com/${{ github.repository }}.git
