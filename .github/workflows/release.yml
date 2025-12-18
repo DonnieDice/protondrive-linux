@@ -1,30 +1,53 @@
-name: Create Release With Build Artifacts
+name: Create Release
 
 on:
   push:
-    tags:
-      - "v*"
+    branches:
+      - main
   workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to release (e.g., v1.1.0)'
-        required: true
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  wait-for-builds:
+  # This job checks if all builds succeeded, then creates a release
+  check-and-release:
     runs-on: ubuntu-latest
     timeout-minutes: 180
+    
     steps:
-      - name: Wait for build workflows to complete
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version from package.json: v${VERSION}"
+
+      - name: Check if tag exists
+        id: check_tag
+        run: |
+          TAG=${{ steps.version.outputs.version }}
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists - skipping release"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist - will check builds and create release"
+          fi
+
+      - name: Wait for all builds to complete
+        if: steps.check_tag.outputs.exists == 'false'
         uses: actions/github-script@v7
         with:
           script: |
-            const tag = context.ref.replace('refs/tags/', '');
-            console.log(`Waiting for builds for tag: ${tag}`);
+            const sha = context.sha;
+            console.log(`Waiting for builds for SHA: ${sha}`);
 
             const expectedWorkflows = [
               'Build Linux Packages',
@@ -32,38 +55,37 @@ jobs:
               'Build Flatpak'
             ];
 
-            // Give workflows time to start
+            // Give workflows time to start (30 seconds)
             await new Promise(resolve => setTimeout(resolve, 30000));
 
-            // Poll for workflow completion (max 2 hours)
-            const maxAttempts = 60;
+            // Poll for workflow completion (max 2.5 hours)
+            const maxAttempts = 75;
             for (let i = 0; i < maxAttempts; i++) {
-              const runs = await github.rest.actions.listWorkflowRuns({
+              const { data: { workflow_runs } } = await github.rest.actions.listWorkflowRunsForRepo({
                 owner: context.repo.owner,
                 repo: context.repo.repo,
-                head_sha: context.sha,
+                head_sha: sha,
               });
 
-              console.log(`Attempt ${i + 1}: Found ${runs.data.workflow_runs.length} workflows`);
-
-              const buildWorkflows = runs.data.workflow_runs.filter(r =>
-                expectedWorkflows.includes(r.name)
+              const buildWorkflows = workflow_runs.filter(r =>
+                expectedWorkflows.includes(r.name) && r.status !== 'queued'
               );
 
-              console.log(`Build workflows found: ${buildWorkflows.map(r => r.name).join(', ')}`);
+              console.log(`Attempt ${i + 1}/${maxAttempts}: Found ${buildWorkflows.length}/${expectedWorkflows.length} workflows`);
+              console.log(`Status: ${buildWorkflows.map(r => `${r.name}:${r.status}:${r.conclusion}`).join(', ')}`);
 
               if (buildWorkflows.length >= expectedWorkflows.length) {
                 const allComplete = buildWorkflows.every(r => r.status === 'completed');
-                const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
-
-                console.log(`Status: ${buildWorkflows.map(r => `${r.name}:${r.status}:${r.conclusion}`).join(', ')}`);
-
+                
                 if (allComplete) {
+                  const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
+                  
                   if (allSuccess) {
                     console.log('✅ All builds succeeded!');
                     return;
                   } else {
-                    throw new Error(`❌ Some builds failed: ${buildWorkflows.filter(r => r.conclusion !== 'success').map(r => r.name).join(', ')}`);
+                    const failed = buildWorkflows.filter(r => r.conclusion !== 'success').map(r => r.name).join(', ');
+                    throw new Error(`❌ Some builds failed: ${failed}`);
                   }
                 }
               }
@@ -73,24 +95,20 @@ jobs:
               }
             }
 
-            throw new Error('⏱️ Build workflows did not complete within 2 hours');
+            throw new Error('⏱️ Build workflows did not complete within 2.5 hours');
 
-  create-release:
-    needs: wait-for-builds
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get version from tag
-        id: version
+      - name: Create and push tag
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
-          VERSION=${GITHUB_REF#refs/tags/}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          TAG=${{ steps.version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "✅ Created and pushed tag: $TAG"
 
       - name: Download Linux packages artifacts
+        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-linux-packages.yml
@@ -102,6 +120,7 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Download Snap artifact
+        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-snap.yml
@@ -113,6 +132,7 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Download Flatpak artifact
+        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-flatpak.yml
@@ -124,25 +144,18 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Prepare release files
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
           mkdir -p release
           VERSION=${{ steps.version.outputs.version }}
 
           echo "📦 Collecting artifacts..."
 
-          # Copy DEB package
+          # Copy all artifacts
           find artifacts/linux-packages -name "*.deb" -exec cp {} release/ \;
-
-          # Copy RPM package
           find artifacts/linux-packages -name "*.rpm" -exec cp {} release/ \;
-
-          # Copy AppImage
           find artifacts/linux-packages -name "*.AppImage" -exec cp {} release/ \;
-
-          # Copy Snap package
           find artifacts/snap -name "*.snap" -exec cp {} release/ \;
-
-          # Copy Flatpak bundle
           find artifacts/flatpak -name "*.flatpak" -exec cp {} release/ \;
 
           # Generate checksums
@@ -154,13 +167,15 @@ jobs:
           cd ..
 
       - name: Create release notes
-        id: release_notes
+        if: steps.check_tag.outputs.exists == 'false'
         run: |
           RELEASE_DATE=$(date -u +'%Y-%m-%d')
-          cat > RELEASE_NOTES.md << 'EOF'
-          # Proton Drive Linux ${{ steps.version.outputs.version }}
+          VERSION=${{ steps.version.outputs.version }}
+          
+          cat > RELEASE_NOTES.md << EOF
+          # Proton Drive Linux ${VERSION}
 
-          **Release Date:** $RELEASE_DATE
+          **Release Date:** ${RELEASE_DATE}
 
           An unofficial Linux desktop client for Proton Drive, built with Tauri.
 
@@ -168,43 +183,43 @@ jobs:
 
           | Format | File | Description |
           |--------|------|-------------|
-          | DEB | `proton-drive_*.deb` | Debian, Ubuntu, Linux Mint |
-          | RPM | `proton-drive-*.rpm` | Fedora, RHEL, CentOS, openSUSE |
-          | AppImage | `proton-drive_*.AppImage` | Universal Linux (portable) |
-          | Snap | `proton-drive_*.snap` | Snap-enabled distributions |
-          | Flatpak | `proton-drive.flatpak` | Flatpak-enabled distributions |
+          | DEB | \`proton-drive_*.deb\` | Debian, Ubuntu, Linux Mint |
+          | RPM | \`proton-drive-*.rpm\` | Fedora, RHEL, CentOS, openSUSE |
+          | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable) |
+          | Snap | \`proton-drive_*.snap\` | Snap-enabled distributions |
+          | Flatpak | \`proton-drive.flatpak\` | Flatpak-enabled distributions |
 
           ## Installation
 
           ### Debian/Ubuntu
-          ```bash
+          \`\`\`bash
           sudo apt install ./proton-drive_*.deb
-          ```
+          \`\`\`
 
           ### Fedora/RHEL
-          ```bash
+          \`\`\`bash
           sudo dnf install ./proton-drive-*.rpm
-          ```
+          \`\`\`
 
           ### AppImage (Portable)
-          ```bash
+          \`\`\`bash
           chmod +x proton-drive_*.AppImage
           ./proton-drive_*.AppImage
-          ```
+          \`\`\`
 
           ### Snap
-          ```bash
+          \`\`\`bash
           sudo snap install --dangerous proton-drive_*.snap
-          ```
+          \`\`\`
 
           ### Flatpak
-          ```bash
+          \`\`\`bash
           flatpak install --user proton-drive.flatpak
-          ```
+          \`\`\`
 
           ## Checksums
 
-          All files have SHA256 checksums available in `SHA256SUMS`.
+          All files have SHA256 checksums available in \`SHA256SUMS\`.
 
           ## System Requirements
 
@@ -216,11 +231,12 @@ jobs:
 
           Report issues at https://github.com/${{ github.repository }}/issues
           EOF
-          sed -i "s/\$RELEASE_DATE/$RELEASE_DATE/g" RELEASE_NOTES.md
 
       - name: Create GitHub Release
+        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
+          tag_name: ${{ steps.version.outputs.version }}
           body_path: RELEASE_NOTES.md
           files: release/*
           draft: false
@@ -228,78 +244,3 @@ jobs:
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Upload release checksums
-        uses: actions/upload-artifact@v4
-        with:
-          name: release-checksums
-          path: release/SHA256SUMS
-          retention-days: 90
-
-  publish-aur:
-    needs: create-release
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Get version from tag
-        id: version
-        run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
-          echo "version=${VERSION}" >> $GITHUB_OUTPUT
-
-      - name: Generate PKGBUILD
-        run: |
-          mkdir -p aur
-          cat > aur/PKGBUILD << EOF
-          # Maintainer: DonnieDice <donniedice@protonmail.com>
-          pkgname=proton-drive-bin
-          pkgver=${{ steps.version.outputs.version }}
-          pkgrel=1
-          pkgdesc="Unofficial Proton Drive Linux desktop client (Tauri)"
-          arch=('x86_64')
-          url="https://github.com/${{ github.repository }}"
-          license=('AGPL-3.0-or-later')
-          depends=('webkit2gtk' 'gtk3' 'libayatana-appindicator' 'openssl')
-          provides=('proton-drive')
-          conflicts=('proton-drive')
-          source=("\${pkgname}-\${pkgver}.deb::https://github.com/${{ github.repository }}/releases/download/v\${pkgver}/proton-drive_\${pkgver}_amd64.deb")
-          sha256sums=('SKIP')
-
-          package() {
-            bsdtar -xf data.tar.* -C "\${pkgdir}/"
-          }
-          EOF
-
-          cat > aur/.SRCINFO << EOF
-          pkgbase = proton-drive-bin
-          	pkgdesc = Unofficial Proton Drive Linux desktop client (Tauri)
-          	pkgver = ${{ steps.version.outputs.version }}
-          	pkgrel = 1
-          	url = https://github.com/${{ github.repository }}
-          	arch = x86_64
-          	license = AGPL-3.0-or-later
-          	depends = webkit2gtk
-          	depends = gtk3
-          	depends = libayatana-appindicator
-          	depends = openssl
-          	provides = proton-drive
-          	conflicts = proton-drive
-          	source = proton-drive-bin-${{ steps.version.outputs.version }}.deb::https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/proton-drive_${{ steps.version.outputs.version }}_amd64.deb
-          	sha256sums = SKIP
-
-          pkgname = proton-drive-bin
-          EOF
-
-      - name: Publish to AUR
-        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
-        with:
-          pkgname: proton-drive-bin
-          pkgbuild: aur/PKGBUILD
-          commit_username: DonnieDice
-          commit_email: donniedice@protonmail.com
-          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
-          commit_message: "Update to v${{ steps.version.outputs.version }}"
-          force_push: true
