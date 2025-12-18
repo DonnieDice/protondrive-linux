@@ -82,14 +82,9 @@ jobs:
 
           cd WebClients
 
-          # Create .yarnrc.yml to isolate WebClients from root workspace
-          cat > .yarnrc.yml << 'YARNRC'
-          workspaceRoot: '.'
-          YARNRC
-
           echo "📦 Installing WebClients dependencies..."
           export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+          node .yarn/releases/yarn-4.12.0.cjs install --no-workspaces --network-timeout 600000
 
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
