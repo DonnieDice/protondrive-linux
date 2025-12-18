@@ -120,10 +120,10 @@ jobs:
                 esac
 
                 # Create symlinks for webkitgtk
-                ln -s /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
-                ln -s /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
-                ln -s /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.0.so
-                ln -s /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.0.so
+                ln -sf /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
+                ln -sf /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
+                ln -sf /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.0.so
+                ln -sf /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.0.so
 
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
@@ -206,12 +206,15 @@ jobs:
                 Categories=Utility;
                 DESKTOP
 
-                # Install icon
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
-                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-
+                # Install icons
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
                 mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-                rsvg-convert --width 128 --height 128 src-tauri/icons/proton-drive.svg > "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+                cp src-tauri/icons/32x32.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128@2x.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
 
               build-packages:
                 - curl
