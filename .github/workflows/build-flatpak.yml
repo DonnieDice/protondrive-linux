@@ -137,6 +137,8 @@ jobs:
                 append-path: /usr/lib/sdk/rust-stable/bin:/usr/lib/sdk/node22/bin
                 env:
                   CARGO_HOME: /run/build/proton-drive/cargo
+                build-args:
+                  - --share=network
               build-commands:
                 - npm install
                 - npm run build
