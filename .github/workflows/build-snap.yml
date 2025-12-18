@@ -169,10 +169,13 @@ jobs:
                 - curl
                 - wget
                 - file
+                - git
                 - python3
                 - python3-pip
                 - nodejs
                 - npm
+                - rustc
+                - cargo
                 - build-essential
                 - libssl-dev
                 - libwebkit2gtk-4.1-dev

@@ -35,6 +35,22 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
 
+      - name: Setup Node.js
+        run: |
+          set -euo pipefail
+          echo "📦 Installing Node.js..."
+          # Install Node.js via dnf (flatpak container uses Fedora)
+          dnf install -y nodejs npm || {
+            # Fallback: install via nvm if dnf fails
+            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
+            export NVM_DIR="$HOME/.nvm"
+            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
+            nvm install 22
+            nvm use 22
+          }
+          node --version
+          npm --version
+
       - name: Clone and patch WebClients
         run: |
           set -euo pipefail
