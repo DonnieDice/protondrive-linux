@@ -108,10 +108,11 @@ jobs:
               override-build: |
                 set -euo pipefail
 
-                case "$SNAPCRAFT_TARGET_ARCH" in
+                ARCH=$(dpkg --print-architecture)
+                case "$ARCH" in
                   amd64) ARCH_TRIPLET="x86_64-linux-gnu" ;;
                   arm64) ARCH_TRIPLET="aarch64-linux-gnu" ;;
-                  *) echo "Unsupported architecture: $SNAPCRAFT_TARGET_ARCH"; exit 1 ;;
+                  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
                 esac
 
                 # Create symlinks for webkitgtk

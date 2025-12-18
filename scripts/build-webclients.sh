@@ -5,7 +5,7 @@ echo "Building WebClients from local directory..."
 
 # 1. Patch dependencies
 echo "🔧 Patching dependencies..."
-python3 fix_deps.py
+python3 scripts/fix_deps.py
 
 # 2. Install dependencies in WebClients
 echo "📦 Installing WebClients dependencies..."
