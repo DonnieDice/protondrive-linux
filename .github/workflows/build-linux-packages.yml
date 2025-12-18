@@ -99,7 +99,7 @@ jobs:
           cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
           # Verify build output
           if [ ! -d "applications/drive/build" ]; then
