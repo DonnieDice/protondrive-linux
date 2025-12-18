@@ -120,6 +120,9 @@ jobs:
                 # Delete lockfile to force regeneration after patching
                 rm -f WebClients/yarn.lock
 
+                # Disable immutable mode in WebClients to allow lockfile regeneration
+                echo 'enableImmutableInstalls: false' >> WebClients/.yarnrc.yml
+
                 # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
                 # Yarn detects workspaces if both package.json and yarn.lock exist in parent dir
                 mv package.json package.json.bak 2>/dev/null || true

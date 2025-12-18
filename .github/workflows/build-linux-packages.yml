@@ -76,6 +76,9 @@ jobs:
           # Delete lockfile to force regeneration after patching
           rm -f WebClients/yarn.lock
 
+          # Disable immutable mode in WebClients to allow lockfile regeneration
+          echo 'enableImmutableInstalls: false' >> WebClients/.yarnrc.yml
+
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
