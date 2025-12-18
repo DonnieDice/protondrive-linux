@@ -62,7 +62,7 @@ jobs:
           mkdir -p snap
           cat > snap/snapcraft.yaml << 'EOF'
           name: proton-drive
-          version: '1.0.0'
+          version: '1.2.0'
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
@@ -93,10 +93,15 @@ jobs:
                 - home
                 - network
                 - network-bind
+                - network-status
                 - desktop
                 - desktop-legacy
                 - x11
                 - wayland
+                - opengl
+                - audio-playback
+                - browser-support
+                - password-manager-service
                 - dbus
 
           plugs:

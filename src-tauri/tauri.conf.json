@@ -32,7 +32,7 @@
       "shortDescription": "Encrypted cloud storage",
       "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
       "deb": {
-        "depends": []
+        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
       },
       "rpm": {
         "license": "AGPL-3.0"
@@ -47,7 +47,6 @@
     "windows": [
       {
         "title": "Proton Drive",
-        "url": "https://drive.proton.me",
         "width": 1200,
         "height": 800,
         "minWidth": 800,

@@ -167,8 +167,13 @@ jobs:
             - --share=ipc
             - --socket=x11
             - --socket=wayland
+            - --socket=pulseaudio
             - --device=dri
             - --filesystem=home
+            - --filesystem=xdg-download
+            - --talk-name=org.freedesktop.secrets
+            - --talk-name=org.freedesktop.Notifications
+            - --system-talk-name=org.freedesktop.NetworkManager
 
           modules:
             - name: proton-drive
