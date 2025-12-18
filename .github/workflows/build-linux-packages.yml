@@ -81,7 +81,7 @@ jobs:
           set -euo pipefail
 
           # Temporarily move root package.json to avoid workspace conflicts
-          mv ../package.json ../package.json.bak || true
+          mv ./package.json ./package.json.bak || true
 
           cd WebClients
 
@@ -91,7 +91,7 @@ jobs:
 
           # Restore root package.json
           cd ..
-          mv package.json.bak package.json || true
+          mv ./package.json.bak ./package.json || true
           cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
