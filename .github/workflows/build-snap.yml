@@ -124,7 +124,7 @@ jobs:
                 cd WebClients
 
                 export NODE_OPTIONS="--max-old-space-size=8192"
-                node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
+                node .yarn/releases/yarn-4.12.0.cjs install --refresh-lockfile --network-timeout 600000
 
                 # Restore root package.json and yarn.lock
                 cd ..
