@@ -21,8 +21,14 @@ jobs:
             const tag = context.ref.replace('refs/tags/', '');
             console.log(`Waiting for builds for tag: ${tag}`);
 
+            const expectedWorkflows = [
+              'Build Linux Packages',
+              'Build Snap',
+              'Build Flatpak'
+            ];
+
             // Give workflows time to start
-            await new Promise(resolve => setTimeout(resolve, 10000));
+            await new Promise(resolve => setTimeout(resolve, 30000));
 
             // Poll for workflow completion (max 2 hours)
             const maxAttempts = 60;
@@ -36,14 +42,16 @@ jobs:
               console.log(`Attempt ${i + 1}: Found ${runs.data.workflow_runs.length} workflows`);
 
               const buildWorkflows = runs.data.workflow_runs.filter(r =>
-                r.name.includes('Build') && r.status !== 'queued'
+                expectedWorkflows.includes(r.name)
               );
 
-              if (buildWorkflows.length > 0) {
+              console.log(`Build workflows found: ${buildWorkflows.map(r => r.name).join(', ')}`);
+
+              if (buildWorkflows.length >= expectedWorkflows.length) {
                 const allComplete = buildWorkflows.every(r => r.status === 'completed');
                 const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
 
-                console.log(`Workflows: ${buildWorkflows.map(r => `${r.name}:${r.conclusion}`).join(', ')}`);
+                console.log(`Status: ${buildWorkflows.map(r => `${r.name}:${r.status}:${r.conclusion}`).join(', ')}`);
 
                 if (allComplete) {
                   if (allSuccess) {
@@ -71,34 +79,67 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from commit
+      - name: Get version from tag
         id: version
         run: |
-          VERSION=$(git describe --tags --always)
+          VERSION=${GITHUB_REF#refs/tags/}
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: Download all build artifacts
+      - name: Download Linux packages artifacts
         uses: dawidd6/action-download-artifact@v6
         with:
+          workflow: build-linux-packages.yml
+          name: linux-packages
+          path: artifacts/linux-packages
           workflow_conclusion: success
-          skip_unpack: false
+          search_artifacts: true
+          if_no_artifact_found: fail
+
+      - name: Download Snap artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-snap.yml
+          name: snap-package
+          path: artifacts/snap
+          workflow_conclusion: success
+          search_artifacts: true
+          if_no_artifact_found: fail
+
+      - name: Download Flatpak artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-flatpak.yml
+          name: flatpak-bundle
+          path: artifacts/flatpak
+          workflow_conclusion: success
+          search_artifacts: true
+          if_no_artifact_found: fail
 
       - name: Prepare release files
         run: |
           mkdir -p release
+          VERSION=${{ steps.version.outputs.version }}
 
-          # Copy all artifacts to release directory
-          find . -type f \
-            \( -name "*.deb" -o -name "*.rpm" -o -name "*.AppImage" \
-               -o -name "*.snap" -o -name "*.flatpak" \
-               -o -name "*.tar.gz" -o -name "*.sha256" \) \
-            -exec cp {} release/ \;
+          echo "📦 Collecting artifacts..."
 
-          # Generate checksums if not present
+          # Copy DEB package
+          find artifacts/linux-packages -name "*.deb" -exec cp {} release/ \;
+
+          # Copy RPM package
+          find artifacts/linux-packages -name "*.rpm" -exec cp {} release/ \;
+
+          # Copy AppImage
+          find artifacts/linux-packages -name "*.AppImage" -exec cp {} release/ \;
+
+          # Copy Snap package
+          find artifacts/snap -name "*.snap" -exec cp {} release/ \;
+
+          # Copy Flatpak bundle
+          find artifacts/flatpak -name "*.flatpak" -exec cp {} release/ \;
+
+          # Generate checksums
           cd release
-          if [ ! -f SHA256SUMS ]; then
-            sha256sum * > SHA256SUMS
-          fi
+          sha256sum * > SHA256SUMS
 
           echo "📦 Release artifacts:"
           ls -lah
@@ -108,62 +149,66 @@ jobs:
         id: release_notes
         run: |
           RELEASE_DATE=$(date -u +'%Y-%m-%d')
-          cat > RELEASE_NOTES.md << EOF
+          cat > RELEASE_NOTES.md << 'EOF'
           # Proton Drive Linux ${{ steps.version.outputs.version }}
 
           **Release Date:** $RELEASE_DATE
 
-          ## What's New
+          An unofficial Linux desktop client for Proton Drive, built with Tauri.
 
-          See the [commit history](https://github.com/${{ github.repository }}/commits/${{ github.ref }}) for detailed changes.
+          ## Downloads
+
+          | Format | File | Description |
+          |--------|------|-------------|
+          | DEB | `proton-drive_*.deb` | Debian, Ubuntu, Linux Mint |
+          | RPM | `proton-drive-*.rpm` | Fedora, RHEL, CentOS, openSUSE |
+          | AppImage | `proton-drive_*.AppImage` | Universal Linux (portable) |
+          | Snap | `proton-drive_*.snap` | Snap-enabled distributions |
+          | Flatpak | `proton-drive.flatpak` | Flatpak-enabled distributions |
 
           ## Installation
 
           ### Debian/Ubuntu
-          \`\`\`bash
+          ```bash
           sudo apt install ./proton-drive_*.deb
-          \`\`\`
+          ```
 
-          ### Fedora/RHEL/CentOS
-          \`\`\`bash
+          ### Fedora/RHEL
+          ```bash
           sudo dnf install ./proton-drive-*.rpm
-          \`\`\`
+          ```
 
-          ### AppImage
-          \`\`\`bash
+          ### AppImage (Portable)
+          ```bash
           chmod +x proton-drive_*.AppImage
           ./proton-drive_*.AppImage
-          \`\`\`
+          ```
 
           ### Snap
-          \`\`\`bash
-          sudo snap install proton-drive
-          \`\`\`
+          ```bash
+          sudo snap install --dangerous proton-drive_*.snap
+          ```
 
           ### Flatpak
-          \`\`\`bash
-          flatpak install proton-drive.flatpak
-          \`\`\`
-
-          ### Arch Linux
-          \`\`\`bash
-          yay -S proton-drive  # or build from AUR
-          \`\`\`
+          ```bash
+          flatpak install --user proton-drive.flatpak
+          ```
 
           ## Checksums
 
-          All files have SHA256 checksums available in \`SHA256SUMS\`.
+          All files have SHA256 checksums available in `SHA256SUMS`.
 
           ## System Requirements
 
-          - Linux with GTK 3.0+
-          - Kernel 5.0+
-          - 200MB disk space
+          - Linux x86_64
+          - GTK 3.0+ and WebKitGTK
+          - ~200MB disk space
 
-          ## Known Issues
+          ## Issues
 
-          None reported yet. Please report any issues on [GitHub](https://github.com/${{ github.repository }}/issues).
+          Report issues at https://github.com/${{ github.repository }}/issues
           EOF
+          sed -i "s/\$RELEASE_DATE/$RELEASE_DATE/g" RELEASE_NOTES.md
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v1
