@@ -81,9 +81,8 @@ jobs:
           cd WebClients
 
           export NODE_OPTIONS="--max-old-space-size=8192"
-          echo "📦 Installing dependencies for proton-drive only..."
-          # Use workspaces focus to only install deps needed for drive
-          node .yarn/releases/yarn-4.12.0.cjs workspaces focus proton-drive --production=false --network-timeout 900000
+          echo "📦 Installing WebClients dependencies..."
+          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
 
           # Restore root package.json and yarn.lock
           cd ..
