@@ -135,6 +135,9 @@ jobs:
                 cd ..
                 mv package.json.bak package.json 2>/dev/null || true
                 mv yarn.lock.bak yarn.lock 2>/dev/null || true
+
+                python3 scripts/create_stubs.py
+
                 cd WebClients
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
                 cd ..
