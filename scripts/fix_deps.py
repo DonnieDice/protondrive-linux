@@ -14,8 +14,10 @@ for pkg in Path('WebClients').rglob('package.json'):
         for section in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
             if section in data:
                 for k in list(data[section].keys()):
-                    # Remove known problematic packages
-                    if any(bad in k.lower() for bad in ['rowsncolumns', 'problematic-package']):
+                    # Remove known problematic/private packages
+                    # - rowsncolumns: known problematic package
+                    # - @proton-meet: private Proton packages not on public npm
+                    if any(bad in k.lower() for bad in ['rowsncolumns', 'proton-meet']):
                         print(f"  Removing {k} from {pkg}")
                         del data[section][k]
                         modified = True

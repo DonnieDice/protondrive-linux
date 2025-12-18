@@ -38,16 +38,11 @@ jobs:
       - name: Setup Node.js
         run: |
           set -euo pipefail
-          echo "📦 Installing Node.js..."
-          # Install Node.js via dnf (flatpak container uses Fedora)
-          dnf install -y nodejs npm || {
-            # Fallback: install via nvm if dnf fails
-            curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash
-            export NVM_DIR="$HOME/.nvm"
-            [ -s "$NVM_DIR/nvm.sh" ] && . "$NVM_DIR/nvm.sh"
-            nvm install 22
-            nvm use 22
-          }
+          echo "📦 Installing Node.js 22..."
+          # Download and install Node.js 22 directly (dnf has outdated versions)
+          curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz -o /tmp/node.tar.xz
+          tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
+          rm /tmp/node.tar.xz
           node --version
           npm --version
 
