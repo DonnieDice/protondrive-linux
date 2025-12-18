@@ -106,8 +106,8 @@ jobs:
 
       - name: Install Flatpak SDK
         run: |
-          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          flatpak install --user -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 org.freedesktop.Sdk.Extension.node22//24.08
+          flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08 org.freedesktop.Sdk.Extension.rust-stable//24.08 org.freedesktop.Sdk.Extension.node22//24.08
 
       - name: Create Flatpak manifest
         run: |
@@ -143,8 +143,8 @@ jobs:
               build-commands:
                 - git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
                 - mkdir -p /app/lib/pkgconfig
-                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /app/lib/pkgconfig/javascriptcoregtk-4.0.pc
-                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /app/lib/pkgconfig/webkit2gtk-4.0.pc
+                - ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /app/lib/pkgconfig/javascriptcoregtk-4.0.pc
+                - ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /app/lib/pkgconfig/webkit2gtk-4.0.pc
                 - npm install
 
                 # Build web clients
@@ -155,10 +155,31 @@ jobs:
                 - mv yarn.lock.bak yarn.lock
 
                 # Build tauri app
-                - tauri build
+                - npm run tauri build
 
+                # Install binary
                 - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive
+
+                # Install icons
+                - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
                 - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+
+                # Create desktop file
+                - |
+                  cat > /app/share/applications/com.proton.drive.desktop << DESKTOP
+                  [Desktop Entry]
+                  Version=1.0
+                  Type=Application
+                  Name=Proton Drive
+                  Comment=Secure cloud storage
+                  Exec=proton-drive
+                  Icon=com.proton.drive
+                  Categories=Network;FileTransfer;
+                  Keywords=proton;drive;cloud;storage;sync;
+                  DESKTOP
+                - install -Dm644 /app/share/applications/com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
               sources:
                 - type: git
                   url: https://github.com/${{ github.repository }}.git
@@ -167,7 +188,7 @@ jobs:
 
       - name: Build Flatpak
         run: |
-          flatpak-builder --user --disable-rofiles-fuse --repo=repo build-dir com.proton.drive.yml
+          flatpak-builder --disable-rofiles-fuse --repo=repo build-dir com.proton.drive.yml
 
       - name: Create Flatpak bundle
         run: |
