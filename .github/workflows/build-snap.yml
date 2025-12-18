@@ -114,7 +114,6 @@ jobs:
                 rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
                 git clone --depth=1 --single-branch --branch main \
                   https://github.com/ProtonMail/WebClients.git WebClients
-                python3 scripts/fix_deps.py
 
                 # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
                 # Yarn detects workspaces if both package.json and yarn.lock exist in parent dir
@@ -124,8 +123,7 @@ jobs:
                 cd WebClients
 
                 export NODE_OPTIONS="--max-old-space-size=8192"
-                # Use immutable=false to allow lockfile updates after dependency patching
-                node .yarn/releases/yarn-4.12.0.cjs install --immutable=false --network-timeout 600000
+                node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
 
                 # Restore root package.json and yarn.lock
                 cd ..
