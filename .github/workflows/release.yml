@@ -4,6 +4,11 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.1.0)'
+        required: true
 
 permissions:
   contents: write
@@ -91,6 +96,7 @@ jobs:
           workflow: build-linux-packages.yml
           name: linux-packages
           path: artifacts/linux-packages
+          commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
           if_no_artifact_found: fail
@@ -101,6 +107,7 @@ jobs:
           workflow: build-snap.yml
           name: snap-package
           path: artifacts/snap
+          commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
           if_no_artifact_found: fail
@@ -111,6 +118,7 @@ jobs:
           workflow: build-flatpak.yml
           name: flatpak-bundle
           path: artifacts/flatpak
+          commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
           if_no_artifact_found: fail
@@ -227,3 +235,71 @@ jobs:
           name: release-checksums
           path: release/SHA256SUMS
           retention-days: 90
+
+  publish-aur:
+    needs: create-release
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version from tag
+        id: version
+        run: |
+          VERSION=${GITHUB_REF#refs/tags/v}
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: Generate PKGBUILD
+        run: |
+          mkdir -p aur
+          cat > aur/PKGBUILD << EOF
+          # Maintainer: DonnieDice <donniedice@protonmail.com>
+          pkgname=proton-drive-bin
+          pkgver=${{ steps.version.outputs.version }}
+          pkgrel=1
+          pkgdesc="Unofficial Proton Drive Linux desktop client (Tauri)"
+          arch=('x86_64')
+          url="https://github.com/${{ github.repository }}"
+          license=('AGPL-3.0-or-later')
+          depends=('webkit2gtk' 'gtk3' 'libayatana-appindicator' 'openssl')
+          provides=('proton-drive')
+          conflicts=('proton-drive')
+          source=("\${pkgname}-\${pkgver}.deb::https://github.com/${{ github.repository }}/releases/download/v\${pkgver}/proton-drive_\${pkgver}_amd64.deb")
+          sha256sums=('SKIP')
+
+          package() {
+            bsdtar -xf data.tar.* -C "\${pkgdir}/"
+          }
+          EOF
+
+          cat > aur/.SRCINFO << EOF
+          pkgbase = proton-drive-bin
+          	pkgdesc = Unofficial Proton Drive Linux desktop client (Tauri)
+          	pkgver = ${{ steps.version.outputs.version }}
+          	pkgrel = 1
+          	url = https://github.com/${{ github.repository }}
+          	arch = x86_64
+          	license = AGPL-3.0-or-later
+          	depends = webkit2gtk
+          	depends = gtk3
+          	depends = libayatana-appindicator
+          	depends = openssl
+          	provides = proton-drive
+          	conflicts = proton-drive
+          	source = proton-drive-bin-${{ steps.version.outputs.version }}.deb::https://github.com/${{ github.repository }}/releases/download/v${{ steps.version.outputs.version }}/proton-drive_${{ steps.version.outputs.version }}_amd64.deb
+          	sha256sums = SKIP
+
+          pkgname = proton-drive-bin
+          EOF
+
+      - name: Publish to AUR
+        uses: KSXGitHub/github-actions-deploy-aur@v3.0.1
+        with:
+          pkgname: proton-drive-bin
+          pkgbuild: aur/PKGBUILD
+          commit_username: DonnieDice
+          commit_email: donniedice@protonmail.com
+          ssh_private_key: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+          commit_message: "Update to v${{ steps.version.outputs.version }}"
+          force_push: true
