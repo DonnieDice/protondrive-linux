@@ -12,7 +12,7 @@ tauri-build = { version = "1.5", features = [] }
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5", features = ["api-all", "notification"] }
+tauri = { version = "1.5", features = ["api-all", "notification", "webkit2gtk-4.1"] }
 tokio = { version = "1", features = ["full"] }
 
 [features]

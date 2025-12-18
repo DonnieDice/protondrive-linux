@@ -140,8 +140,8 @@ jobs:
                 build-args:
                   - --share=network
               build-commands:
-                - ln -s /usr/lib/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/pkgconfig/javascriptcoregtk-4.0.pc
-                - ln -s /usr/lib/pkgconfig/webkit2gtk-4.1.pc /usr/lib/pkgconfig/webkit2gtk-4.0.pc
+                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
+                - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
                 - npm install
                 - npm run build
                 - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive
