@@ -108,6 +108,10 @@ jobs:
               override-build: |
                 set -euo pipefail
 
+                # Create symlinks for webkitgtk
+                ln -s /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
+                ln -s /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${SNAPCRAFT_ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
+
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 source "$HOME/.cargo/env"
