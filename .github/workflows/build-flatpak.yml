@@ -141,6 +141,7 @@ jobs:
                 build-args:
                   - --share=network
               build-commands:
+                - git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
                 - mkdir -p /app/lib/pkgconfig
                 - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /app/lib/pkgconfig/javascriptcoregtk-4.0.pc
                 - ln -s /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /app/lib/pkgconfig/webkit2gtk-4.0.pc
