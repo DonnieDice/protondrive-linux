@@ -40,3 +40,4 @@ dist/
 # WebClients specific ignores
 WebClients/applications/*/node_modules/
 WebClients/applications/*/dist/
+WebClients/
