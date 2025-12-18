@@ -1,0 +1,100 @@
+name: Auto Release
+
+on:
+  workflow_run:
+    workflows:
+      - "Build Linux Packages"
+      - "Build Snap"
+      - "Build Flatpak"
+    types:
+      - completed
+    branches:
+      - main
+
+permissions:
+  contents: write
+  actions: read
+
+jobs:
+  check-and-release:
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'success'
+
+    steps:
+      - name: Check if all builds succeeded
+        uses: actions/github-script@v7
+        id: check_builds
+        with:
+          script: |
+            const sha = context.payload.workflow_run.head_sha;
+            console.log(`Checking builds for SHA: ${sha}`);
+
+            const expectedWorkflows = [
+              'Build Linux Packages',
+              'Build Snap',
+              'Build Flatpak'
+            ];
+
+            const runs = await github.rest.actions.listWorkflowRuns({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              head_sha: sha,
+            });
+
+            const buildWorkflows = runs.data.workflow_runs.filter(r =>
+              expectedWorkflows.includes(r.name)
+            );
+
+            console.log(`Found workflows: ${buildWorkflows.map(r => `${r.name}:${r.conclusion}`).join(', ')}`);
+
+            if (buildWorkflows.length < expectedWorkflows.length) {
+              console.log('Not all workflows have run yet');
+              return { ready: false };
+            }
+
+            const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
+            if (!allSuccess) {
+              console.log('Not all workflows succeeded');
+              return { ready: false };
+            }
+
+            console.log('All builds succeeded!');
+            return { ready: true, sha: sha };
+          result-encoding: json
+
+      - name: Checkout repository
+        if: fromJSON(steps.check_builds.outputs.result).ready
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get version from package.json
+        if: fromJSON(steps.check_builds.outputs.result).ready
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
+          echo "Version from package.json: v${VERSION}"
+
+      - name: Check if tag exists
+        if: fromJSON(steps.check_builds.outputs.result).ready
+        id: check_tag
+        run: |
+          TAG=${{ steps.version.outputs.version }}
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "exists=true" >> $GITHUB_OUTPUT
+            echo "Tag $TAG already exists - skipping"
+          else
+            echo "exists=false" >> $GITHUB_OUTPUT
+            echo "Tag $TAG does not exist - will create"
+          fi
+
+      - name: Create and push tag
+        if: fromJSON(steps.check_builds.outputs.result).ready && steps.check_tag.outputs.exists == 'false'
+        run: |
+          TAG=${{ steps.version.outputs.version }}
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "✅ Created and pushed tag: $TAG"
