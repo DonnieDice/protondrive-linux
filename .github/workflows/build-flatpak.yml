@@ -35,6 +35,14 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
           source $HOME/.cargo/env
 
+      - name: Install build dependencies
+        run: |
+          set -euo pipefail
+          echo "📦 Installing build dependencies..."
+          # Install native module build dependencies
+          dnf install -y make gcc gcc-c++ python3 pkg-config \
+            cairo-devel pango-devel libjpeg-turbo-devel giflib-devel librsvg2-devel pixman-devel
+
       - name: Setup Node.js
         run: |
           set -euo pipefail
@@ -84,7 +92,7 @@ jobs:
           cd WebClients
 
           echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
           if [ ! -d "applications/drive/build" ]; then
             echo "❌ Build failed"
