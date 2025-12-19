@@ -35,8 +35,9 @@
   },
   "app": {
     "security": {
-      "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.proton.me https://*.protonmail.ch https://*.protonmail.com https://proton.me https://account.proton.me https://api.protonmail.ch; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.proton.me https://*.protonmail.ch https://*.protonmail.com https://account.proton.me https://api.protonmail.ch wss://*.proton.me; frame-src 'self' https://*.proton.me; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://*.proton.me; frame-ancestors 'none'"
+      "csp": null
     },
+    "withGlobalTauri": true,
     "windows": [
       {
         "title": "Proton Drive",
@@ -45,7 +46,8 @@
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
-        "fullscreen": false
+        "fullscreen": false,
+        "devtools": true
       }
     ]
   },
