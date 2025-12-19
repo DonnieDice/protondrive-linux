@@ -137,9 +137,41 @@ jobs:
           chmod +x "$APPIMAGE"
           ./"$APPIMAGE" --appimage-extract
 
-          # Patch AppRun to set WebKitGTK environment variables
-          # These fix EGL/GPU issues on AMD, Intel, and some NVIDIA configurations
-          sed -i '2i # Fix WebKitGTK EGL/GPU issues\nexport WEBKIT_DISABLE_DMABUF_RENDERER=1\nexport WEBKIT_DISABLE_COMPOSITING_MODE=1' squashfs-root/AppRun
+          # Show original AppRun for debugging
+          echo "Original AppRun:"
+          cat squashfs-root/AppRun
+
+          # Create a new AppRun wrapper that sets env vars before exec
+          mv squashfs-root/AppRun squashfs-root/AppRun.orig
+          cat > squashfs-root/AppRun << 'APPRUN_EOF'
+          #!/bin/bash
+          # Fix WebKitGTK EGL/GPU issues on various Linux configurations
+          # These must be set before WebKitGTK initializes
+
+          # Completely disable GTK's OpenGL usage
+          export GDK_GL=disable
+
+          # Disable hardware acceleration in WebKitGTK
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_FORCE_SANDBOX=0
+
+          # Force software rendering
+          export LIBGL_ALWAYS_SOFTWARE=1
+
+          # Force GTK to use Cairo renderer instead of GL
+          export GSK_RENDERER=cairo
+
+          # Get the directory where AppRun is located
+          HERE="$(dirname "$(readlink -f "${0}")")"
+
+          # Execute the original AppRun
+          exec "$HERE/AppRun.orig" "$@"
+          APPRUN_EOF
+          chmod +x squashfs-root/AppRun
+
+          echo "New AppRun:"
+          cat squashfs-root/AppRun
 
           # Repack AppImage
           rm "$APPIMAGE"

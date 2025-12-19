@@ -13,6 +13,7 @@ This repository contains the source code for the Proton Drive Linux Desktop Clie
   - [Setup](#setup)
   - [Development](#development)
   - [Building for Production](#building-for-production)
+- [Troubleshooting](#troubleshooting)
 - [Contributing](#contributing)
 - [License](#license)
 
@@ -155,6 +156,52 @@ To create production-ready builds of the application:
         ```
 
     These are automatically built and published when a new version is tagged.
+
+## Troubleshooting
+
+### White Screen / EGL Error on AppImage
+
+If you see a white screen or get an error like:
+```
+Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+```
+
+This is a **known upstream WebKitGTK bug** ([WebKit bug #280239](https://bugs.webkit.org/show_bug.cgi?id=280239)) affecting WebKitGTK versions newer than 2.44. It primarily impacts:
+- Arch Linux / Manjaro
+- Fedora 40+
+- Systems with AMD GPUs on Wayland
+
+**Solutions (in order of recommendation):**
+
+1. **Use Flatpak instead** (Recommended)
+   ```bash
+   flatpak install proton-drive.flatpak
+   ```
+   Flatpak bundles its own WebKitGTK runtime and is not affected by this bug.
+
+2. **Try environment variables** (may work on some systems)
+   ```bash
+   WEBKIT_DISABLE_DMABUF_RENDERER=1 ./proton-drive*.AppImage
+   ```
+   Or with additional flags:
+   ```bash
+   GDK_GL=disable WEBKIT_DISABLE_DMABUF_RENDERER=1 ./proton-drive*.AppImage
+   ```
+
+3. **Downgrade WebKitGTK** (Arch/Manjaro)
+   ```bash
+   sudo pacman -U /var/cache/pacman/pkg/webkit2gtk-4.1-2.44*
+   ```
+   Note: This may break other applications and is not recommended long-term.
+
+**Why this happens:** The AppImage format uses your system's WebKitGTK libraries. If your system has a buggy version, the AppImage will be affected. Flatpak avoids this by bundling its own libraries.
+
+### Application Stuck on Loading Screen
+
+If the app loads but gets stuck on the Proton loading screen:
+- Check your internet connection
+- The app requires network access to reach Proton's servers
+- Try restarting the application
 
 ## Contributing
 
