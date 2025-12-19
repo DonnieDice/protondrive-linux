@@ -6,7 +6,6 @@
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "devUrl": "../WebClients/applications/drive/dist",
     "frontendDist": "../WebClients/applications/drive/dist"
   },
   "bundle": {
@@ -24,12 +23,10 @@
     "category": "Productivity",
     "shortDescription": "Encrypted cloud storage",
     "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
+    "license": "AGPL-3.0",
     "linux": {
       "deb": {
         "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
-      },
-      "rpm": {
-        "license": "AGPL-3.0"
       },
       "appimage": {
         "bundleMediaFramework": false
