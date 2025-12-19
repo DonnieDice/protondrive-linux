@@ -168,9 +168,9 @@ jobs:
                   exit 1
                 fi
 
-                # Build with Tauri (Tauri 2.x syntax)
+                # Build binary only (no bundle needed for snap)
                 npm install
-                npx tauri build --bundles appimage
+                cd src-tauri && cargo build --release && cd ..
 
                 # Install the binary (rename from protondrive-tauri to proton-drive)
                 install -Dm755 src-tauri/target/release/protondrive-tauri \
@@ -214,7 +214,6 @@ jobs:
                 - librsvg2-dev
                 - libsoup-3.0-dev
                 - patchelf
-                - xdg-utils
 
               stage-packages:
                 - libssl3
