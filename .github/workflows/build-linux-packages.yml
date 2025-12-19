@@ -122,7 +122,7 @@ jobs:
       - name: Build Tauri app (DEB, RPM, AppImage)
         run: |
           echo "🔨 Building Tauri packages..."
-          yarn tauri build -- --bundles appimage,deb,rpm
+          yarn tauri build --bundles appimage,deb,rpm
 
           echo "✅ Tauri build complete"
           find src-tauri/target/release/bundle -type f \

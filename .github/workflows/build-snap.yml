@@ -168,12 +168,12 @@ jobs:
                   exit 1
                 fi
 
-                # Build with Tauri
+                # Build with Tauri (Tauri 2.x syntax)
                 npm install
-                npx tauri build -- --bundles appimage
+                npx tauri build --bundles appimage
 
-                # Install the binary
-                install -Dm755 src-tauri/target/release/proton-drive \
+                # Install the binary (rename from protondrive-tauri to proton-drive)
+                install -Dm755 src-tauri/target/release/protondrive-tauri \
                   "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
 
                 # Install desktop file
