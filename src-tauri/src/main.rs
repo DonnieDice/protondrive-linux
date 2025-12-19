@@ -156,6 +156,14 @@ async fn start_proxy_server() {
 }
 
 fn main() {
+    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
+    // These must be set before any GTK/WebKit initialization
+    // Required for AMD, Intel, and some NVIDIA GPU configurations
+    // Note: These are also set in wrapper scripts for AppImage/Flatpak/Snap,
+    // but we set them here as well for deb/rpm installs that run the binary directly
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+
     // Start proxy server in background
     std::thread::spawn(|| {
         let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");

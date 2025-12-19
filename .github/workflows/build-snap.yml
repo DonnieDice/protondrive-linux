@@ -60,7 +60,7 @@ jobs:
           mkdir -p snap
           cat > snap/snapcraft.yaml << 'EOF'
           name: proton-drive
-          version: '1.2.1'
+          version: '1.2.2'
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
@@ -85,7 +85,10 @@ jobs:
 
           apps:
             proton-drive:
-              command: usr/bin/proton-drive
+              command: usr/bin/proton-drive-wrapper
+              environment:
+                WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+                WEBKIT_DISABLE_COMPOSITING_MODE: "1"
               desktop: usr/share/applications/com.proton.drive.desktop
               plugs:
                 - home
@@ -169,9 +172,19 @@ jobs:
                 npm install
                 cd src-tauri && cargo build --release && cd ..
 
-                # Install the binary (rename from protondrive-tauri to proton-drive)
+                # Install the binary
                 install -Dm755 src-tauri/target/release/protondrive-tauri \
                   "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+
+                # Create wrapper script for WebKitGTK compatibility
+                cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
+                #!/bin/bash
+                # Fix WebKitGTK EGL/GPU issues on various Linux configurations
+                export WEBKIT_DISABLE_DMABUF_RENDERER=1
+                export WEBKIT_DISABLE_COMPOSITING_MODE=1
+                exec "$SNAP/usr/bin/proton-drive" "$@"
+                WRAPPER
+                chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
 
                 # Install desktop file
                 mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
