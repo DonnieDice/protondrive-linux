@@ -8,6 +8,7 @@ use std::net::SocketAddr;
 use warp::Filter;
 use reqwest::Client;
 use std::sync::Arc;
+use std::str::FromStr;
 
 const PROXY_PORT: u16 = 9543;
 const PROTON_API_BASE: &str = "https://drive.proton.me";
@@ -62,7 +63,11 @@ async fn start_proxy_server() {
                         format!("{}{}?{}", PROTON_API_BASE, path.as_str(), query)
                     };
 
-                    let mut request = client.request(method.clone(), &url);
+                    // Convert warp::http::Method to reqwest::Method
+                    let reqwest_method = reqwest::Method::from_str(method.as_str())
+                        .unwrap_or(reqwest::Method::GET);
+
+                    let mut request = client.request(reqwest_method, &url);
 
                     // Forward relevant headers
                     for (name, value) in headers.iter() {
@@ -84,17 +89,17 @@ async fn start_proxy_server() {
 
                     // Set body for methods that support it
                     if method != warp::http::Method::GET && method != warp::http::Method::HEAD {
-                        request = request.body(body);
+                        request = request.body(body.to_vec());
                     }
 
                     match request.send().await {
                         Ok(resp) => {
-                            let status = resp.status();
+                            let status_code = resp.status().as_u16();
                             let resp_headers = resp.headers().clone();
                             let body_bytes = resp.bytes().await.unwrap_or_default();
 
                             let mut response = warp::http::Response::builder()
-                                .status(status);
+                                .status(status_code);
 
                             // Forward response headers
                             for (name, value) in resp_headers.iter() {
@@ -102,7 +107,9 @@ async fn start_proxy_server() {
                                 if name_str != "transfer-encoding"
                                     && name_str != "content-encoding"
                                 {
-                                    response = response.header(name.as_str(), value);
+                                    if let Ok(v) = value.to_str() {
+                                        response = response.header(name.as_str(), v);
+                                    }
                                 }
                             }
 
