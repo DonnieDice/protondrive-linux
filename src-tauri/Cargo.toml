@@ -1,18 +1,21 @@
 [package]
 name = "protondrive-tauri"
-version = "1.2.0"
+version = "1.2.1"
 description = "Proton Drive desktop client"
 authors = ["Proton AG"]
 license = "AGPL-3.0"
 edition = "2021"
 
 [build-dependencies]
-tauri-build = { version = "1.5", features = [] }
+tauri-build = { version = "2", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "1.5", features = ["api-all", "notification"] }
+tauri = { version = "2", features = [] }
+tauri-plugin-shell = "2"
+tauri-plugin-dialog = "2"
+tauri-plugin-notification = "2"
 tokio = { version = "1", features = ["full"] }
 
 [features]

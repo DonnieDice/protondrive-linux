@@ -27,7 +27,7 @@ This repository contains the source code for the Proton Drive Linux Desktop Clie
 
 The Proton Drive Linux Desktop Client is a hybrid application combining:
 
-*   **Tauri (v1.5):** A lightweight framework for building native desktop applications, providing the shell for the web client.
+*   **Tauri (v2):** A lightweight framework for building native desktop applications, providing the shell for the web client.
 *   **Rust:** Powers the secure backend and native functionalities of the Tauri application.
 *   **Node.js:** Used for project scripting, dependency management, and building the web client.
 *   **Yarn:** For managing JavaScript dependencies within the `WebClients` module.

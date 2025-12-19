@@ -1,6 +1,6 @@
 {
   "name": "protondrive-tauri",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "description": "Proton Drive desktop client - one-line installer",
   "main": "install.js",
   "bin": {
@@ -33,6 +33,6 @@
     "build:appimage": "npm run build:web && tauri build -- --bundles appimage"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^1.5.0"
+    "@tauri-apps/cli": "^2.0.0"
   }
 }

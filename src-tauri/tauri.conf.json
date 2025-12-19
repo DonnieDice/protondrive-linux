@@ -1,36 +1,30 @@
 {
-  "$schema": "../node_modules/@tauri-apps/cli/schema.json",
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Proton Drive",
+  "version": "1.2.1",
+  "identifier": "com.proton.drive",
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "devPath": "../WebClients/applications/drive/dist",
-    "distDir": "../WebClients/applications/drive/dist"
+    "devUrl": "../WebClients/applications/drive/dist",
+    "frontendDist": "../WebClients/applications/drive/dist"
   },
-  "package": {
-    "productName": "Proton Drive",
-    "version": "1.2.0"
-  },
-  "tauri": {
-    "allowlist": {
-      "all": true
-    },
-    "bundle": {
-      "active": true,
-      "targets": ["deb"],
-      "identifier": "com.proton.drive",
-      "icon": [
-        "icons/32x32.png",
-        "icons/128x128.png",
-        "icons/128x128@2x.png",
-        "icons/icon.png",
-        "icons/proton-drive.svg"
-      ],
-      "resources": [],
-      "externalBin": [],
-      "copyright": "ProtonMail AG",
-      "category": "Productivity",
-      "shortDescription": "Encrypted cloud storage",
-      "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
+  "bundle": {
+    "active": true,
+    "targets": ["deb", "rpm", "appimage"],
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.png"
+    ],
+    "resources": [],
+    "externalBin": [],
+    "copyright": "ProtonMail AG",
+    "category": "Productivity",
+    "shortDescription": "Encrypted cloud storage",
+    "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
+    "linux": {
       "deb": {
         "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"]
       },
@@ -40,7 +34,9 @@
       "appimage": {
         "bundleMediaFramework": false
       }
-    },
+    }
+  },
+  "app": {
     "security": {
       "csp": "default-src 'self' 'unsafe-inline' 'unsafe-eval' data: blob: https://*.proton.me https://*.protonmail.ch https://*.protonmail.com https://proton.me https://account.proton.me https://api.protonmail.ch; script-src 'self' 'unsafe-inline' 'unsafe-eval' blob:; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data:; connect-src 'self' https://*.proton.me https://*.protonmail.ch https://*.protonmail.com https://account.proton.me https://api.protonmail.ch wss://*.proton.me; frame-src 'self' https://*.proton.me; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self' https://*.proton.me; frame-ancestors 'none'"
     },
@@ -55,5 +51,10 @@
         "fullscreen": false
       }
     ]
+  },
+  "plugins": {
+    "shell": {
+      "open": true
+    }
   }
 }

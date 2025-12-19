@@ -40,7 +40,7 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libsoup2.4-dev \
+            libsoup-3.0-dev \
             patchelf \
             python3 \
             flatpak \
@@ -113,19 +113,6 @@ jobs:
       - name: Install Tauri dependencies
         run: npm install
 
-      - name: Workaround for javascriptcoregtk-4.0
-        run: |
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.1.so /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.0.so
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.1.so /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.0.so
-
-      - name: Create cargo config
-        run: |
-          mkdir -p .cargo
-          echo '[target.x86_64-unknown-linux-gnu]' >> .cargo/config.toml
-          echo 'rustflags = ["-L", "/usr/lib/x86_64-linux-gnu"]' >> .cargo/config.toml
-
       - name: Build Tauri app
         run: |
           echo "🔨 Building Tauri application..."
@@ -137,7 +124,7 @@ jobs:
       - name: Setup Flatpak
         run: |
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-          sudo flatpak install -y flathub org.freedesktop.Platform//24.08 org.freedesktop.Sdk//24.08
+          sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
 
       - name: Create desktop file
         run: |
@@ -157,9 +144,9 @@ jobs:
         run: |
           cat > com.proton.drive.yml << 'EOF'
           app-id: com.proton.drive
-          runtime: org.freedesktop.Platform
-          runtime-version: '24.08'
-          sdk: org.freedesktop.Sdk
+          runtime: org.gnome.Platform
+          runtime-version: '47'
+          sdk: org.gnome.Sdk
           command: proton-drive
 
           finish-args:

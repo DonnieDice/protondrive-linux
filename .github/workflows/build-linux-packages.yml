@@ -40,7 +40,7 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libsoup2.4-dev \
+            libsoup-3.0-dev \
             patchelf \
             python3
 
@@ -117,20 +117,7 @@ jobs:
           cd ..
 
       - name: Install Tauri dependencies
-        run: yarn install
-
-      - name: Workaround for javascriptcoregtk-4.0
-        run: |
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/javascriptcoregtk-4.0.pc
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.1.pc /usr/lib/x86_64-linux-gnu/pkgconfig/webkit2gtk-4.0.pc
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.1.so /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.0.so
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.1.so /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.0.so
-
-      - name: Create cargo config
-        run: |
-          mkdir -p .cargo
-          echo '[target.x86_64-unknown-linux-gnu]' >> .cargo/config.toml
-          echo 'rustflags = ["-L", "/usr/lib/x86_64-linux-gnu"]' >> .cargo/config.toml
+        run: npm install
 
       - name: Build Tauri app (DEB, RPM, AppImage)
         run: |

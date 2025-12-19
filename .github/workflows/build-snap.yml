@@ -37,7 +37,7 @@ jobs:
             libgtk-3-dev \
             libayatana-appindicator3-dev \
             librsvg2-dev \
-            libsoup2.4-dev \
+            libsoup-3.0-dev \
             patchelf \
             python3
 
@@ -62,7 +62,7 @@ jobs:
           mkdir -p snap
           cat > snap/snapcraft.yaml << 'EOF'
           name: proton-drive
-          version: '1.2.0'
+          version: '1.2.1'
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
@@ -117,19 +117,6 @@ jobs:
               override-build: |
                 set -euo pipefail
 
-                ARCH=$(dpkg --print-architecture)
-                case "$ARCH" in
-                  amd64) ARCH_TRIPLET="x86_64-linux-gnu" ;;
-                  arm64) ARCH_TRIPLET="aarch64-linux-gnu" ;;
-                  *) echo "Unsupported architecture: $ARCH"; exit 1 ;;
-                esac
-
-                # Create symlinks for webkitgtk
-                ln -sf /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/javascriptcoregtk-4.0.pc
-                ln -sf /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.1.pc /usr/lib/${ARCH_TRIPLET}/pkgconfig/webkit2gtk-4.0.pc
-                ln -sf /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libjavascriptcoregtk-4.0.so
-                ln -sf /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.1.so /usr/lib/${ARCH_TRIPLET}/libwebkit2gtk-4.0.so
-
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 source "$HOME/.cargo/env"
@@ -141,7 +128,6 @@ jobs:
                 rm /tmp/node.tar.xz
                 node --version
                 npm --version
-                npm install -g yarn
 
                 # Install Node.js dependencies
                 npm install
@@ -157,7 +143,6 @@ jobs:
                 rm -f WebClients/yarn.lock
 
                 # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
-                # Yarn detects workspaces if both package.json and yarn.lock exist in parent dir
                 mv package.json package.json.bak 2>/dev/null || true
                 mv yarn.lock yarn.lock.bak 2>/dev/null || true
 
@@ -183,16 +168,9 @@ jobs:
                   exit 1
                 fi
 
-                # Create cargo config
-                mkdir -p .cargo
-                echo '[target.x86_64-unknown-linux-gnu]' >> .cargo/config.toml
-                echo 'rustflags = ["-L", "/usr/lib/x86_64-linux-gnu"]' >> .cargo/config.toml
-                echo '[target.aarch64-linux-gnu]' >> .cargo/config.toml
-                echo 'rustflags = ["-L", "/usr/lib/aarch64-linux-gnu"]' >> .cargo/config.toml
-
                 # Build with Tauri
-                yarn install
-                yarn tauri build -- --bundles appimage
+                npm install
+                npx tauri build -- --bundles appimage
 
                 # Install the binary
                 install -Dm755 src-tauri/target/release/proton-drive \
@@ -234,7 +212,7 @@ jobs:
                 - libgtk-3-dev
                 - libayatana-appindicator3-dev
                 - librsvg2-dev
-                - libsoup2.4-dev
+                - libsoup-3.0-dev
                 - patchelf
 
               stage-packages:
@@ -243,6 +221,7 @@ jobs:
                 - libgtk-3-0
                 - libayatana-appindicator3-1
                 - librsvg2-2
+                - libsoup-3.0-0
           EOF
 
       - name: Build Snap package
