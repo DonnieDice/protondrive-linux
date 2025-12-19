@@ -19,13 +19,11 @@ env:
 jobs:
   build-flatpak:
     runs-on: ubuntu-24.04
-    timeout-minutes: 120
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install system dependencies
         run: |
@@ -42,7 +40,6 @@ jobs:
             librsvg2-dev \
             libsoup-3.0-dev \
             patchelf \
-            python3 \
             flatpak \
             flatpak-builder
 
@@ -61,54 +58,6 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
-
-      - name: Clone and patch WebClients
-        run: |
-          set -euo pipefail
-
-          echo "📥 Cloning WebClients..."
-          rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
-          git clean -fdx WebClients 2>/dev/null || true
-          git clone --depth=1 --single-branch --branch main \
-            https://github.com/ProtonMail/WebClients.git WebClients
-
-          echo "🔧 Patching dependencies and configuring Yarn..."
-          python3 scripts/fix_deps.py
-
-          rm -f WebClients/yarn.lock
-
-      - name: Build WebClients (Proton Drive)
-        run: |
-          set -euo pipefail
-
-          mv ./package.json ./package.json.bak 2>/dev/null || true
-          mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
-
-          cd WebClients
-
-          echo "📦 Installing WebClients dependencies..."
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-
-          cd ..
-          mv ./package.json.bak ./package.json 2>/dev/null || true
-          mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-
-          echo "📦 Creating stubs for private packages..."
-          python3 scripts/create_stubs.py
-
-          cd WebClients
-
-          echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-
-          if [ ! -d "applications/drive/dist" ]; then
-            echo "❌ Build failed - no output directory"
-            exit 1
-          fi
-
-          echo "✅ WebClients build complete"
-          cd ..
 
       - name: Install Tauri dependencies
         run: npm install

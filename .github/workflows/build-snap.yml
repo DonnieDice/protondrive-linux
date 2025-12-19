@@ -19,13 +19,11 @@ env:
 jobs:
   build-snap:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 60
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          submodules: recursive
 
       - name: Install system dependencies
         run: |
@@ -38,8 +36,7 @@ jobs:
             libayatana-appindicator3-dev \
             librsvg2-dev \
             libsoup-3.0-dev \
-            patchelf \
-            python3
+            patchelf
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -129,46 +126,7 @@ jobs:
                 node --version
                 npm --version
 
-                # Install Node.js dependencies
-                npm install
-
-                # Clone and build WebClients
-                rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
-                git clone --depth=1 --single-branch --branch main \
-                  https://github.com/ProtonMail/WebClients.git WebClients
-
-                python3 scripts/fix_deps.py
-
-                # Delete lockfile to force regeneration after patching
-                rm -f WebClients/yarn.lock
-
-                # Temporarily move root package.json and yarn.lock to avoid workspace conflicts
-                mv package.json package.json.bak 2>/dev/null || true
-                mv yarn.lock yarn.lock.bak 2>/dev/null || true
-
-                cd WebClients
-
-                export NODE_OPTIONS="--max-old-space-size=8192"
-                node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-
-                # Restore root package.json and yarn.lock
-                cd ..
-                mv package.json.bak package.json 2>/dev/null || true
-                mv yarn.lock.bak yarn.lock 2>/dev/null || true
-
-                python3 scripts/create_stubs.py
-
-                cd WebClients
-                node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-                cd ..
-
-                # Verify build
-                if [ ! -d "WebClients/applications/drive/dist" ]; then
-                  echo "❌ WebClients build failed"
-                  exit 1
-                fi
-
-                # Build binary only (no bundle needed for snap)
+                # Install Node.js dependencies and build
                 npm install
                 cd src-tauri && cargo build --release && cd ..
 
@@ -204,8 +162,6 @@ jobs:
                 - wget
                 - file
                 - git
-                - python3
-                - python3-pip
                 - build-essential
                 - libssl-dev
                 - libwebkit2gtk-4.1-dev
