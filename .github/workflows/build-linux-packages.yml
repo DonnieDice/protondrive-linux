@@ -124,6 +124,10 @@ jobs:
       - name: Patch AppImage for WebKitGTK compatibility
         run: |
           echo "🔧 Patching AppImage for GPU compatibility..."
+
+          # Install FUSE for AppImage extraction
+          sudo apt-get install -y libfuse2
+
           cd src-tauri/target/release/bundle/appimage
 
           APPIMAGE=$(ls *.AppImage | head -1)
