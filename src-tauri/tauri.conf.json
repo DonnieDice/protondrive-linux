@@ -40,6 +40,7 @@
     "withGlobalTauri": true,
     "windows": [
       {
+        "label": "main",
         "title": "Proton Drive",
         "width": 1200,
         "height": 800,
@@ -47,7 +48,8 @@
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "devtools": true
+        "devtools": true,
+        "visible": true
       }
     ]
   },
