@@ -119,6 +119,8 @@ jobs:
           npm run tauri build
 
           echo "✅ Tauri build complete"
+          # Rename binary to proton-drive for consistency
+          cp src-tauri/target/release/protondrive-tauri src-tauri/target/release/proton-drive
           ls -la src-tauri/target/release/proton-drive
 
       - name: Setup Flatpak
