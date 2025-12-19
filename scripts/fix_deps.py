@@ -31,8 +31,9 @@ for pkg in Path('WebClients').rglob('package.json'):
 
 print(f"✅ Patched {count} dependencies")
 
-# Patch Proton Drive to build in standalone mode (required for desktop apps)
+# Patch Proton Drive to build in standalone mode with production API
 # SSO mode requires cross-app authentication which doesn't work in Tauri
+# Default API points to proton.black (dev), need to use proton.me (production)
 print("\nPatching Proton Drive build mode...")
 drive_pkg_path = Path('WebClients/applications/drive/package.json')
 if drive_pkg_path.exists():
@@ -41,12 +42,15 @@ if drive_pkg_path.exists():
         old_script = drive_data['scripts']['build:web']
         # Change from SSO mode to standalone mode for desktop compatibility
         new_script = old_script.replace('--appMode=sso', '--appMode=standalone')
+        # Add production API URL (default is proton.black which is dev/staging)
+        if '--api' not in new_script:
+            new_script = new_script + ' --api=https://drive.proton.me'
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed build:web from --appMode=sso to --appMode=standalone")
+            print("  Changed build:web to standalone mode with production API")
         else:
-            print("  build:web already in standalone mode")
+            print("  build:web already configured")
     else:
         print("  Warning: Could not find build:web script")
 else:

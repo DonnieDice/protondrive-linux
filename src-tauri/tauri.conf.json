@@ -41,7 +41,6 @@
     "windows": [
       {
         "title": "Proton Drive",
-        "url": "https://drive.proton.me",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
