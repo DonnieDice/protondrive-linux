@@ -121,6 +121,39 @@ jobs:
             \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
             \) -ls
 
+      - name: Patch AppImage for WebKitGTK compatibility
+        run: |
+          echo "🔧 Patching AppImage for GPU compatibility..."
+          cd src-tauri/target/release/bundle/appimage
+
+          APPIMAGE=$(ls *.AppImage | head -1)
+          echo "Patching: $APPIMAGE"
+
+          # Extract AppImage
+          chmod +x "$APPIMAGE"
+          ./"$APPIMAGE" --appimage-extract
+
+          # Patch AppRun to set WebKitGTK environment variables
+          # These fix EGL/GPU issues on AMD, Intel, and some NVIDIA configurations
+          sed -i '2i\
+# Fix WebKitGTK EGL/GPU issues on various Linux configurations\
+export WEBKIT_DISABLE_DMABUF_RENDERER=1\
+export WEBKIT_DISABLE_COMPOSITING_MODE=1' squashfs-root/AppRun
+
+          # Repack AppImage
+          rm "$APPIMAGE"
+
+          # Download appimagetool if not present
+          if [ ! -f appimagetool ]; then
+            wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
+            chmod +x appimagetool
+          fi
+
+          ARCH=x86_64 ./appimagetool squashfs-root "$APPIMAGE"
+          rm -rf squashfs-root appimagetool
+
+          echo "✅ AppImage patched successfully"
+
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4
         with:
