@@ -35,8 +35,7 @@
   },
   "app": {
     "security": {
-      "csp": null,
-      "dangerousUseHttpScheme": true
+      "csp": null
     },
     "withGlobalTauri": true,
     "windows": [
