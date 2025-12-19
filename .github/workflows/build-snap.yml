@@ -214,6 +214,7 @@ jobs:
                 - librsvg2-dev
                 - libsoup-3.0-dev
                 - patchelf
+                - xdg-utils
 
               stage-packages:
                 - libssl3
