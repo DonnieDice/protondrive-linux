@@ -135,10 +135,7 @@ jobs:
 
           # Patch AppRun to set WebKitGTK environment variables
           # These fix EGL/GPU issues on AMD, Intel, and some NVIDIA configurations
-          sed -i '2i\
-# Fix WebKitGTK EGL/GPU issues on various Linux configurations\
-export WEBKIT_DISABLE_DMABUF_RENDERER=1\
-export WEBKIT_DISABLE_COMPOSITING_MODE=1' squashfs-root/AppRun
+          sed -i '2i # Fix WebKitGTK EGL/GPU issues\nexport WEBKIT_DISABLE_DMABUF_RENDERER=1\nexport WEBKIT_DISABLE_COMPOSITING_MODE=1' squashfs-root/AppRun
 
           # Repack AppImage
           rm "$APPIMAGE"
