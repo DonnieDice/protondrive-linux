@@ -1,0 +1,153 @@
+name: Publish to AUR
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to publish (e.g., 1.2.2)'
+        required: true
+
+permissions:
+  contents: read
+
+jobs:
+  publish-aur:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Get version
+        id: version
+        run: |
+          if [ -n "${{ github.event.inputs.version }}" ]; then
+            VERSION="${{ github.event.inputs.version }}"
+          else
+            VERSION="${{ github.event.release.tag_name }}"
+            VERSION="${VERSION#v}"  # Remove 'v' prefix
+          fi
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "Publishing version: ${VERSION}"
+
+      - name: Wait for release assets
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/proton-drive_${VERSION}_amd64.AppImage"
+
+          echo "Waiting for release asset: $ASSET_URL"
+
+          for i in {1..30}; do
+            if curl -sIf "$ASSET_URL" > /dev/null 2>&1; then
+              echo "Asset available!"
+              break
+            fi
+            echo "Attempt $i/30: Asset not ready, waiting 10s..."
+            sleep 10
+          done
+
+      - name: Calculate SHA256
+        id: sha256
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/proton-drive_${VERSION}_amd64.AppImage"
+
+          echo "Downloading AppImage to calculate checksum..."
+          curl -sL "$ASSET_URL" -o appimage.AppImage
+
+          SHA256=$(sha256sum appimage.AppImage | cut -d' ' -f1)
+          echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
+          echo "SHA256: ${SHA256}"
+
+          rm appimage.AppImage
+
+      - name: Update PKGBUILD
+        run: |
+          VERSION=${{ steps.version.outputs.version }}
+          SHA256=${{ steps.sha256.outputs.sha256 }}
+
+          cd aur
+
+          # Update version
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+
+          # Reset pkgrel to 1 for new version
+          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+
+          # Update SHA256
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
+
+          echo "Updated PKGBUILD:"
+          cat PKGBUILD
+
+      - name: Generate .SRCINFO
+        run: |
+          cd aur
+
+          # Install makepkg dependencies
+          sudo apt-get update
+          sudo apt-get install -y pacman-package-manager libarchive-tools
+
+          # Generate .SRCINFO manually since we can't run makepkg on Ubuntu
+          cat > .SRCINFO << EOF
+          pkgbase = proton-drive-bin
+          	pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
+          	pkgver = ${{ steps.version.outputs.version }}
+          	pkgrel = 1
+          	url = https://github.com/DonnieDice/protondrive-linux
+          	arch = x86_64
+          	license = AGPL-3.0-only
+          	depends = webkit2gtk-4.1
+          	depends = gtk3
+          	depends = libayatana-appindicator
+          	provides = proton-drive
+          	conflicts = proton-drive
+          	options = !strip
+          	source = proton-drive-bin-${{ steps.version.outputs.version }}.AppImage::https://github.com/DonnieDice/protondrive-linux/releases/download/v${{ steps.version.outputs.version }}/proton-drive_${{ steps.version.outputs.version }}_amd64.AppImage
+          	sha256sums = ${{ steps.sha256.outputs.sha256 }}
+
+          pkgname = proton-drive-bin
+          EOF
+
+          echo "Generated .SRCINFO:"
+          cat .SRCINFO
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+
+          cat >> ~/.ssh/config << EOF
+          Host aur.archlinux.org
+            IdentityFile ~/.ssh/aur
+            User aur
+            StrictHostKeyChecking no
+          EOF
+
+      - name: Clone AUR package
+        run: |
+          git clone ssh://aur@aur.archlinux.org/proton-drive-bin.git aur-repo || \
+          git clone ssh://aur@aur.archlinux.org/proton-drive-bin.git aur-repo 2>&1 | grep -q "does not appear to be a git repository" && \
+          mkdir -p aur-repo && cd aur-repo && git init
+
+          cd aur-repo
+          git config user.name "DonnieDice"
+          git config user.email "donniedice@proton.me"
+
+      - name: Update AUR package
+        run: |
+          cp aur/PKGBUILD aur-repo/
+          cp aur/.SRCINFO aur-repo/
+
+          cd aur-repo
+          git add PKGBUILD .SRCINFO
+          git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
+          git push origin master || git push origin main || echo "Push may have failed - check AUR manually"
+
+      - name: Cleanup
+        if: always()
+        run: rm -rf ~/.ssh/aur

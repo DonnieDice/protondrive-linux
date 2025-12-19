@@ -1,0 +1,44 @@
+# Maintainer: DonnieDice <donniedice@proton.me>
+pkgname=proton-drive-bin
+pkgver=1.2.2
+pkgrel=1
+pkgdesc="Unofficial Linux desktop client for Proton Drive, built with Tauri"
+arch=('x86_64')
+url="https://github.com/DonnieDice/protondrive-linux"
+license=('AGPL-3.0-only')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator')
+provides=('proton-drive')
+conflicts=('proton-drive')
+options=('!strip')
+source=("${pkgname}-${pkgver}.AppImage::https://github.com/DonnieDice/protondrive-linux/releases/download/v${pkgver}/proton-drive_${pkgver}_amd64.AppImage")
+sha256sums=('SKIP')
+
+prepare() {
+    chmod +x "${pkgname}-${pkgver}.AppImage"
+    "./${pkgname}-${pkgver}.AppImage" --appimage-extract
+}
+
+package() {
+    # Install the main binary
+    install -Dm755 "${srcdir}/squashfs-root/usr/bin/proton-drive" "${pkgdir}/usr/bin/proton-drive"
+
+    # Install desktop file
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/proton-drive.desktop" "${pkgdir}/usr/share/applications/proton-drive.desktop"
+
+    # Install icons
+    for size in 32x32 128x128 256x256; do
+        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" \
+            "${pkgdir}/usr/share/icons/hicolor/${size}/apps/proton-drive.png"
+    done
+
+    # Install scalable icon if exists
+    if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/proton-drive.svg" ]; then
+        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/proton-drive.svg" \
+            "${pkgdir}/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+    fi
+
+    # Install any additional libraries from AppImage
+    if [ -d "${srcdir}/squashfs-root/usr/lib" ]; then
+        cp -r "${srcdir}/squashfs-root/usr/lib" "${pkgdir}/usr/"
+    fi
+}
