@@ -1,6 +1,6 @@
 [package]
 name = "protondrive-tauri"
-version = "1.2.3"
+version = "1.2.4"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"
@@ -23,5 +23,6 @@ futures = "0.3"
 bytes = "1"
 
 [features]
-default = ["custom-protocol"]
+default = ["custom-protocol", "devtools"]
 custom-protocol = ["tauri/custom-protocol"]
+devtools = ["tauri/devtools"]

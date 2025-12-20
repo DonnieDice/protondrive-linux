@@ -63,6 +63,9 @@ async fn start_proxy_server() {
                         format!("{}{}?{}", PROTON_API_BASE, path.as_str(), query)
                     };
 
+                    // Log the request for debugging
+                    println!("[PROXY] {} {}", method.as_str(), url);
+
                     // Convert warp::http::Method to reqwest::Method
                     let reqwest_method = reqwest::Method::from_str(method.as_str())
                         .unwrap_or(reqwest::Method::GET);
@@ -95,6 +98,7 @@ async fn start_proxy_server() {
                     match request.send().await {
                         Ok(resp) => {
                             let status_code = resp.status().as_u16();
+                            println!("[PROXY] Response: {}", status_code);
                             let resp_headers = resp.headers().clone();
                             let body_bytes = resp.bytes().await.unwrap_or_default();
 

@@ -55,12 +55,19 @@ jobs:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
 
+      - name: Get version from package.json
+        id: version
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
       - name: Create snapcraft.yaml
         run: |
+          VERSION=${{ steps.version.outputs.version }}
           mkdir -p snap
-          cat > snap/snapcraft.yaml << 'EOF'
+          cat > snap/snapcraft.yaml << EOF
           name: proton-drive
-          version: '1.2.3'
+          version: '${VERSION}'
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
