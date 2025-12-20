@@ -6,7 +6,7 @@
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "frontendDist": "../WebClients/applications/drive/dist"
+    "frontendDist": "../dist-dummy"
   },
   "bundle": {
     "active": true,
@@ -20,7 +20,7 @@
     "resources": [],
     "externalBin": [],
     "copyright": "DonnieDice",
-    "category": "Utility",
+    "category": "Network",
     "shortDescription": "Encrypted cloud storage",
     "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
     "license": "AGPL-3.0",
@@ -30,6 +30,7 @@
         "desktopTemplate": "linux/proton-drive.desktop"
       },
       "rpm": {
+        "depends": ["webkit2gtk4.1", "gtk3", "libayatana-appindicator-gtk3"],
         "desktopTemplate": "linux/proton-drive.desktop"
       },
       "appimage": {
@@ -39,21 +40,29 @@
   },
   "app": {
     "security": {
-      "csp": null
+      "csp": null,
+      "dangerousRemoteDomainIpcAccess": [
+        {
+          "domain": "drive.proton.me",
+          "windows": ["main"],
+          "enableTauriAPI": false
+        }
+      ]
     },
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
         "title": "Proton Drive",
+        "url": "https://drive.proton.me",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
         "minHeight": 600,
         "resizable": true,
         "fullscreen": false,
-        "devtools": true,
-        "visible": true
+        "visible": true,
+        "userAgent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
       }
     ]
   },

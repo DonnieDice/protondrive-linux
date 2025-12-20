@@ -37,6 +37,7 @@ async fn start_proxy_server() {
     let client = Arc::new(
         Client::builder()
             .redirect(reqwest::redirect::Policy::none())
+            .danger_accept_invalid_certs(false)
             .build()
             .expect("Failed to create HTTP client")
     );
@@ -64,7 +65,7 @@ async fn start_proxy_server() {
                     };
 
                     // Log the request for debugging
-                    println!("[PROXY] {} {}", method.as_str(), url);
+                    eprintln!("[PROXY] {} {}", method.as_str(), url);
 
                     // Convert warp::http::Method to reqwest::Method
                     let reqwest_method = reqwest::Method::from_str(method.as_str())
@@ -98,7 +99,7 @@ async fn start_proxy_server() {
                     match request.send().await {
                         Ok(resp) => {
                             let status_code = resp.status().as_u16();
-                            println!("[PROXY] Response: {}", status_code);
+                            eprintln!("[PROXY] Response: {} for {}", status_code, url);
                             let resp_headers = resp.headers().clone();
                             let body_bytes = resp.bytes().await.unwrap_or_default();
 
@@ -127,7 +128,7 @@ async fn start_proxy_server() {
                             Ok::<_, warp::Rejection>(response.body(body_bytes.to_vec()).unwrap())
                         }
                         Err(e) => {
-                            eprintln!("Proxy error: {}", e);
+                            eprintln!("[PROXY ERROR] {} - {}", url, e);
                             Ok(warp::http::Response::builder()
                                 .status(502)
                                 .header("Access-Control-Allow-Origin", "*")
@@ -155,27 +156,29 @@ async fn start_proxy_server() {
     let routes = cors_preflight.or(proxy);
     let addr: SocketAddr = ([127, 0, 0, 1], PROXY_PORT).into();
 
-    println!("Starting API proxy on http://{}", addr);
+    eprintln!("Starting API proxy on http://{}", addr);
+    eprintln!("Proxying requests to {}", PROTON_API_BASE);
     warp::serve(routes).run(addr).await;
 }
 
 fn main() {
     // Fix WebKitGTK EGL/GPU issues on various Linux configurations
-    // These must be set before any GTK/WebKit initialization
-    // Required for AMD, Intel, and some NVIDIA GPU configurations
-    // Note: These are also set in wrapper scripts for AppImage/Flatpak/Snap,
-    // but we set them here as well for deb/rpm installs that run the binary directly
     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    
+    eprintln!("Proton Drive starting...");
+    eprintln!("Environment variables set for WebKit compatibility");
 
     // Start proxy server in background
     std::thread::spawn(|| {
+        eprintln!("Starting proxy server thread...");
         let rt = tokio::runtime::Runtime::new().expect("Failed to create runtime");
         rt.block_on(start_proxy_server());
     });
 
-    // Give proxy a moment to start
-    std::thread::sleep(std::time::Duration::from_millis(100));
+    // Give proxy time to start
+    std::thread::sleep(std::time::Duration::from_millis(500));
+    eprintln!("Proxy server should be running now");
 
     tauri::Builder::default()
         .plugin(tauri_plugin_shell::init())

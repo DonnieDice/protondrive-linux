@@ -73,18 +73,11 @@ jobs:
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
             Built with Tauri and Rust for a native-performance experience.
 
-            Features:
-            - Secure Proton Drive Integration
-            - Native Desktop Experience
-            - Privacy-Focused
-            - Cross-platform Support
-
           grade: stable
           confinement: strict
           base: core24
           platforms:
             amd64:
-            arm64:
 
           title: Proton Drive Linux Desktop Client
           contact: https://github.com/DonnieDice/protondrive-linux/issues
@@ -110,13 +103,6 @@ jobs:
                 - audio-playback
                 - browser-support
                 - password-manager-service
-                - dbus
-
-          plugs:
-            dbus:
-              interface: dbus
-              bus: session
-              name: com.proton.drive
 
           parts:
             proton-drive:
@@ -180,15 +166,10 @@ jobs:
                 cd src-tauri && cargo build --release && cd ..
 
                 # Check for expected binary
-                echo "=== Built binaries in src-tauri/target/release/ ==="
-                ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
-                echo "=== Checking for expected binary ==="
                 if [ -f "src-tauri/target/release/proton-drive" ]; then
                   echo "✅ Found proton-drive binary"
                 else
                   echo "❌ proton-drive binary not found!"
-                  echo "Available executables:"
-                  find src-tauri/target/release/ -maxdepth 1 -type f -executable
                   exit 1
                 fi
 
@@ -199,7 +180,6 @@ jobs:
                 # Create wrapper script
                 mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
                 echo '#!/bin/bash' > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo '# Fix WebKitGTK EGL/GPU issues on various Linux configurations' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
                 echo 'export WEBKIT_DISABLE_DMABUF_RENDERER=1' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
                 echo 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
                 echo 'exec "$SNAP/usr/bin/proton-drive" "$@"' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
@@ -212,9 +192,10 @@ jobs:
                 echo 'Type=Application' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
                 echo 'Name=Proton Drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
                 echo 'Comment=Secure cloud storage' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Exec=usr/bin/proton-drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                echo 'Exec=proton-drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
                 echo 'Icon=com.proton.drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Categories=Utility;' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                echo 'Categories=Utility;Network;' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                echo 'Terminal=false' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
 
                 # Install icons
                 mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
@@ -241,12 +222,14 @@ jobs:
                 - patchelf
 
               stage-packages:
-                - libssl3
+                - libssl3t64
                 - libwebkit2gtk-4.1-0
                 - libgtk-3-0
                 - libayatana-appindicator3-1
                 - librsvg2-2
                 - libsoup-3.0-0
+                - glib-networking
+                - gsettings-desktop-schemas
           SNAPYAML
           
           # Replace version placeholder
