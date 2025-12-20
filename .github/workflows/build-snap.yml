@@ -1,5 +1,4 @@
 name: Build Snap
-
 on:
   push:
     branches:
@@ -20,7 +19,6 @@ jobs:
   build-snap:
     runs-on: ubuntu-latest
     timeout-minutes: 90
-
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -72,24 +70,20 @@ jobs:
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
             Built with Tauri and Rust for a native-performance experience.
-
             Features:
             - Secure Proton Drive Integration
             - Native Desktop Experience
             - Privacy-Focused
             - Cross-platform Support
-
           grade: stable
           confinement: strict
           base: core24
           platforms:
             amd64:
             arm64:
-
           title: Proton Drive Linux Desktop Client
           contact: https://github.com/DonnieDice/protondrive-linux/issues
           license: AGPL-3.0
-
           apps:
             proton-drive:
               command: usr/bin/proton-drive-wrapper
@@ -111,74 +105,60 @@ jobs:
                 - browser-support
                 - password-manager-service
                 - dbus
-
           plugs:
             dbus:
               interface: dbus
               bus: session
               name: com.proton.drive
-
           parts:
             proton-drive:
               plugin: nil
               source: .
               override-build: |
                 set -euo pipefail
-
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 export PATH="\$HOME/.cargo/bin:\$PATH"
                 rustc --version
-
                 # Install Node.js 22
                 curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz -o /tmp/node.tar.xz
                 tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
                 rm /tmp/node.tar.xz
                 node --version
                 npm --version
-
                 # Clone WebClients
                 echo "📥 Cloning WebClients..."
                 rm -rf WebClients 2>/dev/null || true
-                git clone --depth=1 --single-branch --branch main \
+                git clone --depth=1 --single-branch --branch main \\
                   https://github.com/ProtonMail/WebClients.git WebClients
-
                 # Patch dependencies
                 echo "🔧 Patching dependencies..."
                 python3 scripts/fix_deps.py
                 rm -f WebClients/yarn.lock
-
                 # Build WebClients (Proton Drive)
                 mv ./package.json ./package.json.bak 2>/dev/null || true
                 mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
-
                 cd WebClients
                 echo "📦 Installing WebClients dependencies..."
                 export NODE_OPTIONS="--max-old-space-size=8192"
                 node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-
                 cd ..
                 mv ./package.json.bak ./package.json 2>/dev/null || true
                 mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-
                 echo "📦 Creating stubs for private packages..."
                 python3 scripts/create_stubs.py
-
                 cd WebClients
                 echo "🔨 Building Proton Drive web app..."
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-
                 if [ ! -d "applications/drive/dist" ]; then
                   echo "❌ Build failed - no output directory"
                   exit 1
                 fi
                 echo "✅ WebClients build complete"
                 cd ..
-
                 # Install Tauri dependencies and build
                 npm install
                 cd src-tauri && cargo build --release --features protocol-asset && cd ..
-
                 # IMPORTANT: List what was actually built for debugging
                 echo "=== Built binaries in src-tauri/target/release/ ==="
                 ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
@@ -191,11 +171,9 @@ jobs:
                   find src-tauri/target/release/ -maxdepth 1 -type f -executable
                   exit 1
                 fi
-
                 # Install the binary using the actual name from Cargo.toml
-                install -Dm755 src-tauri/target/release/proton-drive \
+                install -Dm755 src-tauri/target/release/proton-drive \\
                   "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
-
                 # Create wrapper script for WebKitGTK compatibility
                 cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
           #!/bin/bash
@@ -205,7 +183,6 @@ jobs:
           exec "\$SNAP/usr/bin/proton-drive" "\$@"
           WRAPPER
                 chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-
                 # Install desktop file
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
                 cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
@@ -218,7 +195,6 @@ jobs:
           Icon=com.proton.drive
           Categories=Utility;
           DESKTOP
-
                 # Install icons
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
@@ -228,7 +204,6 @@ jobs:
                 cp src-tauri/icons/128x128.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
                 cp src-tauri/icons/128x128@2x.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
                 cp src-tauri/icons/proton-drive.svg "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-
               build-packages:
                 - curl
                 - wget
@@ -242,7 +217,6 @@ jobs:
                 - librsvg2-dev
                 - libsoup-3.0-dev
                 - patchelf
-
               stage-packages:
                 - libssl3
                 - libwebkit2gtk-4.1-0
