@@ -1,5 +1,5 @@
 [package]
-name = "protondrive-tauri"
+name = "proton-drive"
 version = "1.2.5"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
