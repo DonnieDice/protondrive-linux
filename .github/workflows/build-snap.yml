@@ -127,7 +127,7 @@ jobs:
 
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                export PATH="$HOME/.cargo/bin:$PATH"
+                export PATH="\$HOME/.cargo/bin:\$PATH"
                 rustc --version
 
                 # Install Node.js 22
@@ -181,21 +181,21 @@ jobs:
 
                 # Install the binary
                 install -Dm755 src-tauri/target/release/protondrive-tauri \
-                  "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+                  "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
 
                 # Create wrapper script for WebKitGTK compatibility
-                cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
                 #!/bin/bash
                 # Fix WebKitGTK EGL/GPU issues on various Linux configurations
                 export WEBKIT_DISABLE_DMABUF_RENDERER=1
                 export WEBKIT_DISABLE_COMPOSITING_MODE=1
-                exec "$SNAP/usr/bin/proton-drive" "$@"
+                exec "\$SNAP/usr/bin/proton-drive" "\$@"
                 WRAPPER
-                chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+                chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
 
                 # Install desktop file
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-                cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
                 [Desktop Entry]
                 Version=1.0
                 Type=Application
@@ -207,14 +207,14 @@ jobs:
                 DESKTOP
 
                 # Install icons
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
-                cp src-tauri/icons/32x32.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128@2x.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
-                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+                cp src-tauri/icons/32x32.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128@2x.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+                cp src-tauri/icons/proton-drive.svg "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
 
               build-packages:
                 - curl
