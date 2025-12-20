@@ -1,6 +1,6 @@
 {
   "name": "protondrive-tauri",
-  "version": "1.2.6",
+  "version": "1.1.0",
   "description": "Proton Drive desktop client - one-line installer",
   "main": "install.js",
   "bin": {

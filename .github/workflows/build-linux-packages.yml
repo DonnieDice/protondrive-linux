@@ -47,6 +47,7 @@ jobs:
             librsvg2-dev \
             libsoup-3.0-dev \
             patchelf \
+            libfuse2 \
             python3
 
       - name: Setup Rust
@@ -118,81 +119,112 @@ jobs:
       - name: Install Tauri dependencies
         run: npm install
 
-      - name: Build Tauri app (DEB, RPM, AppImage)
+      - name: Create desktop file for bundlers
         run: |
-          echo "🔨 Building Tauri packages..."
-          npx tauri build --bundles appimage,deb,rpm
+          mkdir -p src-tauri/linux
+          cat > src-tauri/linux/proton-drive.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=proton-drive %U
+          Icon=proton-drive
+          Categories=Utility;Network;FileTransfer;
+          Keywords=proton;drive;cloud;storage;sync;
+          Terminal=false
+          StartupWMClass=proton-drive
+          StartupNotify=true
+          EOF
+          
+          echo "Desktop file created at src-tauri/linux/proton-drive.desktop"
 
-          echo "✅ Tauri build complete"
+      - name: Build DEB and RPM only (skip AppImage for now)
+        run: |
+          echo "🔨 Building DEB and RPM packages..."
+          npx tauri build --bundles deb,rpm --verbose
+
+          echo "✅ DEB and RPM build complete"
           find src-tauri/target/release/bundle -type f \
-            \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
-            \) -ls
+            \( -name "*.deb" -o -name "*.rpm" \) -ls
 
-      - name: Patch AppImage for WebKitGTK compatibility
+      - name: Build AppImage manually (workaround for linuxdeploy issues)
         run: |
-          echo "🔧 Patching AppImage for GPU compatibility..."
-
-          # Install FUSE for AppImage extraction
-          sudo apt-get install -y libfuse2
-
-          cd src-tauri/target/release/bundle/appimage
-
-          APPIMAGE=$(ls *.AppImage | head -1)
-          echo "Patching: $APPIMAGE"
-
-          # Extract AppImage
-          chmod +x "$APPIMAGE"
-          ./"$APPIMAGE" --appimage-extract
-
-          # Show original AppRun for debugging
-          echo "Original AppRun:"
-          cat squashfs-root/AppRun
-
-          # Create a new AppRun wrapper that sets env vars before exec
-          mv squashfs-root/AppRun squashfs-root/AppRun.orig
-          cat > squashfs-root/AppRun << 'APPRUN_EOF'
+          set -euo pipefail
+          
+          echo "🔨 Building AppImage manually..."
+          
+          VERSION=$(node -p "require('./package.json').version")
+          BINARY_PATH="src-tauri/target/release/proton-drive"
+          APPDIR="AppDir"
+          
+          # Verify binary exists
+          if [ ! -f "$BINARY_PATH" ]; then
+            echo "❌ Binary not found at $BINARY_PATH"
+            exit 1
+          fi
+          
+          # Create AppDir structure
+          mkdir -p "$APPDIR/usr/bin"
+          mkdir -p "$APPDIR/usr/share/applications"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/scalable/apps"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/128x128/apps"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/32x32/apps"
+          mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+          
+          # Copy binary
+          cp "$BINARY_PATH" "$APPDIR/usr/bin/proton-drive"
+          chmod +x "$APPDIR/usr/bin/proton-drive"
+          
+          # Copy desktop file
+          cp src-tauri/linux/proton-drive.desktop "$APPDIR/usr/share/applications/proton-drive.desktop"
+          
+          # Copy icons
+          cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+          cp src-tauri/icons/128x128.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
+          cp src-tauri/icons/32x32.png "$APPDIR/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
+          cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/proton-drive.png"
+          
+          # Create top-level desktop file and icon (required by AppImage)
+          cp src-tauri/linux/proton-drive.desktop "$APPDIR/"
+          cp src-tauri/icons/proton-drive.svg "$APPDIR/proton-drive.svg"
+          ln -sf usr/share/icons/hicolor/128x128/apps/proton-drive.png "$APPDIR/.DirIcon"
+          
+          # Create AppRun with environment fixes
+          cat > "$APPDIR/AppRun" << 'APPRUN_EOF'
           #!/bin/bash
           # Fix WebKitGTK EGL/GPU issues on various Linux configurations
-          # These must be set before WebKitGTK initializes
-
-          # Completely disable GTK's OpenGL usage
           export GDK_GL=disable
-
-          # Disable hardware acceleration in WebKitGTK
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
           export WEBKIT_FORCE_SANDBOX=0
-
-          # Force software rendering
           export LIBGL_ALWAYS_SOFTWARE=1
-
-          # Force GTK to use Cairo renderer instead of GL
           export GSK_RENDERER=cairo
 
-          # Get the directory where AppRun is located
           HERE="$(dirname "$(readlink -f "${0}")")"
-
-          # Execute the original AppRun
-          exec "$HERE/AppRun.orig" "$@"
+          export PATH="${HERE}/usr/bin:${PATH}"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          
+          exec "${HERE}/usr/bin/proton-drive" "$@"
           APPRUN_EOF
-          chmod +x squashfs-root/AppRun
-
-          echo "New AppRun:"
-          cat squashfs-root/AppRun
-
-          # Repack AppImage
-          rm "$APPIMAGE"
-
-          # Download appimagetool if not present
-          if [ ! -f appimagetool ]; then
-            wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
-            chmod +x appimagetool
-          fi
-
-          ARCH=x86_64 ./appimagetool squashfs-root "$APPIMAGE"
-          rm -rf squashfs-root appimagetool
-
-          echo "✅ AppImage patched successfully"
+          chmod +x "$APPDIR/AppRun"
+          
+          # Download appimagetool
+          wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
+          chmod +x appimagetool
+          
+          # Build AppImage
+          ARCH=x86_64 ./appimagetool "$APPDIR" "proton-drive_${VERSION}_amd64.AppImage"
+          
+          # Move to bundle directory
+          mkdir -p src-tauri/target/release/bundle/appimage
+          mv "proton-drive_${VERSION}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
+          
+          # Cleanup
+          rm -rf "$APPDIR" appimagetool
+          
+          echo "✅ AppImage created successfully"
+          ls -lh src-tauri/target/release/bundle/appimage/
 
       - name: Upload Linux artifacts
         uses: actions/upload-artifact@v4

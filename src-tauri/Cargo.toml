@@ -1,10 +1,15 @@
 [package]
 name = "proton-drive"
-version = "1.2.5"
+version = "1.1.0"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"
 edition = "2021"
+
+# Specify binary name explicitly to match everywhere
+[[bin]]
+name = "proton-drive"
+path = "src/main.rs"
 
 [build-dependencies]
 tauri-build = { version = "2", features = [] }

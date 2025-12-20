@@ -119,9 +119,15 @@ jobs:
           npx tauri build
 
           echo "✅ Tauri build complete"
-          # Rename binary to proton-drive for consistency
-          cp src-tauri/target/release/protondrive-tauri src-tauri/target/release/proton-drive
-          ls -la src-tauri/target/release/proton-drive
+          # List what was actually built
+          echo "Built binaries:"
+          ls -la src-tauri/target/release/ | grep -E '^-.*x'
+          
+          # The binary name is defined in Cargo.toml
+          if [ ! -f src-tauri/target/release/proton-drive ]; then
+            echo "❌ Expected binary not found"
+            exit 1
+          fi
 
       - name: Setup Flatpak
         run: |
