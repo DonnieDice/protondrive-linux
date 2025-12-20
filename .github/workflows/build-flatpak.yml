@@ -117,7 +117,7 @@ jobs:
         run: |
           echo "🔨 Building Tauri binary..."
           cd src-tauri
-          cargo build --release
+          cargo build --release --features protocol-asset
           cd ..
           
           echo "✅ Tauri build complete"

@@ -15,11 +15,10 @@
       "icons/32x32.png",
       "icons/128x128.png",
       "icons/128x128@2x.png",
+      "icons/icon.png",
       "icons/proton-drive.svg"
     ],
-    "resources": {
-      "WebClients/applications/drive/dist": "./"
-    },
+    "resources": [],
     "externalBin": [],
     "copyright": "DonnieDice",
     "category": "Utility",
@@ -31,21 +30,20 @@
         "depends": [
           "libwebkit2gtk-4.1-0",
           "libgtk-3-0",
-          "libayatana-appindicator3-1"
-        ],
-        "desktopTemplate": "linux/proton-drive.desktop"
+          "libayatana-appindicator3-1",
+          "gstreamer1.0-plugins-base",
+          "gstreamer1.0-plugins-good"
+        ]
       },
       "rpm": {
         "depends": [
           "webkit2gtk4.1",
           "gtk3",
           "libayatana-appindicator-gtk3"
-        ],
-        "desktopTemplate": "linux/proton-drive.desktop"
+        ]
       },
       "appimage": {
-        "bundleMediaFramework": false,
-        "files": {}
+        "bundleMediaFramework": false
       }
     }
   },
@@ -62,7 +60,6 @@
       {
         "label": "main",
         "title": "Proton Drive",
-        "url": "index.html",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -73,5 +70,9 @@
       }
     ]
   },
-  "plugins": {}
+  "plugins": {
+    "shell": {
+      "open": true
+    }
+  }
 }

@@ -65,19 +65,26 @@ jobs:
         run: |
           VERSION=${{ steps.version.outputs.version }}
           mkdir -p snap
-          cat > snap/snapcraft.yaml << 'SNAPYAML'
+          cat > snap/snapcraft.yaml << EOF
           name: proton-drive
-          version: 'VERSION_PLACEHOLDER'
+          version: '${VERSION}'
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
             Built with Tauri and Rust for a native-performance experience.
+
+            Features:
+            - Secure Proton Drive Integration
+            - Native Desktop Experience
+            - Privacy-Focused
+            - Cross-platform Support
 
           grade: stable
           confinement: strict
           base: core24
           platforms:
             amd64:
+            arm64:
 
           title: Proton Drive Linux Desktop Client
           contact: https://github.com/DonnieDice/protondrive-linux/issues
@@ -103,6 +110,13 @@ jobs:
                 - audio-playback
                 - browser-support
                 - password-manager-service
+                - dbus
+
+          plugs:
+            dbus:
+              interface: dbus
+              bus: session
+              name: com.proton.drive
 
           parts:
             proton-drive:
@@ -113,7 +127,7 @@ jobs:
 
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                export PATH="$HOME/.cargo/bin:$PATH"
+                export PATH="\$HOME/.cargo/bin:\$PATH"
                 rustc --version
 
                 # Install Node.js 22
@@ -163,49 +177,57 @@ jobs:
 
                 # Install Tauri dependencies and build
                 npm install
-                cd src-tauri && cargo build --release && cd ..
+                cd src-tauri && cargo build --release --features protocol-asset && cd ..
 
-                # Check for expected binary
+                # IMPORTANT: List what was actually built for debugging
+                echo "=== Built binaries in src-tauri/target/release/ ==="
+                ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
+                echo "=== Checking for expected binary ==="
                 if [ -f "src-tauri/target/release/proton-drive" ]; then
                   echo "✅ Found proton-drive binary"
                 else
                   echo "❌ proton-drive binary not found!"
+                  echo "Available executables:"
+                  find src-tauri/target/release/ -maxdepth 1 -type f -executable
                   exit 1
                 fi
 
-                # Install the binary
+                # Install the binary using the actual name from Cargo.toml
                 install -Dm755 src-tauri/target/release/proton-drive \
-                  "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+                  "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
 
-                # Create wrapper script
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
-                echo '#!/bin/bash' > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_DMABUF_RENDERER=1' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'exec "$SNAP/usr/bin/proton-drive" "$@"' >> "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+                # Create wrapper script for WebKitGTK compatibility
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
+          #!/bin/bash
+          # Fix WebKitGTK EGL/GPU issues on various Linux configurations
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          exec "\$SNAP/usr/bin/proton-drive" "\$@"
+          WRAPPER
+                chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
 
                 # Install desktop file
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-                echo '[Desktop Entry]' > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Version=1.0' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Type=Application' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Name=Proton Drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Comment=Secure cloud storage' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Exec=proton-drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Icon=com.proton.drive' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Categories=Utility;Network;' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Terminal=false' >> "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=usr/bin/proton-drive
+          Icon=com.proton.drive
+          Categories=Utility;
+          DESKTOP
 
                 # Install icons
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
-                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
-                cp src-tauri/icons/32x32.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128@2x.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
-                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+                cp src-tauri/icons/32x32.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128@2x.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+                cp src-tauri/icons/proton-drive.svg "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
 
               build-packages:
                 - curl
@@ -222,18 +244,13 @@ jobs:
                 - patchelf
 
               stage-packages:
-                - libssl3t64
+                - libssl3
                 - libwebkit2gtk-4.1-0
                 - libgtk-3-0
                 - libayatana-appindicator3-1
                 - librsvg2-2
                 - libsoup-3.0-0
-                - glib-networking
-                - gsettings-desktop-schemas
-          SNAPYAML
-          
-          # Replace version placeholder
-          sed -i "s/VERSION_PLACEHOLDER/${VERSION}/" snap/snapcraft.yaml
+          EOF
 
       - name: Build Snap package
         uses: snapcore/action-build@v1

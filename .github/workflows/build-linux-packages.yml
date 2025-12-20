@@ -106,23 +106,54 @@ jobs:
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
+          echo "🔍 Verifying build output..."
           if [ ! -d "applications/drive/dist" ]; then
-            echo "❌ Build failed - no output directory"
+            echo "❌ CRITICAL: dist directory not found!"
             exit 1
           fi
 
-          echo "✅ WebClients build complete"
-          echo "Checking dist contents:"
-          ls -la applications/drive/dist/
-          
-          # Verify index.html exists
           if [ ! -f "applications/drive/dist/index.html" ]; then
             echo "❌ CRITICAL: index.html not found in dist!"
+            echo "Contents of applications/drive/:"
+            ls -la applications/drive/ || true
             exit 1
           fi
-          echo "✅ index.html found"
+
+          echo "✅ WebClients build verification passed"
+          echo "📦 Dist contents:"
+          ls -lah applications/drive/dist/ | head -20
+          
+          FILE_COUNT=$(find applications/drive/dist -type f | wc -l)
+          echo "📊 Total files in dist: $FILE_COUNT"
+          
+          if [ "$FILE_COUNT" -lt 5 ]; then
+            echo "❌ CRITICAL: Too few files in dist directory!"
+            exit 1
+          fi
 
           cd ..
+
+      - name: Verify dist path from project root
+        run: |
+          echo "🔍 Verifying dist path that Tauri will use..."
+          DIST_PATH="WebClients/applications/drive/dist"
+          
+          if [ ! -d "$DIST_PATH" ]; then
+            echo "❌ CRITICAL: $DIST_PATH not found from project root!"
+            echo "Current directory:"
+            pwd
+            echo "Directory structure:"
+            ls -la
+            exit 1
+          fi
+          
+          if [ ! -f "$DIST_PATH/index.html" ]; then
+            echo "❌ CRITICAL: $DIST_PATH/index.html not found!"
+            exit 1
+          fi
+          
+          echo "✅ Dist path verified from project root"
+          echo "Full path: $(pwd)/$DIST_PATH"
 
       - name: Install Tauri dependencies
         run: npm install

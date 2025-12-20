@@ -1,6 +1,6 @@
 # Maintainer: DonnieDice <donniedice@proton.me>
 pkgname=proton-drive-bin
-pkgver=1.2.5
+pkgver=1.1.0
 pkgrel=1
 pkgdesc="Unofficial Linux desktop client for Proton Drive, built with Tauri"
 arch=('x86_64')
@@ -27,8 +27,10 @@ package() {
 
     # Install icons
     for size in 32x32 128x128 256x256; do
-        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" \
-            "${pkgdir}/usr/share/icons/hicolor/${size}/apps/proton-drive.png"
+        if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" ]; then
+            install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" \
+                "${pkgdir}/usr/share/icons/hicolor/${size}/apps/proton-drive.png"
+        fi
     done
 
     # Install scalable icon if exists
@@ -37,7 +39,7 @@ package() {
             "${pkgdir}/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
     fi
 
-    # Install any additional libraries from AppImage
+    # Install any additional libraries from AppImage if they exist
     if [ -d "${srcdir}/squashfs-root/usr/lib" ]; then
         cp -r "${srcdir}/squashfs-root/usr/lib" "${pkgdir}/usr/"
     fi
