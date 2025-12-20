@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "proton-drive",
+  "productName": "Proton Drive",
   "version": "1.1.0",
   "identifier": "com.proton.drive",
   "build": {
@@ -17,7 +17,9 @@
       "icons/128x128@2x.png",
       "icons/proton-drive.svg"
     ],
-    "resources": [],
+    "resources": {
+      "WebClients/applications/drive/dist": "./"
+    },
     "externalBin": [],
     "copyright": "DonnieDice",
     "category": "Utility",
@@ -26,26 +28,41 @@
     "license": "AGPL-3.0",
     "linux": {
       "deb": {
-        "depends": ["libwebkit2gtk-4.1-0", "libgtk-3-0", "libayatana-appindicator3-1"],
+        "depends": [
+          "libwebkit2gtk-4.1-0",
+          "libgtk-3-0",
+          "libayatana-appindicator3-1"
+        ],
         "desktopTemplate": "linux/proton-drive.desktop"
       },
       "rpm": {
+        "depends": [
+          "webkit2gtk4.1",
+          "gtk3",
+          "libayatana-appindicator-gtk3"
+        ],
         "desktopTemplate": "linux/proton-drive.desktop"
       },
       "appimage": {
-        "bundleMediaFramework": false
+        "bundleMediaFramework": false,
+        "files": {}
       }
     }
   },
   "app": {
     "security": {
-      "csp": null
+      "csp": null,
+      "assetProtocol": {
+        "enable": true,
+        "scope": ["**"]
+      }
     },
-    "withGlobalTauri": true,
+    "withGlobalTauri": false,
     "windows": [
       {
         "label": "main",
         "title": "Proton Drive",
+        "url": "index.html",
         "width": 1200,
         "height": 800,
         "minWidth": 800,
@@ -56,9 +73,5 @@
       }
     ]
   },
-  "plugins": {
-    "shell": {
-      "open": true
-    }
-  }
+  "plugins": {}
 }

@@ -112,7 +112,15 @@ jobs:
           fi
 
           echo "✅ WebClients build complete"
+          echo "Checking dist contents:"
           ls -la applications/drive/dist/
+          
+          # Verify index.html exists
+          if [ ! -f "applications/drive/dist/index.html" ]; then
+            echo "❌ CRITICAL: index.html not found in dist!"
+            exit 1
+          fi
+          echo "✅ index.html found"
 
           cd ..
 
@@ -176,8 +184,21 @@ jobs:
           cp "$BINARY_PATH" "$APPDIR/usr/bin/proton-drive"
           chmod +x "$APPDIR/usr/bin/proton-drive"
           
-          # Copy desktop file
-          cp src-tauri/linux/proton-drive.desktop "$APPDIR/usr/share/applications/proton-drive.desktop"
+          # Copy desktop file with correct icon reference
+          cat > "$APPDIR/usr/share/applications/proton-drive.desktop" << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=proton-drive %U
+          Icon=proton-drive
+          Categories=Utility;Network;FileTransfer;
+          Keywords=proton;drive;cloud;storage;sync;
+          Terminal=false
+          StartupWMClass=proton-drive
+          StartupNotify=true
+          EOF
           
           # Copy icons
           cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
@@ -186,7 +207,7 @@ jobs:
           cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/proton-drive.png"
           
           # Create top-level desktop file and icon (required by AppImage)
-          cp src-tauri/linux/proton-drive.desktop "$APPDIR/"
+          cp "$APPDIR/usr/share/applications/proton-drive.desktop" "$APPDIR/"
           cp src-tauri/icons/proton-drive.svg "$APPDIR/proton-drive.svg"
           ln -sf usr/share/icons/hicolor/128x128/apps/proton-drive.png "$APPDIR/.DirIcon"
           
