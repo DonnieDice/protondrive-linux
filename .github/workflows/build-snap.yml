@@ -172,25 +172,22 @@ parts:
       install -Dm755 src-tauri/target/release/proton-drive "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
       # Wrapper script
       mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/bin"
-      cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER_EOF'
-#!/bin/bash
-export WEBKIT_DISABLE_DMABUF_RENDERER=1
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-exec "\$SNAP/usr/bin/proton-drive" "\$@"
-WRAPPER_EOF
+      echo '#!/bin/bash' > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+      echo '# Fix WebKitGTK EGL/GPU issues on various Linux configurations' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+      echo 'export WEBKIT_DISABLE_DMABUF_RENDERER=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+      echo 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+      echo 'exec "\$SNAP/usr/bin/proton-drive" "\$@"' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
       chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
       # Desktop file
       mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-      cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP_EOF'
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Proton Drive
-Comment=Secure cloud storage
-Exec=usr/bin/proton-drive-wrapper
-Icon=com.proton.drive
-Categories=Utility;
-DESKTOP_EOF
+      echo '[Desktop Entry]' > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Version=1.0' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Type=Application' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Name=Proton Drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Comment=Secure cloud storage' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Exec=usr/bin/proton-drive-wrapper' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Icon=com.proton.drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+      echo 'Categories=Utility;' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
       # Icons
       mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
       mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
