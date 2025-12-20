@@ -197,18 +197,19 @@ jobs:
                   "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
 
                 # Create wrapper script for WebKitGTK compatibility
-                cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
+                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/bin"
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
           #!/bin/bash
           # Fix WebKitGTK EGL/GPU issues on various Linux configurations
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
           exec "\$SNAP/usr/bin/proton-drive" "\$@"
-          WRAPPER
+          WRAPPEREOF
                 chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
 
                 # Install desktop file
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-                cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
@@ -217,7 +218,7 @@ jobs:
           Exec=usr/bin/proton-drive
           Icon=com.proton.drive
           Categories=Utility;
-          DESKTOP
+          DESKTOPEOF
 
                 # Install icons
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
