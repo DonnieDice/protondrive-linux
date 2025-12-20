@@ -113,19 +113,22 @@ jobs:
       - name: Install Tauri dependencies
         run: npm install
 
-      - name: Build Tauri app
+      - name: Build Tauri binary only (no bundling)
         run: |
-          echo "🔨 Building Tauri application..."
-          npx tauri build
-
+          echo "🔨 Building Tauri binary..."
+          cd src-tauri
+          cargo build --release
+          cd ..
+          
           echo "✅ Tauri build complete"
-          # List what was actually built
           echo "Built binaries:"
           ls -la src-tauri/target/release/ | grep -E '^-.*x'
           
-          # The binary name is defined in Cargo.toml
+          # Verify the binary exists
           if [ ! -f src-tauri/target/release/proton-drive ]; then
-            echo "❌ Expected binary not found"
+            echo "❌ Expected binary 'proton-drive' not found"
+            echo "Available files:"
+            ls -la src-tauri/target/release/
             exit 1
           fi
 

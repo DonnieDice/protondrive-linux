@@ -87,7 +87,7 @@ jobs:
             arm64:
 
           title: Proton Drive Linux Desktop Client
-          contact: https://github.com/${{ github.repository }}/issues
+          contact: https://github.com/DonnieDice/protondrive-linux/issues
           license: AGPL-3.0
 
           apps:
@@ -179,32 +179,45 @@ jobs:
                 npm install
                 cd src-tauri && cargo build --release && cd ..
 
-                # Install the binary
-                install -Dm755 src-tauri/target/release/protondrive-tauri \
+                # IMPORTANT: List what was actually built for debugging
+                echo "=== Built binaries in src-tauri/target/release/ ==="
+                ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
+                echo "=== Checking for expected binary ==="
+                if [ -f "src-tauri/target/release/proton-drive" ]; then
+                  echo "✅ Found proton-drive binary"
+                else
+                  echo "❌ proton-drive binary not found!"
+                  echo "Available executables:"
+                  find src-tauri/target/release/ -maxdepth 1 -type f -executable
+                  exit 1
+                fi
+
+                # Install the binary using the actual name from Cargo.toml
+                install -Dm755 src-tauri/target/release/proton-drive \
                   "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
 
                 # Create wrapper script for WebKitGTK compatibility
                 cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
-                #!/bin/bash
-                # Fix WebKitGTK EGL/GPU issues on various Linux configurations
-                export WEBKIT_DISABLE_DMABUF_RENDERER=1
-                export WEBKIT_DISABLE_COMPOSITING_MODE=1
-                exec "\$SNAP/usr/bin/proton-drive" "\$@"
-                WRAPPER
+          #!/bin/bash
+          # Fix WebKitGTK EGL/GPU issues on various Linux configurations
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          exec "\$SNAP/usr/bin/proton-drive" "\$@"
+          WRAPPER
                 chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
 
                 # Install desktop file
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
                 cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
-                [Desktop Entry]
-                Version=1.0
-                Type=Application
-                Name=Proton Drive
-                Comment=Secure cloud storage
-                Exec=usr/bin/proton-drive
-                Icon=com.proton.drive
-                Categories=Utility;
-                DESKTOP
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=usr/bin/proton-drive
+          Icon=com.proton.drive
+          Categories=Utility;
+          DESKTOP
 
                 # Install icons
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
