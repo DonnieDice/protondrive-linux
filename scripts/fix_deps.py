@@ -39,12 +39,15 @@ if drive_pkg_path.exists():
         old_script = drive_data['scripts']['build:web']
         # Change appMode from sso to standalone for desktop wrapper
         new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
-        # Remove any --api override as it's not needed
+        # Remove any existing --api override first
         new_script = re.sub(r'\s*--api=\S+', '', new_script)
+        # Add --api flag pointing to local proxy server
+        # The Rust backend runs a proxy on port 9543 that forwards to Proton's API
+        new_script = new_script.rstrip() + ' --api=http://localhost:9543'
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed appMode from sso to standalone for desktop wrapper")
+            print("  Changed appMode to standalone and set API to local proxy (localhost:9543)")
         else:
             print("  build:web already configured for standalone mode")
     else:
