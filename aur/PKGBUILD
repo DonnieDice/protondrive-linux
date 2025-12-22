@@ -22,21 +22,22 @@ package() {
     # Install the main binary
     install -Dm755 "${srcdir}/squashfs-root/usr/bin/proton-drive" "${pkgdir}/usr/bin/proton-drive"
 
-    # Install desktop file
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/proton-drive.desktop" "${pkgdir}/usr/share/applications/proton-drive.desktop"
+    # Install desktop file (uses app identifier naming)
+    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/com.proton.drive.desktop" \
+        "${pkgdir}/usr/share/applications/com.proton.drive.desktop"
 
-    # Install icons
+    # Install icons (uses app identifier naming: com.proton.drive.png/svg)
     for size in 32x32 128x128 256x256; do
-        if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" ]; then
-            install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/proton-drive.png" \
-                "${pkgdir}/usr/share/icons/hicolor/${size}/apps/proton-drive.png"
+        if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png" ]; then
+            install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png" \
+                "${pkgdir}/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png"
         fi
     done
 
     # Install scalable icon if exists
-    if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/proton-drive.svg" ]; then
-        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/proton-drive.svg" \
-            "${pkgdir}/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+    if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg" ]; then
+        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg" \
+            "${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
     fi
 
     # Install any additional libraries from AppImage if they exist

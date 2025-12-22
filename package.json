@@ -1,5 +1,5 @@
 {
-  "name": "protondrive-tauri",
+  "name": "protondrive-linux",
   "version": "1.1.0",
   "description": "Proton Drive desktop client - one-line installer",
   "main": "install.js",
@@ -11,7 +11,7 @@
   ],
   "repository": {
     "type": "git",
-    "url": "https://github.com/donniedice/protondrive-tauri.git"
+    "url": "https://github.com/DonnieDice/protondrive-linux.git"
   },
   "keywords": [
     "proton",
