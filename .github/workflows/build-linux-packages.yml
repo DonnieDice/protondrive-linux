@@ -285,19 +285,20 @@ jobs:
           APPRUN_EOF
           chmod +x "$APPDIR/AppRun"
           
-          # Download appimagetool
+          # Download appimagetool and extract it (FUSE not available in containers)
           wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
           chmod +x appimagetool
-          
-          # Build AppImage
-          ARCH=x86_64 ./appimagetool "$APPDIR" "proton-drive_${VERSION}_amd64.AppImage"
+          ./appimagetool --appimage-extract
+
+          # Build AppImage using extracted appimagetool
+          ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_amd64.AppImage"
           
           # Move to bundle directory
           mkdir -p src-tauri/target/release/bundle/appimage
           mv "proton-drive_${VERSION}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
           
           # Cleanup
-          rm -rf "$APPDIR" appimagetool
+          rm -rf "$APPDIR" appimagetool squashfs-root
           
           echo "✅ AppImage created successfully"
           ls -lh src-tauri/target/release/bundle/appimage/
