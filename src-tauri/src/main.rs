@@ -11,7 +11,8 @@ use std::sync::Arc;
 use std::str::FromStr;
 
 const PROXY_PORT: u16 = 9543;
-const PROTON_API_BASE: &str = "https://mail.proton.me/api";
+// Base URL without /api - frontend paths already include /api prefix
+const PROTON_API_BASE: &str = "https://mail.proton.me";
 
 #[tauri::command]
 async fn show_notification(title: String, body: String) {
