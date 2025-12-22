@@ -34,11 +34,11 @@ async fn check_for_updates() -> Result<bool, String> {
 }
 
 async fn start_proxy_server() {
+    // Stateless proxy - no cookies/sessions stored locally
+    // The WebKitGTK webview handles session management securely
     let client = Arc::new(
         Client::builder()
             .redirect(reqwest::redirect::Policy::none())
-            .cookie_store(true)
-            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()
             .expect("Failed to create HTTP client")
     );
