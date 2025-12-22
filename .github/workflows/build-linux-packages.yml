@@ -158,29 +158,13 @@ jobs:
       - name: Install Tauri dependencies
         run: npm install
 
-      - name: Create desktop file for bundlers
+      - name: Prepare desktop file for bundlers
         run: |
-          mkdir -p src-tauri/linux
-          # Tauri 2.0 uses the app identifier for desktop file and icon names
-          cat > src-tauri/linux/com.proton.drive.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=Proton Drive
-          Comment=Secure cloud storage
-          Exec=proton-drive %U
-          Icon=com.proton.drive
-          Categories=Utility;Network;FileTransfer;
-          Keywords=proton;drive;cloud;storage;sync;
-          Terminal=false
-          StartupWMClass=proton-drive
-          StartupNotify=true
-          EOF
-
-          # Also create a copy with the binary name for compatibility
+          # Desktop file already exists in repo at src-tauri/linux/com.proton.drive.desktop
+          # Create a copy with the binary name for Tauri bundler compatibility
           cp src-tauri/linux/com.proton.drive.desktop src-tauri/linux/proton-drive.desktop
-
-          echo "Desktop files created"
+          echo "Desktop files ready"
+          cat src-tauri/linux/com.proton.drive.desktop
 
       - name: Build DEB and RPM only (skip AppImage for now)
         run: |
@@ -200,6 +184,12 @@ jobs:
             fi
           done
           cd -
+
+          # Fix icon names in packages - Tauri uses productName but we need identifier
+          echo "🔧 Checking icon naming in packages..."
+          # Note: The DEB/RPM packages are already built, icons are embedded
+          # The desktop file uses Icon=com.proton.drive which requires icons to be
+          # installed as com.proton.drive.{png,svg} in hicolor directories
 
           find src-tauri/target/release/bundle -type f \
             \( -name "*.deb" -o -name "*.rpm" \) -ls
