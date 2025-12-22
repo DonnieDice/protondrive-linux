@@ -50,7 +50,12 @@ jobs:
             fuse \
             libfuse2 \
             python3 \
-            ca-certificates
+            ca-certificates \
+            libvips-dev \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libjpeg-dev \
+            libgif-dev
 
       - name: Checkout repository
         uses: actions/checkout@v4
