@@ -96,6 +96,7 @@ jobs:
                 WEBKIT_DISABLE_DMABUF_RENDERER: "1"
                 WEBKIT_DISABLE_COMPOSITING_MODE: "1"
               desktop: usr/share/applications/com.proton.drive.desktop
+              icon: usr/share/icons/hicolor/256x256/apps/com.proton.drive.png
               plugs:
                 - home
                 - network
