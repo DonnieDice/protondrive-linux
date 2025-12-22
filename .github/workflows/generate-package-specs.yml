@@ -1,4 +1,4 @@
-name: Publish Packages to Repositories
+name: Generate Package Specs
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   packages: write
 
 jobs:
-  publish-to-aur:
+  generate-aur-pkgbuild:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 30
@@ -173,7 +173,7 @@ jobs:
             AUR_SUBMISSION_GUIDE.md
           retention-days: 90
 
-  publish-copr:
+  generate-rpm-spec:
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 30
