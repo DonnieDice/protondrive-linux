@@ -18,8 +18,9 @@ env:
 
 jobs:
   build-deb-rpm-appimage:
-    # Use Ubuntu 22.04 for GLIBC 2.35 compatibility with Debian 12+
-    runs-on: ubuntu-22.04
+    # Ubuntu 24.04 required for WebKitGTK 4.1 compatibility with wry/Tauri
+    # For older distros (Debian 12), use Flatpak or Snap instead
+    runs-on: ubuntu-24.04
     timeout-minutes: 90
 
     steps:
@@ -35,8 +36,6 @@ jobs:
 
       - name: Install system dependencies
         run: |
-          # Enable universe repository for webkit2gtk-4.1 on Ubuntu 22.04
-          sudo add-apt-repository -y universe
           sudo apt-get update
           sudo apt-get install -y \
             build-essential \
