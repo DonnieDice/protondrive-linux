@@ -152,6 +152,20 @@ jobs:
           Keywords=proton;drive;cloud;storage;sync;
           EOF
 
+      - name: Prepare Flatpak staging directory
+        run: |
+          echo "📦 Creating staging directory with only required files..."
+          mkdir -p flatpak-staging/icons
+          cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
+          cp proton-drive-wrapper.sh flatpak-staging/proton-drive
+          cp src-tauri/icons/32x32.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
+          cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
+          cp com.proton.drive.desktop flatpak-staging/
+          echo "✅ Staging directory ready:"
+          ls -la flatpak-staging/
+
       - name: Create Flatpak manifest
         run: |
           cat > com.proton.drive.yml << 'EOF'
@@ -177,14 +191,14 @@ jobs:
               buildsystem: simple
               sources:
                 - type: dir
-                  path: .
+                  path: flatpak-staging
               build-commands:
-                - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
-                - install -Dm755 proton-drive-wrapper.sh /app/bin/proton-drive
-                - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+                - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin
+                - install -Dm755 proton-drive /app/bin/proton-drive
+                - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+                - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+                - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+                - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
                 - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
           EOF
           # Remove leading indentation from the generated file
