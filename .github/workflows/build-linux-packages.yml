@@ -18,7 +18,8 @@ env:
 
 jobs:
   build-deb-rpm-appimage:
-    runs-on: ubuntu-24.04
+    # Use Ubuntu 22.04 for GLIBC 2.35 compatibility with Debian 12+
+    runs-on: ubuntu-22.04
     timeout-minutes: 90
 
     steps:
