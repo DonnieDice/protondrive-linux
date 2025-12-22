@@ -23,12 +23,17 @@ jobs:
     container:
       image: debian:12
     timeout-minutes: 90
+    defaults:
+      run:
+        shell: bash
 
     steps:
       - name: Install git and dependencies
+        shell: sh
         run: |
           apt-get update
           apt-get install -y \
+            bash \
             git \
             curl \
             wget \
