@@ -11,7 +11,7 @@ use std::sync::Arc;
 use std::str::FromStr;
 
 const PROXY_PORT: u16 = 9543;
-const PROTON_API_BASE: &str = "https://mail.protonmail.com/api";
+const PROTON_API_BASE: &str = "https://mail.proton.me/api";
 
 #[tauri::command]
 async fn show_notification(title: String, body: String) {
@@ -37,6 +37,8 @@ async fn start_proxy_server() {
     let client = Arc::new(
         Client::builder()
             .redirect(reqwest::redirect::Policy::none())
+            .cookie_store(true)
+            .user_agent("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
             .build()
             .expect("Failed to create HTTP client")
     );
@@ -83,12 +85,20 @@ async fn start_proxy_server() {
                             && name_str != "te"
                             && name_str != "trailer"
                             && name_str != "upgrade"
+                            && name_str != "origin"
+                            && name_str != "referer"
                         {
                             if let Ok(v) = value.to_str() {
                                 request = request.header(name.as_str(), v);
                             }
                         }
                     }
+
+                    // Add Proton-specific headers if not already set
+                    request = request.header("x-pm-appversion", "web-drive@5.0.0")
+                        .header("x-pm-apiversion", "3")
+                        .header("Origin", "https://drive.proton.me")
+                        .header("Referer", "https://drive.proton.me/");
 
                     // Set body for methods that support it
                     if method != warp::http::Method::GET && method != warp::http::Method::HEAD {

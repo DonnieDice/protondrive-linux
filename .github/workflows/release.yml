@@ -2,47 +2,43 @@ name: Create Release
 
 on:
   push:
-    branches:
-      - main
+    tags:
+      - "v*"
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Tag to release (e.g., v1.1.0)'
+        required: true
+        type: string
 
 permissions:
   contents: write
   packages: write
 
 jobs:
-  # This job checks if all builds succeeded, then creates a release
+  # This job waits for builds and creates a release
   check-and-release:
     runs-on: ubuntu-latest
     timeout-minutes: 180
-    
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
-      - name: Get version from package.json
+      - name: Get version
         id: version
         run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "version=v${VERSION}" >> $GITHUB_OUTPUT
-          echo "Version from package.json: v${VERSION}"
-
-      - name: Check if tag exists
-        id: check_tag
-        run: |
-          TAG=${{ steps.version.outputs.version }}
-          if git rev-parse "$TAG" >/dev/null 2>&1; then
-            echo "exists=true" >> $GITHUB_OUTPUT
-            echo "Tag $TAG already exists - skipping release"
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            TAG="${{ github.event.inputs.tag }}"
           else
-            echo "exists=false" >> $GITHUB_OUTPUT
-            echo "Tag $TAG does not exist - will check builds and create release"
+            TAG="${GITHUB_REF#refs/tags/}"
           fi
+          echo "version=${TAG}" >> $GITHUB_OUTPUT
+          echo "Version: ${TAG}"
 
       - name: Wait for all builds to complete
-        if: steps.check_tag.outputs.exists == 'false'
         uses: actions/github-script@v7
         with:
           script: |
@@ -76,10 +72,10 @@ jobs:
 
               if (buildWorkflows.length >= expectedWorkflows.length) {
                 const allComplete = buildWorkflows.every(r => r.status === 'completed');
-                
+
                 if (allComplete) {
                   const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
-                  
+
                   if (allSuccess) {
                     console.log('✅ All builds succeeded!');
                     return;
@@ -97,18 +93,7 @@ jobs:
 
             throw new Error('⏱️ Build workflows did not complete within 2.5 hours');
 
-      - name: Create and push tag
-        if: steps.check_tag.outputs.exists == 'false'
-        run: |
-          TAG=${{ steps.version.outputs.version }}
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "$TAG" -m "Release $TAG"
-          git push origin "$TAG"
-          echo "✅ Created and pushed tag: $TAG"
-
       - name: Download Linux packages artifacts
-        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-linux-packages.yml
@@ -120,7 +105,6 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Download Snap artifact
-        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-snap.yml
@@ -132,7 +116,6 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Download Flatpak artifact
-        if: steps.check_tag.outputs.exists == 'false'
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-flatpak.yml
@@ -144,7 +127,6 @@ jobs:
           if_no_artifact_found: fail
 
       - name: Prepare release files
-        if: steps.check_tag.outputs.exists == 'false'
         run: |
           mkdir -p release
           VERSION=${{ steps.version.outputs.version }}
@@ -167,7 +149,6 @@ jobs:
           cd ..
 
       - name: Create release notes
-        if: steps.check_tag.outputs.exists == 'false'
         run: |
           RELEASE_DATE=$(date -u +'%Y-%m-%d')
           VERSION=${{ steps.version.outputs.version }}
@@ -233,7 +214,6 @@ jobs:
           EOF
 
       - name: Create GitHub Release
-        if: steps.check_tag.outputs.exists == 'false'
         uses: softprops/action-gh-release@v1
         with:
           tag_name: ${{ steps.version.outputs.version }}
