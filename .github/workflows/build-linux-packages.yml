@@ -18,50 +18,44 @@ env:
 
 jobs:
   build-deb-rpm-appimage:
-    # Use Ubuntu 22.04 for GLIBC 2.35 compatibility (Debian 12+)
-    runs-on: ubuntu-22.04
+    # Build in Debian 12 container for GLIBC 2.36 compatibility
+    runs-on: ubuntu-latest
+    container:
+      image: debian:12
     timeout-minutes: 90
 
     steps:
+      - name: Install git and dependencies
+        run: |
+          apt-get update
+          apt-get install -y \
+            git \
+            curl \
+            wget \
+            build-essential \
+            file \
+            pkg-config \
+            libssl-dev \
+            libwebkit2gtk-4.1-dev \
+            libgtk-3-dev \
+            libayatana-appindicator3-dev \
+            librsvg2-dev \
+            libsoup-3.0-dev \
+            patchelf \
+            fuse \
+            libfuse2 \
+            python3 \
+            ca-certificates
+
       - name: Checkout repository
         uses: actions/checkout@v4
 
       - name: Sync version from package.json
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.1.0")
           echo "Building version: $VERSION"
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
           sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-
-      - name: Install system dependencies
-        run: |
-          # Enable universe repository for webkit2gtk-4.1 on Ubuntu 22.04
-          sudo add-apt-repository -y universe
-          sudo apt-get update
-          # Install all GTK/WebKitGTK dev packages needed for Tauri 2.x
-          sudo apt-get install -y \
-            build-essential \
-            curl \
-            wget \
-            file \
-            libssl-dev \
-            libgtk-3-dev \
-            libglib2.0-dev \
-            libgdk-pixbuf-2.0-dev \
-            libpango1.0-dev \
-            libcairo2-dev \
-            libatk1.0-dev \
-            libsoup-3.0-dev \
-            libjavascriptcoregtk-4.1-dev \
-            libwebkit2gtk-4.1-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libxdo-dev \
-            libx11-dev \
-            libxcb1-dev \
-            patchelf \
-            libfuse2 \
-            python3
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
