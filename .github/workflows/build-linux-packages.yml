@@ -188,6 +188,19 @@ jobs:
           npx tauri build --bundles deb,rpm --verbose
 
           echo "✅ DEB and RPM build complete"
+
+          # Rename RPM from Proton.Drive to proton-drive
+          echo "🔧 Renaming RPM package..."
+          cd src-tauri/target/release/bundle/rpm
+          for f in Proton.Drive*.rpm; do
+            if [ -f "$f" ]; then
+              newname=$(echo "$f" | sed 's/Proton\.Drive/proton-drive/g')
+              mv "$f" "$newname"
+              echo "Renamed: $f -> $newname"
+            fi
+          done
+          cd -
+
           find src-tauri/target/release/bundle -type f \
             \( -name "*.deb" -o -name "*.rpm" \) -ls
 
