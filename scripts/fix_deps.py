@@ -29,23 +29,24 @@ for pkg in Path('WebClients').rglob('package.json'):
 
 print(f"✅ Patched {count} dependencies")
 
-# Patch Proton Drive to NOT use standalone mode - keep SSO mode which is default
-# The app should work fine without API proxy if we don't override the appMode
+# Patch Proton Drive to use standalone mode for desktop wrapper
+# SSO mode expects to run on Proton's domain, standalone mode works with any origin
 print("\nPatching Proton Drive build configuration...")
 drive_pkg_path = Path('WebClients/applications/drive/package.json')
 if drive_pkg_path.exists():
     drive_data = json.loads(drive_pkg_path.read_text())
     if 'scripts' in drive_data and 'build:web' in drive_data['scripts']:
         old_script = drive_data['scripts']['build:web']
-        # Keep the default SSO mode - do NOT change to standalone
+        # Change appMode from sso to standalone for desktop wrapper
+        new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
         # Remove any --api override as it's not needed
-        new_script = re.sub(r'\s*--api=\S+', '', old_script)
+        new_script = re.sub(r'\s*--api=\S+', '', new_script)
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Removed API override from build:web (using defaults)")
+            print("  Changed appMode from sso to standalone for desktop wrapper")
         else:
-            print("  build:web already using default configuration")
+            print("  build:web already configured for standalone mode")
     else:
         print("  Warning: Could not find build:web script")
 else:
