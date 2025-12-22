@@ -161,22 +161,26 @@ jobs:
       - name: Create desktop file for bundlers
         run: |
           mkdir -p src-tauri/linux
-          cat > src-tauri/linux/proton-drive.desktop << 'EOF'
+          # Tauri 2.0 uses the app identifier for desktop file and icon names
+          cat > src-tauri/linux/com.proton.drive.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
           Name=Proton Drive
           Comment=Secure cloud storage
           Exec=proton-drive %U
-          Icon=proton-drive
+          Icon=com.proton.drive
           Categories=Utility;Network;FileTransfer;
           Keywords=proton;drive;cloud;storage;sync;
           Terminal=false
           StartupWMClass=proton-drive
           StartupNotify=true
           EOF
-          
-          echo "Desktop file created at src-tauri/linux/proton-drive.desktop"
+
+          # Also create a copy with the binary name for compatibility
+          cp src-tauri/linux/com.proton.drive.desktop src-tauri/linux/proton-drive.desktop
+
+          echo "Desktop files created"
 
       - name: Build DEB and RPM only (skip AppImage for now)
         run: |
@@ -215,32 +219,32 @@ jobs:
           cp "$BINARY_PATH" "$APPDIR/usr/bin/proton-drive"
           chmod +x "$APPDIR/usr/bin/proton-drive"
           
-          # Copy desktop file with correct icon reference
-          cat > "$APPDIR/usr/share/applications/proton-drive.desktop" << 'EOF'
+          # Copy desktop file with correct icon reference (use app identifier)
+          cat > "$APPDIR/usr/share/applications/com.proton.drive.desktop" << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
           Name=Proton Drive
           Comment=Secure cloud storage
           Exec=proton-drive %U
-          Icon=proton-drive
+          Icon=com.proton.drive
           Categories=Utility;Network;FileTransfer;
           Keywords=proton;drive;cloud;storage;sync;
           Terminal=false
           StartupWMClass=proton-drive
           StartupNotify=true
           EOF
-          
-          # Copy icons
-          cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
-          cp src-tauri/icons/128x128.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
-          cp src-tauri/icons/32x32.png "$APPDIR/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
-          cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/proton-drive.png"
-          
+
+          # Copy icons with identifier-based naming for freedesktop compliance
+          cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+          cp src-tauri/icons/128x128.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+          cp src-tauri/icons/32x32.png "$APPDIR/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+          cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+
           # Create top-level desktop file and icon (required by AppImage)
-          cp "$APPDIR/usr/share/applications/proton-drive.desktop" "$APPDIR/"
-          cp src-tauri/icons/proton-drive.svg "$APPDIR/proton-drive.svg"
-          ln -sf usr/share/icons/hicolor/128x128/apps/proton-drive.png "$APPDIR/.DirIcon"
+          cp "$APPDIR/usr/share/applications/com.proton.drive.desktop" "$APPDIR/com.proton.drive.desktop"
+          cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
+          ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
           
           # Create AppRun with environment fixes
           cat > "$APPDIR/AppRun" << 'APPRUN_EOF'

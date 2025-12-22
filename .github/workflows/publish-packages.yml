@@ -73,11 +73,11 @@ jobs:
             cd WebClients
             export NODE_OPTIONS="--max-old-space-size=8192"
             node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
-            node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+            node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
             cd ..
 
             npm install
-            npm run build
+            cd src-tauri && cargo build --release && cd ..
           }
 
           package() {
@@ -100,9 +100,15 @@ jobs:
           DESKTOP
             ) "$pkgdir/usr/share/applications/com.proton.drive.desktop"
 
-            # Install icon
+            # Install icons
+            install -Dm644 src-tauri/icons/32x32.png \
+              "$pkgdir/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
             install -Dm644 src-tauri/icons/128x128.png \
               "$pkgdir/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+            install -Dm644 src-tauri/icons/128x128@2x.png \
+              "$pkgdir/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+            install -Dm644 src-tauri/icons/proton-drive.svg \
+              "$pkgdir/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
 
             # Install license
             install -Dm644 LICENSE \
@@ -237,18 +243,24 @@ jobs:
           cd WebClients
           export NODE_OPTIONS="--max-old-space-size=8192"
           node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
           cd ..
 
           npm install
-          npm run build:rpm
+          cd src-tauri && cargo build --release && cd ..
 
           %install
           install -Dm755 src-tauri/target/release/proton-drive \
             %{buildroot}%{_bindir}/proton-drive
 
+          install -Dm644 src-tauri/icons/32x32.png \
+            %{buildroot}%{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
           install -Dm644 src-tauri/icons/128x128.png \
             %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+          install -Dm644 src-tauri/icons/128x128@2x.png \
+            %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/com.proton.drive.png
+          install -Dm644 src-tauri/icons/proton-drive.svg \
+            %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
 
           install -Dm644 <(cat << 'DESKTOP'
           [Desktop Entry]
@@ -265,7 +277,10 @@ jobs:
           %files
           %license LICENSE
           %{_bindir}/proton-drive
+          %{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
           %{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+          %{_datadir}/icons/hicolor/256x256/apps/com.proton.drive.png
+          %{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
           %{_datadir}/applications/com.proton.drive.desktop
 
           %changelog

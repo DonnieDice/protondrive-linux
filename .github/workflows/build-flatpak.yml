@@ -23,6 +23,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
+      - name: Sync version from package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Building version: $VERSION"
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -168,6 +175,9 @@ jobs:
           modules:
             - name: proton-drive
               buildsystem: simple
+              sources:
+                - type: dir
+                  path: .
               build-commands:
                 - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
                 - install -Dm755 proton-drive-wrapper.sh /app/bin/proton-drive
@@ -177,6 +187,8 @@ jobs:
                 - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
                 - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
           EOF
+          # Remove leading indentation from the generated file
+          sed -i 's/^          //' com.proton.drive.yml
 
       - name: Build Flatpak
         run: |
