@@ -14,6 +14,27 @@ const PROXY_PORT: u16 = 9543;
 // Base URL without /api - frontend paths already include /api prefix
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 
+/// Fix Set-Cookie headers for localhost proxy
+/// Removes Domain attribute so cookies are stored for localhost instead of proton.me
+/// Removes Secure attribute since localhost uses HTTP
+/// Changes SameSite=None to SameSite=Lax since we're not cross-site
+fn fix_set_cookie_for_localhost(cookie: &str) -> String {
+    cookie
+        .split(';')
+        .map(|part| part.trim())
+        .filter(|part| {
+            let lower = part.to_lowercase();
+            // Remove Domain=... attribute (cookies should be for localhost)
+            !lower.starts_with("domain=") &&
+            // Remove Secure attribute (localhost is HTTP)
+            lower != "secure" &&
+            // Remove SameSite=None (not needed for same-origin localhost)
+            !lower.starts_with("samesite=none")
+        })
+        .collect::<Vec<_>>()
+        .join("; ")
+}
+
 #[tauri::command]
 async fn show_notification(title: String, body: String) {
     println!("Notification: {} - {}", title, body);
@@ -123,7 +144,15 @@ async fn start_proxy_server() {
                                     && name_str != "content-encoding"
                                 {
                                     if let Ok(v) = value.to_str() {
-                                        response = response.header(name.as_str(), v);
+                                        // Fix Set-Cookie headers for localhost proxy
+                                        // Remove Domain attribute so cookies are stored for localhost
+                                        // Remove Secure attribute since localhost uses HTTP
+                                        if name_str == "set-cookie" {
+                                            let fixed_cookie = fix_set_cookie_for_localhost(v);
+                                            response = response.header(name.as_str(), fixed_cookie);
+                                        } else {
+                                            response = response.header(name.as_str(), v);
+                                        }
                                     }
                                 }
                             }
