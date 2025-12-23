@@ -55,7 +55,7 @@
         "scope": ["**"]
       }
     },
-    "withGlobalTauri": false,
+    "withGlobalTauri": true,
     "windows": [
       {
         "label": "main",
