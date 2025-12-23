@@ -6,7 +6,7 @@
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "frontendDist": "http://localhost:9543"
+    "frontendDist": "../WebClients/applications/drive/dist"
   },
   "bundle": {
     "active": true,

@@ -31,7 +31,7 @@ print(f"✅ Patched {count} dependencies")
 
 # Patch Proton Drive to use standalone mode for desktop wrapper
 # SSO mode expects to run on Proton's domain, standalone mode works with any origin
-# Use --api=/api for relative paths (same-origin with embedded frontend)
+# API calls go to localhost proxy which manages cookies server-side
 print("\nPatching Proton Drive build configuration...")
 drive_pkg_path = Path('WebClients/applications/drive/package.json')
 if drive_pkg_path.exists():
@@ -42,12 +42,12 @@ if drive_pkg_path.exists():
         new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
         # Remove any existing --api override first
         new_script = re.sub(r'\s*--api=\S+', '', new_script)
-        # Add relative API path - works because frontend is served from same origin as proxy
-        new_script = new_script.rstrip() + ' --api=/api'
+        # Point to local proxy - it handles cookies server-side
+        new_script = new_script.rstrip() + ' --api=http://localhost:9543'
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed appMode to standalone, API set to /api (relative same-origin)")
+            print("  Changed appMode to standalone, API set to localhost:9543 proxy")
         else:
             print("  build:web already configured")
     else:

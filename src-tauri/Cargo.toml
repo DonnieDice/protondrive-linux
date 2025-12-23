@@ -21,13 +21,11 @@ tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-notification = "2.0"
-tokio = { version = "1", features = ["full"] }
+tokio = { version = "1", features = ["full", "sync"] }
 reqwest = { version = "0.12", features = ["json"] }
 warp = "0.3"
 futures = "0.3"
 bytes = "1"
-rust-embed = "8"
-mime_guess = "2"
 
 [features]
 default = ["custom-protocol"]
