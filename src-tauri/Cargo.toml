@@ -26,6 +26,8 @@ reqwest = { version = "0.12", features = ["json"] }
 warp = "0.3"
 futures = "0.3"
 bytes = "1"
+rust-embed = "8"
+mime_guess = "2"
 
 [features]
 default = ["custom-protocol"]

@@ -9,10 +9,16 @@ use warp::Filter;
 use reqwest::Client;
 use std::sync::Arc;
 use std::str::FromStr;
+use rust_embed::Embed;
 
 const PROXY_PORT: u16 = 9543;
 // Base URL without /api - frontend paths already include /api prefix
 const PROTON_API_BASE: &str = "https://mail.proton.me";
+
+// Embed the frontend dist files at compile time
+#[derive(Embed)]
+#[folder = "../WebClients/applications/drive/dist"]
+struct FrontendAssets;
 
 /// Fix Set-Cookie headers for localhost proxy
 /// Removes Domain attribute so cookies are stored for localhost instead of proton.me
@@ -55,9 +61,34 @@ async fn check_for_updates() -> Result<bool, String> {
     Ok(false)
 }
 
+/// Serve embedded static files
+fn serve_static_file(path: &str) -> Option<warp::http::Response<Vec<u8>>> {
+    // Remove leading slash
+    let file_path = path.trim_start_matches('/');
+
+    // Try to get the file, or index.html for SPA routing
+    let asset = FrontendAssets::get(file_path)
+        .or_else(|| {
+            // For SPA: if path doesn't look like a file, serve index.html
+            if !file_path.contains('.') || file_path.is_empty() {
+                FrontendAssets::get("index.html")
+            } else {
+                None
+            }
+        });
+
+    asset.map(|content| {
+        let mime = mime_guess::from_path(file_path).first_or_octet_stream();
+        warp::http::Response::builder()
+            .status(200)
+            .header("Content-Type", mime.as_ref())
+            .header("Cache-Control", "no-cache")
+            .body(content.data.to_vec())
+            .unwrap()
+    })
+}
+
 async fn start_proxy_server() {
-    // Stateless proxy - no cookies/sessions stored locally
-    // The WebKitGTK webview handles session management securely
     let client = Arc::new(
         Client::builder()
             .redirect(reqwest::redirect::Policy::none())
@@ -65,8 +96,8 @@ async fn start_proxy_server() {
             .expect("Failed to create HTTP client")
     );
 
-    // Proxy all requests to Proton API
-    let proxy = warp::any()
+    // API proxy - only handles /api/* paths
+    let api_proxy = warp::path("api")
         .and(warp::method())
         .and(warp::path::full())
         .and(warp::header::headers_cloned())
@@ -87,10 +118,8 @@ async fn start_proxy_server() {
                         format!("{}{}?{}", PROTON_API_BASE, path.as_str(), query)
                     };
 
-                    // Log the request for debugging
-                    println!("[PROXY] {} {}", method.as_str(), url);
+                    println!("[API] {} {}", method.as_str(), url);
 
-                    // Convert warp::http::Method to reqwest::Method
                     let reqwest_method = reqwest::Method::from_str(method.as_str())
                         .unwrap_or(reqwest::Method::GET);
 
@@ -99,7 +128,6 @@ async fn start_proxy_server() {
                     // Forward relevant headers
                     for (name, value) in headers.iter() {
                         let name_str = name.as_str().to_lowercase();
-                        // Skip hop-by-hop headers and host
                         if name_str != "host"
                             && name_str != "connection"
                             && name_str != "keep-alive"
@@ -116,13 +144,13 @@ async fn start_proxy_server() {
                         }
                     }
 
-                    // Add Proton-specific headers if not already set
-                    request = request.header("x-pm-appversion", "web-drive@5.0.0")
+                    // Add Proton-specific headers
+                    request = request
+                        .header("x-pm-appversion", "web-drive@5.0.0")
                         .header("x-pm-apiversion", "3")
                         .header("Origin", "https://drive.proton.me")
                         .header("Referer", "https://drive.proton.me/");
 
-                    // Set body for methods that support it
                     if method != warp::http::Method::GET && method != warp::http::Method::HEAD {
                         request = request.body(body.to_vec());
                     }
@@ -130,23 +158,19 @@ async fn start_proxy_server() {
                     match request.send().await {
                         Ok(resp) => {
                             let status_code = resp.status().as_u16();
-                            println!("[PROXY] Response: {}", status_code);
+                            println!("[API] Response: {}", status_code);
                             let resp_headers = resp.headers().clone();
                             let body_bytes = resp.bytes().await.unwrap_or_default();
 
                             let mut response = warp::http::Response::builder()
                                 .status(status_code);
 
-                            // Forward response headers
                             for (name, value) in resp_headers.iter() {
                                 let name_str = name.as_str().to_lowercase();
                                 if name_str != "transfer-encoding"
                                     && name_str != "content-encoding"
                                 {
                                     if let Ok(v) = value.to_str() {
-                                        // Fix Set-Cookie headers for localhost proxy
-                                        // Remove Domain attribute so cookies are stored for localhost
-                                        // Remove Secure attribute since localhost uses HTTP
                                         if name_str == "set-cookie" {
                                             let fixed_cookie = fix_set_cookie_for_localhost(v);
                                             response = response.header(name.as_str(), fixed_cookie);
@@ -157,20 +181,12 @@ async fn start_proxy_server() {
                                 }
                             }
 
-                            // Add CORS headers
-                            response = response
-                                .header("Access-Control-Allow-Origin", "*")
-                                .header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS, PATCH")
-                                .header("Access-Control-Allow-Headers", "*")
-                                .header("Access-Control-Expose-Headers", "*");
-
                             Ok::<_, warp::Rejection>(response.body(body_bytes.to_vec()).unwrap())
                         }
                         Err(e) => {
-                            eprintln!("Proxy error: {}", e);
+                            eprintln!("[API] Error: {}", e);
                             Ok(warp::http::Response::builder()
                                 .status(502)
-                                .header("Access-Control-Allow-Origin", "*")
                                 .body(format!("Proxy error: {}", e).into_bytes())
                                 .unwrap())
                         }
@@ -179,8 +195,9 @@ async fn start_proxy_server() {
             }
         });
 
-    // Handle CORS preflight
-    let cors_preflight = warp::options()
+    // CORS preflight for API
+    let cors_preflight = warp::path("api")
+        .and(warp::options())
         .map(|| {
             warp::http::Response::builder()
                 .status(204)
@@ -192,11 +209,28 @@ async fn start_proxy_server() {
                 .unwrap()
         });
 
-    let routes = cors_preflight.or(proxy);
+    // Static file server for everything else
+    let static_files = warp::get()
+        .and(warp::path::full())
+        .map(|path: warp::path::FullPath| {
+            serve_static_file(path.as_str()).unwrap_or_else(|| {
+                // Fallback to index.html for SPA
+                serve_static_file("index.html").unwrap_or_else(|| {
+                    warp::http::Response::builder()
+                        .status(404)
+                        .body(b"Not Found".to_vec())
+                        .unwrap()
+                })
+            })
+        });
+
+    // Order: CORS preflight -> API proxy -> static files
+    let routes = cors_preflight.or(api_proxy).or(static_files);
     let addr: SocketAddr = ([127, 0, 0, 1], PROXY_PORT).into();
 
-    println!("Starting API proxy on http://{}", addr);
-    println!("Proxying requests to: {}", PROTON_API_BASE);
+    println!("🚀 Server starting on http://{}", addr);
+    println!("   Frontend: embedded static files");
+    println!("   API proxy: {} -> {}", "/api/*", PROTON_API_BASE);
     warp::serve(routes).run(addr).await;
 }
 
