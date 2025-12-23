@@ -12,46 +12,15 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: "22"
   RUST_VERSION: "stable"
 
 jobs:
   build-snap:
     runs-on: ubuntu-latest
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            build-essential \
-            libssl-dev \
-            libwebkit2gtk-4.1-dev \
-            libgtk-3-dev \
-            libayatana-appindicator3-dev \
-            librsvg2-dev \
-            libsoup-3.0-dev \
-            patchelf \
-            python3
-
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
 
       - name: Get version from package.json
         id: version
@@ -74,17 +43,11 @@ jobs:
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
             Built with Tauri and Rust for a native-performance experience.
-            Features:
-            - Secure Proton Drive Integration
-            - Native Desktop Experience
-            - Privacy-Focused
-            - Cross-platform Support
           grade: stable
           confinement: strict
           base: core24
           platforms:
             amd64:
-            arm64:
           title: Proton Drive Linux Desktop Client
           contact: https://github.com/DonnieDice/protondrive-linux/issues
           license: AGPL-3.0
@@ -109,13 +72,6 @@ jobs:
                 - audio-playback
                 - browser-support
                 - password-manager-service
-                - dbus
-
-          plugs:
-            dbus:
-              interface: dbus
-              bus: session
-              name: com.proton.drive
 
           parts:
             proton-drive:
@@ -127,74 +83,40 @@ jobs:
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
                 export PATH="\$HOME/.cargo/bin:\$PATH"
                 rustc --version
-                # Install Node.js 22
+                # Install Node.js
                 curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz -o /tmp/node.tar.xz
                 tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
                 rm /tmp/node.tar.xz
-                node --version
-                npm --version
-                # Clone WebClients
-                echo "Cloning WebClients..."
-                rm -rf WebClients 2>/dev/null || true
-                git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
-                # Patch dependencies
-                echo "Patching dependencies..."
-                python3 scripts/fix_deps.py
-                rm -f WebClients/yarn.lock
-                # Build WebClients (Proton Drive)
-                mv ./package.json ./package.json.bak 2>/dev/null || true
-                mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
-                cd WebClients
-                echo "Installing WebClients dependencies..."
-                export NODE_OPTIONS="--max-old-space-size=8192"
-                node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-                cd ..
-                mv ./package.json.bak ./package.json 2>/dev/null || true
-                mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-                echo "Creating stubs for private packages..."
-                python3 scripts/create_stubs.py
-                cd WebClients
-                echo "Building Proton Drive web app..."
-                node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-                if [ ! -d "applications/drive/dist" ]; then
-                  echo "Build failed - no output directory"
-                  exit 1
-                fi
-                echo "WebClients build complete"
-                cd ..
-                # Install Tauri dependencies and build
+                # Install Tauri deps and build
                 npm install
                 cd src-tauri && cargo build --release && cd ..
-                # Debug: list built binaries
-                echo "=== Built binaries in src-tauri/target/release/ ==="
-                ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
-                if [ -f "src-tauri/target/release/proton-drive" ]; then
-                  echo "Found proton-drive binary"
-                else
-                  echo "proton-drive binary not found!"
-                  find src-tauri/target/release/ -maxdepth 1 -type f -executable
+                if [ ! -f "src-tauri/target/release/proton-drive" ]; then
+                  echo "Binary not found!"
                   exit 1
                 fi
                 # Install binary
                 install -Dm755 src-tauri/target/release/proton-drive "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
                 # Wrapper script
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/bin"
-                echo '#!/bin/bash' > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo '# Fix WebKitGTK EGL/GPU issues on various Linux configurations' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_DMABUF_RENDERER=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'exec "\$SNAP/usr/bin/proton-drive" "\$@"' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPER'
+          #!/bin/bash
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          exec "\$SNAP/usr/bin/proton-drive" "\$@"
+          WRAPPER
                 chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
                 # Desktop file
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-                echo '[Desktop Entry]' > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Version=1.0' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Type=Application' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Name=Proton Drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Comment=Secure cloud storage' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Exec=usr/bin/proton-drive-wrapper' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Icon=com.proton.drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Categories=Utility;' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOP'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=proton-drive-wrapper
+          Icon=com.proton.drive
+          Categories=Utility;Network;
+          DESKTOP
                 # Icons
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
                 mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
@@ -225,8 +147,6 @@ jobs:
                 - librsvg2-2
                 - libsoup-3.0-0
           EOF
-          # Remove leading indentation from the generated file
-          sed -i 's/^          //' snap/snapcraft.yaml
 
       - name: Build Snap package
         uses: snapcore/action-build@v1
@@ -239,11 +159,4 @@ jobs:
           name: snap-package
           path: '*.snap'
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload snapcraft.yaml
-        uses: actions/upload-artifact@v4
-        with:
-          name: snap-config
-          path: snap/snapcraft.yaml
           retention-days: 30

@@ -13,7 +13,6 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: "22"
   RUST_VERSION: "stable"
 
 jobs:
@@ -22,7 +21,7 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: debian:12
-    timeout-minutes: 90
+    timeout-minutes: 45
     defaults:
       run:
         shell: bash
@@ -49,13 +48,9 @@ jobs:
             patchelf \
             fuse \
             libfuse2 \
-            python3 \
             ca-certificates \
-            libvips-dev \
-            libcairo2-dev \
-            libpango1.0-dev \
-            libjpeg-dev \
-            libgif-dev
+            nodejs \
+            npm
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -64,6 +59,7 @@ jobs:
         run: |
           VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.1.0")
           echo "Building version: $VERSION"
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
           sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
 
@@ -77,116 +73,18 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Clone and patch WebClients
-        run: |
-          set -euo pipefail
-
-          echo "📥 Cloning WebClients..."
-          rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
-          git clean -fdx WebClients 2>/dev/null || true
-          git clone --depth=1 --single-branch --branch main \
-            https://github.com/ProtonMail/WebClients.git WebClients
-
-          echo "🔧 Patching dependencies and configuring Yarn..."
-          python3 scripts/fix_deps.py
-
-          rm -f WebClients/yarn.lock
-
-      - name: Build WebClients (Proton Drive)
-        run: |
-          set -euo pipefail
-
-          mv ./package.json ./package.json.bak 2>/dev/null || true
-          mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
-
-          cd WebClients
-
-          echo "📦 Installing WebClients dependencies..."
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-
-          cd ..
-          mv ./package.json.bak ./package.json 2>/dev/null || true
-          mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-
-          echo "📦 Creating stubs for private packages..."
-          python3 scripts/create_stubs.py
-
-          cd WebClients
-
-          echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-
-          echo "🔍 Verifying build output..."
-          if [ ! -d "applications/drive/dist" ]; then
-            echo "❌ CRITICAL: dist directory not found!"
-            exit 1
-          fi
-
-          if [ ! -f "applications/drive/dist/index.html" ]; then
-            echo "❌ CRITICAL: index.html not found in dist!"
-            echo "Contents of applications/drive/:"
-            ls -la applications/drive/ || true
-            exit 1
-          fi
-
-          echo "✅ WebClients build verification passed"
-          echo "📦 Dist contents:"
-          ls -lah applications/drive/dist/ | head -20
-          
-          FILE_COUNT=$(find applications/drive/dist -type f | wc -l)
-          echo "📊 Total files in dist: $FILE_COUNT"
-          
-          if [ "$FILE_COUNT" -lt 5 ]; then
-            echo "❌ CRITICAL: Too few files in dist directory!"
-            exit 1
-          fi
-
-          cd ..
-
-      - name: Verify dist path from project root
-        run: |
-          echo "🔍 Verifying dist path that Tauri will use..."
-          DIST_PATH="WebClients/applications/drive/dist"
-          
-          if [ ! -d "$DIST_PATH" ]; then
-            echo "❌ CRITICAL: $DIST_PATH not found from project root!"
-            echo "Current directory:"
-            pwd
-            echo "Directory structure:"
-            ls -la
-            exit 1
-          fi
-          
-          if [ ! -f "$DIST_PATH/index.html" ]; then
-            echo "❌ CRITICAL: $DIST_PATH/index.html not found!"
-            exit 1
-          fi
-          
-          echo "✅ Dist path verified from project root"
-          echo "Full path: $(pwd)/$DIST_PATH"
-
-      - name: Install Tauri dependencies
+      - name: Install Tauri CLI
         run: npm install
 
       - name: Prepare desktop file for bundlers
         run: |
-          # Desktop file already exists in repo at src-tauri/linux/com.proton.drive.desktop
-          # Create a copy with the binary name for Tauri bundler compatibility
           cp src-tauri/linux/com.proton.drive.desktop src-tauri/linux/proton-drive.desktop
           echo "Desktop files ready"
-          cat src-tauri/linux/com.proton.drive.desktop
 
-      - name: Build DEB and RPM only (skip AppImage for now)
+      - name: Build DEB and RPM
         run: |
           echo "🔨 Building DEB and RPM packages..."
-          npx tauri build --bundles deb,rpm --verbose
+          npx tauri build --bundles deb,rpm
 
           echo "✅ DEB and RPM build complete"
 
@@ -202,31 +100,23 @@ jobs:
           done
           cd -
 
-          # Fix icon names in packages - Tauri uses productName but we need identifier
-          echo "🔧 Checking icon naming in packages..."
-          # Note: The DEB/RPM packages are already built, icons are embedded
-          # The desktop file uses Icon=com.proton.drive which requires icons to be
-          # installed as com.proton.drive.{png,svg} in hicolor directories
-
           find src-tauri/target/release/bundle -type f \
             \( -name "*.deb" -o -name "*.rpm" \) -ls
 
-      - name: Build AppImage manually (workaround for linuxdeploy issues)
+      - name: Build AppImage manually
         run: |
           set -euo pipefail
-          
-          echo "🔨 Building AppImage manually..."
-          
-          VERSION=$(node -p "require('./package.json').version")
+
+          echo "🔨 Building AppImage..."
+
           BINARY_PATH="src-tauri/target/release/proton-drive"
           APPDIR="AppDir"
-          
-          # Verify binary exists
+
           if [ ! -f "$BINARY_PATH" ]; then
             echo "❌ Binary not found at $BINARY_PATH"
             exit 1
           fi
-          
+
           # Create AppDir structure
           mkdir -p "$APPDIR/usr/bin"
           mkdir -p "$APPDIR/usr/share/applications"
@@ -234,12 +124,10 @@ jobs:
           mkdir -p "$APPDIR/usr/share/icons/hicolor/128x128/apps"
           mkdir -p "$APPDIR/usr/share/icons/hicolor/32x32/apps"
           mkdir -p "$APPDIR/usr/share/icons/hicolor/256x256/apps"
-          
-          # Copy binary
+
           cp "$BINARY_PATH" "$APPDIR/usr/bin/proton-drive"
           chmod +x "$APPDIR/usr/bin/proton-drive"
-          
-          # Copy desktop file with correct icon reference (use app identifier)
+
           cat > "$APPDIR/usr/share/applications/com.proton.drive.desktop" << 'EOF'
           [Desktop Entry]
           Version=1.0
@@ -255,51 +143,39 @@ jobs:
           StartupNotify=true
           EOF
 
-          # Copy icons with identifier-based naming for freedesktop compliance
           cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
           cp src-tauri/icons/128x128.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
           cp src-tauri/icons/32x32.png "$APPDIR/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
           cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
 
-          # Create top-level desktop file and icon (required by AppImage)
           cp "$APPDIR/usr/share/applications/com.proton.drive.desktop" "$APPDIR/com.proton.drive.desktop"
           cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
           ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
-          
-          # Create AppRun with environment fixes
+
           cat > "$APPDIR/AppRun" << 'APPRUN_EOF'
           #!/bin/bash
-          # Fix WebKitGTK EGL/GPU issues on various Linux configurations
-          export GDK_GL=disable
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
-          export WEBKIT_FORCE_SANDBOX=0
-          export LIBGL_ALWAYS_SOFTWARE=1
-          export GSK_RENDERER=cairo
 
           HERE="$(dirname "$(readlink -f "${0}")")"
           export PATH="${HERE}/usr/bin:${PATH}"
           export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          
+
           exec "${HERE}/usr/bin/proton-drive" "$@"
           APPRUN_EOF
           chmod +x "$APPDIR/AppRun"
-          
-          # Download appimagetool and extract it (FUSE not available in containers)
+
           wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
           chmod +x appimagetool
           ./appimagetool --appimage-extract
 
-          # Build AppImage using extracted appimagetool
           ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_amd64.AppImage"
-          
-          # Move to bundle directory
+
           mkdir -p src-tauri/target/release/bundle/appimage
           mv "proton-drive_${VERSION}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
-          
-          # Cleanup
+
           rm -rf "$APPDIR" appimagetool squashfs-root
-          
+
           echo "✅ AppImage created successfully"
           ls -lh src-tauri/target/release/bundle/appimage/
 

@@ -12,13 +12,12 @@ permissions:
   contents: write
 
 env:
-  NODE_VERSION: "22"
   RUST_VERSION: "stable"
 
 jobs:
   build-flatpak:
     runs-on: ubuntu-24.04
-    timeout-minutes: 90
+    timeout-minutes: 45
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -46,8 +45,7 @@ jobs:
             libsoup-3.0-dev \
             patchelf \
             flatpak \
-            flatpak-builder \
-            python3
+            flatpak-builder
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -59,88 +57,46 @@ jobs:
         with:
           workspaces: './src-tauri -> target'
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
-
-      - name: Clone and patch WebClients
-        run: |
-          set -euo pipefail
-          echo "📥 Cloning WebClients..."
-          rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
-          git clean -fdx WebClients 2>/dev/null || true
-          git clone --depth=1 --single-branch --branch main \
-            https://github.com/ProtonMail/WebClients.git WebClients
-          echo "🔧 Patching dependencies and configuring Yarn..."
-          python3 scripts/fix_deps.py
-          rm -f WebClients/yarn.lock
-
-      - name: Build WebClients (Proton Drive)
-        run: |
-          set -euo pipefail
-          mv ./package.json ./package.json.bak 2>/dev/null || true
-          mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
-          cd WebClients
-          echo "📦 Installing WebClients dependencies..."
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
-          cd ..
-          mv ./package.json.bak ./package.json 2>/dev/null || true
-          mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-          echo "📦 Creating stubs for private packages..."
-          python3 scripts/create_stubs.py
-          cd WebClients
-          echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-          if [ ! -d "applications/drive/dist" ]; then
-            echo "❌ Build failed - no output directory"
-            exit 1
-          fi
-          echo "✅ WebClients build complete"
-          ls -la applications/drive/dist/
-          cd ..
-
       - name: Install Tauri dependencies
         run: npm install
 
-      - name: Build Tauri binary only (no bundling)
+      - name: Build Tauri binary
         run: |
           echo "🔨 Building Tauri binary..."
           cd src-tauri
           cargo build --release
           cd ..
-          echo "✅ Tauri build complete"
-          echo "Built binaries:"
-          ls -la src-tauri/target/release/ | grep -E '^-.*x'
-          # Verify the binary exists
           if [ ! -f src-tauri/target/release/proton-drive ]; then
-            echo "❌ Expected binary 'proton-drive' not found"
-            echo "Available files:"
-            ls -la src-tauri/target/release/
+            echo "❌ Binary not found"
             exit 1
           fi
+          echo "✅ Build complete"
 
       - name: Setup Flatpak
         run: |
           sudo flatpak remote-add --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           sudo flatpak install -y flathub org.gnome.Platform//47 org.gnome.Sdk//47
 
-      - name: Create wrapper script for WebKitGTK compatibility
+      - name: Prepare Flatpak staging directory
         run: |
-          cat > proton-drive-wrapper.sh << 'EOF'
+          mkdir -p flatpak-staging/icons
+
+          cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
+
+          cat > flatpak-staging/proton-drive << 'EOF'
           #!/bin/bash
-          # Fix WebKitGTK EGL/GPU issues on various Linux configurations
           export WEBKIT_DISABLE_DMABUF_RENDERER=1
           export WEBKIT_DISABLE_COMPOSITING_MODE=1
           exec /app/bin/proton-drive-bin "$@"
           EOF
-          chmod +x proton-drive-wrapper.sh
+          chmod +x flatpak-staging/proton-drive
 
-      - name: Create desktop file
-        run: |
-          cat > com.proton.drive.desktop << 'EOF'
+          cp src-tauri/icons/32x32.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
+          cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
+
+          cat > flatpak-staging/com.proton.drive.desktop << 'EOF'
           [Desktop Entry]
           Version=1.0
           Type=Application
@@ -151,20 +107,6 @@ jobs:
           Categories=Network;FileTransfer;
           Keywords=proton;drive;cloud;storage;sync;
           EOF
-
-      - name: Prepare Flatpak staging directory
-        run: |
-          echo "📦 Creating staging directory with only required files..."
-          mkdir -p flatpak-staging/icons
-          cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
-          cp proton-drive-wrapper.sh flatpak-staging/proton-drive
-          cp src-tauri/icons/32x32.png flatpak-staging/icons/
-          cp src-tauri/icons/128x128.png flatpak-staging/icons/
-          cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
-          cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
-          cp com.proton.drive.desktop flatpak-staging/
-          echo "✅ Staging directory ready:"
-          ls -la flatpak-staging/
 
       - name: Create Flatpak manifest
         run: |
@@ -201,8 +143,6 @@ jobs:
                 - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
                 - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
           EOF
-          # Remove leading indentation from the generated file
-          sed -i 's/^          //' com.proton.drive.yml
 
       - name: Build Flatpak
         run: |
@@ -217,15 +157,5 @@ jobs:
         with:
           name: flatpak-bundle
           path: proton-drive.flatpak
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload Flatpak manifest
-        uses: actions/upload-artifact@v4
-        with:
-          name: flatpak-manifest
-          path: |
-            com.proton.drive.yml
-            com.proton.drive.desktop
           if-no-files-found: error
           retention-days: 30
