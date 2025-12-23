@@ -6,7 +6,7 @@
   "build": {
     "beforeBuildCommand": "",
     "beforeDevCommand": "",
-    "frontendDist": "https://drive.proton.me"
+    "frontendDist": "../WebClients/applications/drive/dist"
   },
   "bundle": {
     "active": true,
