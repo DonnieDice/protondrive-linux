@@ -31,7 +31,7 @@ print(f"✅ Patched {count} dependencies")
 
 # Patch Proton Drive to use standalone mode for desktop wrapper
 # SSO mode expects to run on Proton's domain, standalone mode works with any origin
-# API calls go to localhost proxy which manages cookies server-side
+# No --api flag needed: Tauri IPC intercepts all fetch/XHR calls to Proton domains
 print("\nPatching Proton Drive build configuration...")
 drive_pkg_path = Path('WebClients/applications/drive/package.json')
 if drive_pkg_path.exists():
@@ -40,14 +40,12 @@ if drive_pkg_path.exists():
         old_script = drive_data['scripts']['build:web']
         # Change appMode from sso to standalone for desktop wrapper
         new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
-        # Remove any existing --api override first
+        # Remove any --api override - Tauri IPC handles API calls via fetch interception
         new_script = re.sub(r'\s*--api=\S+', '', new_script)
-        # Point to local proxy - it handles cookies server-side
-        new_script = new_script.rstrip() + ' --api=http://localhost:9543'
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed appMode to standalone, API set to localhost:9543 proxy")
+            print("  Changed appMode to standalone (API calls intercepted via Tauri IPC)")
         else:
             print("  build:web already configured")
     else:
