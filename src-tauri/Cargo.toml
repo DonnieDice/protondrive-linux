@@ -21,8 +21,8 @@ tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-notification = "2.0"
-tokio = { version = "1", features = ["full", "sync"] }
-reqwest = { version = "0.12", features = ["json"] }
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json", "cookies"] }
 warp = "0.3"
 futures = "0.3"
 bytes = "1"
