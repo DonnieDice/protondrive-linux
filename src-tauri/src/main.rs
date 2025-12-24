@@ -10,7 +10,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tauri::Manager;
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 use tokio::sync::RwLock;
 
 use auth::{AuthManager, AuthSession, AuthError};
@@ -334,25 +334,28 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            let window = app.get_webview_window("main").unwrap();
-
-            // Inject fetch interceptor + auth helpers
-            let inject_script = r#"
+            // Fetch interceptor script - runs BEFORE any page JavaScript
+            let init_script = r#"
+// Immediately override fetch before any other JS runs
 (function() {
-    if (window.__TAURI_FETCH_INJECTED__) return;
-    window.__TAURI_FETCH_INJECTED__ = true;
+    'use strict';
+
+    console.log('[Tauri] Initializing fetch interceptor...');
 
     const originalFetch = window.fetch;
     const PROXY_PATTERNS = ['/api/', 'mail.proton.me', 'drive.proton.me', 'account.proton.me'];
 
     window.fetch = async function(input, init = {}) {
-        let url = typeof input === 'string' ? input : input.url;
+        let url = typeof input === 'string' ? input : (input.url || String(input));
 
+        // Check if this should be proxied
         const shouldProxy = PROXY_PATTERNS.some(p => url.includes(p));
 
         if (!shouldProxy) {
             return originalFetch.call(window, input, init);
         }
+
+        console.log('[Tauri Proxy]', init.method || 'GET', url);
 
         const method = init.method || 'GET';
         const headers = {};
@@ -376,6 +379,11 @@ fn main() {
                 init.body.forEach((v, k) => obj[k] = v);
                 body = JSON.stringify(obj);
                 headers['content-type'] = 'application/json';
+            } else if (init.body instanceof ArrayBuffer || init.body instanceof Uint8Array) {
+                // Handle binary data - convert to base64
+                const bytes = new Uint8Array(init.body);
+                body = btoa(String.fromCharCode.apply(null, bytes));
+                headers['x-tauri-binary'] = 'true';
             } else {
                 body = JSON.stringify(init.body);
             }
@@ -386,9 +394,18 @@ fn main() {
                 request: { method, url, headers, body }
             });
 
+            console.log('[Tauri Proxy] Response:', response.status, url);
+
+            // Build response headers
+            const respHeaders = new Headers();
+            for (const [k, v] of Object.entries(response.headers || {})) {
+                try { respHeaders.set(k, v); } catch(e) {}
+            }
+
             return new Response(response.body, {
                 status: response.status,
-                headers: response.headers
+                statusText: response.status === 200 ? 'OK' : '',
+                headers: respHeaders
             });
         } catch (err) {
             console.error('[Tauri Proxy] Error:', err);
@@ -402,7 +419,7 @@ fn main() {
         const xhr = new OriginalXHR();
         const originalOpen = xhr.open;
         const originalSend = xhr.send;
-        let method, url, headers = {};
+        let method = 'GET', url = '', headers = {};
 
         xhr.open = function(m, u, ...args) {
             method = m;
@@ -423,18 +440,23 @@ fn main() {
                 return originalSend.call(this, body);
             }
 
+            console.log('[Tauri XHR]', method, url);
+
             window.__TAURI__.core.invoke('proxy_request', {
                 request: { method, url, headers, body: body || null }
             }).then(response => {
-                Object.defineProperty(xhr, 'status', { value: response.status });
-                Object.defineProperty(xhr, 'responseText', { value: response.body });
-                Object.defineProperty(xhr, 'response', { value: response.body });
-                Object.defineProperty(xhr, 'readyState', { value: 4 });
+                Object.defineProperty(xhr, 'status', { value: response.status, writable: false });
+                Object.defineProperty(xhr, 'statusText', { value: 'OK', writable: false });
+                Object.defineProperty(xhr, 'responseText', { value: response.body, writable: false });
+                Object.defineProperty(xhr, 'response', { value: response.body, writable: false });
+                Object.defineProperty(xhr, 'readyState', { value: 4, writable: false });
 
-                if (xhr.onreadystatechange) xhr.onreadystatechange();
-                if (xhr.onload) xhr.onload();
+                xhr.dispatchEvent(new Event('readystatechange'));
+                xhr.dispatchEvent(new Event('load'));
+                xhr.dispatchEvent(new Event('loadend'));
             }).catch(err => {
-                if (xhr.onerror) xhr.onerror(err);
+                console.error('[Tauri XHR] Error:', err);
+                xhr.dispatchEvent(new Event('error'));
             });
         };
 
@@ -443,28 +465,26 @@ fn main() {
 
     // Expose auth commands to frontend
     window.__PROTON_AUTH__ = {
-        login: async (username, password) => {
-            return window.__TAURI__.core.invoke('login', { username, password });
-        },
-        submit2FA: async (code) => {
-            return window.__TAURI__.core.invoke('submit_2fa', { code });
-        },
-        isAuthenticated: async () => {
-            return window.__TAURI__.core.invoke('is_authenticated');
-        },
-        getSession: async () => {
-            return window.__TAURI__.core.invoke('get_auth_session');
-        },
-        logout: async () => {
-            return window.__TAURI__.core.invoke('logout');
-        }
+        login: (username, password) => window.__TAURI__.core.invoke('login', { username, password }),
+        submit2FA: (code) => window.__TAURI__.core.invoke('submit_2fa', { code }),
+        isAuthenticated: () => window.__TAURI__.core.invoke('is_authenticated'),
+        getSession: () => window.__TAURI__.core.invoke('get_auth_session'),
+        logout: () => window.__TAURI__.core.invoke('logout')
     };
 
-    console.log('[Tauri] Fetch interceptor + Auth helpers installed');
+    window.__TAURI_FETCH_INJECTED__ = true;
+    console.log('[Tauri] Fetch interceptor installed successfully');
 })();
 "#;
 
-            window.eval(inject_script).expect("Failed to inject script");
+            // Create window with initialization script that runs before page JS
+            let _window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
+                .title("Proton Drive")
+                .inner_size(1200.0, 800.0)
+                .min_inner_size(800.0, 600.0)
+                .initialization_script(init_script)
+                .build()?;
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
