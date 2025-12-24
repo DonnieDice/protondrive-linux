@@ -2,6 +2,8 @@ name: Create Release
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -32,11 +34,30 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
             TAG="${{ github.event.inputs.tag }}"
-          else
+          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
+          else
+            # For branch pushes, get version from package.json
+            TAG="v$(node -p "require('./package.json').version")"
           fi
           echo "version=${TAG}" >> $GITHUB_OUTPUT
           echo "Version: ${TAG}"
+
+      - name: Create and push tag if needed
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+
+          # Check if tag already exists on remote
+          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+            echo "Tag ${TAG} already exists on remote, skipping creation"
+          else
+            echo "Creating tag ${TAG}..."
+            git config user.name "github-actions[bot]"
+            git config user.email "github-actions[bot]@users.noreply.github.com"
+            git tag -a "${TAG}" -m "Release ${TAG}"
+            git push origin "${TAG}"
+            echo "Tag ${TAG} created and pushed"
+          fi
 
       - name: Wait for all builds to complete
         uses: actions/github-script@v7

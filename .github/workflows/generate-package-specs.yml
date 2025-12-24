@@ -2,6 +2,8 @@ name: Generate Package Specs
 
 on:
   push:
+    branches:
+      - main
     tags:
       - "v*"
   workflow_dispatch:
@@ -13,17 +15,20 @@ permissions:
 jobs:
   generate-aur-pkgbuild:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from tag
+      - name: Get version
         id: tag
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Generate AUR PKGBUILD
@@ -175,17 +180,20 @@ jobs:
 
   generate-rpm-spec:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Get version from tag
+      - name: Get version
         id: tag
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create .copr/Makefile
@@ -297,7 +305,6 @@ jobs:
 
   create-source-dist:
     runs-on: ubuntu-latest
-    if: startsWith(github.ref, 'refs/tags/')
     timeout-minutes: 30
 
     steps:
@@ -306,10 +313,14 @@ jobs:
         with:
           submodules: recursive
 
-      - name: Get version from tag
+      - name: Get version
         id: tag
         run: |
-          VERSION=${GITHUB_REF#refs/tags/v}
+          if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/v}
+          else
+            VERSION=$(node -p "require('./package.json').version")
+          fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
 
       - name: Create source tarball
