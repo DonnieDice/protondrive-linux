@@ -25,7 +25,7 @@ This repository contains the source code for the Proton Drive Linux Desktop Clie
 *   **Multiple Distribution Formats:** Install via deb, rpm, AppImage, Snap, or Flatpak for compatibility with any Linux distribution.
 *   **Privacy-Focused:** Leverages Proton's commitment to privacy and end-to-end encryption.
 
-## Technologies Used
+## Technologies Used 
 
 The Proton Drive Linux Desktop Client is a hybrid application combining:
 
