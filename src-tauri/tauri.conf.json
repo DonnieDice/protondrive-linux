@@ -56,19 +56,7 @@
       }
     },
     "withGlobalTauri": true,
-    "windows": [
-      {
-        "label": "main",
-        "title": "Proton Drive",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "resizable": true,
-        "fullscreen": false,
-        "visible": true
-      }
-    ]
+    "windows": []
   },
   "plugins": {
     "shell": {
