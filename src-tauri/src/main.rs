@@ -594,6 +594,30 @@ fn main() {
                 .min_inner_size(800.0, 600.0)
                 .initialization_script(init_script)
                 .devtools(true)  // Enable right-click -> Inspect
+                .on_download(|_webview, event| {
+                    use tauri::webview::DownloadEvent;
+                    match event {
+                        DownloadEvent::Requested { url, destination } => {
+                            // Set download destination to ~/Downloads
+                            if let Some(home) = dirs::home_dir() {
+                                let downloads_dir = home.join("Downloads");
+                                let url_str = url.as_str();
+                                if let Some(filename) = url_str.split('/').last() {
+                                    // Remove query params from filename
+                                    let clean_name = filename.split('?').next().unwrap_or(filename);
+                                    *destination = downloads_dir.join(clean_name);
+                                    println!("[Download] {} -> {:?}", url_str, destination);
+                                }
+                            }
+                            true // Allow download
+                        }
+                        DownloadEvent::Finished { success, .. } => {
+                            println!("[Download] Finished, success: {}", success);
+                            true
+                        }
+                        _ => true
+                    }
+                })
                 .on_navigation(move |url| {
                     let url_str = url.as_str();
                     println!("[Navigation] {}", url_str);
