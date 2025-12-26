@@ -60,13 +60,6 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Sync version from package.json
-        run: |
-          VERSION=$(node -p "require('./package.json').version" 2>/dev/null || echo "1.1.0")
-          echo "Building version: $VERSION"
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -82,6 +75,14 @@ jobs:
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
+
+      - name: Sync version from package.json
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "Building version: $VERSION"
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+          echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Clone and patch WebClients
         run: |
