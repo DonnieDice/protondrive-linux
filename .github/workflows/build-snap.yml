@@ -162,11 +162,23 @@ jobs:
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
                 if [ -d "applications/account/dist" ]; then
                   cp -r applications/account/dist applications/drive/dist/account
-                  echo "Account app copied"
+                  echo "Fixing account app paths for nested deployment..."
+                  find applications/drive/dist/account -name "*.html" -exec sed -i \
+                    -e 's|<base href="/">|<base href="/account/">|g' \
+                    -e 's|href="/assets/|href="/account/assets/|g' \
+                    -e 's|src="/assets/|src="/account/assets/|g' \
+                    -e 's|content="/assets/|content="/account/assets/|g' {} \;
+                  echo "Account app copied and paths fixed"
                 fi
                 if [ -d "applications/verify/dist" ]; then
                   cp -r applications/verify/dist applications/drive/dist/verify
-                  echo "Verify app copied"
+                  echo "Fixing verify app paths for nested deployment..."
+                  find applications/drive/dist/verify -name "*.html" -exec sed -i \
+                    -e 's|<base href="/">|<base href="/verify/">|g' \
+                    -e 's|href="/assets/|href="/verify/assets/|g' \
+                    -e 's|src="/assets/|src="/verify/assets/|g' \
+                    -e 's|content="/assets/|content="/verify/assets/|g' {} \;
+                  echo "Verify app copied and paths fixed"
                 fi
                 if [ ! -d "applications/drive/dist" ]; then
                   echo "Build failed - no output directory"

@@ -1,6 +1,15 @@
 import json
 import re
+import sys
 from pathlib import Path
+
+# Check if WebClients directory exists
+webclient_dir = Path('WebClients')
+if not webclient_dir.exists():
+    print("❌ ERROR: WebClients directory not found!")
+    print("   Please clone WebClients first:")
+    print("   git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients")
+    sys.exit(1)
 
 print("Scanning for problematic dependencies...")
 count = 0
