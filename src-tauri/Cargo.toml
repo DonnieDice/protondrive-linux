@@ -1,6 +1,6 @@
 [package]
 name = "proton-drive"
-version = "1.1.0"
+version = "1.1.1"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"

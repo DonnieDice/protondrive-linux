@@ -101,6 +101,25 @@ fn get_captcha_return_url() -> Option<String> {
 }
 
 #[tauri::command]
+async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String> {
+    let downloads_dir = dirs::download_dir()
+        .or_else(|| dirs::home_dir().map(|h| h.join("Downloads")))
+        .ok_or("Could not find Downloads directory")?;
+
+    // Ensure downloads dir exists
+    std::fs::create_dir_all(&downloads_dir)
+        .map_err(|e| format!("Failed to create Downloads dir: {}", e))?;
+
+    let file_path = downloads_dir.join(&filename);
+    println!("[Download] Saving to: {:?}", file_path);
+
+    std::fs::write(&file_path, &data)
+        .map_err(|e| format!("Failed to write file: {}", e))?;
+
+    Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
 async fn proxy_request(
     state: tauri::State<'_, Arc<AppState>>,
     request: ProxyRequest,
@@ -194,6 +213,119 @@ fn main() {
         .setup(|app| {
             let init_script = r#"
 (function() {
+    // Intercept Blob downloads and save to ~/Downloads
+    const origCreateObjectURL = URL.createObjectURL;
+    let pendingDownloadName = null;
+
+    URL.createObjectURL = function(blob) {
+        const url = origCreateObjectURL.call(URL, blob);
+        if (!window.__blobUrls) window.__blobUrls = new Map();
+        window.__blobUrls.set(url, blob);
+        console.log('[Blob] Created:', url, 'size:', blob.size);
+        return url;
+    };
+
+    // Intercept window.open for blob URLs
+    const origWindowOpen = window.open;
+    window.open = function(url, ...args) {
+        if (url && url.startsWith('blob:')) {
+            console.log('[Download] Intercepted window.open blob:', url);
+            handleBlobDownload(url, pendingDownloadName || 'download');
+            return null;
+        }
+        return origWindowOpen.call(window, url, ...args);
+    };
+
+    // Intercept location assignment for blob URLs
+    const locationDescriptor = Object.getOwnPropertyDescriptor(window, 'location');
+    // Can't override location directly, but we can intercept anchor navigation
+
+    // Intercept anchor clicks with download attribute OR href to blob
+    document.addEventListener('click', async (e) => {
+        const anchor = e.target.closest('a');
+        if (!anchor) return;
+
+        const href = anchor.href;
+        if (!href || !href.startsWith('blob:')) return;
+
+        e.preventDefault();
+        e.stopPropagation();
+
+        const filename = anchor.download || pendingDownloadName || 'download';
+        console.log('[Download] Intercepted anchor click:', filename);
+        await handleBlobDownload(href, filename);
+    }, true);
+
+    // Watch for download filename from Proton's download logic
+    const origSetAttribute = Element.prototype.setAttribute;
+    Element.prototype.setAttribute = function(name, value) {
+        if (name === 'download' && this.tagName === 'A') {
+            pendingDownloadName = value;
+            window.__pendingDownloadName = value;
+            console.log('[Download] setAttribute filename:', value);
+        }
+        return origSetAttribute.call(this, name, value);
+    };
+
+    // Also intercept direct property assignment
+    const anchorProto = HTMLAnchorElement.prototype;
+    const downloadDesc = Object.getOwnPropertyDescriptor(anchorProto, 'download');
+    if (downloadDesc) {
+        Object.defineProperty(anchorProto, 'download', {
+            get: downloadDesc.get,
+            set: function(value) {
+                pendingDownloadName = value;
+                window.__pendingDownloadName = value;
+                console.log('[Download] Property filename:', value);
+                return downloadDesc.set.call(this, value);
+            },
+            configurable: true
+        });
+    }
+
+    // Also watch for anchor creation with download attribute
+    const origCreateElement = document.createElement;
+    document.createElement = function(tag, options) {
+        const el = origCreateElement.call(document, tag, options);
+        if (tag.toLowerCase() === 'a') {
+            // Watch this anchor for download attribute changes
+            const observer = new MutationObserver((mutations) => {
+                for (const m of mutations) {
+                    if (m.attributeName === 'download') {
+                        const val = el.getAttribute('download');
+                        if (val) {
+                            pendingDownloadName = val;
+                            window.__pendingDownloadName = val;
+                            console.log('[Download] Observed filename:', val);
+                        }
+                    }
+                }
+            });
+            observer.observe(el, { attributes: true, attributeFilter: ['download'] });
+        }
+        return el;
+    };
+
+    async function handleBlobDownload(blobUrl, filename) {
+        const blob = window.__blobUrls?.get(blobUrl);
+        if (!blob) {
+            console.error('[Download] Blob not found for:', blobUrl);
+            return;
+        }
+        try {
+            console.log('[Download] Saving:', filename, 'size:', blob.size);
+            const buffer = await blob.arrayBuffer();
+            const bytes = Array.from(new Uint8Array(buffer));
+            const path = await window.__TAURI__.core.invoke('save_download', {
+                filename: filename,
+                data: bytes
+            });
+            console.log('[Download] Saved to:', path);
+        } catch (err) {
+            console.error('[Download] Failed:', err);
+        }
+    }
+
     // Track if we have a pending captcha - to avoid opening multiple windows
     let captchaPending = false;
     let lastCaptchaToken = null;
@@ -622,6 +754,37 @@ fn main() {
                     let url_str = url.as_str();
                     println!("[Navigation] {}", url_str);
 
+                    // Intercept blob: URLs for downloads
+                    if url.scheme() == "blob" {
+                        println!("[Download] Intercepting blob navigation");
+                        let blob_url = url_str.to_string();
+                        if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            let js = format!(r#"
+                                (async function() {{
+                                    const blobUrl = "{}";
+                                    const blob = window.__blobUrls?.get(blobUrl);
+                                    if (blob) {{
+                                        const filename = window.__pendingDownloadName || 'download';
+                                        console.log('[Download] Saving blob:', filename, 'size:', blob.size);
+                                        const buffer = await blob.arrayBuffer();
+                                        const bytes = Array.from(new Uint8Array(buffer));
+                                        const path = await window.__TAURI__.core.invoke('save_download', {{
+                                            filename: filename,
+                                            data: bytes
+                                        }});
+                                        console.log('[Download] Saved to:', path);
+                                    }} else {{
+                                        console.error('[Download] Blob not found:', blobUrl);
+                                    }}
+                                }})();
+                            "#, blob_url);
+                            tauri::async_runtime::spawn(async move {
+                                let _ = window.eval(&js);
+                            });
+                        }
+                        return false; // Block blob navigation
+                    }
+
                     // Rewrite /login paths to /account/ (local SSO)
                     // Add product=drive to tell account app to redirect to Drive after login
                     if url.path().starts_with("/login") {
@@ -756,7 +919,7 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![proxy_request, js_log, navigate_to_captcha, get_captcha_return_url, store_verification_token, get_and_clear_verification_token, store_login_credentials, get_and_clear_login_credentials])
+        .invoke_handler(tauri::generate_handler![proxy_request, js_log, navigate_to_captcha, get_captcha_return_url, store_verification_token, get_and_clear_verification_token, store_login_credentials, get_and_clear_login_credentials, save_download])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
