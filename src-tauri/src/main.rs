@@ -194,8 +194,12 @@ async fn proxy_request(
 }
 
 fn main() {
+    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+    std::env::set_var("GDK_GL", "disable");
+    std::env::set_var("GSK_RENDERER", "cairo");
 
     // Create shared client with cookie jar
     let state = Arc::new(AppState {
