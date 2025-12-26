@@ -21,12 +21,9 @@ tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-notification = "2.0"
-tokio = { version = "1", features = ["full", "sync"] }
-reqwest = { version = "0.12", features = ["json"] }
-thiserror = "1"
-
-# Proton's official SRP implementation
-proton-srp = { git = "https://github.com/ProtonMail/proton-crypto-rs", features = ["pgpinternal"] }
+tokio = { version = "1", features = ["rt-multi-thread"] }
+reqwest = { version = "0.12", features = ["json", "cookies"] }
+base64 = "0.22"
 
 [features]
 default = ["custom-protocol"]
