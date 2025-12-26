@@ -41,3 +41,6 @@ dist/
 WebClients/applications/*/node_modules/
 WebClients/applications/*/dist/
 WebClients/
+
+# Debug files
+DEBUGGING.md
