@@ -156,6 +156,18 @@ jobs:
                 cd WebClients
                 echo "Building Proton Drive web app..."
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
+                echo "Building Account app for SSO..."
+                node .yarn/releases/yarn-4.12.0.cjs workspace proton-account build:web || echo "Account build failed"
+                echo "Building Verify app for captcha..."
+                node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
+                if [ -d "applications/account/dist" ]; then
+                  cp -r applications/account/dist applications/drive/dist/account
+                  echo "Account app copied"
+                fi
+                if [ -d "applications/verify/dist" ]; then
+                  cp -r applications/verify/dist applications/drive/dist/verify
+                  echo "Verify app copied"
+                fi
                 if [ ! -d "applications/drive/dist" ]; then
                   echo "Build failed - no output directory"
                   exit 1
