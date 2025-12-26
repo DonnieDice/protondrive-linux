@@ -18,10 +18,16 @@ This repository contains the source code for the Proton Drive Linux Desktop Clie
 - [Contributing](#contributing)
 - [License](#license)
 
+## Status
+
+**v1.1.x - Working Beta** - Login, 2FA, and file browsing are functional. Downloads save to `~/Downloads`. Not fully tested - please report issues!
+
 ## Features
 
 *   **Secure Proton Drive Integration:** Access your encrypted Proton Drive files directly from your Linux desktop.
+*   **Full Authentication Support:** Login with username/password, 2FA (TOTP), and CAPTCHA verification all work in-app.
 *   **Native Desktop Experience:** Built with Tauri for seamless integration with your Linux desktop environment.
+*   **Downloads to ~/Downloads:** Files download directly to your Downloads folder.
 *   **Multiple Distribution Formats:** Install via deb, rpm, AppImage, Snap, or Flatpak for compatibility with any Linux distribution.
 *   **Privacy-Focused:** Leverages Proton's commitment to privacy and end-to-end encryption.
 
