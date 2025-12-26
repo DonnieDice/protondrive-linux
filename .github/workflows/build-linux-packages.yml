@@ -123,6 +123,24 @@ jobs:
           echo "🔨 Building Proton Drive web app..."
           node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
 
+          echo "🔨 Building Account app for SSO..."
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-account build:web || echo "Account build failed"
+
+          echo "🔨 Building Verify app for captcha..."
+          node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
+
+          echo "📦 Copying account app to drive dist..."
+          if [ -d "applications/account/dist" ]; then
+            cp -r applications/account/dist applications/drive/dist/account
+            echo "✅ Account app copied"
+          fi
+
+          echo "📦 Copying verify app to drive dist..."
+          if [ -d "applications/verify/dist" ]; then
+            cp -r applications/verify/dist applications/drive/dist/verify
+            echo "✅ Verify app copied"
+          fi
+
           echo "🔍 Verifying build output..."
           if [ ! -d "applications/drive/dist" ]; then
             echo "❌ CRITICAL: dist directory not found!"
