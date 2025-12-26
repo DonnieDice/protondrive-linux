@@ -60,21 +60,18 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
-        with:
-          toolchain: ${{ env.RUST_VERSION }}
-
-      - name: Rust cache
-        uses: swatinem/rust-cache@v2
-        with:
-          workspaces: './src-tauri -> target'
+      - name: Install Rust via rustup (inside container for GLIBC compatibility)
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable
+          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
+          . "$HOME/.cargo/env"
+          rustc --version
+          cargo --version
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: ${{ env.NODE_VERSION }}
-          cache: 'npm'
 
       - name: Sync version from package.json
         run: |
@@ -229,6 +226,32 @@ jobs:
 
           find src-tauri/target/release/bundle -type f \
             \( -name "*.deb" -o -name "*.rpm" \) -ls
+
+      - name: Verify GLIBC compatibility
+        run: |
+          echo "🔍 Checking GLIBC requirements of built binary..."
+          BINARY="src-tauri/target/release/proton-drive"
+
+          # Check required GLIBC version
+          GLIBC_VERSIONS=$(objdump -T "$BINARY" 2>/dev/null | grep GLIBC | sed 's/.*GLIBC_//' | cut -d' ' -f1 | sort -V | uniq)
+          echo "Required GLIBC versions:"
+          echo "$GLIBC_VERSIONS"
+
+          # Get the highest required version
+          MAX_GLIBC=$(echo "$GLIBC_VERSIONS" | tail -1)
+          echo "Highest required GLIBC: $MAX_GLIBC"
+
+          # Debian 12 has GLIBC 2.36, so we need to ensure we don't require higher
+          if printf '%s\n' "2.36" "$MAX_GLIBC" | sort -V | head -1 | grep -q "2.36"; then
+            if [ "$MAX_GLIBC" = "2.36" ] || printf '%s\n' "$MAX_GLIBC" "2.36" | sort -V | head -1 | grep -q "$MAX_GLIBC"; then
+              echo "✅ Binary is compatible with Debian 12 (GLIBC 2.36)"
+            else
+              echo "❌ Binary requires GLIBC $MAX_GLIBC which is higher than Debian 12's 2.36"
+              exit 1
+            fi
+          else
+            echo "✅ Binary is compatible with GLIBC 2.36"
+          fi
 
       - name: Build AppImage manually (workaround for linuxdeploy issues)
         run: |
