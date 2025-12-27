@@ -156,6 +156,33 @@ jobs:
           ls -la applications/drive/dist/
           cd ..
 
+      - name: Verify asset paths (prevent white screen)
+        run: |
+          DIST_PATH="WebClients/applications/drive/dist"
+
+          # CRITICAL: Verify account app paths are correctly prefixed
+          if [ -f "$DIST_PATH/account/index.html" ]; then
+            echo "🔍 Verifying account app asset paths..."
+            if grep -q 'src="/assets/' "$DIST_PATH/account/index.html"; then
+              echo "❌ CRITICAL: Account app has unfixed asset paths!"
+              echo "   This will cause white screen in packaged apps!"
+              exit 1
+            fi
+            if ! grep -q '<base href="/account/">' "$DIST_PATH/account/index.html"; then
+              echo "❌ CRITICAL: Account app missing correct base href!"
+              exit 1
+            fi
+            echo "✅ Account app paths verified"
+          fi
+
+          if [ -f "$DIST_PATH/verify/index.html" ]; then
+            if grep -q 'src="/assets/' "$DIST_PATH/verify/index.html"; then
+              echo "❌ CRITICAL: Verify app has unfixed asset paths!"
+              exit 1
+            fi
+            echo "✅ Verify app paths verified"
+          fi
+
       - name: Install Tauri dependencies
         run: npm install
 

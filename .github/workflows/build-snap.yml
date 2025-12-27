@@ -203,6 +203,19 @@ jobs:
                   exit 1
                 fi
                 echo "WebClients build complete"
+                # CRITICAL: Verify account app paths (prevents white screen)
+                if [ -f "applications/drive/dist/account/index.html" ]; then
+                  echo "Verifying account app asset paths..."
+                  if grep -q 'src="/assets/' "applications/drive/dist/account/index.html"; then
+                    echo "CRITICAL: Account app has unfixed asset paths! This will cause white screen!"
+                    exit 1
+                  fi
+                  if ! grep -q '<base href="/account/">' "applications/drive/dist/account/index.html"; then
+                    echo "CRITICAL: Account app missing correct base href!"
+                    exit 1
+                  fi
+                  echo "Account app paths verified"
+                fi
                 cd ..
                 # Install Tauri dependencies and build
                 npm install

@@ -209,7 +209,7 @@ jobs:
         run: |
           echo "🔍 Verifying dist path that Tauri will use..."
           DIST_PATH="WebClients/applications/drive/dist"
-          
+
           if [ ! -d "$DIST_PATH" ]; then
             echo "❌ CRITICAL: $DIST_PATH not found from project root!"
             echo "Current directory:"
@@ -218,12 +218,43 @@ jobs:
             ls -la
             exit 1
           fi
-          
+
           if [ ! -f "$DIST_PATH/index.html" ]; then
             echo "❌ CRITICAL: $DIST_PATH/index.html not found!"
             exit 1
           fi
-          
+
+          # CRITICAL: Verify account app paths are correctly prefixed
+          # This prevents white screen issues in packaged apps
+          if [ -f "$DIST_PATH/account/index.html" ]; then
+            echo "🔍 Verifying account app asset paths..."
+            if grep -q 'src="/assets/' "$DIST_PATH/account/index.html"; then
+              echo "❌ CRITICAL: Account app has unfixed asset paths!"
+              echo "   Found: src=\"/assets/\" (should be src=\"/account/assets/\")"
+              echo "   This will cause white screen in packaged apps!"
+              exit 1
+            fi
+            if grep -q 'href="/assets/' "$DIST_PATH/account/index.html"; then
+              echo "❌ CRITICAL: Account app has unfixed href paths!"
+              exit 1
+            fi
+            if ! grep -q '<base href="/account/">' "$DIST_PATH/account/index.html"; then
+              echo "❌ CRITICAL: Account app missing correct base href!"
+              exit 1
+            fi
+            echo "✅ Account app paths verified"
+          fi
+
+          # Verify verify app paths
+          if [ -f "$DIST_PATH/verify/index.html" ]; then
+            echo "🔍 Verifying verify app asset paths..."
+            if grep -q 'src="/assets/' "$DIST_PATH/verify/index.html"; then
+              echo "❌ CRITICAL: Verify app has unfixed asset paths!"
+              exit 1
+            fi
+            echo "✅ Verify app paths verified"
+          fi
+
           echo "✅ Dist path verified from project root"
           echo "Full path: $(pwd)/$DIST_PATH"
 

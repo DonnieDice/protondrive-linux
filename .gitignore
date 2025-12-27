@@ -45,3 +45,6 @@ WebClients/
 # Debug files
 DEBUGGING.md
 WebClients-test
+
+# Local build scripts (personal)
+scripts/build-local.sh
