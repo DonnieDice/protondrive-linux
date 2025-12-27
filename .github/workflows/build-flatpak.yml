@@ -69,23 +69,11 @@ jobs:
         run: |
           set -euo pipefail
 
-          # Check if we need to clone or update WebClients
-          REMOTE_COMMIT=$(git ls-remote https://github.com/ProtonMail/WebClients.git refs/heads/main | cut -f1)
-          LOCAL_COMMIT=""
-
-          if [ -d "WebClients/.git" ]; then
-            LOCAL_COMMIT=$(git -C WebClients rev-parse HEAD 2>/dev/null || echo "")
-          fi
-
-          if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ] && [ -n "$LOCAL_COMMIT" ]; then
-            echo "✅ WebClients is up-to-date (commit: ${LOCAL_COMMIT:0:8}), skipping clone"
-          else
-            echo "📥 Cloning WebClients (remote: ${REMOTE_COMMIT:0:8}, local: ${LOCAL_COMMIT:0:8:-none})"
-            rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
-            git clean -fdx WebClients 2>/dev/null || true
-            git clone --depth=1 --single-branch --branch main \
-              https://github.com/ProtonMail/WebClients.git WebClients
-          fi
+          echo "📥 Cloning WebClients..."
+          rm -rf WebClients .git/modules/WebClients 2>/dev/null || true
+          git clean -fdx WebClients 2>/dev/null || true
+          git clone --depth=1 --single-branch --branch main \
+            https://github.com/ProtonMail/WebClients.git WebClients
 
           echo "🔧 Patching dependencies and configuring Yarn..."
           python3 scripts/fix_deps.py
