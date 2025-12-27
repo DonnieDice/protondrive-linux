@@ -94,7 +94,8 @@ jobs:
           echo "🔧 Patching dependencies and configuring Yarn..."
           python3 scripts/fix_deps.py
 
-          rm -f WebClients/yarn.lock
+          # Create empty yarn.lock to mark WebClients as separate project (prevents workspace detection issues)
+          : > WebClients/yarn.lock
 
       - name: Build WebClients (Proton Drive)
         run: |

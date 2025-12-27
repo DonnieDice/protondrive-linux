@@ -72,8 +72,8 @@ jobs:
 
             python3 scripts/fix_deps.py
 
-            # Remove yarn.lock to regenerate from package.json
-            rm -f WebClients/yarn.lock
+            # Create empty yarn.lock to mark WebClients as separate project
+            : > WebClients/yarn.lock
 
             cd WebClients
             export NODE_OPTIONS="--max-old-space-size=8192"

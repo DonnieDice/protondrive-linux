@@ -140,7 +140,8 @@ jobs:
                 # Patch dependencies
                 echo "Patching dependencies..."
                 python3 scripts/fix_deps.py
-                rm -f WebClients/yarn.lock
+                # Create empty yarn.lock to mark WebClients as separate project
+                : > WebClients/yarn.lock
                 # Build WebClients (Proton Drive)
                 mv ./package.json ./package.json.bak 2>/dev/null || true
                 mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true

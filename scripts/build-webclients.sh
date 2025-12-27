@@ -10,7 +10,8 @@ python3 scripts/fix_deps.py
 # 2. Install dependencies in WebClients
 echo "📦 Installing WebClients dependencies..."
 cd WebClients
-rm -f yarn.lock
+# Create empty yarn.lock to mark WebClients as separate project (prevents workspace detection issues)
+: > yarn.lock
 rm -rf .yarn/cache
 export NODE_OPTIONS="--max-old-space-size=8192"
 node .yarn/releases/yarn-4.12.0.cjs install || node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 300000
