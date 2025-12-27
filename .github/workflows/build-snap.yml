@@ -67,18 +67,12 @@ jobs:
           SNAP_VERSION: ${{ steps.version.outputs.version }}
         run: |
           mkdir -p snap
-          cat > snap/snapcraft.yaml << EOF
+          cat > snap/snapcraft.yaml << 'SNAPEOF'
           name: proton-drive
-          version: "${SNAP_VERSION}"
           summary: Proton Drive Linux Desktop Client
           description: |
             Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
             Built with Tauri and Rust for a native-performance experience.
-            Features:
-            - Secure Proton Drive Integration
-            - Native Desktop Experience
-            - Privacy-Focused
-            - Cross-platform Support
           grade: stable
           confinement: strict
           base: core24
@@ -125,7 +119,7 @@ jobs:
                 set -euo pipefail
                 # Install Rust
                 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
-                export PATH="\$HOME/.cargo/bin:\$PATH"
+                export PATH="$HOME/.cargo/bin:$PATH"
                 rustc --version
                 # Install Node.js 22
                 curl -fsSL https://nodejs.org/dist/v22.12.0/node-v22.12.0-linux-x64.tar.xz -o /tmp/node.tar.xz
@@ -133,132 +127,101 @@ jobs:
                 rm /tmp/node.tar.xz
                 node --version
                 npm --version
-                # Clone WebClients (skip if up-to-date)
-                REMOTE_COMMIT=$(git ls-remote https://github.com/ProtonMail/WebClients.git refs/heads/main | cut -f1)
-                LOCAL_COMMIT=""
-                if [ -d "WebClients/.git" ]; then
-                  LOCAL_COMMIT=$(git -C WebClients rev-parse HEAD 2>/dev/null || echo "")
-                fi
-                if [ "$LOCAL_COMMIT" = "$REMOTE_COMMIT" ] && [ -n "$LOCAL_COMMIT" ]; then
-                  echo "WebClients is up-to-date (commit: ${LOCAL_COMMIT:0:8}), skipping clone"
-                else
-                  echo "Cloning WebClients (remote: ${REMOTE_COMMIT:0:8})..."
-                  rm -rf WebClients 2>/dev/null || true
-                  git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
-                fi
+                # Clone WebClients
+                echo "Cloning WebClients..."
+                rm -rf WebClients 2>/dev/null || true
+                git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
                 # Patch dependencies
                 echo "Patching dependencies..."
                 python3 scripts/fix_deps.py
-                # Create empty yarn.lock to mark WebClients as separate project
                 : > WebClients/yarn.lock
-                # Build WebClients (Proton Drive)
+                # Build WebClients
                 mv ./package.json ./package.json.bak 2>/dev/null || true
                 mv ./yarn.lock ./yarn.lock.bak 2>/dev/null || true
                 cd WebClients
-                echo "Installing WebClients dependencies..."
                 export NODE_OPTIONS="--max-old-space-size=8192"
                 node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
                 cd ..
                 mv ./package.json.bak ./package.json 2>/dev/null || true
                 mv ./yarn.lock.bak ./yarn.lock 2>/dev/null || true
-                echo "Creating stubs for private packages..."
                 python3 scripts/create_stubs.py
                 cd WebClients
-                echo "Building Proton Drive web app..."
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-                echo "Building Account app for SSO..."
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-account build:web || echo "Account build failed"
-                echo "Building Verify app for captcha..."
                 node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
+                # Copy and fix account app
                 if [ -d "applications/account/dist" ]; then
                   cp -r applications/account/dist applications/drive/dist/account
-                  echo "Fixing account app paths for nested deployment..."
                   find applications/drive/dist/account -name "*.html" -exec sed -i \
                     -e 's|<base href="/">|<base href="/account/">|g' \
                     -e 's|href="/assets/|href="/account/assets/|g' \
                     -e 's|src="/assets/|src="/account/assets/|g' \
                     -e 's|content="/assets/|content="/account/assets/|g' {} \;
-                  # Fix asset paths in JavaScript files
                   find applications/drive/dist/account -name "*.js" -exec sed -i \
                     -e 's|"assets/static/|"/account/assets/static/|g' \
                     -e 's|"/assets/static/|"/account/assets/static/|g' {} \;
-                  echo "Account app copied and paths fixed"
                 fi
+                # Copy and fix verify app
                 if [ -d "applications/verify/dist" ]; then
                   cp -r applications/verify/dist applications/drive/dist/verify
-                  echo "Fixing verify app paths for nested deployment..."
                   find applications/drive/dist/verify -name "*.html" -exec sed -i \
                     -e 's|<base href="/">|<base href="/verify/">|g' \
                     -e 's|href="/assets/|href="/verify/assets/|g' \
                     -e 's|src="/assets/|src="/verify/assets/|g' \
                     -e 's|content="/assets/|content="/verify/assets/|g' {} \;
-                  # Fix asset paths in JavaScript files
                   find applications/drive/dist/verify -name "*.js" -exec sed -i \
                     -e 's|"assets/static/|"/verify/assets/static/|g' \
                     -e 's|"/assets/static/|"/verify/assets/static/|g' {} \;
-                  echo "Verify app copied and paths fixed"
                 fi
+                # Verify build
                 if [ ! -d "applications/drive/dist" ]; then
                   echo "Build failed - no output directory"
                   exit 1
                 fi
-                echo "WebClients build complete"
-                # CRITICAL: Verify account app paths (prevents white screen)
+                # Verify account paths
                 if [ -f "applications/drive/dist/account/index.html" ]; then
-                  echo "Verifying account app asset paths..."
                   if grep -q 'src="/assets/' "applications/drive/dist/account/index.html"; then
-                    echo "CRITICAL: Account app has unfixed asset paths! This will cause white screen!"
+                    echo "CRITICAL: Account app has unfixed asset paths!"
                     exit 1
                   fi
-                  if ! grep -q '<base href="/account/">' "applications/drive/dist/account/index.html"; then
-                    echo "CRITICAL: Account app missing correct base href!"
-                    exit 1
-                  fi
-                  echo "Account app paths verified"
                 fi
                 cd ..
-                # Install Tauri dependencies and build
+                # Build Tauri
                 npm install
                 cd src-tauri && cargo build --release && cd ..
-                # Debug: list built binaries
-                echo "=== Built binaries in src-tauri/target/release/ ==="
-                ls -la src-tauri/target/release/ | grep -E '^-.*x' || true
-                if [ -f "src-tauri/target/release/proton-drive" ]; then
-                  echo "Found proton-drive binary"
-                else
-                  echo "proton-drive binary not found!"
-                  find src-tauri/target/release/ -maxdepth 1 -type f -executable
+                if [ ! -f "src-tauri/target/release/proton-drive" ]; then
+                  echo "Binary not found!"
                   exit 1
                 fi
-                # Install binary
-                install -Dm755 src-tauri/target/release/proton-drive "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
-                # Wrapper script
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/bin"
-                echo '#!/bin/bash' > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo '# Fix WebKitGTK EGL/GPU issues on various Linux configurations' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_DMABUF_RENDERER=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'export WEBKIT_DISABLE_COMPOSITING_MODE=1' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                echo 'exec "\$SNAP/usr/bin/proton-drive" "\$@"' >> "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-                chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+                # Install files
+                install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
+                cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
+                #!/bin/bash
+                export WEBKIT_DISABLE_DMABUF_RENDERER=1
+                export WEBKIT_DISABLE_COMPOSITING_MODE=1
+                exec "$SNAP/usr/bin/proton-drive" "$@"
+                WRAPPEREOF
+                chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
                 # Desktop file
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-                echo '[Desktop Entry]' > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Version=1.0' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Type=Application' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Name=Proton Drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Comment=Secure cloud storage' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Exec=usr/bin/proton-drive-wrapper' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Icon=com.proton.drive' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
-                echo 'Categories=Utility;' >> "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+                cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
+                [Desktop Entry]
+                Version=1.0
+                Type=Application
+                Name=Proton Drive
+                Comment=Secure cloud storage
+                Exec=proton-drive-wrapper
+                Icon=com.proton.drive
+                Categories=Utility;
+                DESKTOPEOF
                 # Icons
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps"
-                mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
-                cp src-tauri/icons/32x32.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
-                cp src-tauri/icons/128x128@2x.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
-                cp src-tauri/icons/proton-drive.svg "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
+                mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+                cp src-tauri/icons/32x32.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+                cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+                cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
               build-packages:
                 - curl
                 - wget
@@ -279,9 +242,11 @@ jobs:
                 - libayatana-appindicator3-1
                 - librsvg2-2
                 - libsoup-3.0-0
-          EOF
-          # Remove leading indentation from the generated file
+          SNAPEOF
+          # Fix indentation - remove leading spaces from heredoc
           sed -i 's/^          //' snap/snapcraft.yaml
+          # Add version
+          sed -i "2i version: \"${SNAP_VERSION}\"" snap/snapcraft.yaml
 
       - name: Build Snap package
         uses: snapcore/action-build@v1
@@ -294,11 +259,4 @@ jobs:
           name: snap-package
           path: '*.snap'
           if-no-files-found: error
-          retention-days: 30
-
-      - name: Upload snapcraft.yaml
-        uses: actions/upload-artifact@v4
-        with:
-          name: snap-config
-          path: snap/snapcraft.yaml
           retention-days: 30
