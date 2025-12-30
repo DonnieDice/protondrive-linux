@@ -1,6 +1,6 @@
 [package]
 name = "proton-drive"
-version = "1.1.1"
+version = "1.1.2"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"
@@ -25,6 +25,7 @@ tokio = { version = "1", features = ["rt-multi-thread"] }
 reqwest = { version = "0.12", features = ["json", "cookies"] }
 base64 = "0.22"
 dirs = "5.0"
+mime_guess = "2.0"
 
 [features]
 default = ["custom-protocol"]

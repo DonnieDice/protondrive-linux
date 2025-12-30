@@ -95,6 +95,26 @@ jobs:
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
 
+          echo "🩹 Applying WebClients patches..."
+          cd WebClients
+          if [ -d ../patches/webclients ]; then
+            for patch in ../patches/webclients/*.patch; do
+              if [ -f "$patch" ]; then
+                echo "  Applying $(basename "$patch")..."
+                if git apply --reverse --check "$patch" 2>/dev/null; then
+                  echo "  ⚠ Already applied - skipping"
+                elif git apply --check "$patch" 2>/dev/null; then
+                  git apply "$patch"
+                  echo "  ✓ Applied"
+                else
+                  echo "  ❌ Failed to apply patch"
+                  exit 1
+                fi
+              fi
+            done
+          fi
+          cd ..
+
           echo "🔧 Patching dependencies and configuring Yarn..."
           python3 scripts/fix_deps.py
 
@@ -137,15 +157,20 @@ jobs:
             cp -r applications/account/dist applications/drive/dist/account
             echo "🔧 Fixing account app paths for nested deployment..."
             # Fix base href and asset paths in account app HTML files
+            # CRITICAL: Remove integrity/crossorigin attributes that break after path changes
             find applications/drive/dist/account -name "*.html" -exec sed -i \
               -e 's|<base href="/">|<base href="/account/">|g' \
               -e 's|href="/assets/|href="/account/assets/|g' \
               -e 's|src="/assets/|src="/account/assets/|g' \
-              -e 's|content="/assets/|content="/account/assets/|g' {} \;
+              -e 's|content="/assets/|content="/account/assets/|g' \
+              -e 's| integrity="[^"]*"||g' \
+              -e 's| crossorigin="anonymous"||g' {} \;
             # Fix asset paths in JavaScript files (runtime chunks reference other chunks)
             find applications/drive/dist/account -name "*.js" -exec sed -i \
+              -e 's|"//assets/static/|"/account/assets/static/|g' \
               -e 's|"assets/static/|"/account/assets/static/|g' \
-              -e 's|"/assets/static/|"/account/assets/static/|g' {} \;
+              -e 's|"/assets/static/|"/account/assets/static/|g' \
+              -e 's|"//assets/|"/account/assets/|g' {} \;
             echo "✅ Account app copied and paths fixed"
           fi
 
@@ -154,15 +179,20 @@ jobs:
             cp -r applications/verify/dist applications/drive/dist/verify
             echo "🔧 Fixing verify app paths for nested deployment..."
             # Fix base href and asset paths in verify app HTML files
+            # CRITICAL: Remove integrity/crossorigin attributes that break after path changes
             find applications/drive/dist/verify -name "*.html" -exec sed -i \
               -e 's|<base href="/">|<base href="/verify/">|g' \
               -e 's|href="/assets/|href="/verify/assets/|g' \
               -e 's|src="/assets/|src="/verify/assets/|g' \
-              -e 's|content="/assets/|content="/verify/assets/|g' {} \;
+              -e 's|content="/assets/|content="/verify/assets/|g' \
+              -e 's| integrity="[^"]*"||g' \
+              -e 's| crossorigin="anonymous"||g' {} \;
             # Fix asset paths in JavaScript files
             find applications/drive/dist/verify -name "*.js" -exec sed -i \
+              -e 's|"//assets/static/|"/verify/assets/static/|g' \
               -e 's|"assets/static/|"/verify/assets/static/|g' \
-              -e 's|"/assets/static/|"/verify/assets/static/|g' {} \;
+              -e 's|"/assets/static/|"/verify/assets/static/|g' \
+              -e 's|"//assets/|"/verify/assets/|g' {} \;
             echo "✅ Verify app copied and paths fixed"
           fi
 

@@ -215,8 +215,97 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            let init_script = r#"
-(function() {
+            // MULTI-DISTRO WORKER COMPATIBILITY
+            // Different distros use different WebKitGTK builds with varying Worker support
+            // Use DISTRO_TYPE env var at build time to determine Worker handling
+            //
+            // Distro Support Matrix:
+            // - appimage: Bundled WebKitGTK → Workers work → Use native
+            // - rpm/deb:  System WebKitGTK → "operation is insecure" → Override
+            // - flatpak/snap: Sandboxed → Override as safe default
+
+            let worker_init = match option_env!("DISTRO_TYPE") {
+                Some("appimage") | Some("aur") => {
+                    // Native Workers supported - no override needed
+                    r#"
+    console.log('[INIT] AppImage/AUR build - using native Workers');
+"#
+                }
+                Some("rpm") | Some("deb") | Some("flatpak") | Some("snap") | None => {
+                    // System WebKitGTK or sandboxed - disable Workers to trigger Proton's built-in fallback
+                    r#"
+    // Force Proton WebClients to use non-Worker crypto mode
+    // Proton WebClients check Worker support and automatically fall back to main-thread crypto
+    // Reference: packages/shared/lib/helpers/setupCryptoWorker.ts line 19
+    console.log('[INIT] RPM/deb build - disabling Worker support to use main-thread crypto');
+
+    // Set Worker/SharedWorker to undefined - Proton will detect and use fallback mode
+    window.Worker = undefined;
+    window.SharedWorker = undefined;
+
+    console.log('[INIT] Workers set to undefined - Proton will load crypto API in main thread');
+"#
+                }
+                _ => {
+                    // Unknown distro - use safe default (override)
+                    r#"
+    console.warn('[INIT] Unknown distro - using Worker override as safe default');
+    delete window.Worker;
+    delete window.SharedWorker;
+
+    // Suppress Worker errors globally
+    window.addEventListener('error', function(event) {
+        if (event.error && event.error.message && event.error.message.includes('Worker')) {
+            event.preventDefault();
+            return true;
+        }
+    }, true);
+
+    const OrigWorker = window.Worker;
+    window.Worker = function Worker(url) {
+        console.log('[Worker] Blocked - unknown distro, using safe default');
+        const err = new Error('Worker not supported');
+        err.name = 'SecurityError';
+        throw err;
+    };
+    window.Worker.prototype = OrigWorker ? OrigWorker.prototype : {};
+
+    window.SharedWorker = function SharedWorker(url) {
+        console.log('[SharedWorker] Blocked - returning stub');
+        const port = {
+            postMessage: function() {},
+            start: function() {},
+            close: function() {},
+            addEventListener: function() {},
+            removeEventListener: function() {},
+            onmessage: null,
+            onmessageerror: null
+        };
+        return {
+            port: port,
+            onerror: null
+        };
+    };
+
+    Object.defineProperty(window, 'Worker', {
+        value: window.Worker,
+        writable: false,
+        configurable: false
+    });
+    Object.defineProperty(window, 'SharedWorker', {
+        value: window.SharedWorker,
+        writable: false,
+        configurable: false
+    });
+"#
+                }
+            };
+
+            let init_script = format!(r#"
+(function() {{
+    {}
+"#, worker_init) + r#"
+
     // Intercept Blob downloads and save to ~/Downloads
     const origCreateObjectURL = URL.createObjectURL;
     let pendingDownloadName = null;
@@ -468,25 +557,6 @@ fn main() {
         get: iframeSrcDescriptor.get
     });
 
-    // Log Worker creation and fix paths for account app
-    const OrigWorker = window.Worker;
-    window.Worker = function(url, options) {
-        let fixedUrl = url;
-        // If we're on /account/ and worker uses /assets/ path, redirect to /account/assets/
-        if (window.location.pathname.startsWith('/account') && typeof url === 'string') {
-            if (url.includes('/assets/') && !url.includes('/account/assets/')) {
-                fixedUrl = url.replace('/assets/', '/account/assets/');
-                console.log('[WORKER] Fixed path:', url, '->', fixedUrl);
-            }
-        }
-        console.log('[WORKER] Creating worker:', fixedUrl);
-        const worker = new OrigWorker(fixedUrl, options);
-        worker.onerror = function(e) {
-            console.error('[WORKER ERROR]', e.message, e.filename, e.lineno);
-        };
-        return worker;
-    };
-
     // Redirect console to Rust
     const origLog = console.log;
     const origError = console.error;
@@ -526,6 +596,13 @@ fn main() {
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
 
+        // Fix protocol-relative URLs (//assets/... or //account/assets/...)
+        // These would resolve to tauri://assets/... which is invalid
+        if (typeof url === 'string' && url.startsWith('//')) {
+            url = url.substring(1);  // Remove one slash to make it absolute: /assets/...
+            console.log('[FETCH] Fixed protocol-relative URL to:', url);
+        }
+
         // Skip IPC calls for logging
         if (!url.startsWith('ipc://')) {
             sendToRust('FETCH', [init.method || 'GET', url]);
@@ -533,7 +610,15 @@ fn main() {
 
         // Only proxy API calls
         if (!url.includes('/api/')) {
-            return originalFetch.call(window, input, init).then(r => {
+            // For fetch calls, if we've fixed the URL from // to /, update the input
+            let fetchInput = input;
+            if (typeof input === 'string' && input !== url) {
+                fetchInput = url;
+            } else if (typeof input === 'object' && input.url) {
+                fetchInput = new Request(url, input);
+            }
+
+            return originalFetch.call(window, fetchInput, init).then(r => {
                 // Skip logging IPC calls to reduce noise
                 if (!url.startsWith('ipc://')) {
                     // Log non-200 responses as potential issues
@@ -714,10 +799,18 @@ fn main() {
         console.log('[STORAGE] pathname:', window.location.pathname, 'localStorage keys:', allKeys.length, 'sessions:', sessionKeys.join(',') || 'none');
     } catch(e) {}
 
-    // Track script load errors
-    window.addEventListener('error', (e) => {
+    // Track script load errors and fetch the scripts to see HTTP status
+    window.addEventListener('error', async (e) => {
         if (e.target && e.target.tagName === 'SCRIPT') {
             console.error('[SCRIPT ERROR]', e.target.src);
+            try {
+                const response = await fetch(e.target.src);
+                console.error('[SCRIPT ERROR] HTTP Status:', response.status, response.statusText);
+                const text = await response.text();
+                console.error('[SCRIPT ERROR] Response preview:', text.substring(0, 200));
+            } catch (err) {
+                console.error('[SCRIPT ERROR] Fetch failed:', err.message);
+            }
         }
     }, true);
 })();
@@ -912,12 +1005,17 @@ fn main() {
                         return false; // Block whatever navigation triggered this, we'll go to account
                     }
 
-                    // Allow tauri://, about: URLs and API paths (for iframes)
+                    // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
+                    // Blocking /api/ prevents iframes from trying to load API endpoints which breaks the account app
+                    if url.path().starts_with("/api/") {
+                        println!("[Navigation] Blocking API navigation (should use fetch): {}", url_str);
+                        return false;
+                    }
+
                     url.scheme() == "tauri"
                         || url.scheme() == "about"
                         || url.host_str() == Some("localhost")
                         || url.host_str() == Some("tauri.localhost")
-                        || url.path().starts_with("/api/")
                 })
                 .build()?;
 
