@@ -22,9 +22,12 @@ jobs:
     steps:
       - name: Free disk space
         run: |
-          echo "🧹 Freeing disk space..."
+          echo "🧹 Freeing disk space aggressively..."
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL
+          sudo rm -rf /usr/share/swift /usr/local/share/powershell /usr/local/share/chromium
+          sudo rm -rf /opt/hostedtoolcache/go /opt/hostedtoolcache/node /opt/hostedtoolcache/Python
           sudo docker image prune --all --force || true
+          sudo apt-get clean || true
           df -h
 
       - name: Checkout repository
@@ -197,6 +200,15 @@ jobs:
             ls -la src-tauri/target/release/
             exit 1
           fi
+
+      - name: Free disk space before Flatpak
+        run: |
+          echo "🧹 Cleaning up to make room for Flatpak SDK..."
+          rm -rf WebClients/node_modules WebClients/.yarn/cache
+          rm -rf src-tauri/target/release/deps src-tauri/target/release/build
+          rm -rf src-tauri/target/release/.fingerprint src-tauri/target/release/incremental
+          sudo apt-get clean
+          df -h
 
       - name: Setup Flatpak
         run: |
