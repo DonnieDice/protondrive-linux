@@ -1,0 +1,10 @@
+FROM debian:12
+
+# Install git and node for act compatibility
+RUN apt-get update && apt-get install -y \
+    git \
+    curl \
+    ca-certificates \
+    && curl -fsSL https://deb.nodesource.com/setup_22.x | bash - \
+    && apt-get install -y nodejs \
+    && rm -rf /var/lib/apt/lists/*

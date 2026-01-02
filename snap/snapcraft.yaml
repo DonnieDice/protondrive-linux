@@ -1,0 +1,85 @@
+name: proton-drive
+version: "1.1.1"
+summary: Proton Drive Linux Desktop Client
+description: |
+  Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+  Built with Tauri and Rust for a native-performance experience.
+grade: stable
+confinement: strict
+base: core24
+platforms:
+  amd64:
+
+apps:
+  proton-drive:
+    command: usr/bin/proton-drive-wrapper
+    environment:
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+    desktop: usr/share/applications/com.proton.drive.desktop
+    plugs:
+      - home
+      - network
+      - network-bind
+      - network-status
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
+      - opengl
+      - audio-playback
+      - browser-support
+      - password-manager-service
+      - dbus
+
+plugs:
+  dbus:
+    interface: dbus
+    bus: session
+    name: com.proton.drive
+
+parts:
+  proton-drive:
+    plugin: nil
+    source: .
+    override-build: |
+      # Copy pre-built binary
+      install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+
+      # Create wrapper script
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
+      cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
+      #!/bin/bash
+      export WEBKIT_DISABLE_DMABUF_RENDERER=1
+      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      exec "$SNAP/usr/bin/proton-drive" "$@"
+      WRAPPEREOF
+      chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
+
+      # Desktop file
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
+      cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name=Proton Drive
+      Comment=Secure cloud storage
+      Exec=proton-drive-wrapper
+      Icon=com.proton.drive
+      Categories=Utility;
+      DESKTOPEOF
+
+      # Icons
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
+      cp src-tauri/icons/32x32.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+      cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+      cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+    stage-packages:
+      - libssl3
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - librsvg2-2
+      - libsoup-3.0-0

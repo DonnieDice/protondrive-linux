@@ -11,7 +11,7 @@ python3 scripts/fix_deps.py
 echo "🩹 Applying patches..."
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(dirname "$SCRIPT_DIR")"
-PATCHES_DIR="$REPO_ROOT/patches/webclients"
+PATCHES_DIR="$REPO_ROOT/patches/common"
 cd WebClients
 if [ -d "$PATCHES_DIR" ]; then
     for patch in "$PATCHES_DIR"/*.patch; do

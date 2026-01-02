@@ -1,0 +1,13 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Proton Drive
+Comment=Secure cloud storage
+Exec=proton-drive %U
+Icon=proton-drive
+Categories=Network;FileTransfer;Utility;
+Keywords=proton;drive;cloud;storage;sync;
+Terminal=false
+StartupWMClass=proton-drive
+StartupNotify=true
+MimeType=x-scheme-handler/proton-drive;
