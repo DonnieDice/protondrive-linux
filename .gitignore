@@ -48,3 +48,5 @@ WebClients-test
 
 # Local build scripts (personal)
 scripts/build-local.sh
+scripts/build-flatpak.sh
+scripts/build-snap.sh
