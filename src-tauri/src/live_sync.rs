@@ -1,3 +1,4 @@
+use base64::Engine as _;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -146,7 +147,9 @@ impl LiveSyncManager {
                 let encoded = change
                     .content_base64
                     .ok_or("contentBase64 is required for create/update")?;
-                let data = base64::decode(encoded).map_err(|e| e.to_string())?;
+                let data = base64::engine::general_purpose::STANDARD
+                    .decode(encoded)
+                    .map_err(|e| e.to_string())?;
 
                 if let Some(parent) = target.parent() {
                     fs::create_dir_all(parent).map_err(|e| e.to_string())?;

@@ -1080,7 +1080,21 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![proxy_request, js_log, navigate_to_captcha, get_captcha_return_url, store_verification_token, get_and_clear_verification_token, store_login_credentials, get_and_clear_login_credentials, save_download, start_sync, stop_sync, get_sync_status, handle_remote_update])
+        .invoke_handler(tauri::generate_handler![
+            proxy_request,
+            js_log,
+            navigate_to_captcha,
+            get_captcha_return_url,
+            store_verification_token,
+            get_and_clear_verification_token,
+            store_login_credentials,
+            get_and_clear_login_credentials,
+            save_download,
+            start_sync,
+            stop_sync,
+            get_sync_status,
+            handle_remote_update
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
