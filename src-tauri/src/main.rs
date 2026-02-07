@@ -3,17 +3,20 @@
     windows_subsystem = "windows"
 )]
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::sync::Arc;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+
+mod live_sync;
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 
 // Shared HTTP client with cookie jar
 struct AppState {
     client: Client,
+    sync_manager: live_sync::LiveSyncManager,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,10 +46,12 @@ static CAPTCHA_RETURN_URL: std::sync::Mutex<Option<String>> = std::sync::Mutex::
 static ON_CAPTCHA_PAGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 // Store verification token in memory only (zero trust - cleared after use)
-static PENDING_VERIFICATION: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+static PENDING_VERIFICATION: std::sync::Mutex<Option<(String, String)>> =
+    std::sync::Mutex::new(None);
 
 // Store login credentials during captcha flow (zero trust - cleared after use)
-static PENDING_CREDENTIALS: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+static PENDING_CREDENTIALS: std::sync::Mutex<Option<(String, String)>> =
+    std::sync::Mutex::new(None);
 
 #[tauri::command]
 fn store_verification_token(token: String, token_type: String) {
@@ -79,7 +84,11 @@ fn get_and_clear_login_credentials() -> Option<(String, String)> {
 }
 
 #[tauri::command]
-async fn navigate_to_captcha(app: tauri::AppHandle, captcha_url: String, return_url: String) -> Result<(), String> {
+async fn navigate_to_captcha(
+    app: tauri::AppHandle,
+    captcha_url: String,
+    return_url: String,
+) -> Result<(), String> {
     println!("[CAPTCHA] Navigating main window to: {}", captcha_url);
     println!("[CAPTCHA] Will return to: {}", return_url);
 
@@ -88,8 +97,12 @@ async fn navigate_to_captcha(app: tauri::AppHandle, captcha_url: String, return_
 
     // Navigate main window to captcha (local or external)
     if let Some(window) = app.get_webview_window("main") {
-        let url: tauri::Url = captcha_url.parse().map_err(|e| format!("Invalid URL: {}", e))?;
-        window.navigate(url).map_err(|e| format!("Navigation failed: {}", e))?;
+        let url: tauri::Url = captcha_url
+            .parse()
+            .map_err(|e| format!("Invalid URL: {}", e))?;
+        window
+            .navigate(url)
+            .map_err(|e| format!("Navigation failed: {}", e))?;
     }
 
     Ok(())
@@ -113,10 +126,42 @@ async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String
     let file_path = downloads_dir.join(&filename);
     println!("[Download] Saving to: {:?}", file_path);
 
-    std::fs::write(&file_path, &data)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(&file_path, &data).map_err(|e| format!("Failed to write file: {}", e))?;
 
     Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn start_sync(
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    state
+        .sync_manager
+        .start(app, std::path::PathBuf::from(path))?;
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn stop_sync(state: tauri::State<'_, Arc<AppState>>) -> Result<live_sync::LiveSyncStatus, String> {
+    state.sync_manager.stop()?;
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn get_sync_status(
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn handle_remote_update(
+    state: tauri::State<'_, Arc<AppState>>,
+    change: live_sync::RemoteSyncChange,
+) -> Result<String, String> {
+    state.sync_manager.apply_remote_change(change)
 }
 
 #[tauri::command]
@@ -125,9 +170,15 @@ async fn proxy_request(
     request: ProxyRequest,
 ) -> Result<ProxyResponse, String> {
     // Build the target URL - extract path from various URL formats
-    let url = if request.url.starts_with("https://localhost/api/") || request.url.starts_with("http://localhost/api/") {
+    let url = if request.url.starts_with("https://localhost/api/")
+        || request.url.starts_with("http://localhost/api/")
+    {
         // Rewrite localhost API calls to Proton
-        format!("{}{}", PROTON_API_BASE, &request.url[request.url.find("/api").unwrap()..])
+        format!(
+            "{}{}",
+            PROTON_API_BASE,
+            &request.url[request.url.find("/api").unwrap()..]
+        )
     } else if request.url.starts_with("https://") || request.url.starts_with("http://") {
         request.url.clone()
     } else if request.url.starts_with("tauri://") {
@@ -163,7 +214,10 @@ async fn proxy_request(
         req = req.body(body.clone());
     }
 
-    let resp = req.send().await.map_err(|e| format!("Request failed: {}", e))?;
+    let resp = req
+        .send()
+        .await
+        .map_err(|e| format!("Request failed: {}", e))?;
     let status = resp.status().as_u16();
 
     // Forward response headers including set-cookie (needed for WebView session)
@@ -190,7 +244,11 @@ async fn proxy_request(
         println!("[Proxy] Body: {}", body);
     }
 
-    Ok(ProxyResponse { status, headers: resp_headers, body })
+    Ok(ProxyResponse {
+        status,
+        headers: resp_headers,
+        body,
+    })
 }
 
 fn main() {
@@ -204,9 +262,10 @@ fn main() {
     // Create shared client with cookie jar
     let state = Arc::new(AppState {
         client: Client::builder()
-            .cookie_store(true)  // Enable cookie jar
+            .cookie_store(true) // Enable cookie jar
             .build()
             .expect("Failed to create HTTP client"),
+        sync_manager: live_sync::LiveSyncManager::default(),
     });
 
     tauri::Builder::default()
@@ -1021,7 +1080,21 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![proxy_request, js_log, navigate_to_captcha, get_captcha_return_url, store_verification_token, get_and_clear_verification_token, store_login_credentials, get_and_clear_login_credentials, save_download])
+        .invoke_handler(tauri::generate_handler![
+            proxy_request,
+            js_log,
+            navigate_to_captcha,
+            get_captcha_return_url,
+            store_verification_token,
+            get_and_clear_verification_token,
+            store_login_credentials,
+            get_and_clear_login_credentials,
+            save_download,
+            start_sync,
+            stop_sync,
+            get_sync_status,
+            handle_remote_update
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
