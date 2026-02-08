@@ -97,12 +97,14 @@ async fn navigate_to_captcha(
 
     // Navigate main window to captcha (local or external)
     if let Some(window) = app.get_webview_window("main") {
-        let url: tauri::Url = captcha_url
-            .parse()
-            .map_err(|e| format!("Invalid URL: {}", e))?;
-        window
-            .navigate(url)
-            .map_err(|e| format!("Navigation failed: {}", e))?;
+        let url: tauri::Url = captcha_url.parse().map_err(|e| {
+            eprintln!("[CAPTCHA] Invalid captcha URL '{}': {e}", captcha_url);
+            "Unable to open verification page".to_string()
+        })?;
+        window.navigate(url).map_err(|e| {
+            eprintln!("[CAPTCHA] Navigation to captcha failed: {e}");
+            "Unable to open verification page".to_string()
+        })?;
     }
 
     Ok(())
@@ -117,16 +119,24 @@ fn get_captcha_return_url() -> Option<String> {
 async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String> {
     let downloads_dir = dirs::download_dir()
         .or_else(|| dirs::home_dir().map(|h| h.join("Downloads")))
-        .ok_or("Could not find Downloads directory")?;
+        .ok_or("Unable to access download location")?;
 
     // Ensure downloads dir exists
-    std::fs::create_dir_all(&downloads_dir)
-        .map_err(|e| format!("Failed to create Downloads dir: {}", e))?;
+    std::fs::create_dir_all(&downloads_dir).map_err(|e| {
+        eprintln!(
+            "[Download] Failed to create downloads dir {:?}: {e}",
+            downloads_dir
+        );
+        "Unable to save download".to_string()
+    })?;
 
     let file_path = downloads_dir.join(&filename);
     println!("[Download] Saving to: {:?}", file_path);
 
-    std::fs::write(&file_path, &data).map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(&file_path, &data).map_err(|e| {
+        eprintln!("[Download] Failed to write download {:?}: {e}", file_path);
+        "Unable to save download".to_string()
+    })?;
 
     Ok(file_path.to_string_lossy().to_string())
 }
