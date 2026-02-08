@@ -8,6 +8,13 @@ use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use tauri::{AppHandle, Emitter};
 
+const ERR_SYNC_SETUP_FAILED: &str = "Failed to start live sync";
+const ERR_SYNC_STATE_UNAVAILABLE: &str = "Live sync is temporarily unavailable";
+const ERR_SYNC_NOT_ACTIVE: &str = "Live sync is not active";
+const ERR_SYNC_INVALID_REMOTE_CONTENT: &str = "Invalid remote file content";
+const ERR_SYNC_WRITE_FAILED: &str = "Failed to apply remote file update";
+const ERR_SYNC_DELETE_FAILED: &str = "Failed to apply remote file deletion";
+
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncEvent {
     pub kind: String,
@@ -55,12 +62,17 @@ impl LiveSyncManager {
         self.stop()?;
 
         let (tx, rx) = mpsc::channel();
-        let mut watcher =
-            RecommendedWatcher::new(tx, Config::default()).map_err(|e| e.to_string())?;
+        let mut watcher = RecommendedWatcher::new(tx, Config::default()).map_err(|e| {
+            eprintln!("[LiveSync] watcher init failed: {e}");
+            ERR_SYNC_SETUP_FAILED.to_string()
+        })?;
 
         watcher
             .watch(&folder, RecursiveMode::Recursive)
-            .map_err(|e| e.to_string())?;
+            .map_err(|e| {
+                eprintln!("[LiveSync] watcher start failed for {:?}: {e}", folder);
+                ERR_SYNC_SETUP_FAILED.to_string()
+            })?;
 
         let known_files = Arc::clone(&self.known_files);
         let app_handle = app.clone();
@@ -102,17 +114,32 @@ impl LiveSyncManager {
                     }
                 }
             })
-            .map_err(|e| format!("Failed to start watcher thread: {e}"))?;
+            .map_err(|e| {
+                eprintln!("[LiveSync] worker thread spawn failed: {e}");
+                ERR_SYNC_SETUP_FAILED.to_string()
+            })?;
 
-        *self.watcher.lock().map_err(|_| "Watcher lock poisoned")? = Some(watcher);
-        *self.folder.lock().map_err(|_| "Folder lock poisoned")? = Some(folder);
-        *self.worker.lock().map_err(|_| "Worker lock poisoned")? = Some(worker);
+        *self.watcher.lock().map_err(|e| {
+            eprintln!("[LiveSync] watcher state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(watcher);
+        *self.folder.lock().map_err(|e| {
+            eprintln!("[LiveSync] folder state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(folder);
+        *self.worker.lock().map_err(|e| {
+            eprintln!("[LiveSync] worker state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(worker);
 
         Ok(())
     }
 
     pub fn status(&self) -> Result<LiveSyncStatus, String> {
-        let folder = self.folder.lock().map_err(|_| "Folder lock poisoned")?;
+        let folder = self.folder.lock().map_err(|e| {
+            eprintln!("[LiveSync] status lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })?;
         Ok(LiveSyncStatus {
             enabled: folder.is_some(),
             folder_path: folder.as_ref().map(|p| p.to_string_lossy().to_string()),
@@ -123,9 +150,12 @@ impl LiveSyncManager {
         let root = self
             .folder
             .lock()
-            .map_err(|_| "Folder lock poisoned")?
+            .map_err(|e| {
+                eprintln!("[LiveSync] folder lock failed during remote apply: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
             .clone()
-            .ok_or("Live sync is not active")?;
+            .ok_or(ERR_SYNC_NOT_ACTIVE)?;
 
         let relative = Path::new(&change.relative_path);
         if relative.as_os_str().is_empty() {
@@ -149,19 +179,31 @@ impl LiveSyncManager {
                     .ok_or("contentBase64 is required for create/update")?;
                 let data = base64::engine::general_purpose::STANDARD
                     .decode(encoded)
-                    .map_err(|e| e.to_string())?;
+                    .map_err(|e| {
+                        eprintln!("[LiveSync] remote content decode failed: {e}");
+                        ERR_SYNC_INVALID_REMOTE_CONTENT.to_string()
+                    })?;
 
                 if let Some(parent) = target.parent() {
-                    fs::create_dir_all(parent).map_err(|e| e.to_string())?;
+                    fs::create_dir_all(parent).map_err(|e| {
+                        eprintln!("[LiveSync] create parent dirs failed for {:?}: {e}", parent);
+                        ERR_SYNC_WRITE_FAILED.to_string()
+                    })?;
                 }
 
                 self.mark_known_file(&target)?;
-                fs::write(&target, data).map_err(|e| e.to_string())?;
+                fs::write(&target, data).map_err(|e| {
+                    eprintln!("[LiveSync] write failed for {:?}: {e}", target);
+                    ERR_SYNC_WRITE_FAILED.to_string()
+                })?;
             }
             "delete" => {
                 if target.exists() {
                     self.mark_known_file(&target)?;
-                    fs::remove_file(&target).map_err(|e| e.to_string())?;
+                    fs::remove_file(&target).map_err(|e| {
+                        eprintln!("[LiveSync] delete failed for {:?}: {e}", target);
+                        ERR_SYNC_DELETE_FAILED.to_string()
+                    })?;
                 }
             }
             _ => return Err("Unknown action".into()),
@@ -171,13 +213,22 @@ impl LiveSyncManager {
     }
 
     pub fn stop(&self) -> Result<(), String> {
-        *self.watcher.lock().map_err(|_| "Watcher lock poisoned")? = None;
-        *self.folder.lock().map_err(|_| "Folder lock poisoned")? = None;
+        *self.watcher.lock().map_err(|e| {
+            eprintln!("[LiveSync] watcher state lock failed on stop: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = None;
+        *self.folder.lock().map_err(|e| {
+            eprintln!("[LiveSync] folder state lock failed on stop: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = None;
 
         let worker = self
             .worker
             .lock()
-            .map_err(|_| "Worker lock poisoned")?
+            .map_err(|e| {
+                eprintln!("[LiveSync] worker state lock failed on stop: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
             .take();
         if let Some(worker) = worker {
             let _ = worker.join();
@@ -185,7 +236,10 @@ impl LiveSyncManager {
 
         self.known_files
             .lock()
-            .map_err(|_| "Known files lock poisoned")?
+            .map_err(|e| {
+                eprintln!("[LiveSync] known_files lock failed on stop: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
             .clear();
 
         Ok(())
@@ -194,7 +248,10 @@ impl LiveSyncManager {
     fn mark_known_file(&self, path: &Path) -> Result<(), String> {
         self.known_files
             .lock()
-            .map_err(|_| "Known files lock poisoned")?
+            .map_err(|e| {
+                eprintln!("[LiveSync] known_files lock failed on mark: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
             .insert(path.to_path_buf());
         Ok(())
     }
