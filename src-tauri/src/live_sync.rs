@@ -14,6 +14,7 @@ const ERR_SYNC_NOT_ACTIVE: &str = "Live sync is not active";
 const ERR_SYNC_INVALID_REMOTE_CONTENT: &str = "Invalid remote file content";
 const ERR_SYNC_WRITE_FAILED: &str = "Failed to apply remote file update";
 const ERR_SYNC_DELETE_FAILED: &str = "Failed to apply remote file deletion";
+const ERR_SYNC_INVALID_TARGET: &str = "Invalid sync target path";
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncEvent {
@@ -31,13 +32,14 @@ pub struct LiveSyncStatus {
 #[serde(rename_all = "camelCase")]
 pub struct RemoteSyncChange {
     pub relative_path: String,
-    pub action: String, // create, update, delete
+    pub action: String,
     pub content_base64: Option<String>,
 }
 
 pub struct LiveSyncManager {
     watcher: Mutex<Option<RecommendedWatcher>>,
     folder: Mutex<Option<PathBuf>>,
+    root_canonical: Mutex<Option<PathBuf>>,
     worker: Mutex<Option<JoinHandle<()>>>,
     known_files: Arc<Mutex<HashSet<PathBuf>>>,
 }
@@ -47,6 +49,7 @@ impl Default for LiveSyncManager {
         Self {
             watcher: Mutex::new(None),
             folder: Mutex::new(None),
+            root_canonical: Mutex::new(None),
             worker: Mutex::new(None),
             known_files: Arc::new(Mutex::new(HashSet::new())),
         }
@@ -58,6 +61,11 @@ impl LiveSyncManager {
         if !folder.exists() || !folder.is_dir() {
             return Err("Sync path must be a directory".into());
         }
+
+        let canonical_root = folder.canonicalize().map_err(|e| {
+            eprintln!("[LiveSync] canonicalize root failed for {:?}: {e}", folder);
+            ERR_SYNC_SETUP_FAILED.to_string()
+        })?;
 
         self.stop()?;
 
@@ -110,7 +118,7 @@ impl LiveSyncManager {
                                 },
                             );
                         }
-                        Err(e) => eprintln!("[LiveSync] Watcher error: {e:?}"),
+                        Err(_) => eprintln!("[LiveSync] Watcher error occurred"),
                     }
                 }
             })
@@ -127,6 +135,10 @@ impl LiveSyncManager {
             eprintln!("[LiveSync] folder state lock failed: {e}");
             ERR_SYNC_STATE_UNAVAILABLE.to_string()
         })? = Some(folder);
+        *self.root_canonical.lock().map_err(|e| {
+            eprintln!("[LiveSync] root canonical state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(canonical_root);
         *self.worker.lock().map_err(|e| {
             eprintln!("[LiveSync] worker state lock failed: {e}");
             ERR_SYNC_STATE_UNAVAILABLE.to_string()
@@ -157,9 +169,19 @@ impl LiveSyncManager {
             .clone()
             .ok_or(ERR_SYNC_NOT_ACTIVE)?;
 
+        let canonical_root = self
+            .root_canonical
+            .lock()
+            .map_err(|e| {
+                eprintln!("[LiveSync] root canonical lock failed during remote apply: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
+            .clone()
+            .ok_or(ERR_SYNC_NOT_ACTIVE)?;
+
         let relative = Path::new(&change.relative_path);
         if relative.as_os_str().is_empty() {
-            return Err("Invalid relative path".into());
+            return Err(ERR_SYNC_INVALID_TARGET.into());
         }
         if relative.components().any(|c| {
             matches!(
@@ -167,7 +189,7 @@ impl LiveSyncManager {
                 Component::ParentDir | Component::RootDir | Component::Prefix(_)
             )
         }) {
-            return Err("Invalid relative path".into());
+            return Err(ERR_SYNC_INVALID_TARGET.into());
         }
 
         let target = root.join(relative);
@@ -176,7 +198,7 @@ impl LiveSyncManager {
             "create" | "update" => {
                 let encoded = change
                     .content_base64
-                    .ok_or("contentBase64 is required for create/update")?;
+                    .ok_or("Invalid remote update payload")?;
                 let data = base64::engine::general_purpose::STANDARD
                     .decode(encoded)
                     .map_err(|e| {
@@ -191,13 +213,34 @@ impl LiveSyncManager {
                     })?;
                 }
 
+                validate_path_within_root(&canonical_root, &target).map_err(|e| {
+                    eprintln!(
+                        "[LiveSync][AUDIT] rejected remote write action={} path={} reason={}",
+                        change.action, change.relative_path, e
+                    );
+                    ERR_SYNC_INVALID_TARGET.to_string()
+                })?;
+
                 self.mark_known_file(&target)?;
                 fs::write(&target, data).map_err(|e| {
                     eprintln!("[LiveSync] write failed for {:?}: {e}", target);
                     ERR_SYNC_WRITE_FAILED.to_string()
                 })?;
+
+                println!(
+                    "[LiveSync][AUDIT] remote action={} result=success path={}",
+                    change.action, change.relative_path
+                );
             }
             "delete" => {
+                validate_path_within_root(&canonical_root, &target).map_err(|e| {
+                    eprintln!(
+                        "[LiveSync][AUDIT] rejected remote delete path={} reason={}",
+                        change.relative_path, e
+                    );
+                    ERR_SYNC_INVALID_TARGET.to_string()
+                })?;
+
                 if target.exists() {
                     self.mark_known_file(&target)?;
                     fs::remove_file(&target).map_err(|e| {
@@ -205,6 +248,11 @@ impl LiveSyncManager {
                         ERR_SYNC_DELETE_FAILED.to_string()
                     })?;
                 }
+
+                println!(
+                    "[LiveSync][AUDIT] remote action=delete result=success path={}",
+                    change.relative_path
+                );
             }
             _ => return Err("Unknown action".into()),
         }
@@ -219,6 +267,10 @@ impl LiveSyncManager {
         })? = None;
         *self.folder.lock().map_err(|e| {
             eprintln!("[LiveSync] folder state lock failed on stop: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = None;
+        *self.root_canonical.lock().map_err(|e| {
+            eprintln!("[LiveSync] root canonical state lock failed on stop: {e}");
             ERR_SYNC_STATE_UNAVAILABLE.to_string()
         })? = None;
 
@@ -263,4 +315,50 @@ fn should_ignore_known_file(known_files: &Arc<Mutex<HashSet<PathBuf>>>, path: &P
     } else {
         false
     }
+}
+
+fn validate_path_within_root(root_canonical: &Path, target: &Path) -> Result<(), String> {
+    let mut cur = PathBuf::new();
+    for component in target.components() {
+        cur.push(component.as_os_str());
+        if let Ok(meta) = fs::symlink_metadata(&cur) {
+            if meta.file_type().is_symlink() {
+                return Err("symlink traversal is not allowed".to_string());
+            }
+        }
+    }
+
+    let canonical_target = if target.exists() {
+        target
+            .canonicalize()
+            .map_err(|_| "unable to resolve target path".to_string())?
+    } else {
+        let existing_ancestor = find_existing_ancestor(target)
+            .ok_or_else(|| "target has no existing ancestor".to_string())?;
+        let canonical_ancestor = existing_ancestor
+            .canonicalize()
+            .map_err(|_| "unable to resolve ancestor path".to_string())?;
+
+        if !canonical_ancestor.starts_with(root_canonical) {
+            return Err("target escapes sync root".to_string());
+        }
+
+        return Ok(());
+    };
+
+    if !canonical_target.starts_with(root_canonical) {
+        return Err("target escapes sync root".to_string());
+    }
+
+    Ok(())
+}
+
+fn find_existing_ancestor(path: &Path) -> Option<PathBuf> {
+    let mut current = path.to_path_buf();
+    while !current.exists() {
+        if !current.pop() {
+            return None;
+        }
+    }
+    Some(current)
 }

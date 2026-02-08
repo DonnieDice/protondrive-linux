@@ -26,6 +26,7 @@ reqwest = { version = "0.12", features = ["json", "cookies"] }
 base64 = "0.22"
 dirs = "5.0"
 mime_guess = "2.0"
+notify = "6.1"
 
 [features]
 default = ["custom-protocol"]

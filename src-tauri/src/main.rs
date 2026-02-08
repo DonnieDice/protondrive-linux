@@ -6,12 +6,14 @@
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::path::PathBuf;
 use std::sync::Arc;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod live_sync;
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
+const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
 
 // Shared HTTP client with cookie jar
 struct AppState {
@@ -89,8 +91,7 @@ async fn navigate_to_captcha(
     captcha_url: String,
     return_url: String,
 ) -> Result<(), String> {
-    println!("[CAPTCHA] Navigating main window to: {}", captcha_url);
-    println!("[CAPTCHA] Will return to: {}", return_url);
+    println!("[CAPTCHA] Starting verification navigation flow");
 
     // Store return URL
     *CAPTCHA_RETURN_URL.lock().unwrap() = Some(return_url);
@@ -131,7 +132,7 @@ async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String
     })?;
 
     let file_path = downloads_dir.join(&filename);
-    println!("[Download] Saving to: {:?}", file_path);
+    println!("[Download] Saving file to Downloads folder");
 
     std::fs::write(&file_path, &data).map_err(|e| {
         eprintln!("[Download] Failed to write download {:?}: {e}", file_path);
@@ -143,34 +144,43 @@ async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String
 
 #[tauri::command]
 fn start_sync(
+    window: tauri::WebviewWindow,
     app: tauri::AppHandle,
     state: tauri::State<'_, Arc<AppState>>,
     path: String,
 ) -> Result<live_sync::LiveSyncStatus, String> {
-    state
-        .sync_manager
-        .start(app, std::path::PathBuf::from(path))?;
+    ensure_sync_command_allowed(&window)?;
+    let sync_root = validate_sync_root_path(&path)?;
+    state.sync_manager.start(app, sync_root)?;
     state.sync_manager.status()
 }
 
 #[tauri::command]
-fn stop_sync(state: tauri::State<'_, Arc<AppState>>) -> Result<live_sync::LiveSyncStatus, String> {
+fn stop_sync(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    ensure_sync_command_allowed(&window)?;
     state.sync_manager.stop()?;
     state.sync_manager.status()
 }
 
 #[tauri::command]
 fn get_sync_status(
+    window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<live_sync::LiveSyncStatus, String> {
+    ensure_sync_command_allowed(&window)?;
     state.sync_manager.status()
 }
 
 #[tauri::command]
 fn handle_remote_update(
+    window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
     change: live_sync::RemoteSyncChange,
 ) -> Result<String, String> {
+    ensure_sync_command_allowed(&window)?;
     state.sync_manager.apply_remote_change(change)
 }
 
@@ -207,7 +217,7 @@ async fn proxy_request(
     let method = reqwest::Method::from_bytes(request.method.to_uppercase().as_bytes())
         .unwrap_or(reqwest::Method::GET);
 
-    println!("[Proxy] {} {}", method, url);
+    println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
 
     let mut req = state.client.request(method, &url);
 
@@ -224,10 +234,13 @@ async fn proxy_request(
         req = req.body(body.clone());
     }
 
-    let resp = req
-        .send()
-        .await
-        .map_err(|e| format!("Request failed: {}", e))?;
+    let resp = req.send().await.map_err(|e| {
+        eprintln!(
+            "[Proxy] request failed for {}: {e}",
+            sanitize_url_for_log(&url)
+        );
+        "Request failed".to_string()
+    })?;
     let status = resp.status().as_u16();
 
     // Forward response headers including set-cookie (needed for WebView session)
@@ -249,16 +262,61 @@ async fn proxy_request(
 
     let body = resp.text().await.unwrap_or_default();
 
-    println!("[Proxy] {} <- {}", status, url);
-    if body.len() < 500 {
-        println!("[Proxy] Body: {}", body);
-    }
+    println!("[Proxy] {} <- {}", status, sanitize_url_for_log(&url));
 
     Ok(ProxyResponse {
         status,
         headers: resp_headers,
         body,
     })
+}
+
+fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let current_url = window.url().map_err(|e| {
+        eprintln!("[Sync] failed to read window URL: {e}");
+        ERR_SYNC_NOT_ALLOWED.to_string()
+    })?;
+
+    let host = current_url.host_str().unwrap_or_default();
+    let is_allowed =
+        current_url.scheme() == "tauri" && (host == "localhost" || host == "tauri.localhost");
+
+    if !is_allowed {
+        eprintln!(
+            "[Sync] rejected command from origin scheme={} host={}",
+            current_url.scheme(),
+            host
+        );
+        return Err(ERR_SYNC_NOT_ALLOWED.to_string());
+    }
+
+    Ok(())
+}
+
+fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
+    let canonical = PathBuf::from(path).canonicalize().map_err(|e| {
+        eprintln!("[Sync] invalid sync root path '{}': {e}", path);
+        "Invalid sync folder".to_string()
+    })?;
+
+    let home = dirs::home_dir().ok_or("Invalid sync folder")?;
+    if !canonical.starts_with(&home) {
+        eprintln!(
+            "[Sync] rejected sync root outside home: path={:?} home={:?}",
+            canonical, home
+        );
+        return Err("Invalid sync folder".to_string());
+    }
+
+    Ok(canonical)
+}
+
+fn sanitize_url_for_log(url: &str) -> String {
+    if let Ok(parsed) = tauri::Url::parse(url) {
+        let host = parsed.host_str().unwrap_or("unknown");
+        return format!("{}://{}{}", parsed.scheme(), host, parsed.path());
+    }
+    "<unparsed-url>".to_string()
 }
 
 fn main() {
