@@ -1,11 +1,12 @@
 use base64::Engine as _;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::HashMap;
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
+use std::time::{Duration, Instant};
 use tauri::{AppHandle, Emitter};
 
 const ERR_SYNC_SETUP_FAILED: &str = "Failed to start live sync";
@@ -15,6 +16,8 @@ const ERR_SYNC_INVALID_REMOTE_CONTENT: &str = "Invalid remote file content";
 const ERR_SYNC_WRITE_FAILED: &str = "Failed to apply remote file update";
 const ERR_SYNC_DELETE_FAILED: &str = "Failed to apply remote file deletion";
 const ERR_SYNC_INVALID_TARGET: &str = "Invalid sync target path";
+const SUPPRESSION_TTL: Duration = Duration::from_secs(30);
+const SUPPRESSION_CACHE_MAX: usize = 4096;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncEvent {
@@ -41,7 +44,7 @@ pub struct LiveSyncManager {
     folder: Mutex<Option<PathBuf>>,
     root_canonical: Mutex<Option<PathBuf>>,
     worker: Mutex<Option<JoinHandle<()>>>,
-    known_files: Arc<Mutex<HashSet<PathBuf>>>,
+    known_files: Arc<Mutex<HashMap<PathBuf, Instant>>>,
 }
 
 impl Default for LiveSyncManager {
@@ -51,7 +54,7 @@ impl Default for LiveSyncManager {
             folder: Mutex::new(None),
             root_canonical: Mutex::new(None),
             worker: Mutex::new(None),
-            known_files: Arc::new(Mutex::new(HashSet::new())),
+            known_files: Arc::new(Mutex::new(HashMap::new())),
         }
     }
 }
@@ -110,13 +113,15 @@ impl LiveSyncManager {
                                 continue;
                             }
 
-                            let _ = app_handle.emit(
+                            if let Err(e) = app_handle.emit(
                                 "live-sync://local-change",
                                 LiveSyncEvent {
                                     kind: kind.to_string(),
                                     paths: filtered_paths,
                                 },
-                            );
+                            ) {
+                                eprintln!("[LiveSync] failed to emit local-change event: {e}");
+                            }
                         }
                         Err(_) => eprintln!("[LiveSync] Watcher error occurred"),
                     }
@@ -206,13 +211,6 @@ impl LiveSyncManager {
                         ERR_SYNC_INVALID_REMOTE_CONTENT.to_string()
                     })?;
 
-                if let Some(parent) = target.parent() {
-                    fs::create_dir_all(parent).map_err(|e| {
-                        eprintln!("[LiveSync] create parent dirs failed for {:?}: {e}", parent);
-                        ERR_SYNC_WRITE_FAILED.to_string()
-                    })?;
-                }
-
                 validate_path_within_root(&canonical_root, &target).map_err(|e| {
                     eprintln!(
                         "[LiveSync][AUDIT] rejected remote write action={} path={} reason={}",
@@ -220,6 +218,13 @@ impl LiveSyncManager {
                     );
                     ERR_SYNC_INVALID_TARGET.to_string()
                 })?;
+
+                if let Some(parent) = target.parent() {
+                    fs::create_dir_all(parent).map_err(|e| {
+                        eprintln!("[LiveSync] create parent dirs failed for {:?}: {e}", parent);
+                        ERR_SYNC_WRITE_FAILED.to_string()
+                    })?;
+                }
 
                 self.mark_known_file(&target)?;
                 fs::write(&target, data).map_err(|e| {
@@ -298,22 +303,42 @@ impl LiveSyncManager {
     }
 
     fn mark_known_file(&self, path: &Path) -> Result<(), String> {
-        self.known_files
-            .lock()
-            .map_err(|e| {
-                eprintln!("[LiveSync] known_files lock failed on mark: {e}");
-                ERR_SYNC_STATE_UNAVAILABLE.to_string()
-            })?
-            .insert(path.to_path_buf());
+        let mut cache = self.known_files.lock().map_err(|e| {
+            eprintln!("[LiveSync] known_files lock failed on mark: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })?;
+        let now = Instant::now();
+        prune_known_files(&mut cache, now);
+        cache.insert(path.to_path_buf(), now);
         Ok(())
     }
 }
 
-fn should_ignore_known_file(known_files: &Arc<Mutex<HashSet<PathBuf>>>, path: &Path) -> bool {
+fn should_ignore_known_file(known_files: &Arc<Mutex<HashMap<PathBuf, Instant>>>, path: &Path) -> bool {
     if let Ok(mut cache) = known_files.lock() {
-        cache.remove(path)
+        let now = Instant::now();
+        prune_known_files(&mut cache, now);
+        if let Some(marked_at) = cache.remove(path) {
+            return now.saturating_duration_since(marked_at) <= SUPPRESSION_TTL;
+        }
+        false
     } else {
         false
+    }
+}
+
+fn prune_known_files(cache: &mut HashMap<PathBuf, Instant>, now: Instant) {
+    cache.retain(|_, marked_at| now.saturating_duration_since(*marked_at) <= SUPPRESSION_TTL);
+    if cache.len() <= SUPPRESSION_CACHE_MAX {
+        return;
+    }
+
+    // If burst volume still exceeds cap, drop oldest markers first.
+    let mut by_age: Vec<(PathBuf, Instant)> = cache.iter().map(|(p, t)| (p.clone(), *t)).collect();
+    by_age.sort_by_key(|(_, t)| *t);
+    let overflow = by_age.len() - SUPPRESSION_CACHE_MAX;
+    for (path, _) in by_age.into_iter().take(overflow) {
+        cache.remove(&path);
     }
 }
 
