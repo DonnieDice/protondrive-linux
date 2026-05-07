@@ -5,7 +5,7 @@ Thank you for your interest in contributing! This guide will help you understand
 ## Project Structure
 
 ```
-protondrive-tauri/
+protondrive-linux/
 ├── src-tauri/          # Rust backend (Tauri framework)
 │   ├── src/main.rs    # IPC commands, system tray, menus
 │   ├── Cargo.toml     # Rust dependencies
@@ -23,8 +23,8 @@ protondrive-tauri/
 
 1. Clone with submodules:
    ```bash
-   git clone --recurse-submodules https://github.com/yourusername/protondrive-tauri.git
-   cd protondrive-tauri
+   git clone --recurse-submodules https://github.com/yourusername/protondrive-linux.git
+   cd protondrive-linux
    ```
 
 2. Run the setup script:

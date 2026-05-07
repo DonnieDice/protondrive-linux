@@ -232,71 +232,19 @@ fn main() {
 "#
                 }
                 Some("rpm") | Some("deb") | Some("flatpak") | Some("snap") | None => {
-                    // System WebKitGTK or sandboxed - disable Workers to trigger Proton's built-in fallback
+                    // The source patch (fix-tauri-worker-protocol.patch) makes hasModulesSupport()
+                    // return false for tauri: protocol, which triggers Proton's built-in main-thread
+                    // crypto fallback. DO NOT set window.Worker = undefined here — that causes
+                    // "undefined is not a constructor" for any other Worker usage in the app.
                     r#"
-    // Force Proton WebClients to use non-Worker crypto mode
-    // Proton WebClients check Worker support and automatically fall back to main-thread crypto
-    // Reference: packages/shared/lib/helpers/setupCryptoWorker.ts line 19
-    console.log('[INIT] RPM/deb build - disabling Worker support to use main-thread crypto');
-
-    // Set Worker/SharedWorker to undefined - Proton will detect and use fallback mode
-    window.Worker = undefined;
-    window.SharedWorker = undefined;
-
-    console.log('[INIT] Workers set to undefined - Proton will load crypto API in main thread');
+    console.log('[INIT] RPM/deb/flatpak build - main-thread crypto active via source patch');
 "#
                 }
                 _ => {
-                    // Unknown distro - use safe default (override)
+                    // Unknown DISTRO_TYPE value — treat same as system package
                     r#"
-    console.warn('[INIT] Unknown distro - using Worker override as safe default');
-    delete window.Worker;
-    delete window.SharedWorker;
-
-    // Suppress Worker errors globally
-    window.addEventListener('error', function(event) {
-        if (event.error && event.error.message && event.error.message.includes('Worker')) {
-            event.preventDefault();
-            return true;
-        }
-    }, true);
-
-    const OrigWorker = window.Worker;
-    window.Worker = function Worker(url) {
-        console.log('[Worker] Blocked - unknown distro, using safe default');
-        const err = new Error('Worker not supported');
-        err.name = 'SecurityError';
-        throw err;
-    };
-    window.Worker.prototype = OrigWorker ? OrigWorker.prototype : {};
-
-    window.SharedWorker = function SharedWorker(url) {
-        console.log('[SharedWorker] Blocked - returning stub');
-        const port = {
-            postMessage: function() {},
-            start: function() {},
-            close: function() {},
-            addEventListener: function() {},
-            removeEventListener: function() {},
-            onmessage: null,
-            onmessageerror: null
-        };
-        return {
-            port: port,
-            onerror: null
-        };
-    };
-
-    Object.defineProperty(window, 'Worker', {
-        value: window.Worker,
-        writable: false,
-        configurable: false
-    });
-    Object.defineProperty(window, 'SharedWorker', {
-        value: window.SharedWorker,
-        writable: false,
-        configurable: false
-    });
+    console.warn('[INIT] Unknown DISTRO_TYPE - treating as system package build');
+    console.log('[INIT] Main-thread crypto active via source patch');
 "#
                 }
             };
@@ -494,38 +442,26 @@ fn main() {
         if (event.data && event.data.type === 'HUMAN_VERIFICATION_SUCCESS' && event.data.payload) {
             const token = event.data.payload.token;
             const tokenType = event.data.payload.type || 'captcha';
-            console.log('[CAPTCHA] Verification successful, storing token and returning');
+            console.log('[CAPTCHA] Verification successful, returning to account');
             captchaPending = false;
 
-            // Store in Rust memory (zero trust - cleared after single use)
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: tokenType
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            // Pass token via URL params — Tauri IPC (invoke) is unavailable on
+            // external pages (verify.proton.me). Rust nav handler extracts the
+            // params when it intercepts the return navigation.
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=' + encodeURIComponent(tokenType);
         }
 
         // hCaptcha sends pm_captcha with the token directly
         if (event.data && event.data.type === 'pm_captcha' && event.data.token) {
             const token = event.data.token;
-            console.log('[CAPTCHA] pm_captcha received, storing token');
+            console.log('[CAPTCHA] pm_captcha received, returning to account');
             captchaPending = false;
 
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: 'captcha'
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=captcha';
         }
     });
 
@@ -563,6 +499,9 @@ fn main() {
     const origWarn = console.warn;
 
     const sendToRust = (level, args) => {
+        if (!window.location.href.startsWith('tauri://')) {
+            return;
+        }
         try {
             const msg = '[' + level + '] ' + Array.from(args).map(a => {
                 try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
@@ -976,6 +915,49 @@ fn main() {
                         }
                     }
 
+                    // Captcha completion returns here from injected JS with the
+                    // verification token in query params. Treat only this explicit
+                    // return as completion; captcha pages also navigate internally
+                    // to about:blank and verify-api URLs while still in progress.
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                        && url.scheme() == "tauri"
+                        && url.host_str() == Some("localhost")
+                        && url.path().starts_with("/account/")
+                    {
+                        let mut hv_token: Option<String> = None;
+                        let mut hv_type: Option<String> = None;
+                        for (key, value) in url.query_pairs() {
+                            match key.as_ref() {
+                                "hv_token" => hv_token = Some(value.into_owned()),
+                                "hv_type" => hv_type = Some(value.into_owned()),
+                                _ => {}
+                            }
+                        }
+
+                        if let (Some(token), Some(token_type)) = (hv_token, hv_type) {
+                            ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
+                            println!("[CAPTCHA] Storing token from completion URL");
+                            *PENDING_VERIFICATION.lock().unwrap() = Some((token, token_type));
+
+                            if let Some(window) = app_handle_nav.get_webview_window("main") {
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
+                                });
+                            }
+                            return false;
+                        }
+
+                        println!("[CAPTCHA] Ignoring account return without verification token: {}", url_str);
+                        return false;
+                    }
+
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                        && url.scheme() == "about"
+                    {
+                        println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
+                        return true;
+                    }
+
                     // Track captcha page state and allow captcha-related URLs
                     let is_captcha_url = match url.host_str() {
                         Some("mail.proton.me") => url.path().starts_with("/api/core/v4/captcha") || url.path().starts_with("/captcha/"),
@@ -990,23 +972,14 @@ fn main() {
                         return true;
                     }
 
-                    // Detect navigation AWAY from captcha to non-captcha page - means captcha flow completed
-                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst) {
-                        // We're leaving the captcha page (not to another captcha/hcaptcha URL)
-                        ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
-                        println!("[CAPTCHA] Left captcha page, returning to account app");
-
-                        // Navigate back to account app to retry auth
-                        if let Some(window) = app_handle_nav.get_webview_window("main") {
-                            tauri::async_runtime::spawn(async move {
-                                let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
-                            });
-                        }
-                        return false; // Block whatever navigation triggered this, we'll go to account
-                    }
-
-                    // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
-                    // Blocking /api/ prevents iframes from trying to load API endpoints which breaks the account app
+                    // Block ALL /api/ navigations including challenge pages.
+                    // Challenge pages (/api/challenge/v4/html) are iframe src navigations — when
+                    // allowed, Tauri serves the account app's index.html for that path, the SPA
+                    // router doesn't recognise /api/challenge/... and navigates to /login, which
+                    // our handler rewrites back to /account/ → infinite reload loop.
+                    // Blocking here is safe: challenge data is collected by the account app's
+                    // fetch interceptor; if Proton requires human verification it returns 9001
+                    // and our captcha flow handles it.
                     if url.path().starts_with("/api/") {
                         println!("[Navigation] Blocking API navigation (should use fetch): {}", url_str);
                         return false;

@@ -6,7 +6,7 @@ const https = require("https");
 const os = require("os");
 const { execSync } = require("child_process");
 
-const REPO = "donniedice/protondrive-tauri";
+const REPO = "DonnieDice/protondrive-linux";
 const API_URL = `https://api.github.com/repos/${REPO}/releases/latest`;
 
 const platform = os.platform();
@@ -23,7 +23,7 @@ const spinnerFrames = ["⠋", "⠙", "⠹", "⠸", "⠼", "⠴", "⠦", "⠧", "
 function getDownloadUrl() {
   return new Promise((resolve, reject) => {
     https.get(API_URL, {
-      headers: { "User-Agent": "protondrive-tauri-installer" },
+      headers: { "User-Agent": "protondrive-linux-installer" },
     }, (res) => {
       let data = "";
       res.on("data", (chunk) => (data += chunk));
@@ -204,7 +204,7 @@ async function buildLocally() {
 
   try {
     // Clone the repository to a temp directory
-    const tempDir = path.join(os.tmpdir(), `protondrive-tauri-${Date.now()}`);
+    const tempDir = path.join(os.tmpdir(), `protondrive-linux-${Date.now()}`);
     console.log("📥 Cloning repository...");
     execSync(`git clone --depth=1 https://github.com/${REPO}.git "${tempDir}"`, { stdio: "pipe" });
 
