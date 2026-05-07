@@ -1,12 +1,5 @@
 name: Build Flatpak
 on:
-  push:
-    branches:
-      - main
-      - dev
-      - alpha
-    tags:
-      - "v*"
   workflow_dispatch:
 
 permissions:

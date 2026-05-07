@@ -1,0 +1,56 @@
+name: Build AUR
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate-aur:
+    name: Validate PKGBUILD
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    timeout-minutes: 30
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install Arch build dependencies
+        run: |
+          pacman -Sy --noconfirm git nodejs python
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Sync PKGBUILD version
+        run: |
+          VERSION=$(python -c "import json; print(json.load(open('package.json'))['version'])")
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" aur/PKGBUILD
+          sed -i "s/^pkgrel=.*/pkgrel=1/" aur/PKGBUILD
+
+      - name: Validate PKGBUILD metadata
+        run: |
+          cd aur
+          useradd -m builder
+          chown -R builder:builder .
+          su builder -c "makepkg --printsrcinfo > .SRCINFO"
+          test -s .SRCINFO
+          cat .SRCINFO
+
+      - name: Upload AUR metadata
+        uses: actions/upload-artifact@v4
+        with:
+          name: aur-srcinfo
+          path: aur/.SRCINFO
+          if-no-files-found: error
+          retention-days: 30

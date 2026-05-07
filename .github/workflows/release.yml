@@ -4,8 +4,6 @@ on:
   push:
     branches:
       - main
-      - dev
-      - alpha
     tags:
       - "v*"
   workflow_dispatch:
@@ -38,19 +36,11 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
-          elif [[ "$GITHUB_REF" == refs/heads/dev || "$GITHUB_REF" == refs/heads/alpha ]]; then
-            BRANCH="${GITHUB_REF#refs/heads/}"
-            TAG="v$(node -p "require('./package.json').version")-${BRANCH}"
           else
             TAG="v$(node -p "require('./package.json').version")"
           fi
 
-          # Mark dev/alpha tags as pre-releases
-          if [[ "$TAG" == *"-dev"* ]] || [[ "$TAG" == *"-alpha"* ]]; then
-            echo "prerelease=true" >> $GITHUB_OUTPUT
-          else
-            echo "prerelease=false" >> $GITHUB_OUTPUT
-          fi
+          echo "prerelease=false" >> $GITHUB_OUTPUT
 
           echo "version=${TAG}" >> $GITHUB_OUTPUT
           echo "Version: ${TAG}"
@@ -79,9 +69,9 @@ jobs:
             console.log(`Waiting for builds for SHA: ${sha}`);
 
             const expectedWorkflows = [
-              'Build Linux Packages',
-              'Build Snap',
-              'Build Flatpak'
+              'Build RPM',
+              'Build DEB',
+              'Build AppImage'
             ];
 
             // Give workflows time to start (30 seconds)
@@ -126,34 +116,34 @@ jobs:
 
             throw new Error('⏱️ Build workflows did not complete within 2.5 hours');
 
-      - name: Download Linux packages artifacts
+      - name: Download RPM artifact
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-linux-packages.yml
-          name: linux-packages
-          path: artifacts/linux-packages
+          workflow: build-rpm.yml
+          name: rpm-package
+          path: artifacts/rpm
           commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
           if_no_artifact_found: fail
 
-      - name: Download Snap artifact
+      - name: Download DEB artifact
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-snap.yml
-          name: snap-package
-          path: artifacts/snap
+          workflow: build-deb.yml
+          name: deb-package
+          path: artifacts/deb
           commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
           if_no_artifact_found: fail
 
-      - name: Download Flatpak artifact
+      - name: Download AppImage artifact
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-flatpak.yml
-          name: flatpak-bundle
-          path: artifacts/flatpak
+          workflow: build-appimage.yml
+          name: appimage-package
+          path: artifacts/appimage
           commit: ${{ github.sha }}
           workflow_conclusion: success
           search_artifacts: true
@@ -167,11 +157,9 @@ jobs:
           echo "📦 Collecting artifacts..."
 
           # Copy all artifacts
-          find artifacts/linux-packages -name "*.deb" -exec cp {} release/ \;
-          find artifacts/linux-packages -name "*.rpm" -exec cp {} release/ \;
-          find artifacts/linux-packages -name "*.AppImage" -exec cp {} release/ \;
-          find artifacts/snap -name "*.snap" -exec cp {} release/ \;
-          find artifacts/flatpak -name "*.flatpak" -exec cp {} release/ \;
+          find artifacts/deb -name "*.deb" -exec cp {} release/ \;
+          find artifacts/rpm -name "*.rpm" -exec cp {} release/ \;
+          find artifacts/appimage -name "*.AppImage" -exec cp {} release/ \;
 
           # Generate checksums
           cd release
@@ -207,8 +195,6 @@ jobs:
           | DEB | \`proton-drive_*.deb\` | Debian, Ubuntu, Linux Mint |
           | RPM | \`proton-drive-*.rpm\` | Fedora, RHEL, CentOS, openSUSE |
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable) |
-          | Snap | \`proton-drive_*.snap\` | Snap-enabled distributions |
-          | Flatpak | \`proton-drive.flatpak\` | Flatpak-enabled distributions |
 
           ## Installation
 
@@ -226,16 +212,6 @@ jobs:
           \`\`\`bash
           chmod +x proton-drive_*.AppImage
           ./proton-drive_*.AppImage
-          \`\`\`
-
-          ### Snap
-          \`\`\`bash
-          sudo snap install --dangerous proton-drive_*.snap
-          \`\`\`
-
-          ### Flatpak
-          \`\`\`bash
-          flatpak install --user proton-drive.flatpak
           \`\`\`
 
           ## Checksums
