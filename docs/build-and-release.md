@@ -1,92 +1,72 @@
 # Build And Release
 
-This branch is not ready for release packaging. The current goal is to make the Go application build-clean and testable first.
+The release process is branch-gated. Build and workflow fixes land on `dev` first. `main` is for stable releases after the required package workflows pass.
 
-## Current Verification Status
-
-Local verification from the docs branch:
+## Branch Policy
 
 ```text
-go build ./...   FAIL
-go test ./...    FAIL
+dev  -> active build and workflow fixes
+main -> stable release source
+tags -> release artifacts
 ```
 
-Do not cut releases from this branch until those commands pass in the target Linux environment.
+Do not cut a stable release directly from `dev`. Once `dev` is green, fast-forward or merge the tested commits into `main`, push `main`, then create/update the release tag from `main`.
 
-## Build Command
+## Required Release Workflows
 
-Expected build command once blockers are fixed:
+These workflows are required for the current release gate:
+
+| Workflow | Artifact | Target |
+|----------|----------|--------|
+| `build-rpm.yml` | `.rpm` | Fedora/RHEL/openSUSE-style installs |
+| `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
+| `build-appimage.yml` | `.AppImage` | Portable Linux installs |
+| `build-aur.yml` | `.SRCINFO` validation | Arch/AUR package metadata |
+| `generate-package-specs.yml` | source packaging specs | downstream packaging |
+
+Snap and Flatpak are intentionally outside the current required gate. Restore them as separate workflows after the native package release path is stable.
+
+## Local Build Commands
+
+Clone WebClients first:
 
 ```bash
-go build ./...
+git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Expected application build target once `cmd/protondrive/main.go` is implemented:
+Build the frontend and one package type:
 
 ```bash
-go build -o protondrive-linux ./cmd/protondrive
+scripts/build-local-rpm.sh
+scripts/build-local-deb.sh
+scripts/build-local-appimage.sh
 ```
 
-## Test Command
+If WebClients is already built:
 
 ```bash
-go test ./...
+scripts/build-local-rpm.sh --skip-webclient
+scripts/build-local-deb.sh --skip-webclient
+scripts/build-local-appimage.sh --skip-webclient
 ```
 
-SQLite/SQLCipher tests need CGO support:
+## Release Checklist
 
-```bash
-CGO_ENABLED=1 go test ./...
-```
+- `dev` has passing RPM, DEB, AppImage, AUR validation, and generated package spec workflows.
+- Fedora/RPM local install has been validated.
+- Ubuntu/DEB and AppImage smoke tests are recorded when available.
+- `main` contains only the tested dev commits intended for release.
+- Release tag points at `main`, not `dev`.
+- GitHub release contains `.rpm`, `.deb`, `.AppImage`, and `SHA256SUMS`.
 
-On Windows PowerShell:
+## Version Source
 
-```powershell
-$env:CGO_ENABLED = "1"
-go test ./...
-```
+`package.json` is the source of truth. Workflows sync it into:
 
-## Pre-Release Criteria
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+- `aur/PKGBUILD`
 
-Before release packaging, require:
+## Current v1.1.3 Status
 
-- `go build ./...` passes.
-- `go test ./...` passes on Linux.
-- stale `github.com/yourusername/...` imports are gone.
-- `cmd/protondrive/main.go` is implemented.
-- client package paths match the actual package layout.
-- session/keyring security design is reviewed.
-- upload/download/list/delete/move behavior is implemented or explicitly excluded from the release.
-- sensitive data handling tests pass.
-- packaging scripts are created and tested.
-
-## Current GitHub Workflows
-
-Inspect:
-
-```text
-.github/
-```
-
-The current branch should not assume release automation is complete until build/test status is green.
-
-## Versioning
-
-No final version source of truth is documented yet for the Go branch. Before packaging, choose and document whether version comes from:
-
-- Git tags.
-- a generated build variable.
-- a package metadata file.
-- release workflow input.
-
-## Release Artifact Direction
-
-Likely future artifacts:
-
-- single Linux binary
-- `.deb`
-- `.rpm`
-- AppImage or portable tarball
-- AUR package
-
-Those are intended directions, not current verified outputs.
+Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.

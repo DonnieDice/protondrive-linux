@@ -1,75 +1,45 @@
 # Packaging
 
-Packaging for the Go-based `dev` branch is not implemented yet.
+Packaging is intentionally split by distro/package type. Each package owns its workflow and patch directory, even when some build steps are similar.
 
-## Current State
+## Package Ownership
 
-There are no verified package outputs from the current branch. Build/test correctness should land before package automation.
+| Package | Workflow | Patch Directory | Notes |
+|---------|----------|-----------------|-------|
+| RPM | `.github/workflows/build-rpm.yml` | `patches/rpm/` | Fedora/RHEL/openSUSE package path. Fedora launch is locally validated. |
+| DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
+| AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | Portable Linux package path with AppRun WebKitGTK env fixes. |
+| AUR | `.github/workflows/build-aur.yml` | `patches/aur/` | Validates `aur/PKGBUILD` and `.SRCINFO`. Publishing is separate. |
+| Flatpak | deferred | `patches/flatpak/` | Restore after native packages are green. |
+| Snap | deferred | `patches/snap/` | Restore after native packages are green. |
 
-Current blockers:
+## Design Standards
 
-- application entrypoint is incomplete.
-- module imports are inconsistent.
-- tests are not green.
-- CGO requirements for SQLite/SQLCipher need a documented Linux build environment.
+- Keep package workflows separate so one distro failure is easy to isolate.
+- Keep distro-specific patches out of `patches/common/`.
+- Use `patches/common/` only for changes required by all packages.
+- Keep app code fixes in source, not package-specific patches.
+- Keep Fedora/RPM launch behavior in RPM packaging or runtime wrapper config unless every package needs it.
+- Do not keep long-term distro branches for routine packaging differences.
+- Use `dev` for workflow/build iteration and `main` for release.
 
-## Likely Runtime Dependencies
+## Required Runtime Fixes
 
-The Go binary may need:
+The current Tauri/WebKitGTK app requires:
 
-- system keyring backend such as GNOME Keyring, KWallet, or Secret Service-compatible provider.
-- SQLite/SQLCipher native dependencies if dynamically linked.
-- CA certificates for HTTPS.
-- desktop integration dependencies if a GUI is added.
+- WebKitGTK 4.1 dependencies.
+- `WEBKIT_DISABLE_DMABUF_RENDERER=1`.
+- `WEBKIT_DISABLE_COMPOSITING_MODE=1`.
+- Account and Verify nested asset path fixes.
+- Webpack SRI disabled at build time for Drive, Account, and Verify.
 
-Exact dependencies must be verified when packaging starts.
+## Artifacts
 
-## Likely Package Targets
+Required release artifacts:
 
-Potential targets:
+- `proton-drive-*.rpm`
+- `proton-drive_*.deb`
+- `proton-drive_*.AppImage`
+- `SHA256SUMS`
 
-- `.deb`
-- `.rpm`
-- AppImage or tarball
-- AUR
-
-Do not document public availability until artifacts are built and published.
-
-## Packaging Inputs To Decide
-
-Before package work starts, decide:
-
-- binary name
-- desktop entry name
-- icon source
-- config/data/cache paths
-- systemd user service or autostart behavior, if any
-- required keyring backend behavior
-- whether the app is CLI-only, GUI-only, or both
-- whether CGO is required in release builds
-
-## Suggested Build Flags
-
-For a simple binary, a future build may look like:
-
-```bash
-go build -trimpath -ldflags="-s -w" -o protondrive-linux ./cmd/protondrive
-```
-
-If version metadata is added:
-
-```bash
-go build -trimpath \
-  -ldflags="-s -w -X main.version=${VERSION}" \
-  -o protondrive-linux ./cmd/protondrive
-```
-
-These are suggestions until the entrypoint and version package are implemented.
-
-## Packaging Documentation Rule
-
-Keep packaging docs honest:
-
-- "Implemented" means a command exists and has been tested.
-- "Supported" means a release artifact exists and is installable.
-- "Planned" means design intent only.
+AUR uses the AppImage release asset as its source package input.

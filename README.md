@@ -8,12 +8,12 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| AppImage | ✅ Working | Portable, no install needed |
-| AUR | ✅ Working | Arch/Manjaro via `yay` |
-| RPM | ✅ Working | Fedora, RHEL, CentOS |
-| DEB | ✅ Working | Debian, Ubuntu, Mint |
-| Flatpak | ⚠ Beta | Local `.flatpak` file — not on Flathub |
-| Snap | ⚠ Beta | Local `.snap` file — not on Snapcraft |
+| RPM | ✅ Locally validated | Fedora launch, login, CAPTCHA, 2FA, app selection, and Drive loading verified |
+| DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
+| AppImage | 🚧 CI validation | Portable package path, Ubuntu smoke test pending |
+| AUR | 🚧 Metadata validation | `PKGBUILD`/`.SRCINFO` validation; publishing deferred |
+| Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
+| Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
 
 Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. Fedora/RPM launch has been validated locally.
 
@@ -31,7 +31,17 @@ dev ──► alpha ──► main
 - **`alpha`** — integration testing, pre-release artifacts
 - **`main`** — stable releases only; merge from alpha after validation
 
-All branches trigger the full build matrix (deb, rpm, AppImage, Flatpak, Snap).
+Build and workflow fixes go to `dev` first. Stable releases are cut from `main` only after the required native package workflows are green.
+
+Required release workflows:
+
+- `build-rpm.yml`
+- `build-deb.yml`
+- `build-appimage.yml`
+- `build-aur.yml`
+- `generate-package-specs.yml`
+
+Snap and Flatpak are intentionally not part of the current release gate.
 
 ## Installation
 
@@ -115,13 +125,27 @@ npm run dev
 protondrive-linux/
 ├── src-tauri/src/main.rs     Rust backend: API proxy, download handler, captcha flow
 ├── docs/debugging/           Debugging history and release validation notes
-├── patches/common/           Source patches applied to WebClients before build
+├── patches/
+│   ├── common/               WebClients patches required by every package
+│   ├── rpm/                  Fedora/RPM-specific patches
+│   ├── deb/                  Debian/Ubuntu-specific patches
+│   ├── appimage/             AppImage-specific patches
+│   └── aur/                  AUR-specific patches
 ├── scripts/
 │   ├── build-webclients.sh   Patch + build frontend (local)
 │   ├── fix_deps.py           Strip private Proton deps, configure yarn registry
 │   └── create_stubs.py       Stub private npm packages (@proton/collect-metrics)
-└── .github/workflows/        CI: deb+rpm+appimage, flatpak, snap, release
+└── .github/workflows/        CI: split RPM, DEB, AppImage, AUR, specs, release
 ```
+
+## Build Standards
+
+- Keep package workflows separate by distro/package type.
+- Keep package-specific behavior in that package workflow and `patches/<type>/`.
+- Use `patches/common/` only for WebClients changes required by all builds.
+- Do not keep long-term distro branches for routine packaging differences.
+- Use `dev` for test builds and workflow fixes; use `main` for stable release tags.
+- Keep Snap and Flatpak separate from the native package release gate until they are restored.
 
 **How it works:** The app wraps Proton Drive's official web frontend inside a Tauri WebView. A Rust proxy intercepts all `/api/` fetch calls and forwards them to Proton's servers with a persistent cookie jar (bypasses CORS). Auth, encryption, and file operations are handled entirely by Proton's JS — Rust sees nothing sensitive.
 
@@ -162,7 +186,7 @@ Fixed in v1.1.3+ — API challenge iframes are blocked from document navigation,
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Branch your work off `dev`, not `main`. Maintainer/agent notes live in [AGENTS.md](AGENTS.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch your work off `dev`, not `main`. Current release tasks live in [TASKS.md](TASKS.md), packaging standards in [docs/packaging.md](docs/packaging.md), and maintainer/agent notes in [AGENTS.md](AGENTS.md).
 
 ## License
 
