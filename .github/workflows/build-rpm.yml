@@ -1,0 +1,93 @@
+name: Build RPM
+
+on:
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSION: stable
+
+jobs:
+  build-rpm:
+    name: Fedora RPM
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:40
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install Fedora build dependencies
+        shell: bash
+        run: |
+          dnf install -y \
+            bash \
+            git \
+            curl \
+            wget \
+            gcc \
+            gcc-c++ \
+            make \
+            file \
+            pkgconf-pkg-config \
+            openssl-devel \
+            webkit2gtk4.1-devel \
+            gtk3-devel \
+            libappindicator-gtk3-devel \
+            librsvg2-devel \
+            libsoup3-devel \
+            patchelf \
+            rpm-build \
+            nodejs \
+            npm \
+            python3 \
+            findutils \
+            which
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          . "$HOME/.cargo/env"
+          rustc --version
+          cargo --version
+
+      - name: Clone WebClients
+        run: |
+          git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+
+      - name: Build RPM
+        run: |
+          . "$HOME/.cargo/env"
+          scripts/build-local-rpm.sh
+
+      - name: Normalize RPM filename
+        run: |
+          cd src-tauri/target/release/bundle/rpm
+          for file in Proton.Drive*.rpm; do
+            if [ -f "$file" ]; then
+              mv "$file" "$(echo "$file" | sed 's/Proton\.Drive/proton-drive/g')"
+            fi
+          done
+
+      - name: Upload RPM artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: rpm-package
+          path: src-tauri/target/release/bundle/rpm/*.rpm
+          if-no-files-found: error
+          retention-days: 30
