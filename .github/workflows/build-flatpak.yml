@@ -1,4 +1,4 @@
-name: Build DEB
+name: Build Flatpak
 
 on:
   push:
@@ -15,25 +15,22 @@ permissions:
 
 env:
   RUST_VERSION: stable
-  DISTRO_TYPE: deb
+  DISTRO_TYPE: flatpak
 
 jobs:
-  build-deb:
-    name: Debian Package
-    runs-on: ubuntu-latest
-    container:
-      image: debian:12
+  build-flatpak:
+    name: Flatpak Package
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     defaults:
       run:
         shell: bash
 
     steps:
-      - name: Install Debian build dependencies
-        shell: bash
+      - name: Install Flatpak build dependencies
         run: |
-          apt-get update
-          apt-get install -y \
+          sudo apt-get update
+          sudo apt-get install -y \
             bash \
             git \
             curl \
@@ -56,9 +53,11 @@ jobs:
             libcairo2-dev \
             libpango1.0-dev \
             libjpeg-dev \
-            libgif-dev
-          curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-          apt-get install -y nodejs
+            libgif-dev \
+            flatpak \
+            flatpak-builder
+          curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+          sudo apt-get install -y nodejs
 
       - name: Checkout repository
         uses: actions/checkout@v4
@@ -71,38 +70,26 @@ jobs:
           rustc --version
           cargo --version
 
-  - name: Clone WebClients
-    run: |
-      git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+      - name: Clone WebClients
+        run: |
+          git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-  - name: Apply DEB/Ubuntu distro patch
-    run: |
-      if [ -f patches/deb/ubuntu.patch ]; then
-        git apply patches/deb/ubuntu.patch
-        echo "Applied patches/deb/ubuntu.patch"
-      fi
+      - name: Apply Flatpak/GNOME distro patch
+        run: |
+          if [ -f patches/flatpak/gnome.patch ]; then
+            git apply patches/flatpak/gnome.patch
+            echo "Applied patches/flatpak/gnome.patch"
+          fi
 
-  - name: Build DEB
+      - name: Build Flatpak
         run: |
           . "$HOME/.cargo/env"
-          scripts/build-local-deb.sh
+          scripts/build-local-flatpak.sh
 
-      - name: Normalize DEB filename
-        run: |
-          cd src-tauri/target/release/bundle/deb
-          for file in *.deb; do
-            if [ -f "$file" ]; then
-              new_name="$(echo "$file" | sed 's/Proton\.Drive/proton-drive/g; s/Proton Drive/proton-drive/g')"
-              if [ "$file" != "$new_name" ]; then
-                mv "$file" "$new_name"
-              fi
-            fi
-          done
-
-      - name: Upload DEB artifact
+      - name: Upload Flatpak artifact
         uses: actions/upload-artifact@v4
         with:
-          name: deb-package
-          path: src-tauri/target/release/bundle/deb/*.deb
+          name: flatpak-package
+          path: "*.flatpak"
           if-no-files-found: error
           retention-days: 30

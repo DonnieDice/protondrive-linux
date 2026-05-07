@@ -15,6 +15,7 @@ permissions:
 
 env:
   RUST_VERSION: stable
+  DISTRO_TYPE: appimage
 
 jobs:
   build-appimage:
@@ -72,11 +73,18 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Clone WebClients
-        run: |
-          git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+  - name: Clone WebClients
+    run: |
+      git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-      - name: Build WebClients and Tauri binary
+  - name: Apply AppImage/Ubuntu distro patch
+    run: |
+      if [ -f patches/appimage/ubuntu.patch ]; then
+        git apply patches/appimage/ubuntu.patch
+        echo "Applied patches/appimage/ubuntu.patch"
+      fi
+
+  - name: Build WebClients and Tauri binary
         run: |
           . "$HOME/.cargo/env"
           scripts/build-webclients.sh
@@ -126,19 +134,49 @@ jobs:
           cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
           ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
 
-          cat > "$APPDIR/AppRun" << 'EOF'
-          #!/bin/bash
-          export GDK_GL=disable
-          export WEBKIT_DISABLE_DMABUF_RENDERER=1
-          export WEBKIT_DISABLE_COMPOSITING_MODE=1
-          export WEBKIT_FORCE_SANDBOX=0
-          export LIBGL_ALWAYS_SOFTWARE=1
-          export GSK_RENDERER=cairo
-          HERE="$(dirname "$(readlink -f "${0}")")"
-          export PATH="${HERE}/usr/bin:${PATH}"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          exec "${HERE}/usr/bin/proton-drive" "$@"
-          EOF
+    cat > "$APPDIR/AppRun" << 'APPRUN'
+#!/bin/bash
+# WebKitGTK environment — must be set before the process starts.
+# Ubuntu 24.04+ ships WebKitGTK 2.46+ with Mesa 24.x; setting
+# GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE=1 there causes the
+# WebKitWebProcess to SIGABRT during heavy re-renders (post-2FA).
+# Detect the distro and apply the minimal set of workarounds.
+
+WEBKIT_DISABLE_DMABUF_RENDERER=1
+WEBKIT_DISABLE_COMPOSITING_MODE=1
+WEBKIT_FORCE_SANDBOX=0
+GSK_RENDERER=cairo
+
+if [ -f /etc/os-release ]; then
+    . /etc/os-release
+    case "$ID" in
+        ubuntu|pop|linuxmint)
+            # Ubuntu 24.04+: Mesa 24.x EGL works; only disable DMABUF + compositing.
+            # Do NOT set GDK_GL=disable or LIBGL_ALWAYS_SOFTWARE — they crash WebKitWebProcess.
+            export GDK_GL=software
+            ;;
+        *)
+            # Debian 12 / Fedora / others with older Mesa that needs software fallback.
+            export GDK_GL=disable
+            export LIBGL_ALWAYS_SOFTWARE=1
+            ;;
+    esac
+else
+    # No os-release — assume older Mesa, use full software fallback.
+    export GDK_GL=disable
+    export LIBGL_ALWAYS_SOFTWARE=1
+fi
+
+export WEBKIT_DISABLE_DMABUF_RENDERER
+export WEBKIT_DISABLE_COMPOSITING_MODE
+export WEBKIT_FORCE_SANDBOX
+export GSK_RENDERER
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PATH="${HERE}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+exec "${HERE}/usr/bin/proton-drive" "$@"
+APPRUN
           chmod +x "$APPDIR/AppRun"
 
           wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool

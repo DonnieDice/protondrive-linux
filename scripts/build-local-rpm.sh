@@ -32,17 +32,29 @@ echo "Building version: $VERSION"
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
 sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
 
-# Apply package-specific patches
-PATCHES_DIR="$PROJECT_ROOT/patches/rpm"
-if [ -d "$PATCHES_DIR" ] && ls "$PATCHES_DIR"/*.patch 1>/dev/null 2>&1; then
-    echo "Applying RPM-specific patches..."
-    for patch in "$PATCHES_DIR"/*.patch; do
-        echo "  Applying $(basename "$patch")..."
-        git apply "$patch" || echo "  Already applied or failed"
-    done
+# Detect distro for package-specific patch selection
+detect_distro_id() {
+    if [ -f /etc/os-release ]; then
+        . /etc/os-release
+        echo "${ID}"
+    else
+        echo "unknown"
+    fi
+}
+DISTRO_ID=$(detect_distro_id)
+echo "Detected distro: $DISTRO_ID"
+
+# Apply package-specific distro patch (named <distro>.patch)
+DISTRO_PATCH="$PROJECT_ROOT/patches/rpm/${DISTRO_ID}.patch"
+if [ -f "$DISTRO_PATCH" ]; then
+    echo "Applying RPM/${DISTRO_ID} distro patch..."
+    git apply "$DISTRO_PATCH" || echo " Already applied or failed"
+else
+    echo "No RPM/${DISTRO_ID}.patch found — building with base code only"
 fi
 
-# Install deps and build
+# Install deps and build with DISTRO_TYPE env
+export DISTRO_TYPE=rpm
 npm install
 npx tauri build --bundles rpm --verbose
 

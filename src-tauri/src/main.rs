@@ -194,12 +194,9 @@ async fn proxy_request(
 }
 
 fn main() {
-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
-    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
-    std::env::set_var("GDK_GL", "disable");
-    std::env::set_var("GSK_RENDERER", "cairo");
+    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
+    // They are distro-specific and belong in patches/<package>/<distro>.patch
+    // and the package's AppRun/wrapper script. The base binary ships clean.
 
     // Create shared client with cookie jar
     let state = Arc::new(AppState {
@@ -214,44 +211,15 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
-            // MULTI-DISTRO WORKER COMPATIBILITY
-            // Different distros use different WebKitGTK builds with varying Worker support
-            // Use DISTRO_TYPE env var at build time to determine Worker handling
-            //
-            // Distro Support Matrix:
-            // - appimage: Bundled WebKitGTK → Workers work → Use native
-            // - rpm/deb:  System WebKitGTK → "operation is insecure" → Override
-            // - flatpak/snap: Sandboxed → Override as safe default
+    .setup(|app| {
+        // NOTE: DISTRO_TYPE worker init is NOT in base code.
+        // It is distro/package-specific and belongs in patches/<package>/<distro>.patch.
+        // Base code runs the universal init script with no worker init override.
+        let worker_init = "";
 
-            let worker_init = match option_env!("DISTRO_TYPE") {
-                Some("appimage") | Some("aur") => {
-                    // Native Workers supported - no override needed
-                    r#"
-    console.log('[INIT] AppImage/AUR build - using native Workers');
-"#
-                }
-                Some("rpm") | Some("deb") | Some("flatpak") | Some("snap") | None => {
-                    // The source patch (fix-tauri-worker-protocol.patch) makes hasModulesSupport()
-                    // return false for tauri: protocol, which triggers Proton's built-in main-thread
-                    // crypto fallback. DO NOT set window.Worker = undefined here — that causes
-                    // "undefined is not a constructor" for any other Worker usage in the app.
-                    r#"
-    console.log('[INIT] RPM/deb/flatpak build - main-thread crypto active via source patch');
-"#
-                }
-                _ => {
-                    // Unknown DISTRO_TYPE value — treat same as system package
-                    r#"
-    console.warn('[INIT] Unknown DISTRO_TYPE - treating as system package build');
-    console.log('[INIT] Main-thread crypto active via source patch');
-"#
-                }
-            };
-
-            let init_script = format!(r#"
+        let init_script = format!(r#"
 (function() {{
-    {}
+{}
 "#, worker_init) + r#"
 
     // Intercept Blob downloads and save to ~/Downloads

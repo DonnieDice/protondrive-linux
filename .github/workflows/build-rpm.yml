@@ -15,6 +15,7 @@ permissions:
 
 env:
   RUST_VERSION: stable
+  DISTRO_TYPE: rpm
 
 jobs:
   build-rpm:
@@ -66,11 +67,18 @@ jobs:
           rustc --version
           cargo --version
 
-      - name: Clone WebClients
-        run: |
-          git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+  - name: Clone WebClients
+    run: |
+      git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-      - name: Build RPM
+  - name: Apply RPM/Fedora distro patch
+    run: |
+      if [ -f patches/rpm/fedora.patch ]; then
+        git apply patches/rpm/fedora.patch
+        echo "Applied patches/rpm/fedora.patch"
+      fi
+
+  - name: Build RPM
         run: |
           . "$HOME/.cargo/env"
           scripts/build-local-rpm.sh
