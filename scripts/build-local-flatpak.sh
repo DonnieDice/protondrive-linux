@@ -86,9 +86,35 @@ if [ "$SKIP_WEBCLIENT" = false ]; then
         echo "✅ Verify app copied and paths fixed"
     fi
 
-    cd "$PROJECT_ROOT"
+cd "$PROJECT_ROOT"
 else
-    echo "📋 Step 2: Skipping WebClients (--skip-webclient)"
+echo "📋 Step 2: Skipping WebClients (--skip-webclient)"
+fi
+
+# Detect distro for package-specific patch selection
+detect_distro_id() {
+if [ -f /etc/os-release ]; then
+. /etc/os-release
+echo "${ID}"
+else
+echo "unknown"
+fi
+}
+DISTRO_ID=$(detect_distro_id)
+echo "📋 Detected distro: $DISTRO_ID"
+
+# Apply package-specific distro patch (named <distro>.patch)
+DISTRO_PATCH="$PROJECT_ROOT/patches/flatpak/${DISTRO_ID}.patch"
+if [ -f "$DISTRO_PATCH" ]; then
+echo "📋 Applying Flatpak/${DISTRO_ID} distro patch..."
+git apply "$DISTRO_PATCH" || echo " Already applied or failed"
+else
+if [ -f "$PROJECT_ROOT/patches/flatpak/gnome.patch" ]; then
+echo "📋 Applying Flatpak/gnome distro patch (fallback)..."
+git apply "$PROJECT_ROOT/patches/flatpak/gnome.patch" || echo " Already applied or failed"
+else
+echo "📋 No Flatpak distro patch found — building with base code only"
+fi
 fi
 
 # Step 3: Verify paths
@@ -104,6 +130,7 @@ fi
 
 # Step 4: Build Tauri binary
 echo "📋 Step 4: Build Tauri binary..."
+export DISTRO_TYPE=flatpak
 npm install
 cd src-tauri && cargo build --release && cd ..
 if [ ! -f "src-tauri/target/release/proton-drive" ]; then
