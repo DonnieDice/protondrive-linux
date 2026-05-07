@@ -53,4 +53,5 @@ jobs:
           name: aur-srcinfo
           path: aur/.SRCINFO
           if-no-files-found: error
+          include-hidden-files: true
           retention-days: 30
