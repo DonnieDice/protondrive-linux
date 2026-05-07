@@ -38,10 +38,11 @@ dist/
 
 # Environment
 .env
+.env.example
 .env.local
 .env.*.local
 
-# Local agent/tool state
+# Agent/tool state and guidance
 .agents/
 .claude/
 .codex/
@@ -49,6 +50,9 @@ dist/
 agents/
 claude/
 tasks/
+AGENTS.md
+CLAUDE.md
+TASKS.md
 *.local.md
 
 # WebClients
@@ -66,3 +70,6 @@ WebClients-test
 scripts/build-local.sh
 scripts/build-flatpak.sh
 scripts/build-snap.sh
+
+# Installer (not needed for CI builds)
+install.js
