@@ -1,5 +1,28 @@
 # Changelog
 
+## 1.1.4 - 2026-05-07
+
+### Fixed
+
+- Stubbed private Proton packages (`@proton/proton-foundation-search`) to unblock CI webpack builds across RPM, DEB, and AppImage.
+- Split monolithic `build-linux-packages.yml` into separate per-distro workflows (`build-rpm.yml`, `build-deb.yml`, `build-appimage.yml`, `build-aur.yml`).
+- Removed stale Flatpak/Snap workflows from the required release gate.
+- Added `tasks/`, `claude/`, `agents/` to `.gitignore` for AI tool state directories.
+- Fixed `package.json` build scripts to use Tauri 2.x `--bundles` flag instead of Tauri 1.x `-- --bundles` passthrough syntax.
+- Added Node.js 20+ minimum version requirement (`engines` field + `prebuild` check) to prevent `SyntaxError` and `styleText is not a function` errors on old Node versions.
+- Removed `WebClients-workflow-test` submodule reference; WebClients is now cloned at build time only.
+
+### CI
+
+- All five required workflows (RPM, DEB, AppImage, AUR, Package Specs) pass green on `dev`.
+- RPM, DEB, and AppImage artifact uploads confirmed.
+- Release workflow waits for RPM, DEB, and AppImage builds then downloads and attaches artifacts.
+
+### Repository Hygiene
+
+- Package patch directories created under `patches/` for each distro type.
+- Build and release documentation updated for split workflow architecture.
+
 ## 1.1.3 - 2026-05-07
 
 ### Fixed

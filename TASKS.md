@@ -2,7 +2,7 @@
 
 Last updated: 2026-05-07
 
-This repo currently ships the Tauri/WebKitGTK Proton Drive desktop wrapper. The immediate release target is v1.1.3 with validated Fedora/RPM login, CAPTCHA, 2FA, app selection, and Drive launch.
+This repo currently ships the Tauri/WebKitGTK Proton Drive desktop wrapper. The immediate release target is v1.1.4 with validated Fedora/RPM login, CAPTCHA, 2FA, app selection, and Drive launch.
 
 ## Release Policy
 
@@ -59,7 +59,7 @@ Required before promoting to `main`:
 - [ ] Decide whether a Rust SDK fork is useful after reviewing Proton's official SDK direction.
 - [ ] Clean up archived Go/Fyne docs so they are clearly historical.
 
-## Done In v1.1.3 Work
+## Done In v1.1.4 Work
 
 - [x] Disabled Webpack SRI for Drive, Account, and Verify builds.
 - [x] Fixed nested Account and Verify asset paths.

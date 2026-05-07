@@ -1,6 +1,6 @@
 {
   "name": "protondrive-linux",
-  "version": "1.1.3",
+  "version": "1.1.4",
   "description": "Proton Drive desktop client - one-line installer",
   "main": "install.js",
   "bin": {
@@ -23,14 +23,18 @@
   "author": "DonnieDice",
   "license": "AGPL-3.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0"
+  },
   "scripts": {
     "tauri": "tauri",
     "dev": "tauri dev",
-    "build": "npm run build:web && tauri build -- --bundles deb,rpm,appimage",
+    "prebuild": "node -e \"const v=process.versions.node.split('.').map(Number); if(v[0]<20){console.error('Node.js 20+ required, got '+process.version); process.exit(1)}\"",
+    "build": "npm run build:web && tauri build --bundles deb,rpm,appimage",
     "build:web": "./scripts/build-webclients.sh",
-    "build:deb": "npm run build:web && tauri build -- --bundles deb",
-    "build:rpm": "npm run build:web && tauri build -- --bundles rpm",
-    "build:appimage": "npm run build:web && tauri build -- --bundles appimage"
+    "build:deb": "npm run build:web && tauri build --bundles deb",
+    "build:rpm": "npm run build:web && tauri build --bundles rpm",
+    "build:appimage": "npm run build:web && tauri build --bundles appimage"
   },
   "devDependencies": {
     "@tauri-apps/cli": "^2.9.6"
