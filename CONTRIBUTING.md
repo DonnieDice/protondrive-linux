@@ -1,51 +1,166 @@
-# Contributing to ProtonDrive Linux
+# Contributing
 
-First off, thank you for considering contributing to ProtonDrive Linux! It's people like you that make open source such a great community. Every contribution is appreciated, from reporting a bug to submitting a feature request or writing code.
+Thanks for helping improve Proton Drive Linux. This project is a Linux desktop wrapper around Proton WebClients, so correctness depends on keeping Rust/Tauri behavior, WebClients build behavior, and package workflows aligned.
 
-## Code of Conduct
+## Project Ground Rules
 
-This project and everyone participating in it is governed by the [Code of Conduct](CODE_OF_CONDUCT.md). By participating, you are expected to uphold this code. Please report unacceptable behavior to the project's maintainers by opening an issue on GitHub.
+- Keep the core app behavior shared across package formats.
+- Put package-specific differences in packaging metadata, scripts, workflow setup, or runtime environment configuration.
+- Keep local build scripts and GitHub Actions equivalent when they touch the same behavior.
+- Prefer Tauri 2 conventions and capability permissions.
+- Treat Proton WebClients as upstream code. Changes to WebClients should be carried as documented patches unless there is a deliberate reason to fork behavior.
 
-## How Can I Contribute?
+## Local Setup
 
-### Reporting Bugs
+Clone this repository and create the local WebClients checkout:
 
-- **Ensure the bug was not already reported** by searching on GitHub under [Issues](https://github.com/gemini-testing/protondrive-linux/issues).
-- If you're unable to find an open issue addressing the problem, [open a new one](https://github.com/gemini-testing/protondrive-linux/issues/new). Be sure to include a **title and clear description**, as much relevant information as possible, and a **code sample** or an **executable test case** demonstrating the expected behavior that is not occurring.
+```bash
+git clone https://github.com/DonnieDice/protondrive-linux.git
+cd protondrive-linux
+git clone --depth=1 --single-branch --branch main \
+  https://github.com/ProtonMail/WebClients.git WebClients
+npm install
+```
 
-### Suggesting Enhancements
+Build the web assets:
 
-- Open a new issue to suggest an enhancement. Please provide a clear description of the enhancement and its potential benefits.
+```bash
+npm run build:web
+```
 
-### Your First Code Contribution
+Run the app:
 
-Unsure where to begin contributing? You can start by looking through `good first issue` and `help wanted` issues:
-- [Good first issues](https://github.com/gemini-testing/protondrive-linux/labels/good%20first%20issue) - issues which should only require a few lines of code, and a test or two.
-- [Help wanted issues](https://github.com/gemini-testing/protondrive-linux/labels/help%20wanted) - issues which should be a bit more involved than `good first issue` issues.
+```bash
+npm run dev
+```
 
-### Pull Requests
+## Repository Areas
 
-1.  **Fork the repository** and create your branch from `main`.
-2.  **Set up your development environment**:
-    ```bash
-    npm install
-    ```
-3.  **Make your changes**. Please adhere to the existing code style.
-4.  **Add tests** for your changes. This is important so we don't break it in a future version.
-5.  **Ensure the test suite passes**:
-    ```bash
-    ./scripts/run-command.sh "npm test"
-    ```
-6.  **Ensure your code lints and formats correctly**:
-    ```bash
-    npm run lint
-    npm run format
-    ```
-7.  **Issue that pull request!**
+Rust/Tauri:
 
-## Styleguides
+```text
+src-tauri/src/main.rs
+src-tauri/tauri.conf.json
+src-tauri/capabilities/default.json
+```
 
--   We use [Prettier](httpss://prettier.io/) for code formatting. Run `npm run format` to format your code.
--   We use [ESLint](httpss://eslint.org/) for linting. Run `npm run lint` to check for linting errors.
+Build and release automation:
 
-We look forward to your contributions!
+```text
+scripts/
+.github/workflows/
+Makefile
+package.json
+```
+
+Packaging:
+
+```text
+src-tauri/linux/
+aur/
+snap/
+```
+
+Documentation:
+
+```text
+README.md
+docs/
+```
+
+## Development Workflow
+
+1. Create a feature branch.
+2. Make the smallest change that solves the issue.
+3. Update docs when behavior, commands, package expectations, or troubleshooting steps change.
+4. Run focused verification.
+5. Include the verification results in your PR.
+
+Example:
+
+```bash
+git checkout -b fix/download-filename
+make fmt
+make lint
+```
+
+## Verification
+
+For Rust-only changes:
+
+```bash
+make fmt
+make lint
+```
+
+For build script or WebClients integration changes:
+
+```bash
+npm run build:web
+```
+
+For packaging changes, build the affected package:
+
+```bash
+npm run build:deb
+npm run build:rpm
+npm run build:appimage
+```
+
+For release workflow changes, inspect the matching GitHub Actions YAML and the local script that performs the same work.
+
+## WebClients Patches
+
+Use patches for changes that must be applied to upstream WebClients during builds.
+
+Shared patches belong in:
+
+```text
+patches/common/
+```
+
+Create a patch from inside a modified `WebClients/` checkout:
+
+```bash
+cd WebClients
+git diff > ../patches/common/descriptive-name.patch
+```
+
+Then test:
+
+```bash
+cd ..
+npm run build:web
+```
+
+## Version Changes
+
+Update `package.json` first, then sync:
+
+```bash
+scripts/sync-version.sh
+```
+
+Confirm the expected version in:
+
+- `package.json`
+- `src-tauri/tauri.conf.json`
+- `src-tauri/Cargo.toml`
+- `aur/PKGBUILD`, if applicable
+
+## Pull Request Checklist
+
+- The change is scoped to the relevant behavior.
+- Local and CI build paths remain aligned.
+- Documentation is updated for changed behavior.
+- Package-specific behavior is not hidden in shared runtime code unless that is intentional and documented.
+- Verification commands and results are included in the PR description.
+
+## Useful References
+
+- [Architecture](docs/architecture.md)
+- [Development](docs/development.md)
+- [Build and Release](docs/build-and-release.md)
+- [Packaging](docs/packaging.md)
+- [Multi-Agent Coordination](docs/multi-agent-coordination.md)
+- [Troubleshooting](docs/troubleshooting.md)
