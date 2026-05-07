@@ -6,17 +6,24 @@ from pathlib import Path
 
 print("Creating stubs for private Proton packages...")
 
-# @proton/collect-metrics is required by webpack plugins but not on public npm
 stub_packages = {
     '@proton/collect-metrics': {
         'name': '@proton/collect-metrics',
         'version': '0.0.0-stub',
         'main': 'index.js',
         'description': 'Stub package for CI builds'
+    },
+    '@proton/proton-foundation-search': {
+        'name': '@proton/proton-foundation-search',
+        'version': '0.0.0-stub',
+        'main': 'index.js',
+        'description': 'Stub package for CI builds'
     }
 }
 
-stub_index_content = '''// Stub for private Proton package
+stub_contents = {}
+
+stub_contents['@proton/collect-metrics'] = '''// Stub for private Proton package
 class WebpackCollectMetricsPlugin {
     constructor(options) {}
     apply(compiler) {}
@@ -30,8 +37,103 @@ module.exports = {
 };
 '''
 
+stub_contents['@proton/proton-foundation-search'] = '''// Stub for private Proton package
+class StubExecution {
+    next() { return undefined; }
+    free() {}
+}
+
+class StubWrite {
+    insert() {}
+    remove() {}
+    commit() { return new StubExecution(); }
+    free() {}
+}
+
+class StubQuery {
+    withStructuredExpression() { return this; }
+}
+
+class Engine {
+    static builder() {
+        return {
+            withBuiltinProcessor() { return this; },
+            build() { return new Engine(); }
+        };
+    }
+    write() { return new StubWrite(); }
+    query() { return new StubQuery(); }
+    free() {}
+}
+
+class ProcessorConfig {
+    withMaxLength() { return this; }
+}
+
+class Document {
+    constructor(id) { this.id = id; this.attributes = []; }
+    addAttribute(name, value) { this.attributes.push([name, value]); }
+}
+
+class Value {
+    static tag(value) { return { kind: 'tag', value }; }
+    static text(value) { return { kind: 'text', value }; }
+    static bool(value) { return { kind: 'boolean', value }; }
+    static int(value) { return { kind: 'integer', value }; }
+}
+
+class TermValue {
+    static int(value) { return new TermValue(value); }
+    static text(value) { return new TermValue(value); }
+    static bool(value) { return new TermValue(value); }
+    static wild() { return new TermValue(''); }
+    constructor(value) { this.value = value; }
+    then(value) { this.value = `${this.value}${value}`; return this; }
+    wildcard() { return this; }
+}
+
+class Expression {
+    static attr(name, func, value) { return new Expression(name, func, value); }
+    constructor(name, func, value) { this.name = name; this.func = func; this.value = value; }
+    and(other) { return this; }
+    or(other) { return this; }
+}
+
+class Cached {
+    serialize() { return new Uint8Array(); }
+}
+
+const Func = { Equals: 'Equals', Matches: 'Matches' };
+const SerDes = { Cbor: 'Cbor' };
+const CleanupEventKind = { Load: 0, Save: 1, Release: 2, Stats: 3 };
+const ExportEventKind = { Load: 0, Save: 1, Stats: 2 };
+const QueryEventKind = { Load: 0, Stats: 1, Result: 2 };
+const WriteEventKind = { Load: 0, Save: 1, Stats: 2 };
+
+async function init() { return {}; }
+function initSync() { return {}; }
+
+module.exports = {
+    default: init,
+    init,
+    initSync,
+    ProcessorConfig,
+    Engine,
+    Document,
+    Value,
+    TermValue,
+    Expression,
+    Cached,
+    Func,
+    SerDes,
+    CleanupEventKind,
+    ExportEventKind,
+    QueryEventKind,
+    WriteEventKind
+};
+'''
+
 for pkg_name, pkg_json in stub_packages.items():
-    # Create in WebClients/node_modules/@proton/collect-metrics
     parts = pkg_name.split('/')
     if len(parts) == 2:
         scope, name = parts
@@ -41,7 +143,7 @@ for pkg_name, pkg_json in stub_packages.items():
 
     stub_dir.mkdir(parents=True, exist_ok=True)
     (stub_dir / 'package.json').write_text(json.dumps(pkg_json, indent=2) + '\n')
-    (stub_dir / 'index.js').write_text(stub_index_content)
+    (stub_dir / 'index.js').write_text(stub_contents[pkg_name])
     print(f"  Created stub for {pkg_name}")
 
 print("✅ Private package stubs created")
