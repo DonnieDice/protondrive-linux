@@ -1,160 +1,136 @@
 # Contributing
 
-Thanks for helping improve Proton Drive Linux. This project is a Linux desktop wrapper around Proton WebClients, so correctness depends on keeping Rust/Tauri behavior, WebClients build behavior, and package workflows aligned.
+Thanks for helping improve ProtonDrive Linux. The current `dev` branch is a Go-native client foundation, so contributions should keep implementation status, tests, and documentation aligned.
 
 ## Project Ground Rules
 
-- Keep the core app behavior shared across package formats.
-- Put package-specific differences in packaging metadata, scripts, workflow setup, or runtime environment configuration.
-- Keep local build scripts and GitHub Actions equivalent when they touch the same behavior.
-- Prefer Tauri 2 conventions and capability permissions.
-- Treat Proton WebClients as upstream code. Changes to WebClients should be carried as documented patches unless there is a deliberate reason to fork behavior.
+- Treat `go build ./...` and `go test ./...` as the source of truth for current status.
+- Separate implemented behavior from planned behavior.
+- Keep security claims precise and tied to code that exists.
+- Do not commit local `WebClients/` checkouts.
+- Use WebClients only as upstream reference material unless the architecture explicitly changes.
+- Keep branch scopes narrow when multiple people or agents are working at once.
 
 ## Local Setup
-
-Clone this repository and create the local WebClients checkout:
 
 ```bash
 git clone https://github.com/DonnieDice/protondrive-linux.git
 cd protondrive-linux
-git clone --depth=1 --single-branch --branch main \
-  https://github.com/ProtonMail/WebClients.git WebClients
-npm install
+git switch dev
+go mod download
 ```
 
-Build the web assets:
+Run verification:
 
 ```bash
-npm run build:web
+go build ./...
+go test ./...
 ```
 
-Run the app:
-
-```bash
-npm run dev
-```
+Current `dev` is expected to fail until active blockers are fixed. Include the relevant failure output or summary in your PR.
 
 ## Repository Areas
 
-Rust/Tauri:
+Entrypoints:
 
 ```text
-src-tauri/src/main.rs
-src-tauri/tauri.conf.json
-src-tauri/capabilities/default.json
+main.go
+cmd/protondrive/
 ```
 
-Build and release automation:
+Core implementation:
 
 ```text
-scripts/
-.github/workflows/
-Makefile
-package.json
+internal/client/
+internal/config/
+internal/encryption/
+internal/errors/
+internal/profile/
+internal/storage/
+internal/testutil/
 ```
 
-Packaging:
+Tests:
 
 ```text
-src-tauri/linux/
-aur/
-snap/
+tests/security/
+internal/**/*_test.go
 ```
 
-Documentation:
+Planning and documentation:
 
 ```text
 README.md
+TASKS.md
 docs/
+```
+
+Scripts and automation:
+
+```text
+scripts/
+.github/
 ```
 
 ## Development Workflow
 
-1. Create a feature branch.
-2. Make the smallest change that solves the issue.
-3. Update docs when behavior, commands, package expectations, or troubleshooting steps change.
+1. Create a focused branch from `dev`.
+2. Make the smallest change that moves the current branch toward build/test correctness.
+3. Update docs when behavior, status, commands, or constraints change.
 4. Run focused verification.
-5. Include the verification results in your PR.
+5. Include verification results in the PR.
 
 Example:
 
 ```bash
-git checkout -b fix/download-filename
-make fmt
-make lint
+git switch -c fix/module-imports origin/dev
+go test ./...
 ```
 
-## Verification
+## Common Workstreams
 
-For Rust-only changes:
+Build correctness:
+
+- remove stale `github.com/yourusername/...` imports.
+- implement or remove empty entrypoints.
+- fix malformed imports.
+- keep `go.mod` module path aligned with source imports.
+
+Security/local state:
+
+- review key derivation and session persistence.
+- keep sensitive data out of logs and config.
+- verify encryption tests with CGO where SQLite/SQLCipher is involved.
+
+WebClients analysis:
+
+- clone upstream locally when needed.
+- document findings under `docs/webclients-analysis.md`.
+- do not commit the upstream checkout.
+
+## WebClients Reference Checkout
+
+Optional local analysis checkout:
 
 ```bash
-make fmt
-make lint
+git clone --depth=1 --single-branch --branch main \
+  https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-For build script or WebClients integration changes:
+Before committing, confirm `WebClients/` is not staged:
 
 ```bash
-npm run build:web
+git status --short
 ```
-
-For packaging changes, build the affected package:
-
-```bash
-npm run build:deb
-npm run build:rpm
-npm run build:appimage
-```
-
-For release workflow changes, inspect the matching GitHub Actions YAML and the local script that performs the same work.
-
-## WebClients Patches
-
-Use patches for changes that must be applied to upstream WebClients during builds.
-
-Shared patches belong in:
-
-```text
-patches/common/
-```
-
-Create a patch from inside a modified `WebClients/` checkout:
-
-```bash
-cd WebClients
-git diff > ../patches/common/descriptive-name.patch
-```
-
-Then test:
-
-```bash
-cd ..
-npm run build:web
-```
-
-## Version Changes
-
-Update `package.json` first, then sync:
-
-```bash
-scripts/sync-version.sh
-```
-
-Confirm the expected version in:
-
-- `package.json`
-- `src-tauri/tauri.conf.json`
-- `src-tauri/Cargo.toml`
-- `aur/PKGBUILD`, if applicable
 
 ## Pull Request Checklist
 
-- The change is scoped to the relevant behavior.
-- Local and CI build paths remain aligned.
+- The branch is based on `dev`.
+- The changed files match the branch purpose.
+- Build/test status is reported honestly.
 - Documentation is updated for changed behavior.
-- Package-specific behavior is not hidden in shared runtime code unless that is intentional and documented.
-- Verification commands and results are included in the PR description.
+- Security-sensitive changes describe residual risk.
+- No local upstream checkout or generated dependency tree is committed.
 
 ## Useful References
 
@@ -162,5 +138,6 @@ Confirm the expected version in:
 - [Development](docs/development.md)
 - [Build and Release](docs/build-and-release.md)
 - [Packaging](docs/packaging.md)
+- [WebClients Analysis](docs/webclients-analysis.md)
 - [Multi-Agent Coordination](docs/multi-agent-coordination.md)
 - [Troubleshooting](docs/troubleshooting.md)

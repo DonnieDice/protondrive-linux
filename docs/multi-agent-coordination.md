@@ -10,6 +10,7 @@ Keep each workstream on its own branch:
 dev                         shared integration branch
 docs/comprehensive-docs     documentation-only branch
 fix/fedora-build-patches    Fedora/package fix branch
+fix/go-build-correctness     Go build/test fix branch
 ```
 
 Open pull requests into `dev`, not directly into `main`, unless maintainers choose a different release flow.
@@ -27,28 +28,28 @@ docs/
 Avoid touching these while package/build work is active:
 
 ```text
-patches/
 scripts/
 .github/workflows/
-src-tauri/
-aur/
-snap/
+internal/
+cmd/
+main.go
+go.mod
+go.sum
 ```
 
-If docs must describe active build changes, prefer adding or updating files under `docs/` instead of editing package scripts or patch metadata files.
+If docs must describe active build changes, prefer adding or updating files under `docs/` instead of editing implementation files.
 
 ## Build Fix Branch Scope
 
 Package/build branches should normally touch:
 
 ```text
+cmd/
+internal/
 scripts/
 .github/workflows/
-patches/
-src-tauri/tauri.conf.json
-src-tauri/linux/
-aur/
-snap/
+go.mod
+go.sum
 ```
 
 When behavior changes, add a short note to the PR describing which documentation page needs an update. The docs branch can pick that up after the build fix lands.

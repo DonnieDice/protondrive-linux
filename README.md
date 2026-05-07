@@ -1,21 +1,31 @@
-# Proton Drive Linux
+# ProtonDrive Linux
 
-Unofficial Linux desktop wrapper for Proton Drive, built with Tauri 2 and Rust.
+Native Linux client work-in-progress for Proton Drive, written in Go.
 
-This project packages Proton's open-source WebClients Drive app inside a native Linux desktop shell. The Rust/Tauri layer provides the application window, Linux packaging, download handling, WebKitGTK compatibility fixes, and a local request proxy so the embedded web client can talk to Proton APIs from the desktop runtime.
-
-> This is not an official Proton product. It depends on Proton's public WebClients repository and can break when upstream WebClients or Proton web APIs change.
+The current `dev` branch is a Go application foundation for a zero-trust local Proton Drive client. It is not the Tauri/WebClients wrapper that exists on other branches. The codebase currently focuses on configuration, hardware profile detection, safe error handling, encrypted local state, encrypted cache/session storage, and early Proton API bridge integration.
 
 ## Current Status
 
-Version `1.1.2` is a working beta. Login, 2FA, CAPTCHA flow, file browsing, and downloads to `~/Downloads` are implemented. The project is Linux-focused and targets `x86_64` packages.
+This branch is under active development and is not currently build-clean.
 
-Known limitations:
+Verified locally on Windows from `docs/comprehensive-docs`:
 
-- No native sync daemon or background file synchronization.
-- The embedded Proton web app must be rebuilt from `ProtonMail/WebClients`.
-- WebKitGTK behavior differs across distributions, so package-specific testing matters.
-- `src-tauri/src/auth.rs` is experimental standalone SRP auth code and is not currently wired into the Tauri app.
+```text
+go build ./...   fails
+go test ./...    fails
+```
+
+Primary blockers observed:
+
+- Several imports still use `github.com/yourusername/protondrive-linux` instead of `github.com/donniedice/protondrive-linux`.
+- `cmd/protondrive/main.go` is empty.
+- `internal/testutil/testutil.go` has a malformed import block.
+- `main.go` is a capability/profile demo, not a full client entrypoint.
+- `internal/client` file operations are mostly TODO stubs.
+- SQLite/SQLCipher tests require CGO; they fail when built with `CGO_ENABLED=0`.
+- Some Windows test failures are caused by path expectations and open-file deletion behavior.
+
+See [Troubleshooting](docs/troubleshooting.md) for the latest verification notes.
 
 ## Documentation
 
@@ -23,6 +33,7 @@ Known limitations:
 - [Development](docs/development.md)
 - [Build and Release](docs/build-and-release.md)
 - [Packaging](docs/packaging.md)
+- [WebClients Analysis](docs/webclients-analysis.md)
 - [Multi-Agent Coordination](docs/multi-agent-coordination.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Contributing](CONTRIBUTING.md)
@@ -31,151 +42,72 @@ Known limitations:
 
 ```text
 .
-|-- src-tauri/                 Tauri 2 application shell and Rust code
-|   |-- src/main.rs            Main app, proxy, navigation, downloads, init script
-|   |-- src/auth.rs            Experimental, currently unused auth module
-|   |-- tauri.conf.json        Tauri app and bundle configuration
-|   `-- capabilities/          Tauri v2 permission capabilities
-|-- scripts/                   Local build, setup, release, and packaging helpers
-|-- patches/                   Patches applied to Proton WebClients
-|-- .github/workflows/         CI builds and release automation
-|-- aur/                       AUR package metadata
-|-- snap/                      Snap packaging metadata
-|-- package.json               Node scripts and Tauri CLI dependency
-`-- Makefile                   Convenience wrapper around common commands
+|-- cmd/protondrive/           planned CLI/application entrypoint
+|-- internal/client/           Proton API bridge, session, keyring, file operation layer
+|-- internal/config/           config loading, XDG paths, capability/profile detection
+|-- internal/encryption/       AES-GCM helpers, cache encryption, SQLCipher helpers
+|-- internal/errors/           safe error types, user messages, retry policy
+|-- internal/profile/          profile detection wrapper
+|-- internal/storage/          SQLite/SQLCipher state database and file metadata models
+|-- internal/testutil/         test helpers and mocks
+|-- tests/security/            security-focused tests
+|-- docs/phases/               development phase plans and status notes
+|-- scripts/                   helper scripts
+|-- go.mod                     Go module definition
+`-- main.go                    temporary capability/profile demo entrypoint
 ```
 
-`WebClients/` is intentionally not committed in this repository. Local development expects you to create it beside these files. CI workflows clone it fresh.
+`WebClients/` is not part of this Go application. It may be cloned locally for analysis of Proton's upstream Drive, Account, and Verify web apps, but it should not be committed to this repository.
 
-## Prerequisites
+## Intended Direction
 
-Install these before building locally:
+The Go branch appears to target:
 
-- Git
-- Node.js 22 or current LTS
-- Rust stable with Cargo
-- Python 3
-- A Linux environment with WebKitGTK 4.1 development packages
-- Distribution build tools such as `build-essential`, `gcc`, `pkg-config`, and OpenSSL development headers
+- Proton Drive API access through `github.com/henrybear327/Proton-API-Bridge`.
+- Local configuration under XDG-compatible paths.
+- OS keyring-backed session key storage.
+- Encrypted session persistence.
+- Encrypted file cache.
+- SQLCipher-backed sync metadata storage.
+- Hardware-aware performance profiles.
+- Eventually, a Linux GUI and sync engine.
 
-Debian/Ubuntu package baseline:
+The phase documents under `docs/phases/` describe a broader roadmap. Some phase content still references older assumptions and should be treated as planning material, not verified implementation truth.
 
-```bash
-sudo apt-get update
-sudo apt-get install -y \
-  build-essential git curl pkg-config python3 libssl-dev \
-  libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
-  librsvg2-dev libsoup-3.0-dev
-```
+## Quick Start For Development
 
-Fedora package baseline:
+Install Go 1.24.x with CGO support.
 
-```bash
-sudo dnf install -y \
-  gcc gcc-c++ make git curl pkg-config python3 openssl-devel \
-  webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel \
-  librsvg2-devel libsoup3-devel
-```
-
-Arch package baseline:
-
-```bash
-sudo pacman -S --needed \
-  base-devel git curl pkgconf python openssl webkit2gtk-4.1 gtk3 \
-  libayatana-appindicator librsvg libsoup3
-```
-
-## Setup
-
-Clone this repository:
+Clone:
 
 ```bash
 git clone https://github.com/DonnieDice/protondrive-linux.git
 cd protondrive-linux
+git switch dev
 ```
 
-Clone Proton WebClients into the expected local path:
+Run verification:
+
+```bash
+go build ./...
+go test ./...
+```
+
+Expect failures until the current blockers are fixed.
+
+## WebClients Analysis
+
+Proton's upstream WebClients repository is useful as a reference for how Proton Drive handles browser-side authentication, Drive bootstrap, download mechanisms, human verification, and crypto worker fallback.
+
+Clone it locally when needed:
 
 ```bash
 git clone --depth=1 --single-branch --branch main \
   https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Install the root Tauri CLI dependency:
-
-```bash
-npm install
-```
-
-The WebClients dependencies are installed by `npm run build:web`.
-
-## Development
-
-Build the embedded web client:
-
-```bash
-npm run build:web
-```
-
-Run the Tauri app in development mode:
-
-```bash
-npm run dev
-```
-
-The Tauri app reads frontend assets from:
-
-```text
-WebClients/applications/drive/dist
-```
-
-## Building Packages
-
-Build the web client and Tauri Linux bundles:
-
-```bash
-npm run build
-```
-
-Build one package family:
-
-```bash
-npm run build:deb
-npm run build:rpm
-npm run build:appimage
-```
-
-Outputs are written under:
-
-```text
-src-tauri/target/release/bundle/
-```
-
-## Important Build Behavior
-
-The local and CI flows are similar but not identical:
-
-- Local builds use an existing `WebClients/` directory.
-- CI builds clone `ProtonMail/WebClients` fresh.
-- `scripts/fix_deps.py` modifies WebClients dependency metadata for public npm builds.
-- `scripts/create_stubs.py` creates stubs for private Proton packages in CI.
-- `patches/common/fix-tauri-worker-protocol.patch` adjusts WebClients behavior for Tauri/WebKitGTK.
-- The Account and Verify apps are copied into `applications/drive/dist/account` and `applications/drive/dist/verify` so SSO and CAPTCHA can work inside the desktop wrapper.
-
-When changing local build behavior, mirror the same behavior in GitHub Actions where relevant.
-
-## Troubleshooting
-
-Start with [docs/troubleshooting.md](docs/troubleshooting.md).
-
-For WebKitGTK white-screen or EGL failures, try:
-
-```bash
-GDK_GL=disable WEBKIT_DISABLE_DMABUF_RENDERER=1 ./proton-drive_*.AppImage
-```
-
-The Rust app also sets WebKitGTK compatibility environment variables at startup, but package/runtime differences can still matter.
+Then read [docs/webclients-analysis.md](docs/webclients-analysis.md).
 
 ## License
 
-This project is licensed under AGPL-3.0. See repository license metadata and package files for details.
+This repository is licensed under GPL-3.0. See [LICENSE](LICENSE).

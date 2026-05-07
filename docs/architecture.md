@@ -1,98 +1,221 @@
 # Architecture
 
-Proton Drive Linux is a Tauri 2 desktop wrapper around Proton's WebClients Drive application.
+This document describes the current `dev` branch architecture.
 
-The application has three main layers:
+## High-Level Shape
 
-1. `WebClients/applications/drive/dist` contains the compiled Proton Drive web app.
-2. `src-tauri/src/main.rs` creates the native Linux window and injects desktop-specific JavaScript.
-3. Tauri bundles the Rust binary, web assets, desktop metadata, icons, and Linux package metadata.
+The `dev` branch is a Go-native Proton Drive client foundation. It is not currently a Tauri wrapper and does not embed Proton WebClients at runtime.
 
-## Runtime Flow
-
-At startup, `main.rs`:
-
-- Sets WebKitGTK environment variables to reduce GPU/EGL issues.
-- Creates a shared `reqwest::Client` with cookie storage.
-- Registers Tauri plugins for shell, dialog, and notifications.
-- Builds a `main` webview window from `tauri://localhost/index.html`.
-- Injects an initialization script before the web app runs.
-- Registers navigation and download handlers.
-- Registers Tauri commands used by the injected script.
-
-The compiled frontend comes from:
+Current layers:
 
 ```text
-WebClients/applications/drive/dist
+main.go / cmd/protondrive
+        |
+        v
+internal/config        system paths, config, capability detection, performance profiles
+internal/client        Proton API bridge wrapper, session persistence, keyring helpers
+internal/encryption    AES-GCM helpers, encrypted cache, SQLCipher helpers
+internal/storage       encrypted metadata database and file models
+internal/errors        safe errors and retry policy
+internal/profile       profile detector wrapper
+tests/security         security-focused tests
 ```
 
-That path is configured in `src-tauri/tauri.conf.json` as:
+## Entrypoints
 
-```json
-"frontendDist": "../WebClients/applications/drive/dist"
+Current root entrypoint:
+
+```text
+main.go
 ```
 
-## Embedded WebClients Apps
+`main.go` prints a short banner, detects hardware capabilities, chooses a performance profile, and prints RAM/CPU information. It currently imports `github.com/yourusername/protondrive-linux/internal/config`, which prevents builds under the actual module path.
 
-The build process compiles more than the Drive app:
+Planned CLI entrypoint:
 
-- `proton-drive` provides the main file UI.
-- `proton-account` is copied into `drive/dist/account` for login and SSO.
-- `proton-verify` is copied into `drive/dist/verify` for CAPTCHA and human verification.
-
-After copying, build scripts rewrite nested asset paths and remove integrity/crossorigin attributes that would no longer match after relocation.
-
-## Request Proxy
-
-The embedded web app cannot call Proton APIs directly in all desktop contexts. The injected script intercepts API `fetch` and `XMLHttpRequest` calls and forwards them to the Rust command:
-
-```rust
-proxy_request
+```text
+cmd/protondrive/main.go
 ```
 
-`proxy_request` rewrites local/Tauri API URLs to Proton API URLs, forwards request headers and body, stores cookies through the shared `reqwest` cookie jar, and returns a serialized response back to JavaScript.
+At the time of analysis, this file is empty, so `go build ./...` fails with `expected 'package', found 'EOF'`.
 
-The current proxy base is:
+## Configuration
 
-```rust
-const PROTON_API_BASE: &str = "https://mail.proton.me";
+Package:
+
+```text
+internal/config
 ```
 
-## Navigation Rewrites
+Responsibilities:
 
-The Tauri navigation handler keeps web auth flows inside the local desktop app:
+- Create default config.
+- Load and save JSON config.
+- Resolve config, data, and cache directories.
+- Validate sync directory, performance profile, and disk type.
+- Detect system capabilities from CPU, architecture, RAM, and storage heuristics.
+- Select a performance profile.
 
-- `/login` is rewritten to `tauri://localhost/account/`.
-- `account.proton.me` is rewritten to the local Account app.
-- `drive.proton.me` is rewritten back to the local Drive app.
-- `account.localhost` is treated as a completed login redirect and sends the user back to Drive.
-- hCaptcha and Proton verify domains are allowed during human verification.
-- direct `/api/` navigations are blocked because API calls should use the proxy.
+Important files:
 
-## Downloads
-
-The app handles downloads in two ways:
-
-- Tauri's native `on_download` hook sets regular download destinations under `~/Downloads`.
-- The injected script tracks `blob:` URLs created by the web app, captures filenames from anchor `download` attributes, reads blob bytes, and invokes:
-
-```rust
-save_download
+```text
+internal/config/config.go
+internal/config/paths.go
+internal/config/capabilities.go
+internal/config/profiles.go
 ```
 
-`save_download` writes files to the user's Downloads directory, creating it if needed.
+Current caveats:
 
-## Worker Compatibility
+- `LoadConfig(baseDir)` creates the default config with `cfg.Save("")`, which ignores `baseDir`.
+- Tests expect environment-controlled config paths that do not match `os.UserConfigDir()` behavior on Windows.
+- `Validate()` creates a missing sync directory, so tests expecting an error for a nonexistent path fail.
 
-WebKitGTK worker support differs by package format and distribution. The injected script decides whether to leave Workers native or disable them based on the compile-time `DISTRO_TYPE` value:
+## Performance Profiles
 
-- `appimage` and `aur` use native Workers.
-- `deb`, `rpm`, `flatpak`, `snap`, and unset values disable Workers so Proton WebClients can use main-thread crypto fallback.
+Profiles implement:
 
-The shared patch in `patches/common/fix-tauri-worker-protocol.patch` also supports this compatibility work.
+```go
+type PerformanceProfile interface {
+    MaxConcurrentUploads() int
+    MaxConcurrentDownloads() int
+    CacheSizeMB() int
+    ChunkSizeMB() int
+}
+```
 
-## Authentication Code Note
+Current profiles:
 
-`src-tauri/src/auth.rs` contains an experimental Rust SRP authentication manager. It is not imported by `main.rs`, and `Cargo.toml` does not currently include all dependencies it references. Treat it as unused design/work-in-progress unless wiring it into the app deliberately.
+| Profile | Uploads | Downloads | Cache | Chunk |
+| --- | ---: | ---: | ---: | ---: |
+| Low-End | 1 | 2 | 50 MB | 5 MB |
+| Standard | 3 | 5 | 100 MB | 5 MB |
+| High-End | 5 | 10 | 200 MB | 10 MB |
 
-The working application path relies on the Proton WebClients login UI plus the JavaScript/Rust proxy and navigation handling described above.
+Selection is RAM-based:
+
+- `< 4 GB`: Low-End
+- `< 8 GB`: Standard
+- otherwise: High-End
+
+## Proton Client Layer
+
+Package:
+
+```text
+internal/client
+```
+
+The intended abstraction is:
+
+```go
+type ProtonClient interface {
+    Login(ctx context.Context, username string, password []byte, rememberMe bool) error
+    Logout() error
+    IsAuthenticated() bool
+    Upload(filepath string) error
+    Download(filepath string) error
+}
+```
+
+`realProtonClient` wraps `Proton-API-Bridge` and stores:
+
+- bridge client
+- username
+- Proton Drive credential/session
+
+Current caveats:
+
+- Imports point to nonexistent `internal/client/keyring` and `internal/client/session` subpackages, but the files are currently in `internal/client` itself.
+- Upload/download/list/create/delete/move operations are TODO stubs.
+- "Remember me" currently derives a session encryption key from a fixed passphrase plus username salt. That should not be treated as production-safe.
+
+## Session And Keyring Storage
+
+Current flow:
+
+1. Load session encryption key from OS keyring.
+2. Decrypt `session.json.enc` under the user config directory.
+3. Initialize Proton API bridge with the loaded session when possible.
+4. On login with remember-me enabled, save an encryption key to keyring and save encrypted session data.
+
+Important files:
+
+```text
+internal/client/keyring.go
+internal/client/session.go
+```
+
+Current caveats:
+
+- Keyring fallback is TODO.
+- Session key derivation strategy needs redesign.
+- Session package paths need to be aligned with the current file layout.
+
+## Encryption
+
+Package:
+
+```text
+internal/encryption
+```
+
+Implemented helpers include:
+
+- PBKDF2-SHA256 key derivation.
+- AES-256-GCM byte encryption/decryption.
+- byte-slice key wiping.
+- encrypted cache file write/read/delete.
+- SQLCipher database helper work.
+
+Current caveats:
+
+- Cache files currently use `os.TempDir()` as a placeholder.
+- Windows deletion tests fail because wiped files remain open when deletion is attempted.
+- SQLCipher tests require CGO and fail when `CGO_ENABLED=0`.
+
+## Storage
+
+Package:
+
+```text
+internal/storage
+```
+
+The storage layer manages a SQLite/SQLCipher state database with file metadata.
+
+Current model:
+
+```go
+type FileMetadata struct {
+    ID         string
+    Name       string
+    Size       int64
+    ModTime    time.Time
+    IsDir      bool
+    Hash       string
+    RemotePath string
+    LocalPath  string
+    SyncStatus SyncStatus
+    CreatedAt  time.Time
+    UpdatedAt  time.Time
+}
+```
+
+Current caveats:
+
+- SQLCipher connection string should be reviewed carefully.
+- The driver import and driver name need verification.
+- Tests depend on CGO-capable SQLite builds.
+
+## WebClients Relationship
+
+The Go application does not currently embed WebClients. WebClients is useful as an upstream reference for:
+
+- Proton Drive web bootstrap.
+- account/login flow.
+- human verification flow.
+- browser download mechanisms.
+- crypto worker fallback strategy.
+
+See [WebClients Analysis](webclients-analysis.md).

@@ -1,156 +1,75 @@
 # Packaging
 
-Packaging must preserve one shared application behavior across all Linux formats. Package-specific differences should live in packaging metadata, build scripts, environment setup, or CI workflow logic.
+Packaging for the Go-based `dev` branch is not implemented yet.
 
-## Supported Package Formats
+## Current State
 
-Current repository automation covers:
+There are no verified package outputs from the current branch. Build/test correctness should land before package automation.
 
-- DEB
-- RPM
-- AppImage
-- Snap
-- Flatpak
-- AUR metadata/publication flow
+Current blockers:
 
-Do not assume a package is published to a public store unless the corresponding release or store listing exists. The repository can build artifacts even when they are intended for manual installation.
+- application entrypoint is incomplete.
+- module imports are inconsistent.
+- tests are not green.
+- CGO requirements for SQLite/SQLCipher need a documented Linux build environment.
 
-## Tauri Bundle Targets
+## Likely Runtime Dependencies
 
-`src-tauri/tauri.conf.json` enables:
+The Go binary may need:
 
-```json
-"targets": ["deb", "rpm", "appimage"]
-```
+- system keyring backend such as GNOME Keyring, KWallet, or Secret Service-compatible provider.
+- SQLite/SQLCipher native dependencies if dynamically linked.
+- CA certificates for HTTPS.
+- desktop integration dependencies if a GUI is added.
 
-Snap, Flatpak, and AUR are handled outside the primary Tauri bundle target list.
+Exact dependencies must be verified when packaging starts.
 
-## App Identity
+## Likely Package Targets
 
-Important identifiers:
+Potential targets:
 
-| Field | Value |
-| --- | --- |
-| Product name | `Proton Drive` |
-| Tauri identifier | `com.proton.drive` |
-| Binary name | `proton-drive` |
-| Cargo package | `proton-drive` |
+- `.deb`
+- `.rpm`
+- AppImage or tarball
+- AUR
 
-Keep desktop files, icons, bundle metadata, and package scripts aligned with those values.
+Do not document public availability until artifacts are built and published.
 
-## Desktop Files
+## Packaging Inputs To Decide
 
-Desktop metadata lives in:
+Before package work starts, decide:
 
-```text
-src-tauri/linux/com.proton.drive.desktop
-src-tauri/linux/proton-drive.desktop
-```
+- binary name
+- desktop entry name
+- icon source
+- config/data/cache paths
+- systemd user service or autostart behavior, if any
+- required keyring backend behavior
+- whether the app is CLI-only, GUI-only, or both
+- whether CGO is required in release builds
 
-CI copies `com.proton.drive.desktop` to `proton-drive.desktop` before bundling for Tauri compatibility.
+## Suggested Build Flags
 
-## Linux Runtime Dependencies
-
-Configured package dependencies include:
-
-DEB:
-
-```text
-libwebkit2gtk-4.1-0
-libgtk-3-0
-libayatana-appindicator3-1
-gstreamer1.0-plugins-base
-gstreamer1.0-plugins-good
-```
-
-RPM:
-
-```text
-webkit2gtk4.1
-gtk3
-libayatana-appindicator-gtk3
-```
-
-Build-time dependencies are broader and are installed in CI workflows.
-
-## Worker Behavior by Package
-
-The injected script uses `DISTRO_TYPE` at compile time to choose worker behavior:
-
-| `DISTRO_TYPE` | Behavior |
-| --- | --- |
-| `appimage` | Native Workers |
-| `aur` | Native Workers |
-| `deb` | Workers disabled, main-thread crypto fallback |
-| `rpm` | Workers disabled, main-thread crypto fallback |
-| `flatpak` | Workers disabled, main-thread crypto fallback |
-| `snap` | Workers disabled, main-thread crypto fallback |
-| unset | Workers disabled, main-thread crypto fallback |
-
-If package scripts compile the app with a specific `DISTRO_TYPE`, make sure the selected behavior is tested on that package format.
-
-## Package-Specific Scripts
-
-Local package helpers:
-
-```text
-scripts/build-local-aur.sh
-scripts/build-local-appimage.sh
-scripts/build-local-deb.sh
-scripts/build-local-flatpak.sh
-scripts/build-local-rpm.sh
-scripts/build-local-snap.sh
-```
-
-Release helper:
-
-```text
-scripts/build-and-release.sh
-```
-
-When changing core build behavior, inspect these scripts and the corresponding `.github/workflows/*.yml` files together.
-
-## Patch Placement
-
-Use:
-
-```text
-patches/common/
-```
-
-for WebClients changes required by every package format.
-
-Use package-specific patch directories only for packaging/runtime issues that cannot be solved globally.
-
-## Installation Examples
-
-Install a local DEB:
+For a simple binary, a future build may look like:
 
 ```bash
-sudo apt install ./proton-drive_*.deb
+go build -trimpath -ldflags="-s -w" -o protondrive-linux ./cmd/protondrive
 ```
 
-Install a local RPM:
+If version metadata is added:
 
 ```bash
-sudo dnf install ./proton-drive-*.rpm
+go build -trimpath \
+  -ldflags="-s -w -X main.version=${VERSION}" \
+  -o protondrive-linux ./cmd/protondrive
 ```
 
-Run AppImage:
+These are suggestions until the entrypoint and version package are implemented.
 
-```bash
-chmod +x proton-drive_*.AppImage
-./proton-drive_*.AppImage
-```
+## Packaging Documentation Rule
 
-Install a local Snap:
+Keep packaging docs honest:
 
-```bash
-sudo snap install --dangerous proton-drive_*.snap
-```
-
-Install a local Flatpak bundle:
-
-```bash
-flatpak install --user proton-drive.flatpak
-```
+- "Implemented" means a command exists and has been tested.
+- "Supported" means a release artifact exists and is installable.
+- "Planned" means design intent only.

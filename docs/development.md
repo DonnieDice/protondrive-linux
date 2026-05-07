@@ -1,148 +1,127 @@
 # Development
 
-This guide is for local development on Linux.
+This guide is for the current Go-based `dev` branch.
 
-## Local Setup
+## Requirements
 
-Clone this repository:
+- Go 1.24.x
+- CGO-capable compiler toolchain for SQLite/SQLCipher work
+- Git
+- Linux for target runtime testing
+
+On Windows, some tests currently fail because of path assumptions, file deletion behavior, and CGO-disabled SQLite.
+
+## Setup
 
 ```bash
 git clone https://github.com/DonnieDice/protondrive-linux.git
 cd protondrive-linux
+git switch dev
+go mod download
 ```
 
-Clone Proton WebClients into the root of this repository:
+## Verification Commands
+
+Run:
+
+```bash
+go build ./...
+go test ./...
+```
+
+Current expected result: both commands fail until active development blockers are resolved.
+
+## Current Build Blockers
+
+Observed from local verification:
+
+```text
+main.go imports github.com/yourusername/protondrive-linux/internal/config
+cmd/protondrive/main.go is empty
+internal/client imports nonexistent internal/client/keyring and internal/client/session subpackages
+internal/testutil/testutil.go has a malformed import path
+```
+
+Search for stale imports:
+
+```bash
+rg "github.com/yourusername"
+```
+
+## Current Test Blockers
+
+Observed from local verification:
+
+- `internal/config` tests fail because expected test config paths differ from `os.UserConfigDir()` on Windows.
+- `TestValidate_InvalidSyncDirectory` expects an error, but validation creates missing directories.
+- cache deletion tests fail on Windows because files remain open during deletion.
+- SQLCipher tests fail when `CGO_ENABLED=0`.
+
+## Code Areas
+
+Entrypoints:
+
+```text
+main.go
+cmd/protondrive/main.go
+```
+
+Configuration and profiles:
+
+```text
+internal/config/
+internal/profile/
+```
+
+Proton API integration:
+
+```text
+internal/client/
+```
+
+Encryption and local state:
+
+```text
+internal/encryption/
+internal/storage/
+```
+
+Errors and retry:
+
+```text
+internal/errors/
+```
+
+Tests:
+
+```text
+internal/**/*_test.go
+tests/security/
+```
+
+Planning:
+
+```text
+docs/phases/
+TASKS.md
+```
+
+## WebClients Reference Checkout
+
+The Go branch does not require WebClients for building. Clone it only when analyzing upstream Proton behavior:
 
 ```bash
 git clone --depth=1 --single-branch --branch main \
   https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Install root dependencies:
+Do not commit `WebClients/`.
 
-```bash
-npm install
-```
+## Documentation Discipline
 
-Build the embedded web app:
+When documenting behavior:
 
-```bash
-npm run build:web
-```
-
-Start Tauri:
-
-```bash
-npm run dev
-```
-
-## What `npm run build:web` Does
-
-`scripts/build-webclients.sh` performs the local WebClients build:
-
-1. Runs `scripts/fix_deps.py`.
-2. Applies patches from `patches/common`.
-3. Installs WebClients dependencies with Proton's checked-in Yarn 4 release.
-4. Builds the `proton-drive` web app.
-5. Builds the `proton-account` app when possible.
-6. Builds the `proton-verify` app when possible.
-7. Copies Account and Verify builds into Drive's `dist` directory.
-8. Rewrites nested asset paths.
-9. Verifies the final `applications/drive/dist` output.
-
-## Editing Areas
-
-Rust/Tauri desktop behavior:
-
-```text
-src-tauri/src/main.rs
-src-tauri/tauri.conf.json
-src-tauri/capabilities/default.json
-```
-
-Build automation:
-
-```text
-scripts/
-.github/workflows/
-Makefile
-package.json
-```
-
-Packaging:
-
-```text
-src-tauri/tauri.conf.json
-src-tauri/linux/
-aur/
-snap/
-```
-
-WebClients compatibility:
-
-```text
-patches/
-scripts/fix_deps.py
-scripts/create_stubs.py
-```
-
-## Formatting and Linting
-
-Format Rust:
-
-```bash
-make fmt
-```
-
-Run Clippy:
-
-```bash
-make lint
-```
-
-Run WebClients tests if WebClients dependencies are installed:
-
-```bash
-make test
-```
-
-## Keeping Local and CI Equivalent
-
-Local builds use an existing `WebClients/` directory. CI clones WebClients fresh.
-
-When changing any of these, check both local scripts and GitHub Actions:
-
-- WebClients clone branch or commit.
-- Dependency patching.
-- WebClients Yarn install flags.
-- Account/Verify copying.
-- Asset path rewrites.
-- Bundle targets.
-- Linux system dependencies.
-- Version sync behavior.
-
-The goal is that local behavior and CI behavior produce equivalent application assets even though they get WebClients from different starting states.
-
-## Version Updates
-
-The canonical version is `package.json`.
-
-Sync dependent files:
-
-```bash
-scripts/sync-version.sh
-```
-
-This updates:
-
-- `src-tauri/tauri.conf.json`
-- `src-tauri/Cargo.toml`
-- `aur/PKGBUILD`, when present
-
-## Common Gotchas
-
-- `WebClients/` is not a Git submodule in the current repository state.
-- `npm run dev` expects `WebClients/applications/drive/dist` to exist.
-- `scripts/setup.sh` initializes submodules, but there is currently no `.gitmodules` file. Clone WebClients manually for local work.
-- PowerShell cannot run shell scripts directly without WSL, Git Bash, MSYS2, or another bash environment.
-- Proton WebClients changes frequently. A build failure can be caused by upstream changes, not only this repository.
+- Document implemented behavior separately from intended behavior.
+- Use current `go build ./...` and `go test ./...` output as the source of truth for status.
+- Keep WebClients analysis separate from Go runtime architecture.
+- Do not describe WebClients behavior as part of the Go app unless code actually integrates it.
