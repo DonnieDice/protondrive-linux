@@ -44,6 +44,9 @@ dist/
 .claude/
 .codex/
 .gemini/
+agents/
+claude/
+tasks/
 *.local.md
 
 # WebClients specific ignores
