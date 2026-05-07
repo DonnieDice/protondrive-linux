@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - dev
+      - alpha
     tags:
       - "v*"
   workflow_dispatch:
@@ -43,7 +45,7 @@ jobs:
           url="https://github.com/${{ github.repository }}"
           license=('AGPL-3.0')
           depends=(
-            'webkit2gtk'
+            'webkit2gtk-4.1'
             'gtk3'
             'libayatana-appindicator'
             'libssl'
@@ -70,16 +72,7 @@ jobs:
             git clone --depth=1 --single-branch --branch main \
               https://github.com/ProtonMail/WebClients.git WebClients
 
-            python3 scripts/fix_deps.py
-
-            # Create empty yarn.lock to mark WebClients as separate project
-            : > WebClients/yarn.lock
-
-            cd WebClients
-            export NODE_OPTIONS="--max-old-space-size=8192"
-            node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
-            node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-            cd ..
+            scripts/build-webclients.sh
 
             npm install
             cd src-tauri && cargo build --release && cd ..
@@ -222,7 +215,7 @@ jobs:
           BuildRequires:  gcc
           BuildRequires:  make
           BuildRequires:  pkgconfig(gtk+-3.0)
-          BuildRequires:  webkit2gtk3-devel
+          BuildRequires:  webkit2gtk4.1-devel
           BuildRequires:  libayatana-appindicator-devel
           BuildRequires:  openssl-devel
           BuildRequires:  nodejs
@@ -230,7 +223,7 @@ jobs:
           BuildRequires:  python3
 
           Requires:       gtk3
-          Requires:       webkit2gtk3
+          Requires:       webkit2gtk4.1
           Requires:       libayatana-appindicator
           Requires:       openssl-libs
 
@@ -246,13 +239,7 @@ jobs:
           git clone --depth=1 --single-branch --branch main \
             https://github.com/ProtonMail/WebClients.git WebClients
 
-          python3 scripts/fix_deps.py
-
-          cd WebClients
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 600000
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
-          cd ..
+          scripts/build-webclients.sh
 
           npm install
           cd src-tauri && cargo build --release && cd ..
