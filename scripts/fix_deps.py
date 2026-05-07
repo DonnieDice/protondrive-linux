@@ -24,7 +24,7 @@ for pkg in Path('WebClients').rglob('package.json'):
         for section in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
             if section in data:
                 for k in list(data[section].keys()):
-                    if any(bad in k.lower() for bad in ['rowsncolumns', 'proton-meet', 'electron']):
+                    if any(bad in k.lower() for bad in ['rowsncolumns', 'proton-meet', 'electron', 'proton-foundation-search']):
                         print(f"  Removing {k} from {pkg}")
                         del data[section][k]
                         modified = True
@@ -51,16 +51,39 @@ if drive_pkg_path.exists():
         new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
         # Remove any --api override - Tauri IPC handles API calls via fetch interception
         new_script = re.sub(r'\s*--api=\S+', '', new_script)
+        # Disable SRI: WebKitGTK rejects script integrity attributes on tauri:// protocol,
+        # causing "Loading chunk X failed" even when the fetch returns HTTP 200.
+        if '--no-sri' not in new_script:
+            new_script = new_script.rstrip() + ' --no-sri'
         if old_script != new_script:
             drive_data['scripts']['build:web'] = new_script
             drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed appMode to standalone (API calls intercepted via Tauri IPC)")
+            print("  Changed appMode to standalone, disabled SRI (WebKitGTK tauri:// incompatibility)")
         else:
             print("  build:web already configured")
     else:
         print("  Warning: Could not find build:web script")
 else:
     print("  Warning: Could not find drive package.json")
+
+# Disable SRI for account and verify apps (same WebKitGTK tauri:// SRI rejection issue)
+for app_name, app_pkg_path in [
+    ('account', Path('WebClients/applications/account/package.json')),
+    ('verify', Path('WebClients/applications/verify/package.json')),
+]:
+    if app_pkg_path.exists():
+        app_data = json.loads(app_pkg_path.read_text())
+        if 'scripts' in app_data and 'build:web' in app_data['scripts']:
+            old_script = app_data['scripts']['build:web']
+            if '--no-sri' not in old_script:
+                new_script = old_script.rstrip() + ' --no-sri'
+                app_data['scripts']['build:web'] = new_script
+                app_pkg_path.write_text(json.dumps(app_data, indent=4) + '\n')
+                print(f"  Disabled SRI for {app_name} app")
+            else:
+                print(f"  {app_name} SRI already disabled")
+    else:
+        print(f"  Warning: Could not find {app_name} package.json")
 
 # Configure yarn for better reliability and compatibility
 print("\nConfiguring Yarn settings...")

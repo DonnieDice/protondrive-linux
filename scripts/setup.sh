@@ -1,7 +1,7 @@
 #!/bin/bash
 set -e
 
-echo "Setting up protondrive-tauri..."
+echo "Setting up protondrive-linux..."
 
 # Check prerequisites
 echo "Checking prerequisites..."

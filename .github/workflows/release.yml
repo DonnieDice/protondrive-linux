@@ -4,6 +4,8 @@ on:
   push:
     branches:
       - main
+      - dev
+      - alpha
     tags:
       - "v*"
   workflow_dispatch:
@@ -36,10 +38,20 @@ jobs:
             TAG="${{ github.event.inputs.tag }}"
           elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
             TAG="${GITHUB_REF#refs/tags/}"
+          elif [[ "$GITHUB_REF" == refs/heads/dev || "$GITHUB_REF" == refs/heads/alpha ]]; then
+            BRANCH="${GITHUB_REF#refs/heads/}"
+            TAG="v$(node -p "require('./package.json').version")-${BRANCH}"
           else
-            # For branch pushes, get version from package.json
             TAG="v$(node -p "require('./package.json').version")"
           fi
+
+          # Mark dev/alpha tags as pre-releases
+          if [[ "$TAG" == *"-dev"* ]] || [[ "$TAG" == *"-alpha"* ]]; then
+            echo "prerelease=true" >> $GITHUB_OUTPUT
+          else
+            echo "prerelease=false" >> $GITHUB_OUTPUT
+          fi
+
           echo "version=${TAG}" >> $GITHUB_OUTPUT
           echo "Version: ${TAG}"
 
@@ -181,6 +193,13 @@ jobs:
 
           An unofficial Linux desktop client for Proton Drive, built with Tauri.
 
+          ## Highlights
+
+          - Fixed Fedora/RPM login through CAPTCHA, 2FA, app selection, and Drive launch
+          - Fixed Account/Verify chunk loading by disabling Webpack SRI and correcting nested public paths
+          - Fixed login refresh loops caused by \`/api/challenge/\` document navigations
+          - Fixed CAPTCHA completion handoff and retried auth with Proton human-verification headers
+
           ## Downloads
 
           | Format | File | Description |
@@ -241,7 +260,7 @@ jobs:
           body_path: RELEASE_NOTES.md
           files: release/*
           draft: false
-          prerelease: false
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
           generate_release_notes: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -1,219 +1,169 @@
 🐧 ProtonDrive Linux
 
-Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri and Rust for a native-performance experience.
-
-This repository contains the source code for the Proton Drive Linux Desktop Client, a secure and private file storage solution for your desktop. Built with a focus on privacy and user control, this application leverages the power of Tauri to deliver a native desktop experience by integrating the official Proton Drive web client.
-
-
-## Table of Contents
-
-- [Features](#features)
-- [Technologies Used](#technologies-used)
-- [Prerequisites](#prerequisites)
-- [Getting Started](#getting-started)
-  - [Setup](#setup)
-  - [Development](#development)
-  - [Building for Production](#building-for-production)
-- [Troubleshooting](#troubleshooting)
-- [Contributing](#contributing)
-- [License](#license)
+Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 and Rust.
 
 ## Status
 
-**v1.1.x - Working Beta** - Login, 2FA, and file browsing are functional. Downloads save to `~/Downloads`. Not fully tested - please report issues!
+**v1.1.3 — Working Beta**
 
-## Features
+| Format | Status | Notes |
+|--------|--------|-------|
+| AppImage | ✅ Working | Portable, no install needed |
+| AUR | ✅ Working | Arch/Manjaro via `yay` |
+| RPM | ✅ Working | Fedora, RHEL, CentOS |
+| DEB | ✅ Working | Debian, Ubuntu, Mint |
+| Flatpak | ⚠ Beta | Local `.flatpak` file — not on Flathub |
+| Snap | ⚠ Beta | Local `.snap` file — not on Snapcraft |
 
-*   **Secure Proton Drive Integration:** Access your encrypted Proton Drive files directly from your Linux desktop.
-*   **Full Authentication Support:** Login with username/password, 2FA (TOTP), and CAPTCHA verification all work in-app.
-*   **Native Desktop Experience:** Built with Tauri for seamless integration with your Linux desktop environment.
-*   **Downloads to ~/Downloads:** Files download directly to your Downloads folder.
-*   **Multiple Distribution Formats:** Install via deb, rpm, AppImage, Snap, or Flatpak for compatibility with any Linux distribution.
-*   **Privacy-Focused:** Leverages Proton's commitment to privacy and end-to-end encryption.
+Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. Fedora/RPM launch has been validated locally.
 
-## Technologies Used 
+## Branch Workflow
 
-The Proton Drive Linux Desktop Client is a hybrid application combining:
+```
+dev ──► alpha ──► main
+ │         │        │
+ │         │        └── Stable release (versioned tag, e.g. v1.1.3)
+ │         └────────── Pre-release (alpha tag, e.g. v1.1.3-alpha)
+ └──────────────────── Dev builds (pre-release tag, e.g. v1.1.3-dev)
+```
 
-*   **Tauri (v2):** A lightweight framework for building native desktop applications, providing the shell for the web client.
-*   **Rust:** Powers the secure backend and native functionalities of the Tauri application.
-*   **Node.js:** Used for project scripting, dependency management, and building the web client.
-*   **Yarn:** For managing JavaScript dependencies within the `WebClients` module.
-*   **Python:** Utilized for dependency patching (`fix_deps.py`).
-*   **WebClients (Submodule):** Contains the Proton Drive web application that is embedded within the Tauri shell.
+- **`dev`** — active development, CI builds and publishes pre-release artifacts
+- **`alpha`** — integration testing, pre-release artifacts
+- **`main`** — stable releases only; merge from alpha after validation
 
-## Prerequisites
+All branches trigger the full build matrix (deb, rpm, AppImage, Flatpak, Snap).
 
-Before you begin, ensure you have the following installed on your system:
+## Installation
 
-*   **Node.js (LTS version recommended):**
-    ```bash
-    node --version
-    ```
-*   **Rust and Cargo:**
-    ```bash
-    rustc --version
-    cargo --version
-    ```
-    You can install Rust using `rustup`: `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
-*   **System Build Dependencies:** The `setup.sh` script will attempt to install these, but manual installation may be required depending on your Linux distribution. These typically include `build-essential`, `libssl-dev`, `pkg-config`, `webkit2gtk` development libraries, and `librsvg2` development libraries.
+### Quick Install (AppImage — works everywhere)
 
-## Getting Started
+```bash
+chmod +x proton-drive_*.AppImage
+./proton-drive_*.AppImage
+```
 
-Follow these instructions to get a copy of the project up and running on your local machine for development and testing purposes.
+### Debian / Ubuntu / Mint
 
-### Setup
+```bash
+sudo apt install ./proton-drive_*.deb
+```
 
-1.  **Clone the Repository:**
-    ```bash
-    git clone https://github.com/DonnieDice/protondrive-linux.git
-    cd protondrive-linux
-    ```
-2.  **Run the Setup Script:**
-    This script will install necessary system dependencies (requires `sudo`), initialize Git submodules, and install Node.js dependencies.
-    ```bash
-    ./scripts/setup.sh
-    ```
-    *   **Note:** If `scripts/setup.sh` encounters issues installing system dependencies, please refer to your distribution's documentation for installing development tools, `libssl-dev`, `pkg-config`, `webkit2gtk` development libraries, and `librsvg2` development libraries.
+### Fedora / RHEL / CentOS
 
-### Development
+```bash
+sudo dnf install ./proton-drive-*.rpm
+```
 
-To start the application in development mode with live reloading:
+### Arch Linux (AUR)
+
+```bash
+yay -S proton-drive-bin
+```
+
+### Flatpak (local bundle)
+
+```bash
+flatpak install --user proton-drive.flatpak
+flatpak run com.proton.drive
+```
+
+> **Note:** Not available on Flathub. Download `proton-drive.flatpak` from the [Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
+
+### Snap (local package)
+
+```bash
+sudo snap install --dangerous proton-drive_*.snap
+```
+
+> **Note:** Not available in the Snap Store. Download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases).
+
+## Building from Source
+
+### Prerequisites
+
+- **Node.js 18+** — `node --version`
+- **Rust** — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
+- **System deps (Fedora):** `sudo dnf install webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel openssl-devel`
+- **System deps (Debian/Ubuntu):** `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libssl-dev`
+
+### Clone and Build
+
+```bash
+git clone https://github.com/DonnieDice/protondrive-linux.git
+cd protondrive-linux
+
+# Clone WebClients (Proton's frontend)
+git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
+
+# Build WebClients + Tauri
+npm install
+npm run build:web      # build frontend (patches, yarn install, webpack)
+npm run build:rpm      # or build:deb, build:appimage
+```
+
+Built packages land in `src-tauri/target/release/bundle/`.
+
+### Local dev run
 
 ```bash
 npm run dev
 ```
 
-This will build the web client and then launch the Tauri application.
+## Architecture
 
-### Building for Production
+```
+protondrive-linux/
+├── src-tauri/src/main.rs     Rust backend: API proxy, download handler, captcha flow
+├── docs/debugging/           Debugging history and release validation notes
+├── patches/common/           Source patches applied to WebClients before build
+├── scripts/
+│   ├── build-webclients.sh   Patch + build frontend (local)
+│   ├── fix_deps.py           Strip private Proton deps, configure yarn registry
+│   └── create_stubs.py       Stub private npm packages (@proton/collect-metrics)
+└── .github/workflows/        CI: deb+rpm+appimage, flatpak, snap, release
+```
 
-To create production-ready builds of the application:
-
-1.  **Full Build (Web Client + Tauri App):**
-    ```bash
-    npm run build
-    ```
-    This command will first build the `WebClients` module and then compile the Tauri application into an executable.
-
-2.  **Build Web Client Only:**
-    If you only need to build the embedded web application without compiling the desktop client:
-    ```bash
-    npm run build:web
-    ```
-
-3.  **Linux Distribution Packages:**
-    Build packages for specific Linux distributions:
-
-    *   **DEB Package (Debian/Ubuntu):**
-        ```bash
-        npm run build:deb
-        ```
-    *   **RPM Package (Fedora/Red Hat/CentOS):**
-        ```bash
-        npm run build:rpm
-        ```
-    *   **AppImage (Universal Linux):**
-        ```bash
-        npm run build:appimage
-        ```
-
-    Built packages will be located in the `src-tauri/target/release/bundle/` directory.
-
-4.  **Available Distribution Channels:**
-
-    The application is available across all major Linux distribution channels:
-
-    **Direct Package Managers:**
-    *   **Debian/Ubuntu** - Install DEB package
-        ```bash
-        sudo apt install proton-drive_*.deb
-        ```
-    *   **Fedora/RHEL/CentOS** - Install RPM package
-        ```bash
-        sudo dnf install proton-drive-*.rpm
-        ```
-    *   **Arch Linux (AUR)** - Build from AUR
-        ```bash
-        yay -S proton-drive
-        ```
-
-    **Container/Sandboxed Formats:**
-    *   **Snap** - Available in Snapcraft store
-        ```bash
-        sudo snap install proton-drive
-        ```
-    *   **Flatpak** - Available in Flathub
-        ```bash
-        flatpak install flathub com.proton.drive
-        ```
-
-    **Universal Format:**
-    *   **AppImage** - Download and run anywhere
-        ```bash
-        chmod +x proton-drive-*.AppImage
-        ./proton-drive-*.AppImage
-        ```
-
-    **Fedora Community:**
-    *   **COPR** - Fedora Community Build System
-        ```bash
-        sudo dnf copr enable donniedice/proton-drive
-        sudo dnf install proton-drive
-        ```
-
-    These are automatically built and published when a new version is tagged.
+**How it works:** The app wraps Proton Drive's official web frontend inside a Tauri WebView. A Rust proxy intercepts all `/api/` fetch calls and forwards them to Proton's servers with a persistent cookie jar (bypasses CORS). Auth, encryption, and file operations are handled entirely by Proton's JS — Rust sees nothing sensitive.
 
 ## Troubleshooting
 
-### White Screen / EGL Error on AppImage
+### Login error: "undefined is not a constructor" (Worker)
 
-If you see a white screen or get an error like:
+Affects: RPM/DEB on Fedora, Ubuntu. Fixed in v1.1.2+.
+
+If you see this on an older build, use the AppImage instead while upgrading.
+
+### White screen / EGL crash on startup
+
+```bash
+# Try these environment flags
+WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./proton-drive*.AppImage
 ```
-Could not create default EGL display: EGL_BAD_PARAMETER. Aborting...
+
+Caused by a WebKitGTK bug on AMD/Wayland systems (WebKit [bug #280239](https://bugs.webkit.org/show_bug.cgi?id=280239)). The env vars are set automatically inside the binary in v1.1.2+.
+
+### Chunk loading error after login (locales, date-fns)
+
+```
+Loading chunk failed. (/account/assets/static/locales/nl_NL.*.chunk.js)
 ```
 
-This is a **known upstream WebKitGTK bug** ([WebKit bug #280239](https://bugs.webkit.org/show_bug.cgi?id=280239)) affecting WebKitGTK versions newer than 2.44. It primarily impacts:
-- Arch Linux / Manjaro
-- Fedora 40+
-- Systems with AMD GPUs on Wayland
+Fixed in v1.1.3+ by disabling Webpack SRI at build time and correcting nested Account/Verify public paths. If you're building from source, make sure you're on `main` or a recent `dev` build.
 
-**Solutions (in order of recommendation):**
+### Login refresh loop / CAPTCHA freezes
 
-1. **Use Flatpak instead** (Recommended)
-   ```bash
-   flatpak install proton-drive.flatpak
-   ```
-   Flatpak bundles its own WebKitGTK runtime and is not affected by this bug.
+Fixed in v1.1.3+ — API challenge iframes are blocked from document navigation, CAPTCHA runs as a top-level verification page, and the completed verification token is passed back to the Account app for the retried auth request.
 
-2. **Try environment variables** (may work on some systems)
-   ```bash
-   WEBKIT_DISABLE_DMABUF_RENDERER=1 ./proton-drive*.AppImage
-   ```
-   Or with additional flags:
-   ```bash
-   GDK_GL=disable WEBKIT_DISABLE_DMABUF_RENDERER=1 ./proton-drive*.AppImage
-   ```
+### App stuck on loading screen
 
-3. **Downgrade WebKitGTK** (Arch/Manjaro)
-   ```bash
-   sudo pacman -U /var/cache/pacman/pkg/webkit2gtk-4.1-2.44*
-   ```
-   Note: This may break other applications and is not recommended long-term.
-
-**Why this happens:** The AppImage format uses your system's WebKitGTK libraries. If your system has a buggy version, the AppImage will be affected. Flatpak avoids this by bundling its own libraries.
-
-### Application Stuck on Loading Screen
-
-If the app loads but gets stuck on the Proton loading screen:
-- Check your internet connection
-- The app requires network access to reach Proton's servers
-- Try restarting the application
+- Check internet connection — the app needs live access to Proton's servers
+- Try launching from terminal to see error output
+- Report the terminal log as an issue
 
 ## Contributing
 
-We welcome contributions! Please refer to `CONTRIBUTING.md` for guidelines on how to contribute to this project.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch your work off `dev`, not `main`. Maintainer/agent notes live in [AGENTS.md](AGENTS.md).
 
 ## License
 
-This project is licensed under the AGPL-3.0 License - see the [LICENSE](LICENSE) file for details.
+AGPL-3.0 — see [LICENSE](LICENSE).

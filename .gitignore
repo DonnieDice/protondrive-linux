@@ -11,9 +11,11 @@ yarn-error.log*
 .pnpm-debug.log*
 
 # Rust
-Cargo.lock
 *.rs.bk
 target/
+
+# Keep app lockfiles tracked for reproducible builds.
+!src-tauri/Cargo.lock
 
 # IDE
 .vscode/
@@ -37,6 +39,13 @@ dist/
 .env.local
 .env.*.local
 
+# Local agent/tool state
+.agents/
+.claude/
+.codex/
+.gemini/
+*.local.md
+
 # WebClients specific ignores
 WebClients/applications/*/node_modules/
 WebClients/applications/*/dist/
@@ -45,6 +54,10 @@ WebClients/
 # Debug files
 DEBUGGING.md
 WebClients-test
+
+# Local runtime logs
+*.log
+/tmp/
 
 # Local build scripts (personal)
 scripts/build-local.sh

@@ -36,20 +36,22 @@ echo "📦 Installing WebClients dependencies..."
 # Create empty yarn.lock to mark WebClients as separate project (prevents workspace detection issues)
 : > yarn.lock
 rm -rf .yarn/cache
-export NODE_OPTIONS="--max-old-space-size=8192"
-node .yarn/releases/yarn-4.12.0.cjs install || node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 300000
+YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
+export NODE_OPTIONS="--max-old-space-size=4096"
+$YARN install || $YARN install --network-timeout 300000
 
-# 4. Build proton-drive
-echo "🔨 Building Proton Drive web app..."
-node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
+# 4. Build all three apps in parallel (saves ~4-6 minutes vs sequential)
+echo "🔨 Building Drive, Account, and Verify apps in parallel..."
+$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
+DRIVE_PID=$!
+$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log &
+ACCOUNT_PID=$!
+$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log &
+VERIFY_PID=$!
 
-# 4b. Build account app for SSO
-echo "🔨 Building Account app for SSO..."
-node .yarn/releases/yarn-4.12.0.cjs workspace proton-account build:web || echo "Account build failed"
-
-# 4c. Build verify app for captcha
-echo "🔨 Building Verify app for captcha..."
-node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
+wait $DRIVE_PID   && echo "✅ Drive build complete"   || { echo "❌ Drive build failed"; exit 1; }
+wait $ACCOUNT_PID && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
+wait $VERIFY_PID  && echo "✅ Verify build complete"  || echo "⚠️  Verify build failed (captcha optional)"
 
 # 4d. Copy account app to drive dist and fix paths
 echo "📦 Copying account app to drive dist..."
@@ -71,6 +73,20 @@ if [ -d "applications/account/dist" ]; then
     -e 's|"assets/static/|"/account/assets/static/|g' \
     -e 's|"/assets/static/|"/account/assets/static/|g' \
     -e 's|"//assets/|"/account/assets/|g' {} \;
+  # Fix webpack publicPath in runtime.js — prevents lazy chunks (locales, date-fns, etc.)
+  # from resolving to wrong absolute paths and failing to load after login
+  find applications/drive/dist/account -name "runtime*.js" -exec sed -i \
+    's/\.p="\/"/.p=""/g' {} \;
+  # Strip webpack SRI hashes — WebKitGTK rejects script integrity on tauri:// protocol,
+  # causing "Loading chunk X failed" even when HTTP 200. --no-sri at build time is primary
+  # fix; this is the safety net in case build flag is missing.
+  find applications/drive/dist/account -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read()
+    c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c)
+    open(p,'w').write(c)
+" {} \;
   echo "✅ Account app copied and paths fixed"
 fi
 
@@ -94,8 +110,34 @@ if [ -d "applications/verify/dist" ]; then
     -e 's|"assets/static/|"/verify/assets/static/|g' \
     -e 's|"/assets/static/|"/verify/assets/static/|g' \
     -e 's|"//assets/|"/verify/assets/|g' {} \;
+  find applications/drive/dist/verify -name "runtime*.js" -exec sed -i \
+    's/\.p="\/"/.p=""/g' {} \;
+  find applications/drive/dist/verify -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read()
+    c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c)
+    open(p,'w').write(c)
+" {} \;
   echo "✅ Verify app copied and paths fixed"
 fi
+
+# Strip SRI from all dist files — drive, account, verify
+# 1. Remove integrity/crossorigin from drive's own index.html (SRI hashes become invalid after
+#    we modify runtime.js, so the browser rejects the modified file)
+find applications/drive/dist -maxdepth 1 -name "*.html" -exec sed -i \
+  -e 's| integrity="[^"]*"||g' \
+  -e 's| crossorigin="anonymous"||g' {} \;
+# 2. Strip sriHashes object and unconditional integrity assignment from all runtime.js files
+#    (unconditional i.integrity=sriHashes[e] sets integrity="undefined" which browser rejects)
+find applications/drive/dist -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read()
+    c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c)
+    c = re.sub(r'[a-z]\.integrity=[a-z]\.sriHashes\[[a-z]\],', '', c)
+    open(p,'w').write(c)
+" {} \;
 
 # 5. Verify build output
 echo "🔍 Verifying build output..."

@@ -97,8 +97,8 @@ jobs:
 
           echo "🩹 Applying WebClients patches..."
           cd WebClients
-          if [ -d ../patches/webclients ]; then
-            for patch in ../patches/webclients/*.patch; do
+          if [ -d ../patches/common ]; then
+            for patch in ../patches/common/*.patch; do
               if [ -f "$patch" ]; then
                 echo "  Applying $(basename "$patch")..."
                 if git apply --reverse --check "$patch" 2>/dev/null; then
@@ -121,6 +121,18 @@ jobs:
           # Create empty yarn.lock to mark WebClients as separate project (prevents workspace detection issues)
           : > WebClients/yarn.lock
 
+      - name: Cache WebClients node_modules
+        uses: actions/cache@v4
+        with:
+          path: WebClients/node_modules
+          key: webclient-nm-${{ hashFiles('WebClients/yarn.lock') }}
+          restore-keys: webclient-nm-
+
+      - name: Rust cache
+        uses: swatinem/rust-cache@v2
+        with:
+          workspaces: './src-tauri -> target'
+
       - name: Build WebClients (Proton Drive)
         run: |
           set -euo pipefail
@@ -131,8 +143,9 @@ jobs:
           cd WebClients
 
           echo "📦 Installing WebClients dependencies..."
-          export NODE_OPTIONS="--max-old-space-size=8192"
-          node .yarn/releases/yarn-4.12.0.cjs install --network-timeout 900000
+          export NODE_OPTIONS="--max-old-space-size=4096"
+          YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
+          $YARN install --network-timeout 900000
 
           cd ..
           mv ./package.json.bak ./package.json 2>/dev/null || true
@@ -143,21 +156,23 @@ jobs:
 
           cd WebClients
 
-          echo "🔨 Building Proton Drive web app..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-drive build:web
+          echo "🔨 Building Drive, Account, and Verify apps in parallel..."
+          YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
+          $YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
+          DRIVE_PID=$!
+          $YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log &
+          ACCOUNT_PID=$!
+          $YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log &
+          VERIFY_PID=$!
 
-          echo "🔨 Building Account app for SSO..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-account build:web || echo "Account build failed"
-
-          echo "🔨 Building Verify app for captcha..."
-          node .yarn/releases/yarn-4.12.0.cjs workspace proton-verify build:web || echo "Verify build optional"
+          wait $DRIVE_PID   && echo "✅ Drive build complete"   || { echo "❌ Drive build failed"; exit 1; }
+          wait $ACCOUNT_PID && echo "✅ Account build complete" || echo "⚠️  Account build failed"
+          wait $VERIFY_PID  && echo "✅ Verify build complete"  || echo "⚠️  Verify build failed"
 
           echo "📦 Copying account app to drive dist..."
           if [ -d "applications/account/dist" ]; then
             cp -r applications/account/dist applications/drive/dist/account
             echo "🔧 Fixing account app paths for nested deployment..."
-            # Fix base href and asset paths in account app HTML files
-            # CRITICAL: Remove integrity/crossorigin attributes that break after path changes
             find applications/drive/dist/account -name "*.html" -exec sed -i \
               -e 's|<base href="/">|<base href="/account/">|g' \
               -e 's|href="/assets/|href="/account/assets/|g' \
@@ -165,12 +180,18 @@ jobs:
               -e 's|content="/assets/|content="/account/assets/|g' \
               -e 's| integrity="[^"]*"||g' \
               -e 's| crossorigin="anonymous"||g' {} \;
-            # Fix asset paths in JavaScript files (runtime chunks reference other chunks)
             find applications/drive/dist/account -name "*.js" -exec sed -i \
               -e 's|"//assets/static/|"/account/assets/static/|g' \
               -e 's|"assets/static/|"/account/assets/static/|g' \
               -e 's|"/assets/static/|"/account/assets/static/|g' \
               -e 's|"//assets/|"/account/assets/|g' {} \;
+            find applications/drive/dist/account -name "runtime*.js" -exec sed -i \
+              's/\.p="\/"/.p=""/g' {} \;
+            find applications/drive/dist/account -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read(); c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c); open(p,'w').write(c)
+" {} \;
             echo "✅ Account app copied and paths fixed"
           fi
 
@@ -178,8 +199,6 @@ jobs:
           if [ -d "applications/verify/dist" ]; then
             cp -r applications/verify/dist applications/drive/dist/verify
             echo "🔧 Fixing verify app paths for nested deployment..."
-            # Fix base href and asset paths in verify app HTML files
-            # CRITICAL: Remove integrity/crossorigin attributes that break after path changes
             find applications/drive/dist/verify -name "*.html" -exec sed -i \
               -e 's|<base href="/">|<base href="/verify/">|g' \
               -e 's|href="/assets/|href="/verify/assets/|g' \
@@ -187,14 +206,28 @@ jobs:
               -e 's|content="/assets/|content="/verify/assets/|g' \
               -e 's| integrity="[^"]*"||g' \
               -e 's| crossorigin="anonymous"||g' {} \;
-            # Fix asset paths in JavaScript files
             find applications/drive/dist/verify -name "*.js" -exec sed -i \
               -e 's|"//assets/static/|"/verify/assets/static/|g' \
               -e 's|"assets/static/|"/verify/assets/static/|g' \
               -e 's|"/assets/static/|"/verify/assets/static/|g' \
               -e 's|"//assets/|"/verify/assets/|g' {} \;
+            find applications/drive/dist/verify -name "runtime*.js" -exec sed -i \
+              's/\.p="\/"/.p=""/g' {} \;
+            find applications/drive/dist/verify -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read(); c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c); open(p,'w').write(c)
+" {} \;
             echo "✅ Verify app copied and paths fixed"
           fi
+
+          # Strip SRI from drive app runtime too
+          find applications/drive/dist -maxdepth 3 -name "runtime*.js" \
+            -not -path "*/account/*" -not -path "*/verify/*" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read(); c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c); open(p,'w').write(c)
+" {} \;
 
           echo "🔍 Verifying build output..."
           if [ ! -d "applications/drive/dist" ]; then
@@ -302,6 +335,20 @@ jobs:
               newname=$(echo "$f" | sed 's/Proton\.Drive/proton-drive/g')
               mv "$f" "$newname"
               echo "Renamed: $f -> $newname"
+            fi
+          done
+          cd -
+
+          # Rename DEB from Proton.Drive / "Proton Drive" to proton-drive (fixes checksum mismatch)
+          echo "🔧 Renaming DEB package..."
+          cd src-tauri/target/release/bundle/deb
+          for f in *.deb; do
+            if [ -f "$f" ]; then
+              newname=$(echo "$f" | sed 's/Proton\.Drive/proton-drive/g; s/Proton Drive/proton-drive/g')
+              if [ "$f" != "$newname" ]; then
+                mv "$f" "$newname"
+                echo "Renamed: $f -> $newname"
+              fi
             fi
           done
           cd -

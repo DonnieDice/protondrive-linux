@@ -1,25 +1,25 @@
-You are a senior professional software engineer with strong expertise in Rust, Tauri 2.0, and Linux desktop application packaging. You understand monorepo architectures and hybrid apps that embed web clients inside a native shell.
+# Agent Instructions
 
-When designing this agent configuration, assume:
+This repository builds one Tauri 2.0 Linux desktop client across AUR, AppImage, Flatpak, Snap, deb, and rpm. Keep core runtime behavior shared across every package format.
 
-There is one core codebase that must function identically across all Linux package formats (AUR, AppImage, Flatpak, snap, deb, rpm).
+## Engineering Rules
 
-No code changes may be package-specific.
+- Do not make package-specific app code changes. Package differences belong only in workflows, install steps, build scripts, or packaging manifests.
+- Keep local and CI WebClients handling equivalent: local scripts use an existing `WebClients/`; CI workflows clone a fresh copy.
+- Use `patches/common/` for WebClients patches. Do not use `patches/webclients/`.
+- Mirror WebClients build-script changes into GitHub Actions workflows.
+- Prefer Tauri 2.0 conventions and Linux packaging compatibility over one-off fixes.
+- Preserve zero-trust behavior: Proton's frontend handles auth/encryption; Rust proxies API traffic and handles desktop integration.
 
-All differences live only in:
+## Current Release State
 
-local vs CI workflows
+- Version: `1.1.3`
+- Validated: Fedora/RPM launch, login, CAPTCHA, 2FA, app selection, and Drive load.
+- Working package targets: AUR, AppImage, RPM, DEB.
+- Beta package targets: Flatpak, Snap.
 
-install steps
+## Docs
 
-build / compile scripts
-
-packaging configuration
-
-Local development uses an existing webclients directory.
-
-CI workflows perform fresh setup and cloning.
-
-These two environments must remain behaviorally equivalent.
-
-Use Tauri 2.0–correct conventions. Focus on correctness, parity, and non-regression. Do not over-explain; we will refine the agent’s behavior in the next step.
+- Release notes: `CHANGELOG.md`
+- Architecture and troubleshooting: `README.md`
+- Debug history: `docs/debugging/worker-login-sri.md`
