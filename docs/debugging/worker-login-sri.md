@@ -378,7 +378,7 @@ This fix must be applied to BOTH:
 - WebClients added 2 import lines at top of `browser.ts`, shifting hunk from line 5→7
 - **Fix:** Updated patch `@@ -5,6` → `@@ -7,6`; verified applies cleanly
 
-### ✅ Current State (v1.1.4)
+### ✅ Current State (v1.1.5)
 - Patch in `patches/common/fix-tauri-worker-protocol.patch` applies cleanly to current WebClients
 - CI now correctly applies patch (`patches/common/`)
 - `main.rs` no longer overrides Workers — relies entirely on patch
@@ -551,7 +551,7 @@ find applications/drive/dist/account -name "runtime*.js" -exec sed -i \
 2. `publicPath=""` means chunk URLs are relative → correctly resolve to `tauri://localhost/account/assets/...`
 3. No post-build modification of runtime.js needed → no HTML hash mismatch
 
-**Status:** Fixed in v1.1.4 (2026-05-07). Clean rebuild removed SRI, corrected nested chunk paths, and validated Account/Drive loading.
+**Status:** Fixed in v1.1.5 (2026-05-07). Clean rebuild removed SRI, corrected nested chunk paths, and validated Account/Drive loading.
 
 ---
 
@@ -574,7 +574,7 @@ Checked all 21 forks via GitHub API. Summary:
 
 ## Integrated Debugging Logs
 
-### Session: 2026-05-07 v1.1.4 Fedora Login Validation
+### Session: 2026-05-07 v1.1.5 Fedora Login Validation
 
 **Findings:**
 - `--no-sri` was confirmed in Drive, Account, and Verify build commands.
@@ -598,7 +598,7 @@ Checked all 21 forks via GitHub API. Summary:
 - CAPTCHA completed and returned a verification token.
 - Auth retry consumed the token, reached 2FA, loaded app selection, and Drive opened.
 
-**Release Status:** Prepared for `v1.1.4`.
+**Release Status:** Prepared for `v1.1.5`.
 
 ---
 
@@ -612,6 +612,6 @@ Checked all 21 forks via GitHub API. Summary:
 ## Related Issues
 - GitHub #34: Chunk loading error after login (Zorin OS/Debian)
 - GitHub #36: date-fns chunk loading failure (Linux Mint, Flatpak/AppImage)
-- GitHub #37: Challenge navigation blocked (superseded by v1.1.4 top-level captcha flow)
+- GitHub #37: Challenge navigation blocked (superseded by v1.1.5 top-level captcha flow)
 - GitHub #39: Checksum mismatch for v1.1.2 deb (filename spacing issue in SHA256SUMS)
 - GitHub #40: Login problem on Debian (likely chunk loading, awaiting confirmation)

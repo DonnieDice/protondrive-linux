@@ -1,1 +1,0 @@
-{"default":{"identifier":"default","description":"Default capabilities for Proton Drive","local":true,"windows":["main"],"permissions":["core:default","shell:allow-open","dialog:default","notification:default"]}}

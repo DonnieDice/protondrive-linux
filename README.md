@@ -4,7 +4,7 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 ## Status
 
-**v1.1.4 — Working Beta**
+**v1.1.5 — Working Beta**
 
 | Format | Status | Notes |
 |--------|--------|-------|
@@ -22,9 +22,9 @@ Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downl
 ```
 dev ──► alpha ──► main
  │         │        │
-│ │ └── Stable release (versioned tag, e.g. v1.1.4)
-│ └────────── Pre-release (alpha tag, e.g. v1.1.4-alpha)
-└──────────────────── Dev builds (pre-release tag, e.g. v1.1.4-dev)
+│ │ └── Stable release (versioned tag, e.g. v1.1.5)
+│ └────────── Pre-release (alpha tag, e.g. v1.1.5-alpha)
+└──────────────────── Dev builds (pre-release tag, e.g. v1.1.5-dev)
 ```
 
 - **`dev`** — active development, CI builds and publishes pre-release artifacts
@@ -172,11 +172,11 @@ Caused by a WebKitGTK bug on AMD/Wayland systems (WebKit [bug #280239](https://b
 Loading chunk failed. (/account/assets/static/locales/nl_NL.*.chunk.js)
 ```
 
-Fixed in v1.1.4+ by disabling Webpack SRI at build time and correcting nested Account/Verify public paths. If you're building from source, make sure you're on `main` or a recent `dev` build.
+Fixed in v1.1.5+ by disabling Webpack SRI at build time and correcting nested Account/Verify public paths. If you're building from source, make sure you're on `main` or a recent `dev` build.
 
 ### Login refresh loop / CAPTCHA freezes
 
-Fixed in v1.1.4+ — API challenge iframes are blocked from document navigation, CAPTCHA runs as a top-level verification page, and the completed verification token is passed back to the Account app for the retried auth request.
+Fixed in v1.1.5+ — API challenge iframes are blocked from document navigation, CAPTCHA runs as a top-level verification page, and the completed verification token is passed back to the Account app for the retried auth request.
 
 ### App stuck on loading screen
 
