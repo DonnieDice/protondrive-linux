@@ -40,6 +40,12 @@ YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
 export NODE_OPTIONS="--max-old-space-size=4096"
 $YARN install || $YARN install --network-timeout 300000
 
+# 3b. Create stubs for Proton packages that are private/not published to npm
+echo "📦 Creating stubs for private packages..."
+cd "$REPO_ROOT"
+python3 scripts/create_stubs.py
+cd WebClients
+
 # 4. Build all three apps in parallel (saves ~4-6 minutes vs sequential)
 echo "🔨 Building Drive, Account, and Verify apps in parallel..."
 $YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
