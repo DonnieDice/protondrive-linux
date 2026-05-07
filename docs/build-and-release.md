@@ -67,6 +67,6 @@ scripts/build-local-appimage.sh --skip-webclient
 - `src-tauri/Cargo.toml`
 - `aur/PKGBUILD`
 
-## Current v1.1.4 Status
+## Current v1.1.5 Status
 
 Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.

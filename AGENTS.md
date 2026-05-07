@@ -13,7 +13,7 @@ This repository builds one Tauri 2.0 Linux desktop client across AUR, AppImage, 
 
 ## Current Release State
 
-- Version: `1.1.4`
+- Version: `1.1.5`
 - Validated: Fedora/RPM launch, login, CAPTCHA, 2FA, app selection, and Drive load.
 - Working package targets: AUR, AppImage, RPM, DEB.
 - Beta package targets: Flatpak, Snap.

@@ -1,5 +1,6 @@
 # Tauri
 /src-tauri/target
+/src-tauri/gen
 /dist
 /src-tauri/tauri.conf.json.bak
 
@@ -9,6 +10,7 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
+yarn.lock
 
 # Rust
 *.rs.bk
@@ -49,9 +51,7 @@ claude/
 tasks/
 *.local.md
 
-# WebClients specific ignores
-WebClients/applications/*/node_modules/
-WebClients/applications/*/dist/
+# WebClients
 WebClients/
 
 # Debug files

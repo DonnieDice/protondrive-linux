@@ -1,5 +1,24 @@
 # Changelog
 
+## 1.1.5 - 2026-05-07
+
+### Fixed
+
+- Fixed `package.json` build scripts to use Tauri 2.x `--bundles` flag instead of Tauri 1.x `-- --bundles` passthrough syntax.
+- Added Node.js 20+ minimum version requirement (`engines` field + `prebuild` check) to prevent cryptic errors on old Node versions.
+- Removed stale `WebClients-workflow-test` submodule reference; WebClients is cloned at build time only.
+
+### Repository Cleanup
+
+- Removed legacy build scripts: `test-build.sh`, `build-and-release.sh`, `setup.sh`, `sync-version.sh`.
+- Removed obsolete Go-era documentation: `docs/architecture.md`, `docs/development.md`, `docs/webclients-analysis.md`, `docs/troubleshooting.md`, `docs/multi-agent-coordination.md`, `docs/phases/`, `docs/archive/`.
+- Removed duplicate desktop entry `com.proton.drive.desktop` (kept `proton-drive.desktop`).
+- Removed auto-generated `src-tauri/gen/schemas/` from tracking.
+- Removed unused `snap/snapcraft.yaml.template`.
+- Removed `yarn.lock` (project uses npm).
+- Added `src-tauri/gen/` and `yarn.lock` to `.gitignore`.
+- Cleaned up `Makefile` targets to match current scripts.
+
 ## 1.1.4 - 2026-05-07
 
 ### Fixed
