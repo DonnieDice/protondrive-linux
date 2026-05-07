@@ -75,12 +75,12 @@ jobs:
     run: |
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-  - name: Apply DEB/Ubuntu distro patch
-    run: |
-      if [ -f patches/deb/ubuntu.patch ]; then
-        git apply patches/deb/ubuntu.patch
-        echo "Applied patches/deb/ubuntu.patch"
-      fi
+- name: Apply DEB distro patch
+      run: |
+        if [ -f patches/deb/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch ]; then
+          git apply patches/deb/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch
+          echo "Applied patches/deb/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch"
+        fi
 
   - name: Build DEB
         run: |

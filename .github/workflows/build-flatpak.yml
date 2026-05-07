@@ -74,12 +74,12 @@ jobs:
         run: |
           git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-      - name: Apply Flatpak/GNOME distro patch
-        run: |
-          if [ -f patches/flatpak/gnome.patch ]; then
-            git apply patches/flatpak/gnome.patch
-            echo "Applied patches/flatpak/gnome.patch"
-          fi
+- name: Apply Flatpak distro patch
+      run: |
+        if [ -f patches/flatpak/${{ vars.DISTRO_PATCH || 'gnome.46' }}.patch ]; then
+          git apply patches/flatpak/${{ vars.DISTRO_PATCH || 'gnome.46' }}.patch
+          echo "Applied patches/flatpak/${{ vars.DISTRO_PATCH || 'gnome.46' }}.patch"
+        fi
 
       - name: Build Flatpak
         run: |

@@ -71,12 +71,12 @@ jobs:
     run: |
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-  - name: Apply RPM/Fedora distro patch
-    run: |
-      if [ -f patches/rpm/fedora.patch ]; then
-        git apply patches/rpm/fedora.patch
-        echo "Applied patches/rpm/fedora.patch"
-      fi
+- name: Apply RPM distro patch
+      run: |
+        if [ -f patches/rpm/${{ vars.DISTRO_PATCH || 'fedora.42' }}.patch ]; then
+          git apply patches/rpm/${{ vars.DISTRO_PATCH || 'fedora.42' }}.patch
+          echo "Applied patches/rpm/${{ vars.DISTRO_PATCH || 'fedora.42' }}.patch"
+        fi
 
   - name: Build RPM
         run: |
