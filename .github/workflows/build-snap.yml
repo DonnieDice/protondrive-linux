@@ -73,12 +73,12 @@ jobs:
         run: |
           git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-      - name: Apply Snap/core24 distro patch
-        run: |
-          if [ -f patches/snap/core24.patch ]; then
-            git apply patches/snap/core24.patch
-            echo "Applied patches/snap/core24.patch"
-          fi
+- name: Apply Snap distro patch
+      run: |
+        if [ -f patches/snap/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch ]; then
+          git apply patches/snap/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch
+          echo "Applied patches/snap/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch"
+        fi
 
       - name: Build Snap
         run: |

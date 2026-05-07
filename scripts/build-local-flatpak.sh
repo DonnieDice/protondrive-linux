@@ -1,6 +1,7 @@
 #!/bin/bash
-# Local Flatpak build script - mirrors GitHub workflow
-# Usage: ./scripts/build-flatpak.sh [--skip-webclient]
+# Local Flatpak build script
+# Usage: ./scripts/build-local-flatpak.sh <patch-name> [--skip-webclient]
+# Example: ./scripts/build-local-flatpak.sh gnome.46
 
 set -euo pipefail
 
@@ -8,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$SCRIPT_DIR")"
 cd "$PROJECT_ROOT"
 
+PATCH_NAME="${1:?Usage: $0 <patch-name> [--skip-webclient]}"
+shift
 SKIP_WEBCLIENT=false
 [[ "${1:-}" == "--skip-webclient" ]] && SKIP_WEBCLIENT=true
 
@@ -91,30 +94,14 @@ else
 echo "📋 Step 2: Skipping WebClients (--skip-webclient)"
 fi
 
-# Detect distro for package-specific patch selection
-detect_distro_id() {
-if [ -f /etc/os-release ]; then
-. /etc/os-release
-echo "${ID}"
-else
-echo "unknown"
-fi
-}
-DISTRO_ID=$(detect_distro_id)
-echo "📋 Detected distro: $DISTRO_ID"
-
-# Apply package-specific distro patch (named <distro>.patch)
-DISTRO_PATCH="$PROJECT_ROOT/patches/flatpak/${DISTRO_ID}.patch"
+# Apply distro patch
+DISTRO_PATCH="$PROJECT_ROOT/patches/flatpak/${PATCH_NAME}.patch"
 if [ -f "$DISTRO_PATCH" ]; then
-echo "📋 Applying Flatpak/${DISTRO_ID} distro patch..."
-git apply "$DISTRO_PATCH" || echo " Already applied or failed"
+  echo "Applying patches/flatpak/${PATCH_NAME}.patch..."
+  git apply "$DISTRO_PATCH"
 else
-if [ -f "$PROJECT_ROOT/patches/flatpak/gnome.patch" ]; then
-echo "📋 Applying Flatpak/gnome distro patch (fallback)..."
-git apply "$PROJECT_ROOT/patches/flatpak/gnome.patch" || echo " Already applied or failed"
-else
-echo "📋 No Flatpak distro patch found — building with base code only"
-fi
+  echo "ERROR: $DISTRO_PATCH not found"
+  exit 1
 fi
 
 # Step 3: Verify paths

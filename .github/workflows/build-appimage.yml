@@ -77,12 +77,12 @@ jobs:
     run: |
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-  - name: Apply AppImage/Ubuntu distro patch
-    run: |
-      if [ -f patches/appimage/ubuntu.patch ]; then
-        git apply patches/appimage/ubuntu.patch
-        echo "Applied patches/appimage/ubuntu.patch"
-      fi
+- name: Apply AppImage distro patch
+      run: |
+        if [ -f patches/appimage/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch ]; then
+          git apply patches/appimage/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch
+          echo "Applied patches/appimage/${{ vars.DISTRO_PATCH || 'ubuntu.24.04' }}.patch"
+        fi
 
   - name: Build WebClients and Tauri binary
         run: |
