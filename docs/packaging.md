@@ -9,7 +9,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 | RPM | `.github/workflows/build-rpm.yml` | `patches/rpm/` | `fedora.42.patch` | Fedora/RHEL/openSUSE package path. Fedora launch is locally validated. |
 | DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | `ubuntu.24.04.patch`, `debian.12.patch` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
 | AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | `ubuntu.24.04.patch`, `fedora.42.patch` | Portable Linux package with distro-adaptive AppRun. |
-| Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.46.patch` | GNOME runtime Flatpak package. |
+| Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.47.patch` | GNOME 47 runtime Flatpak package. |
 | Snap | `.github/workflows/build-snap.yml` | `patches/snap/` | `ubuntu.24.04.patch` | core24 Snap package. |
 | AUR | `.github/workflows/build-aur.yml` | `patches/aur/` | — | Validates `aur/PKGBUILD` and `.SRCINFO`. Publishing is separate. |
 
