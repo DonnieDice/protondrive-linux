@@ -14,6 +14,7 @@ patches/
 │   ├── ubuntu.24.04.patch  # DEB on Ubuntu 24.04 (GDK_GL=software)
 │   └── debian.12.patch     # DEB on Debian 12 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
 ├── rpm/
+│   ├── fedora.40.patch     # RPM on Fedora 40 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
 │   └── fedora.42.patch     # RPM on Fedora 42 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
 ├── flatpak/
 │   └── gnome.46.patch      # Flatpak on GNOME 46 runtime (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
@@ -51,7 +52,7 @@ Each package type has a corresponding local build script that takes a patch name
 |---------|--------------|-------|-------------|
 | AppImage | `scripts/build-local-appimage.sh` | `./scripts/build-local-appimage.sh ubuntu.24.04` | `appimage` |
 | DEB | `scripts/build-local-deb.sh` | `./scripts/build-local-deb.sh ubuntu.24.04` | `deb` |
-| RPM | `scripts/build-local-rpm.sh` | `./scripts/build-local-rpm.sh fedora.42` | `rpm` |
+| RPM | `scripts/build-local-rpm.sh` | `./scripts/build-local-rpm.sh fedora.40` | `rpm` |
 | Flatpak | `scripts/build-local-flatpak.sh` | `./scripts/build-local-flatpak.sh gnome.46` | `flatpak` |
 | Snap | `scripts/build-local-snap.sh` | `./scripts/build-local-snap.sh ubuntu.24.04` | `snap` |
 
@@ -69,6 +70,7 @@ Each package type has a corresponding local build script that takes a patch name
 - `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 
 ### rpm/
+- `fedora.40.patch` - Fedora-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 - `fedora.42.patch` - Fedora-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 
 ### flatpak/
