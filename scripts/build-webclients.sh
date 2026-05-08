@@ -3,22 +3,70 @@ set -euo pipefail
 
 echo "Building WebClients from local directory..."
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+REPO_ROOT="$(dirname "$SCRIPT_DIR")"
+WEBCLIENTS_DIR="$REPO_ROOT/WebClients"
+DIST_DIR="$WEBCLIENTS_DIR/applications/drive/dist"
+CACHE_DIR="$WEBCLIENTS_DIR/.codex-cache"
+CACHE_KEY_FILE="$CACHE_DIR/webclients-build.key"
+
+calc_cache_key() {
+    local head="missing"
+    if [ -d "$WEBCLIENTS_DIR/.git" ]; then
+        head="$(git -C "$WEBCLIENTS_DIR" rev-parse HEAD 2>/dev/null || echo missing)"
+    fi
+
+    {
+        printf '%s\n' "$head"
+        for path in \
+            "$REPO_ROOT/scripts/fix_deps.py" \
+            "$REPO_ROOT/scripts/create_stubs.py" \
+            "$REPO_ROOT/patches/common/fix-tauri-worker-protocol.patch" \
+            "$WEBCLIENTS_DIR/package.json" \
+            "$WEBCLIENTS_DIR/yarn.lock" \
+            "$WEBCLIENTS_DIR/.yarnrc.yml"
+        do
+            if [ -f "$path" ]; then
+                sha256sum "$path"
+            fi
+        done
+    } | sha256sum | awk '{print $1}'
+}
+
+mkdir -p "$CACHE_DIR"
+CURRENT_CACHE_KEY="$(calc_cache_key)"
+
+if [ -d "$DIST_DIR" ] && [ -f "$CACHE_KEY_FILE" ] && [ "$(cat "$CACHE_KEY_FILE")" = "$CURRENT_CACHE_KEY" ]; then
+    echo "✅ WebClients dist already exists and cache key matches; reusing cached build at $DIST_DIR"
+    exit 0
+fi
+
+if [ ! -d "$WEBCLIENTS_DIR/.git" ] && [ ! -d "$WEBCLIENTS_DIR" ]; then
+    echo "📥 WebClients checkout missing; cloning once..."
+    git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git "$WEBCLIENTS_DIR"
+fi
+
+if [ ! -d "$WEBCLIENTS_DIR" ]; then
+    echo "❌ ERROR: WebClients directory not found!"
+    exit 1
+fi
+
 # 1. Patch dependencies
 echo "🔧 Patching dependencies..."
 python3 scripts/fix_deps.py
 
 # 2. Apply patches to WebClients source
 echo "🩹 Applying patches..."
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(dirname "$SCRIPT_DIR")"
 PATCHES_DIR="$REPO_ROOT/patches/common"
-cd WebClients
+cd "$WEBCLIENTS_DIR"
 if [ -d "$PATCHES_DIR" ]; then
     for patch in "$PATCHES_DIR"/*.patch; do
         if [ -f "$patch" ]; then
             echo "  Applying $(basename "$patch")..."
-            # Check if already applied (reverse-apply test)
-            if git apply --reverse --check "$patch" 2>/dev/null; then
+            patch_name="$(basename "$patch")"
+            if [ "$patch_name" = "fix-tauri-worker-protocol.patch" ] && grep -q "window.location?.protocol === 'tauri:'" packages/shared/lib/helpers/browser.ts; then
+                echo "  ⚠ Already present - skipping"
+            elif git apply --reverse --check "$patch" 2>/dev/null; then
                 echo "  ⚠ Already applied - skipping"
             elif git apply --check "$patch" 2>/dev/null; then
                 git apply "$patch"
@@ -202,5 +250,7 @@ fi
 
 # 6. Go back to root
 cd ..
+
+printf '%s\n' "$CURRENT_CACHE_KEY" > "$CACHE_KEY_FILE"
 
 echo "✅ WebClients build complete"

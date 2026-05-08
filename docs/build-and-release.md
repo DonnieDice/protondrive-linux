@@ -37,17 +37,21 @@ git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/
 Build the frontend and one package type:
 
 ```bash
-scripts/build-local-rpm.sh
-scripts/build-local-deb.sh
-scripts/build-local-appimage.sh
+scripts/rpm/build-local-rpm.fedora.40.sh
+scripts/deb/build-local-deb.sh
+scripts/appimage/build-local-appimage.sh
+scripts/flatpak/build-local-flatpak.sh
+scripts/snap/build-local-snap.sh
 ```
 
 If WebClients is already built:
 
 ```bash
-scripts/build-local-rpm.sh --skip-webclient
-scripts/build-local-deb.sh --skip-webclient
-scripts/build-local-appimage.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.40.sh --skip-webclient
+scripts/deb/build-local-deb.sh --skip-webclient
+scripts/appimage/build-local-appimage.sh --skip-webclient
+scripts/flatpak/build-local-flatpak.sh --skip-webclient
+scripts/snap/build-local-snap.sh --skip-webclient
 ```
 
 ## Release Checklist
