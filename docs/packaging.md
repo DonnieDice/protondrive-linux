@@ -6,7 +6,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 
 | Package | Workflow | Patch Directory | Distro Patches | Notes |
 |---------|----------|-----------------|----------------|-------|
-| RPM | `.github/workflows/build-rpm.fedora.40.yml` | `patches/rpm/` | `fedora.40.patch` | Fedora/RHEL/openSUSE package path. Fedora 40 is the current release gate; the Fedora 40 RPM has also been validated on Fedora 41. |
+| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.42.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.42.patch` | Fedora/RHEL/openSUSE package path. Fedora 40 is the current release gate; Fedora 42 is a separate validation path. |
 | DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | `ubuntu.24.04.patch`, `debian.12.patch` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
 | AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | `ubuntu.24.04.patch` | Portable Linux package with distro-adaptive AppRun. |
 | Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.47.patch` | GNOME 47 runtime Flatpak package. |
@@ -45,6 +45,7 @@ Validated RPM compatibility currently includes:
 
 - Fedora 40 local and remote RPM builds
 - Fedora 41 install and login smoke tests using the Fedora 40 RPM artifact
+- Fedora 42 local RPM validation passed (login, CAPTCHA, 2FA, Drive launch); remote CI build pending
 
 ## Required Runtime Fixes
 
@@ -53,6 +54,7 @@ The current Tauri/WebKitGTK app requires:
 - WebKitGTK 4.1 dependencies.
 - `WEBKIT_DISABLE_DMABUF_RENDERER=1` (all distros).
 - `WEBKIT_DISABLE_COMPOSITING_MODE=1` (all distros).
+- **Fedora 42:** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` replaces `WEBKIT_FORCE_SANDBOX=0`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (webkit2gtk 2.52+ regression that crashes during post-2FA crypto).
 - **Ubuntu 24.04+:** `GDK_GL=software` (NOT `GDK_GL=disable` — crashes WebKitWebProcess).
 - **Debian/Fedora/others:** `GDK_GL=disable` + `LIBGL_ALWAYS_SOFTWARE=1`.
 - Account and Verify nested asset path fixes.

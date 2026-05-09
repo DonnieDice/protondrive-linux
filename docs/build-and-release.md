@@ -18,7 +18,7 @@ These workflows are required for the current release gate:
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
-| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40 release gate; validated on Fedora 41 with the same artifact |
+| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40 release gate |
 | `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs |
 | `build-aur.yml` | `.SRCINFO` validation | Arch/AUR package metadata |
@@ -38,6 +38,7 @@ Build the frontend and one package type:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.40.sh
+scripts/rpm/build-local-rpm.fedora.42.sh
 scripts/deb/build-local-deb.sh
 scripts/appimage/build-local-appimage.sh
 scripts/flatpak/build-local-flatpak.sh
@@ -48,6 +49,7 @@ If WebClients is already built:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.40.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.42.sh --skip-webclient
 scripts/deb/build-local-deb.sh --skip-webclient
 scripts/appimage/build-local-appimage.sh --skip-webclient
 scripts/flatpak/build-local-flatpak.sh --skip-webclient
@@ -73,4 +75,4 @@ scripts/snap/build-local-snap.sh --skip-webclient
 
 ## Current v1.1.5 Status
 
-Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. The Fedora 40 RPM artifact was also installed and smoke-tested successfully on Fedora 41. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.
+Fedora 40 validated locally and on Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Fedora 42 validated locally with two webkit2gtk 2.52+ fixes: updated sandbox env var and IPInt WASM interpreter disabled. Fedora 42 remote CI build pending. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.

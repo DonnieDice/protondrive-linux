@@ -8,14 +8,13 @@ Patches are organized by package type, then by distro version. Package workflows
 patches/
 ├── common/            # Shared patches for ALL builds
 ├── appimage/
-│   ├── ubuntu.24.04.patch  # AppImage on Ubuntu 24.04 (runtime OS detection, GDK_GL=software)
-│   └── fedora.42.patch     # AppImage on Fedora 42 (full software fallback)
+│   └── ubuntu.24.04.patch  # AppImage on Ubuntu 24.04 (runtime OS detection, GDK_GL=software)
 ├── deb/
 │   ├── ubuntu.24.04.patch  # DEB on Ubuntu 24.04 (GDK_GL=software)
 │   └── debian.12.patch     # DEB on Debian 12 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
 ├── rpm/
 │   ├── fedora.40.patch     # RPM on Fedora 40 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
-│   └── fedora.42.patch     # RPM on Fedora 42 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
+│   └── fedora.42.patch     # RPM on Fedora 42 (new sandbox var + IPInt WASM disabled)
 ├── flatpak/
 │   └── gnome.46.patch      # Flatpak on GNOME 46 runtime (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
 ├── snap/
@@ -27,7 +26,7 @@ patches/
 
 1. **Base code is universal.** `src-tauri/src/main.rs` must NOT contain distro-specific env vars (GDK_GL, LIBGL_ALWAYS_SOFTWARE, WEBKIT_DISABLE_*, etc.) or DISTRO_TYPE compile-time branching. The base binary ships clean.
 
-2. **Distro-specific overrides go in `patches/<package>/<distro>.<version>.patch`.** Each patch is named after the distro and version it targets (e.g., `ubuntu.24.04.patch`, `fedora.42.patch`, `debian.12.patch`).
+2. **Distro-specific overrides go in `patches/<package>/<distro>.<version>.patch`.** Each patch is named after the distro and version it targets (e.g., `ubuntu.24.04.patch`, `fedora.40.patch`, `debian.12.patch`).
 
 3. **Build scripts take a patch argument.** Local build scripts (`build-local-*.sh`) require `<patch-name>` as the first argument (e.g., `ubuntu.24.04`). CI workflows apply the patch via `DISTRO_PATCH` variable (defaults to the primary distro for that package type).
 
@@ -52,7 +51,8 @@ Each package type has a corresponding local build script that takes a patch name
 |---------|--------------|-------|-------------|
 | AppImage | `scripts/build-local-appimage.sh` | `./scripts/build-local-appimage.sh ubuntu.24.04` | `appimage` |
 | DEB | `scripts/build-local-deb.sh` | `./scripts/build-local-deb.sh ubuntu.24.04` | `deb` |
-| RPM | `scripts/build-local-rpm.sh` | `./scripts/build-local-rpm.sh fedora.40` | `rpm` |
+| RPM (Fedora 40) | `scripts/rpm/build-local-rpm.fedora.40.sh` | `./scripts/rpm/build-local-rpm.fedora.40.sh` | `rpm` |
+| RPM (Fedora 42) | `scripts/rpm/build-local-rpm.fedora.42.sh` | `./scripts/rpm/build-local-rpm.fedora.42.sh` | `rpm` |
 | Flatpak | `scripts/build-local-flatpak.sh` | `./scripts/build-local-flatpak.sh gnome.46` | `flatpak` |
 | Snap | `scripts/build-local-snap.sh` | `./scripts/build-local-snap.sh ubuntu.24.04` | `snap` |
 
@@ -63,7 +63,6 @@ Each package type has a corresponding local build script that takes a patch name
 
 ### appimage/
 - `ubuntu.24.04.patch` - Runtime OS detection: GDK_GL=software on Ubuntu, GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE on Debian/Fedora
-- `fedora.42.patch` - Full software fallback: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 
 ### deb/
 - `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software (avoids WebKitWebProcess crash)
@@ -71,7 +70,7 @@ Each package type has a corresponding local build script that takes a patch name
 
 ### rpm/
 - `fedora.40.patch` - Fedora-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
-- `fedora.42.patch` - Fedora-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
+- `fedora.42.patch` - Fedora 42-safe: new sandbox override + GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 
 ### flatpak/
 - `gnome.46.patch` - GNOME 46 runtime: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
@@ -83,6 +82,6 @@ Each package type has a corresponding local build script that takes a patch name
 
 1. Create patch against git HEAD: `diff -u /tmp/main.rs.base /tmp/main.rs.patched > patches/<package>/<distro>.<version>.patch`
 2. Fix paths in the patch header: `--- a/src-tauri/src/main.rs` and `+++ b/src-tauri/src/main.rs`
-3. Name the patch after the distro and version (e.g., `ubuntu.24.04.patch`, `fedora.42.patch`)
+3. Name the patch after the distro and version (e.g., `ubuntu.24.04.patch`, `fedora.40.patch`)
 4. Test: `git apply --check patches/<package>/<distro>.<version>.patch`
 5. Document why the patch is distro-specific in the commit message
