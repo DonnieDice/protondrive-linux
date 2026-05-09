@@ -18,7 +18,7 @@ These workflows are required for the current release gate:
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
-| `build-rpm.yml` | `.rpm` | Fedora/RHEL/openSUSE-style installs |
+| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40 release gate; validated on Fedora 41 with the same artifact |
 | `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs |
 | `build-aur.yml` | `.SRCINFO` validation | Arch/AUR package metadata |
@@ -73,4 +73,4 @@ scripts/snap/build-local-snap.sh --skip-webclient
 
 ## Current v1.1.5 Status
 
-Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.
+Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. The Fedora 40 RPM artifact was also installed and smoke-tested successfully on Fedora 41. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.
