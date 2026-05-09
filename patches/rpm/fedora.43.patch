@@ -1,0 +1,15 @@
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -197,8 +197,9 @@
+- // WebKitGTK environment for Fedora -- full software fallback.
+- // Fedora ships WebKitGTK 2.40-2.46; GDK_GL=disable is safe here.
++ // WebKitGTK environment for Fedora 43 (webkit2gtk 2.52+).
++ // Sandbox API changed; IPInt WASM interpreter disabled to fix SIGTRAP in WASM after 2FA.
+  std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+  std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+- std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++ std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++ std::env::set_var("JSC_useWasmIPInt", "false");
+  std::env::set_var("GDK_GL", "disable");
+  std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+  std::env::set_var("GSK_RENDERER", "cairo");
