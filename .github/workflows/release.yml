@@ -69,7 +69,7 @@ jobs:
             console.log(`Waiting for builds for SHA: ${sha}`);
 
             const expectedWorkflows = [
-              'Build RPM',
+              'Build RPM Fedora 40',
               'Build DEB',
               'Build AppImage'
             ];
@@ -119,8 +119,8 @@ jobs:
       - name: Download RPM artifact
         uses: dawidd6/action-download-artifact@v6
         with:
-          workflow: build-rpm.yml
-          name: rpm-package
+          workflow: build-rpm.fedora.40.yml
+          name: rpm-package-fedora40
           path: artifacts/rpm
           commit: ${{ github.sha }}
           workflow_conclusion: success

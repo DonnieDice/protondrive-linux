@@ -6,9 +6,14 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 cd "$PROJECT_ROOT"
 
 SKIP_WEBCLIENT=false
-[[ "${1:-}" == "--skip-webclient" ]] && SKIP_WEBCLIENT=true
+DISTRO_PATCH="${1:-fedora.40}"
 
-DISTRO_PATCH=fedora.40
+if [[ "${1:-}" == "--skip-webclient" ]]; then
+    SKIP_WEBCLIENT=true
+    DISTRO_PATCH=fedora.40
+elif [[ "${2:-}" == "--skip-webclient" ]]; then
+    SKIP_WEBCLIENT=true
+fi
 
 echo "=========================================="
 echo "Proton Drive RPM Build"
@@ -36,8 +41,13 @@ if [ ! -f "$PATCH_FILE" ]; then
     exit 1
 fi
 
-git apply --check "$PATCH_FILE"
-git apply "$PATCH_FILE"
+if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+    echo "Patch already applied: $PATCH_FILE"
+else
+    git apply --check "$PATCH_FILE"
+    git apply "$PATCH_FILE"
+    echo "Applied $PATCH_FILE"
+fi
 
 export DISTRO_TYPE=rpm
 npm install
