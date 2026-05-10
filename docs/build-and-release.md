@@ -21,6 +21,7 @@ These workflows are required for the current release gate:
 | `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40/41 compat baseline (F40 build container) |
 | `build-rpm.fedora.41.yml` | `.rpm` | Fedora 40/41 compat baseline (F41 build container) |
 | `build-rpm.fedora.42.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F42 build container) |
+| `build-rpm.fedora.43.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F43 build container) |
 | `build-rpm.fedora.44.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F44 build container) |
 | `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs |

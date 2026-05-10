@@ -6,7 +6,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 
 | Package | Workflow | Patch Directory | Distro Patches | Notes |
 |---------|----------|-----------------|----------------|-------|
-| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.41.yml`, `.github/workflows/build-rpm.fedora.42.yml`, `.github/workflows/build-rpm.fedora.44.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.41.patch`, `fedora.42.patch`, `fedora.43.patch`, `fedora.44.patch` | Fedora/RHEL/openSUSE package path. F40/41 share compat baseline (webkit2gtk <2.52); F42/43/44 share compat baseline (webkit2gtk 2.52+). |
+| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.41.yml`, `.github/workflows/build-rpm.fedora.42.yml`, `.github/workflows/build-rpm.fedora.43.yml`, `.github/workflows/build-rpm.fedora.44.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.41.patch`, `fedora.42.patch`, `fedora.43.patch`, `fedora.44.patch` | Fedora/RHEL/openSUSE package path. F40/41 share compat baseline (webkit2gtk <2.52); F42/43/44 share compat baseline (webkit2gtk 2.52+). |
 | DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | `ubuntu.24.04.patch`, `debian.12.patch` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
 | AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | `ubuntu.24.04.patch` | Portable Linux package with distro-adaptive AppRun. |
 | Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.47.patch` | GNOME 47 runtime Flatpak package. |
