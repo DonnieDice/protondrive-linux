@@ -6,7 +6,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 
 | Package | Workflow | Patch Directory | Distro Patches | Notes |
 |---------|----------|-----------------|----------------|-------|
-| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.42.yml`, `.github/workflows/build-rpm.fedora.44.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.42.patch`, `fedora.43.patch`, `fedora.44.patch` | Fedora/RHEL/openSUSE package path. F42/43/44 share the same compat baseline (webkit2gtk 2.52+). |
+| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.41.yml`, `.github/workflows/build-rpm.fedora.42.yml`, `.github/workflows/build-rpm.fedora.44.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.41.patch`, `fedora.42.patch`, `fedora.43.patch`, `fedora.44.patch` | Fedora/RHEL/openSUSE package path. F40/41 share compat baseline (webkit2gtk <2.52); F42/43/44 share compat baseline (webkit2gtk 2.52+). |
 | DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | `ubuntu.24.04.patch`, `debian.12.patch` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
 | AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | `ubuntu.24.04.patch` | Portable Linux package with distro-adaptive AppRun. |
 | Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.47.patch` | GNOME 47 runtime Flatpak package. |
@@ -34,7 +34,8 @@ patches/
 ├── appimage/ubuntu.24.04.patch # Ubuntu 24.04 WebKit env vars (runtime OS detection)
 ├── deb/ubuntu.24.04.patch # Ubuntu DEB: GDK_GL=software
 ├── deb/debian.12.patch # Debian DEB: GDK_GL=disable
-├── rpm/fedora.40.patch # Fedora 40/41: WEBKIT_FORCE_SANDBOX=0, GDK_GL=disable
+├── rpm/fedora.40.patch # Fedora 40: WEBKIT_FORCE_SANDBOX=0, GDK_GL=disable
+├── rpm/fedora.41.patch # Fedora 41: same as fedora.40.patch (same compat baseline)
 ├── rpm/fedora.42.patch # Fedora 42: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
 ├── rpm/fedora.43.patch # Fedora 43: same as fedora.42.patch (same compat baseline)
 ├── rpm/fedora.44.patch # Fedora 44: same as fedora.42.patch (same compat baseline)

@@ -36,6 +36,7 @@ Build and workflow fixes go to `dev` first. Stable releases are cut from `main` 
 Required release workflows:
 
 - `build-rpm.fedora.40.yml`
+- `build-rpm.fedora.41.yml`
 - `build-rpm.fedora.42.yml`
 - `build-rpm.fedora.44.yml`
 - `build-deb.yml`
