@@ -1,15 +1,23 @@
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+index 51d68ebd..333235ce 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -197,8 +197,9 @@
--    // WebKitGTK environment for Fedora -- full software fallback.
--    // Fedora ships WebKitGTK 2.40-2.46; GDK_GL=disable is safe here.
+@@ -194,9 +194,15 @@ async fn proxy_request(
+ }
+ 
+ fn main() {
+-    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
+-    // They are distro-specific and belong in patches/<package>/<distro>.patch
+-    // and the package's AppRun/wrapper script. The base binary ships clean.
 +    // WebKitGTK environment for Fedora 42 (webkit2gtk 2.52+).
-+    // Sandbox API changed; IPInt WASM interpreter disabled to fix SIGTRAP in WASM after 2FA.
-     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
--    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++    // Sandbox API changed; IPInt WASM interpreter disabled to fix SIGTRAP after 2FA.
++    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
++    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 +    std::env::set_var("JSC_useWasmIPInt", "false");
-     std::env::set_var("GDK_GL", "disable");
-     std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-     std::env::set_var("GSK_RENDERER", "cairo");
++    std::env::set_var("GDK_GL", "disable");
++    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
++    std::env::set_var("GSK_RENDERER", "cairo");
+ 
+     // Create shared client with cookie jar
+     let state = Arc::new(AppState {

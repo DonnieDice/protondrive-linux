@@ -11,6 +11,20 @@ Broad test matrix
 
 Build fewer packages. Test more systems. Split only when a patch/runtime difference proves necessary.
 
+## Clean Base Rule
+
+**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<distro>.<version>.patch`.
+
+If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment:
+
+```rust
+// NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
+// They are distro-specific and belong in patches/<package>/<distro>.patch
+// and the package's AppRun/wrapper script. The base binary ships clean.
+```
+
+This ensures every build starts from the same clean baseline and diverges only through its patch.
+
 ## Definitions
 
 | Term | Meaning |
@@ -336,8 +350,9 @@ Verification  (1 file)
 - [ ] Create `packaging/smoke-tests.yml` or `.github/workflows/test-packages.yml`
 - [x] Test `fedora40-compat` RPM on Fedora 40, Fedora 41
 - [x] Test `fedora42-compat` RPM on Fedora 42, Fedora 43
-- [ ] Test `fedora42-compat` RPM on Fedora 44 (pending availability)
+- [x] Test `fedora42-compat` RPM on Fedora 44 (validated — same webkit2gtk 2.52.3 as F42/F43)
 - [x] Confirm `fedora40-compat` RPM does NOT work on Fedora 42+ (expected — missing webkit2gtk 2.52+ fixes)
+- [x] Confirm `fedora40-compat` RPM does NOT work on Fedora 44 (crashes at 2FA — expected)
 - [ ] Test DEB baselines on their respective distros
 - [ ] Test AppImage on openSUSE, other distros
 

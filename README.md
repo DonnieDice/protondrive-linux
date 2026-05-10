@@ -8,14 +8,14 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| RPM | ✅ Validated | `fedora40-compat` on Fedora 40/41; `fedora42-compat` on Fedora 42/43 (login, CAPTCHA, 2FA, Drive launch) |
+| RPM | ✅ Validated | `fedora40-compat` on Fedora 40/41; `fedora42-compat` on Fedora 42/43/44 (login, CAPTCHA, 2FA, Drive launch) |
 | DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
 | AppImage | 🚧 CI validation | Portable package path, Ubuntu smoke test pending |
 | AUR | 🚧 Metadata validation | `PKGBUILD`/`.SRCINFO` validation; publishing deferred |
 | Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
 | Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
 
-Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. RPM is validated across two compatibility baselines: `fedora40-compat` (Fedora 40, 41) and `fedora42-compat` (Fedora 42, 43). The `fedora42-compat` RPM includes fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
+Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. RPM is validated across two compatibility baselines: `fedora40-compat` (Fedora 40, 41) and `fedora42-compat` (Fedora 42, 43, 44). The `fedora42-compat` RPM includes fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash). The `fedora40-compat` RPM is confirmed broken on Fedora 42+ (expected — missing 2.52+ fixes).
 
 ## Branch Workflow
 
@@ -37,6 +37,7 @@ Required release workflows:
 
 - `build-rpm.fedora.40.yml`
 - `build-rpm.fedora.42.yml`
+- `build-rpm.fedora.44.yml`
 - `build-deb.yml`
 - `build-appimage.yml`
 - `build-aur.yml`
@@ -144,6 +145,7 @@ protondrive-linux/
 - Keep package workflows separate by distro/package type.
 - Keep package-specific behavior in that package workflow and `patches/<type>/`.
 - Use `patches/common/` only for WebClients changes required by all builds.
+- **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<type>/<distro>.<version>.patch`.
 - Do not keep long-term distro branches for routine packaging differences.
 - Use `dev` for test builds and workflow fixes; use `main` for stable release tags.
 - Keep Snap and Flatpak separate from the native package release gate until they are restored.
