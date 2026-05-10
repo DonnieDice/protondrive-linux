@@ -43,9 +43,8 @@ Local build scripts are version-specific and line up with the workflow and patch
 
 Validated RPM compatibility currently includes:
 
-- Fedora 40 local and remote RPM builds
-- Fedora 41 install and login smoke tests using the Fedora 40 RPM artifact
-- Fedora 42 local RPM validation passed (login, CAPTCHA, 2FA, Drive launch); remote CI build pending
+- `fedora40-compat` RPM: local and remote CI builds pass; validated on Fedora 40 and Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Confirmed broken on Fedora 42+ (missing webkit2gtk 2.52+ sandbox and IPInt WASM fixes).
+- `fedora42-compat` RPM: local and remote CI builds pass; validated on Fedora 42 and Fedora 43 (login, CAPTCHA, 2FA, Drive launch). Covers Fedora 42, 43, and 44 (F44 pending availability).
 
 ## Required Runtime Fixes
 
@@ -54,7 +53,7 @@ The current Tauri/WebKitGTK app requires:
 - WebKitGTK 4.1 dependencies.
 - `WEBKIT_DISABLE_DMABUF_RENDERER=1` (all distros).
 - `WEBKIT_DISABLE_COMPOSITING_MODE=1` (all distros).
-- **Fedora 42:** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` replaces `WEBKIT_FORCE_SANDBOX=0`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (webkit2gtk 2.52+ regression that crashes during post-2FA crypto).
+- **Fedora 42+ (webkit2gtk 2.52+):** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` replaces `WEBKIT_FORCE_SANDBOX=0`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (regression that causes SIGTRAP in WASM during post-2FA crypto).
 - **Ubuntu 24.04+:** `GDK_GL=software` (NOT `GDK_GL=disable` — crashes WebKitWebProcess).
 - **Debian/Fedora/others:** `GDK_GL=disable` + `LIBGL_ALWAYS_SOFTWARE=1`.
 - Account and Verify nested asset path fixes.

@@ -8,14 +8,14 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| RPM | ✅ Locally validated | Fedora launch, login, CAPTCHA, 2FA, app selection, and Drive loading verified; Fedora 40 RPM also works on Fedora 41 |
+| RPM | ✅ Validated | `fedora40-compat` on Fedora 40/41; `fedora42-compat` on Fedora 42/43 (login, CAPTCHA, 2FA, Drive launch) |
 | DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
 | AppImage | 🚧 CI validation | Portable package path, Ubuntu smoke test pending |
 | AUR | 🚧 Metadata validation | `PKGBUILD`/`.SRCINFO` validation; publishing deferred |
 | Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
 | Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
 
-Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. Fedora/RPM launch has been validated locally, and the Fedora 40 RPM artifact was also smoke-tested successfully on Fedora 41.
+Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. RPM is validated across two compatibility baselines: `fedora40-compat` (Fedora 40, 41) and `fedora42-compat` (Fedora 42, 43). The `fedora42-compat` RPM includes fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
 
 ## Branch Workflow
 
@@ -36,6 +36,7 @@ Build and workflow fixes go to `dev` first. Stable releases are cut from `main` 
 Required release workflows:
 
 - `build-rpm.fedora.40.yml`
+- `build-rpm.fedora.42.yml`
 - `build-deb.yml`
 - `build-appimage.yml`
 - `build-aur.yml`
