@@ -18,8 +18,9 @@ These workflows are required for the current release gate:
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
-| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40/41 compat baseline |
-| `build-rpm.fedora.42.yml` | `.rpm` | Fedora 42/43/44 compat baseline |
+| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40/41 compat baseline (F40 build container) |
+| `build-rpm.fedora.41.yml` | `.rpm` | Fedora 40/41 compat baseline (F41 build container) |
+| `build-rpm.fedora.42.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F42 build container) |
 | `build-rpm.fedora.44.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F44 build container) |
 | `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs |
@@ -40,6 +41,7 @@ Build the frontend and one package type:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.40.sh
+scripts/rpm/build-local-rpm.fedora.41.sh
 scripts/rpm/build-local-rpm.fedora.42.sh
 scripts/rpm/build-local-rpm.fedora.43.sh
 scripts/rpm/build-local-rpm.fedora.44.sh
@@ -53,6 +55,7 @@ If WebClients is already built:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.40.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.41.sh --skip-webclient
 scripts/rpm/build-local-rpm.fedora.42.sh --skip-webclient
 scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
 scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient
