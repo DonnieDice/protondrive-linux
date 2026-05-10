@@ -198,64 +198,7 @@ These are not built until a proven need arises:
 
 ## Source of Truth
 
-`packaging/compatibility-map.yml` will be the machine-readable compatibility map (to be created).
-
-Example:
-
-```yaml
-rpm:
-  fedora40-compat:
-    build_container: fedora:40
-    release_label: fedora40-41
-    artifact_name: rpm-fedora40-compat
-    supports:
-      - fedora-40
-      - fedora-41
-  fedora42-compat:
-    build_container: fedora:42
-    release_label: fedora42-44
-    artifact_name: rpm-fedora42-compat
-    supports:
-      - fedora-42
-      - fedora-43
-      - fedora-44
-
-deb:
-  debian12-compat:
-    build_container: debian:12
-    release_label: debian12
-    artifact_name: deb-debian12-compat
-    supports:
-      - debian-12
-  ubuntu22.04-compat:
-    build_container: ubuntu:22.04
-    release_label: ubuntu22.04
-    artifact_name: deb-ubuntu2204-compat
-    supports:
-      - ubuntu-22.04
-      - linuxmint-21
-      - zorin-17
-      - popos-22.04
-  ubuntu24.04-compat:
-    build_container: ubuntu:24.04
-    release_label: ubuntu24.04
-    artifact_name: deb-ubuntu2404-compat
-    supports:
-      - ubuntu-24.04
-      - linuxmint-22
-
-appimage:
-  generic:
-    build_container: debian:12
-    release_label: linux-x86_64
-    artifact_name: appimage-package
-    supports:
-      - unsupported-or-untested-distros
-      - opensuse-tumbleweed
-      - mageia
-      - void
-      - nixos-best-effort
-```
+`packaging/compatibility-map.yml` is the machine-readable compatibility map. See that file for build targets, artifact names, release labels, and supported distro mappings.
 
 ---
 
@@ -274,37 +217,25 @@ protondrive-linux/
 │   ├── generate-package-specs.yml
 │   └── release.yml
 ├── patches/
-│   ├── common/                    # Shared WebClients patches (all builds)
-│   ├── webclients/                # WebClients patches by package type
-│   │   ├── common/
-│   │   ├── rpm/
-│   │   │   ├── fedora40-compat/
-│   │   │   └── fedora42-compat/
-│   │   ├── deb/
-│   │   │   ├── debian12-compat/
-│   │   │   ├── debian13-compat/
-│   │   │   ├── ubuntu22.04-compat/
-│   │   │   └── ubuntu24.04-compat/
-│   │   └── appimage/
-│   │       └── common/
-│   ├── rpm/
-│   │   ├── common/
-│   │   ├── fedora40-compat/
-│   │   └── fedora42-compat/
-│   ├── deb/
-│   │   ├── common/
-│   │   ├── debian12-compat/
-│   │   ├── debian13-compat/
-│   │   ├── ubuntu22.04-compat/
-│   │   └── ubuntu24.04-compat/
-│   ├── appimage/
-│   │   └── common/
-│   ├── aur/
-│   │   └── common/
-│   ├── flatpak/
-│   │   └── common/
-│   └── snap/
-│       └── common/
+│ ├── common/ # Shared WebClients patches (all builds)
+│ ├── rpm/
+│ │ ├── common/
+│ │ ├── fedora40-compat/
+│ │ └── fedora42-compat/
+│ ├── deb/
+│ │ ├── common/
+│ │ ├── debian12-compat/
+│ │ ├── debian13-compat/
+│ │ ├── ubuntu22.04-compat/
+│ │ └── ubuntu24.04-compat/
+│ ├── appimage/
+│ │ └── common/
+│ ├── aur/
+│ │ └── common/
+│ ├── flatpak/
+│ │ └── common/
+│ └── snap/
+│     └── common/
 ├── scripts/
 │   ├── build-webclients.sh
 │   ├── apply-patches.sh           # Shared patch application helper
@@ -403,8 +334,10 @@ Verification  (1 file)
 ### Phase 5 — Test Matrix
 
 - [ ] Create `packaging/smoke-tests.yml` or `.github/workflows/test-packages.yml`
-- [ ] Test `fedora40-compat` RPM on Fedora 40, Fedora 41
-- [ ] Test `fedora42-compat` RPM on Fedora 42, Fedora 43, Fedora 44
+- [x] Test `fedora40-compat` RPM on Fedora 40, Fedora 41
+- [x] Test `fedora42-compat` RPM on Fedora 42, Fedora 43
+- [ ] Test `fedora42-compat` RPM on Fedora 44 (pending availability)
+- [x] Confirm `fedora40-compat` RPM does NOT work on Fedora 42+ (expected — missing webkit2gtk 2.52+ fixes)
 - [ ] Test DEB baselines on their respective distros
 - [ ] Test AppImage on openSUSE, other distros
 

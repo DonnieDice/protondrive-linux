@@ -75,4 +75,9 @@ scripts/snap/build-local-snap.sh --skip-webclient
 
 ## Current v1.1.5 Status
 
-Fedora 40 validated locally and on Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Fedora 42 validated locally with two webkit2gtk 2.52+ fixes: updated sandbox env var and IPInt WASM interpreter disabled. Fedora 42 remote CI build pending. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.
+**RPM compatibility baselines validated:**
+
+- `fedora40-compat` RPM: validated locally and on Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Does NOT work on Fedora 42+ (missing webkit2gtk 2.52+ fixes).
+- `fedora42-compat` RPM: validated on Fedora 42 and Fedora 43 (local + remote CI builds, login through 2FA and Drive launch). Fixes: `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`.
+
+DEB, AppImage, and AUR CI workflows pass. VM smoke tests pending. CI package workflows are being consolidated by compatibility baseline on `dev` before final promotion to `main`.
