@@ -6,7 +6,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 
 | Package | Workflow | Patch Directory | Distro Patches | Notes |
 |---------|----------|-----------------|----------------|-------|
-| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.42.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.42.patch` | Fedora/RHEL/openSUSE package path. Fedora 40 is the current release gate; Fedora 42 is a separate validation path. |
+| RPM | `.github/workflows/build-rpm.fedora.40.yml`, `.github/workflows/build-rpm.fedora.42.yml`, `.github/workflows/build-rpm.fedora.44.yml` | `patches/rpm/` | `fedora.40.patch`, `fedora.42.patch`, `fedora.43.patch`, `fedora.44.patch` | Fedora/RHEL/openSUSE package path. F42/43/44 share the same compat baseline (webkit2gtk 2.52+). |
 | DEB | `.github/workflows/build-deb.yml` | `patches/deb/` | `ubuntu.24.04.patch`, `debian.12.patch` | Debian/Ubuntu/Mint/Zorin package path. Ubuntu VM validation pending. |
 | AppImage | `.github/workflows/build-appimage.yml` | `patches/appimage/` | `ubuntu.24.04.patch` | Portable Linux package with distro-adaptive AppRun. |
 | Flatpak | `.github/workflows/build-flatpak.yml` | `patches/flatpak/` | `gnome.47.patch` | GNOME 47 runtime Flatpak package. |
@@ -18,7 +18,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 - Keep package workflows separate so one distro failure is easy to isolate.
 - Keep distro-specific patches out of `patches/common/`.
 - Use `patches/common/` only for changes required by all packages.
-- **Base code (`src-tauri/src/main.rs`) must NOT contain distro-specific env vars or DISTRO_TYPE branching.** The base binary ships clean. Distro overrides come from `patches/<package>/<distro>.<version>.patch`.
+- **Base code (`src-tauri/src/main.rs`) must NOT contain distro-specific env vars or DISTRO_TYPE branching.** The base binary ships clean — zero distro-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<package>/<distro>.<version>.patch`. If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment: `// NOTE: WebKitGTK env vars are NOT set here. They are distro-specific and belong in patches.`
 - Keep app code fixes in source, not package-specific patches.
 - Keep Fedora/RPM launch behavior in RPM packaging or runtime wrapper config unless every package needs it.
 - Do not keep long-term distro branches for routine packaging differences.
@@ -31,12 +31,15 @@ Patches are named `<distro>.<version>.patch` inside the package directory:
 
 ```
 patches/
-├── appimage/ubuntu.24.04.patch  # Ubuntu 24.04 WebKit env vars (runtime OS detection)
-├── deb/ubuntu.24.04.patch       # Ubuntu DEB: GDK_GL=software
-├── deb/debian.12.patch          # Debian DEB: GDK_GL=disable
-├── rpm/fedora.40.patch          # Fedora RPM: GDK_GL=disable
-├── flatpak/gnome.46.patch       # Flatpak GNOME 46 runtime
-└── snap/ubuntu.24.04.patch      # Snap core24
+├── appimage/ubuntu.24.04.patch # Ubuntu 24.04 WebKit env vars (runtime OS detection)
+├── deb/ubuntu.24.04.patch # Ubuntu DEB: GDK_GL=software
+├── deb/debian.12.patch # Debian DEB: GDK_GL=disable
+├── rpm/fedora.40.patch # Fedora 40/41: WEBKIT_FORCE_SANDBOX=0, GDK_GL=disable
+├── rpm/fedora.42.patch # Fedora 42: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
+├── rpm/fedora.43.patch # Fedora 43: same as fedora.42.patch (same compat baseline)
+├── rpm/fedora.44.patch # Fedora 44: same as fedora.42.patch (same compat baseline)
+├── flatpak/gnome.46.patch # Flatpak GNOME 46 runtime
+└── snap/ubuntu.24.04.patch # Snap core24
 ```
 
 Local build scripts are version-specific and line up with the workflow and patch names (e.g., `./scripts/rpm/build-local-rpm.fedora.40.sh`). CI workflows apply the matching patch via `DISTRO_PATCH` before `cargo build`.
@@ -44,7 +47,7 @@ Local build scripts are version-specific and line up with the workflow and patch
 Validated RPM compatibility currently includes:
 
 - `fedora40-compat` RPM: local and remote CI builds pass; validated on Fedora 40 and Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Confirmed broken on Fedora 42+ (missing webkit2gtk 2.52+ sandbox and IPInt WASM fixes).
-- `fedora42-compat` RPM: local and remote CI builds pass; validated on Fedora 42 and Fedora 43 (login, CAPTCHA, 2FA, Drive launch). Covers Fedora 42, 43, and 44 (F44 pending availability).
+- `fedora42-compat` RPM: local and remote CI builds pass; validated on Fedora 42, Fedora 43, and Fedora 44 (login, CAPTCHA, 2FA, Drive launch). All three share webkit2gtk 2.52.3 — same binary works across the range.
 
 ## Required Runtime Fixes
 
