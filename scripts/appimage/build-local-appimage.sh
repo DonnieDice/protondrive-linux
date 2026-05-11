@@ -6,32 +6,26 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 cd "$PROJECT_ROOT"
 
 SKIP_WEBCLIENT=false
-APPIMAGE_TARGET=""
+APPIMAGE_TARGET="linux-baseline"
 
 while [[ $# -gt 0 ]]; do
-    case $1 in
-        --appimage-target)
-            APPIMAGE_TARGET="$2"
-            shift 2
-            ;;
-        --skip-webclient)
-            SKIP_WEBCLIENT=true
-            shift
-            ;;
-        *)
-            echo "Unknown option: $1"
-            echo "Usage: $0 --appimage-target <target> [--skip-webclient]"
-            echo "Targets: arch, manjaro, ubuntu.24.04"
-            exit 1
-            ;;
-    esac
+  case $1 in
+    --appimage-target)
+      APPIMAGE_TARGET="$2"
+      shift 2
+      ;;
+    --skip-webclient)
+      SKIP_WEBCLIENT=true
+      shift
+      ;;
+    *)
+      echo "Unknown option: $1"
+      echo "Usage: $0 [--appimage-target <target>] [--skip-webclient]"
+      echo "Default target: linux-baseline"
+      exit 1
+      ;;
+  esac
 done
-
-if [ -z "$APPIMAGE_TARGET" ]; then
-    echo "ERROR: --appimage-target is required"
-    echo "Targets: arch, manjaro, ubuntu.24.04"
-    exit 1
-fi
 
 echo "=========================================="
 echo "Proton Drive AppImage Build"
@@ -39,13 +33,13 @@ echo "=========================================="
 echo "AppImage target: ${APPIMAGE_TARGET}"
 
 if [ "$SKIP_WEBCLIENT" = false ]; then
-    "$PROJECT_ROOT/scripts/build-webclients.sh"
+  "$PROJECT_ROOT/scripts/build-webclients.sh"
 else
-    echo "Skipping WebClients build (--skip-webclient)"
-    if [ ! -d "WebClients/applications/drive/dist" ]; then
-        echo "ERROR: WebClients dist not found! Run without --skip-webclient first."
-        exit 1
-    fi
+  echo "Skipping WebClients build (--skip-webclient)"
+  if [ ! -d "WebClients/applications/drive/dist" ]; then
+    echo "ERROR: WebClients dist not found! Run without --skip-webclient first."
+    exit 1
+  fi
 fi
 
 VERSION=$(node -p "require('./package.json').version")
@@ -55,16 +49,16 @@ sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.tom
 
 PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
 if [ ! -f "$PATCH_FILE" ]; then
-    echo "ERROR: Missing distro patch: $PATCH_FILE"
-    exit 1
+  echo "ERROR: Missing distro patch: $PATCH_FILE"
+  exit 1
 fi
 
 if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
-    echo "Patch already applied: $PATCH_FILE"
+  echo "Patch already applied: $PATCH_FILE"
 else
-    git apply --check "$PATCH_FILE"
-    git apply "$PATCH_FILE"
-    echo "Applied $PATCH_FILE"
+  git apply --check "$PATCH_FILE"
+  git apply "$PATCH_FILE"
+  echo "Applied $PATCH_FILE"
 fi
 
 export DISTRO_TYPE=appimage
@@ -111,29 +105,7 @@ cp "$APPDIR/usr/share/applications/com.proton.drive.desktop" "$APPDIR/com.proton
 cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
 ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
 
-APPRUN_DIR="$APPDIR"
-APPRUN_FILE="$APPDIR/AppRun"
-
-case "$APPIMAGE_TARGET" in
-    arch|manjaro|endeavour|garuda)
-        cat > "$APPRUN_FILE" << 'APPRUN'
-#!/bin/bash
-export WEBKIT_DISABLE_DMABUF_RENDERER=1
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-export JSC_useWasmIPInt=false
-export GDK_GL=disable
-export LIBGL_ALWAYS_SOFTWARE=1
-export GSK_RENDERER=cairo
-
-HERE="$(dirname "$(readlink -f "${0}")")"
-export PATH="${HERE}/usr/bin:${PATH}"
-export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-exec "${HERE}/usr/bin/proton-drive" "$@"
-APPRUN
-        ;;
-    ubuntu.24.04)
-        cat > "$APPRUN_FILE" << 'APPRUN'
+cat > "$APPDIR/AppRun" << 'APPRUN'
 #!/bin/bash
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
@@ -146,14 +118,8 @@ export PATH="${HERE}/usr/bin:${PATH}"
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 exec "${HERE}/usr/bin/proton-drive" "$@"
 APPRUN
-        ;;
-    *)
-        echo "ERROR: Unknown AppImage target: $APPIMAGE_TARGET"
-        exit 1
-        ;;
-esac
 
-chmod +x "$APPRUN_FILE"
+chmod +x "$APPDIR/AppRun"
 
 wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
 chmod +x appimagetool

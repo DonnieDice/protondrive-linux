@@ -1,15 +1,16 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..uuuu0001 100644
+index 51d68ebd..c720b99c 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,13 @@ async fn proxy_request(
+@@ -194,9 +194,14 @@ async fn proxy_request(
  }
  
  fn main() {
 -    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
 -    // They are distro-specific and belong in patches/<package>/<distro>.patch
 -    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Ubuntu 24.04+ (webkit2gtk 2.46+, Mesa 24.x).
++    // WebKitGTK environment for Linux baseline (glibc 2.35+, webkit2gtk 2.46+).
++    // AppImage is host-distro portable; compatibility boundary is glibc age.
 +    // GDK_GL=software required; GDK_GL=disable causes SIGABRT on heavy re-renders.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");

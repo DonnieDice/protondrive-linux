@@ -1,5 +1,5 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..aaaa0002 100644
+index 51d68ebd..f62bca2b 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
 @@ -194,9 +194,15 @@ async fn proxy_request(

@@ -10,8 +10,8 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 |--------|--------|-------|
 | RPM | ✅ Validated | Fedora 40–44 (per-distro baselines, login, CAPTCHA, 2FA, Drive launch) |
 | DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
-| AppImage | ✅ CI build | Per-distro targets: `arch`, `manjaro`, `ubuntu.24.04` |
-| AUR | ✅ CI build | Per-distro targets: `arch`, `manjaro`, `endeavour`, `garuda` |
+| AppImage | ✅ CI build | Runtime target: `linux-baseline` (glibc 2.35+, webkit2gtk 2.46+) |
+| AUR | ✅ CI build | Runtime target: `arch` (webkit2gtk 2.52+, covers Arch/Manjaro/Endeavour/Garuda) |
 | Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
 | Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
 
@@ -19,7 +19,7 @@ Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downl
 
 RPM is validated across five Fedora baselines (40–44). The `fedora42+` RPMs include fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
 
-AppImage and AUR packages use per-distro patches and wrapper scripts — each distro gets its own env vars (WEBKIT_DISABLE_SANDBOX, JSC_useWasmIPInt, GDK_GL, etc.) applied at build time via patch and at runtime via AppRun/wrapper. No runtime `/etc/os-release` detection.
+AppImage and AUR packages use runtime/ABI-named patches and wrapper scripts — patches are named after the runtime target (e.g., `linux-baseline.patch`, `arch.patch`), not the host distro. The AppImage builds on the oldest supported glibc baseline and uses a single `linux-baseline` target. AUR uses a single `arch` target that covers all Arch-family distros. No runtime `/etc/os-release` detection.
 
 ## Branch Workflow
 
@@ -126,10 +126,10 @@ npm run build:web    # build frontend (patches, yarn install, webpack)
 npm run build:rpm    # or build:deb, build:appimage
 
 # Or build AUR package locally
-scripts/build-local-aur.sh --aur-target manjaro
+scripts/build-local-aur.sh --aur-target arch
 
 # Or build AppImage locally
-scripts/appimage/build-local-appimage.sh --appimage-target manjaro
+scripts/appimage/build-local-appimage.sh --appimage-target linux-baseline
 ```
 
 Built packages land in `src-tauri/target/release/bundle/`.
@@ -147,13 +147,13 @@ protondrive-linux/
 ├── src-tauri/src/main.rs   Rust backend: API proxy, download handler, captcha flow
 ├── docs/                   Architecture, packaging, compatibility, troubleshooting
 ├── patches/
-│   ├── common/             WebClients patches required by every package
-│   ├── rpm/                Fedora/RPM-specific patches
-│   ├── deb/                Debian/Ubuntu-specific patches
-│   ├── appimage/           AppImage-specific patches + per-distro AppRun
-│   ├── aur/                AUR-specific patches + per-distro wrapper scripts
-│   ├── flatpak/            Flatpak-specific patches
-│   └── snap/               Snap-specific patches
+│   ├── common/ WebClients patches required by every package
+│   ├── rpm/ Fedora/RPM-specific patches
+│   ├── deb/ Debian/Ubuntu-specific patches
+│   ├── appimage/ linux-baseline.patch + AppRun env vars
+│   ├── aur/ arch.patch + arch.wrapper
+│   ├── flatpak/ org.gnome.Platform.50.patch
+│   └── snap/ core24.patch
 ├── scripts/
 │   ├── build-webclients.sh       Patch + build frontend (local)
 │   ├── build-local-aur.sh        Build AUR .pkg.tar.zst locally
@@ -169,8 +169,8 @@ protondrive-linux/
 - Keep package workflows separate by distro/package type.
 - Keep package-specific behavior in that package workflow and `patches/<type>/`.
 - Use `patches/common/` only for WebClients changes required by all builds.
-- **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<type>/<distro>.patch` and the package's AppRun/wrapper script.
-- Each distro gets its own patch and runtime wrapper/AppRun. No runtime `/etc/os-release` detection.
+- **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<package>/<runtime>.patch` and the package's AppRun/wrapper script.
+- Patches are named by runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`), not by host distro. DEB/RPM patches remain distro-specific (e.g., `ubuntu.24.04.patch`, `fedora.42.patch`). No runtime `/etc/os-release` detection.
 - Do not keep long-term distro branches for routine packaging differences.
 - Use `dev` for test builds and workflow fixes; use `main` for stable release tags.
 - Keep Snap and Flatpak separate from the native package release gate until they are restored.
