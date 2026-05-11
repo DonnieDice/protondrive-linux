@@ -11,7 +11,7 @@ name: Build Snap
   workflow_dispatch:
     inputs:
     distro_patch:
-      description: Snap base patch name (e.g. core24)
+      description: "Snap base patch name (e.g. core24)"
       required: false
       default: core24
 
