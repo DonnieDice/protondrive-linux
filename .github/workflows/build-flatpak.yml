@@ -11,9 +11,9 @@ name: Build Flatpak
   workflow_dispatch:
     inputs:
     distro_patch:
-      description: Flatpak runtime patch name (e.g. org.gnome.Platform.50)
-      required: false
-      default: org.gnome.Platform.50
+    description: "Flatpak runtime patch name (e.g. org.gnome.Platform.50)"
+    required: false
+    default: "org.gnome.Platform.50"
 
 permissions:
   contents: read
