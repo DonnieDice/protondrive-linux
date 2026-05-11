@@ -10,6 +10,7 @@ REPO_ROOT="${6:-.}"
 OUTPUT_DIR="/tmp/aur-output"
 
 mkdir -p "$OUTPUT_DIR"
+chmod 777 "$OUTPUT_DIR"
 
 WORK_DIR=$(mktemp -d)
 trap "rm -rf $WORK_DIR" EXIT
