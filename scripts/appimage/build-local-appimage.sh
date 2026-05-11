@@ -6,11 +6,37 @@ PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 cd "$PROJECT_ROOT"
 
 SKIP_WEBCLIENT=false
-[[ "${1:-}" == "--skip-webclient" ]] && SKIP_WEBCLIENT=true
+APPIMAGE_TARGET=""
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --appimage-target)
+            APPIMAGE_TARGET="$2"
+            shift 2
+            ;;
+        --skip-webclient)
+            SKIP_WEBCLIENT=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 --appimage-target <target> [--skip-webclient]"
+            echo "Targets: arch, manjaro, ubuntu.24.04"
+            exit 1
+            ;;
+    esac
+done
+
+if [ -z "$APPIMAGE_TARGET" ]; then
+    echo "ERROR: --appimage-target is required"
+    echo "Targets: arch, manjaro, ubuntu.24.04"
+    exit 1
+fi
 
 echo "=========================================="
 echo "Proton Drive AppImage Build"
 echo "=========================================="
+echo "AppImage target: ${APPIMAGE_TARGET}"
 
 if [ "$SKIP_WEBCLIENT" = false ]; then
     "$PROJECT_ROOT/scripts/build-webclients.sh"
@@ -27,13 +53,28 @@ echo "Building version: $VERSION"
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
 sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
 
+PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
+if [ ! -f "$PATCH_FILE" ]; then
+    echo "ERROR: Missing distro patch: $PATCH_FILE"
+    exit 1
+fi
+
+if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+    echo "Patch already applied: $PATCH_FILE"
+else
+    git apply --check "$PATCH_FILE"
+    git apply "$PATCH_FILE"
+    echo "Applied $PATCH_FILE"
+fi
+
 export DISTRO_TYPE=appimage
 npm install
 cargo build --manifest-path src-tauri/Cargo.toml --release
 
-VERSION="$VERSION" bash -s << 'APPRUN_BUILD'
+VERSION="$VERSION" APPIMAGE_TARGET="$APPIMAGE_TARGET" bash -s << 'APPRUN_BUILD'
 set -euo pipefail
 VERSION=$(node -p "require('./package.json').version")
+APPIMAGE_TARGET="${APPIMAGE_TARGET}"
 BINARY_PATH="src-tauri/target/release/proton-drive"
 APPDIR="AppDir"
 
@@ -70,48 +111,57 @@ cp "$APPDIR/usr/share/applications/com.proton.drive.desktop" "$APPDIR/com.proton
 cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
 ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
 
-cat > "$APPDIR/AppRun" << 'APPRUN'
+APPRUN_DIR="$APPDIR"
+APPRUN_FILE="$APPDIR/AppRun"
+
+case "$APPIMAGE_TARGET" in
+    arch|manjaro|endeavour|garuda)
+        cat > "$APPRUN_FILE" << 'APPRUN'
 #!/bin/bash
-WEBKIT_DISABLE_DMABUF_RENDERER=1
-WEBKIT_DISABLE_COMPOSITING_MODE=1
-WEBKIT_FORCE_SANDBOX=0
-GSK_RENDERER=cairo
-
-if [ -f /etc/os-release ]; then
-    . /etc/os-release
-    case "$ID" in
-        ubuntu|pop|linuxmint)
-            export GDK_GL=software
-            ;;
-        *)
-            export GDK_GL=disable
-            export LIBGL_ALWAYS_SOFTWARE=1
-            ;;
-    esac
-else
-    export GDK_GL=disable
-    export LIBGL_ALWAYS_SOFTWARE=1
-fi
-
-export WEBKIT_DISABLE_DMABUF_RENDERER
-export WEBKIT_DISABLE_COMPOSITING_MODE
-export WEBKIT_FORCE_SANDBOX
-export GSK_RENDERER
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+export JSC_useWasmIPInt=false
+export GDK_GL=disable
+export LIBGL_ALWAYS_SOFTWARE=1
+export GSK_RENDERER=cairo
 
 HERE="$(dirname "$(readlink -f "${0}")")"
 export PATH="${HERE}/usr/bin:${PATH}"
 export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
 exec "${HERE}/usr/bin/proton-drive" "$@"
 APPRUN
-chmod +x "$APPDIR/AppRun"
+        ;;
+    ubuntu.24.04)
+        cat > "$APPRUN_FILE" << 'APPRUN'
+#!/bin/bash
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export WEBKIT_FORCE_SANDBOX=0
+export GDK_GL=software
+export GSK_RENDERER=cairo
+
+HERE="$(dirname "$(readlink -f "${0}")")"
+export PATH="${HERE}/usr/bin:${PATH}"
+export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+exec "${HERE}/usr/bin/proton-drive" "$@"
+APPRUN
+        ;;
+    *)
+        echo "ERROR: Unknown AppImage target: $APPIMAGE_TARGET"
+        exit 1
+        ;;
+esac
+
+chmod +x "$APPRUN_FILE"
 
 wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
 chmod +x appimagetool
 ./appimagetool --appimage-extract
-ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_amd64.AppImage"
+ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage"
 
 mkdir -p src-tauri/target/release/bundle/appimage
-mv "proton-drive_${VERSION}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
+mv "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
 APPRUN_BUILD
 
 echo ""
