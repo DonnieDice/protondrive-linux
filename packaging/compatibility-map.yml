@@ -46,24 +46,47 @@ deb:
       - linuxmint-22
 
 appimage:
-  generic:
-    build_container: debian:12
-    release_label: linux-x86_64
-    artifact_name: appimage-package
-    supports:
-      - unsupported-or-untested-distros
-      - opensuse
-      - mageia
-      - void
-      - nixos-best-effort
-
-aur:
-  aur-bin:
+  arch:
     build_container: archlinux:base-devel
-    release_label: aur-bin
-    artifact_name: aur-srcinfo
+    release_label: arch
+    artifact_name: appimage-arch
     supports:
       - arch
+  manjaro:
+    build_container: archlinux:base-devel
+    release_label: manjaro
+    artifact_name: appimage-manjaro
+    supports:
+      - manjaro
+  ubuntu.24.04:
+    build_container: ubuntu:24.04
+    release_label: ubuntu24.04
+    artifact_name: appimage-ubuntu2404
+    supports:
+      - ubuntu-24.04
+
+aur:
+  arch:
+    build_container: archlinux:base-devel
+    release_label: aur-arch
+    artifact_name: aur-arch-srcinfo
+    supports:
+      - arch
+  manjaro:
+    build_container: archlinux:base-devel
+    release_label: aur-manjaro
+    artifact_name: aur-manjaro-srcinfo
+    supports:
+      - manjaro
+  endeavour:
+    build_container: archlinux:base-devel
+    release_label: aur-endeavour
+    artifact_name: aur-endeavour-srcinfo
+    supports:
       - endeavour
-      - manjaro-best-effort
+  garuda:
+    build_container: archlinux:base-devel
+    release_label: aur-garuda
+    artifact_name: aur-garuda-srcinfo
+    supports:
       - garuda-best-effort

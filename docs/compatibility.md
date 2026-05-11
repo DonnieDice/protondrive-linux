@@ -151,20 +151,47 @@ scripts/build-local-deb.sh --deb-target ubuntu24.04-compat
 
 | Build target | Build container | Compatibility range | Release asset |
 |-------------|----------------|---------------------|---------------|
-| `appimage-generic` | `debian:12` | Any Linux x86_64 (best-effort) | `proton-drive_${VERSION}_amd64.AppImage` |
+| `appimage-arch` | `archlinux:base-devel` | Arch | `proton-drive_${VERSION}_arch_amd64.AppImage` |
+| `appimage-manjaro` | `archlinux:base-devel` | Manjaro | `proton-drive_${VERSION}_manjaro_amd64.AppImage` |
+| `appimage-ubuntu2404` | `ubuntu:24.04` | Ubuntu 24.04+ | `proton-drive_${VERSION}_ubuntu.24.04_amd64.AppImage` |
 
 ### Patch Layout
 
 ```text
 patches/appimage/
-└── common/
+├── common/
+├── arch/
+│   └── arch.patch
+├── manjaro/
+│   └── manjaro.patch
+└── ubuntu.24.04/
+    └── ubuntu.24.04.patch
 ```
 
-### Notes
+### AppRun Wrappers
 
-AppImage is the portable fallback, not a guaranteed-works-everywhere package. WebKitGTK/GTK host compatibility is still required. Call it "portable fallback" in docs.
+Each AppImage target includes a static AppRun with hardcoded env vars — no runtime `/etc/os-release` detection. This follows the same clean-base principle as RPM/DEB: the patch sets compile-time env vars, the AppRun sets runtime env vars, both specific to the target distro.
 
-Use it for: openSUSE (until native RPM validated), Mageia, Void, NixOS (best-effort), older/unknown distros.
+| Target | GDK_GL | Sandbox | WASM | Notes |
+|--------|--------|---------|------|-------|
+| `arch` / `manjaro` | `disable` | `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` | `JSC_useWasmIPInt=false` | webkit2gtk 2.52+ |
+| `ubuntu.24.04` | `software` | `WEBKIT_FORCE_SANDBOX=0` | default | GDK_GL=disable crashes |
+
+### Build Commands
+
+```bash
+scripts/build-local-appimage.sh --appimage-target arch
+scripts/build-local-appimage.sh --appimage-target manjaro
+scripts/build-local-appimage.sh --appimage-target ubuntu.24.04
+```
+
+### CI Jobs
+
+| Job | Container | Target | Artifact |
+|-----|-----------|--------|----------|
+| `build-appimage-arch` | `debian:12` | `arch` | `appimage-arch` |
+| `build-appimage-manjaro` | `debian:12` | `manjaro` | `appimage-manjaro` |
+| `build-appimage-ubuntu2404` | `debian:12` | `ubuntu.24.04` | `appimage-ubuntu2404` |
 
 ---
 
@@ -174,9 +201,44 @@ Use it for: openSUSE (until native RPM validated), Mageia, Void, NixOS (best-eff
 
 | Build target | Build container | Compatibility range | Release asset |
 |-------------|----------------|---------------------|---------------|
-| `aur-bin` | `archlinux:base-devel` | Arch, Manjaro, EndeavourOS, Garuda | PKGBUILD + .SRCINFO (published to AUR) |
+| `aur-arch` | `archlinux:base-devel` | Arch | PKGBUILD + wrapper + .SRCINFO |
+| `aur-manjaro` | `archlinux:base-devel` | Manjaro | PKGBUILD + wrapper + .SRCINFO |
+| `aur-endeavour` | `archlinux:base-devel` | EndeavourOS | PKGBUILD + wrapper + .SRCINFO |
+| `aur-garuda` | `archlinux:base-devel` | Garuda | PKGBUILD + wrapper + .SRCINFO |
 
-AUR uses the AppImage release asset as its source package input.
+AUR uses the AppImage release asset as its source package input. Each target installs a distro-specific wrapper script at `/usr/bin/proton-drive` that sets WebKitGTK env vars before launching the binary at `/usr/lib/proton-drive/proton-drive.bin`.
+
+### Patch Layout
+
+```text
+patches/aur/
+├── common/
+├── arch.patch
+├── arch.wrapper
+├── manjaro.patch
+├── manjaro.wrapper
+├── endeavour.patch
+├── endeavour.wrapper
+├── garuda.patch
+└── garuda.wrapper
+```
+
+### Wrapper Scripts
+
+Each AUR target has a static wrapper script — no runtime `/etc/os-release` detection.
+
+| Target | GDK_GL | Sandbox | WASM | Notes |
+|--------|--------|---------|------|-------|
+| `arch` / `manjaro` / `endeavour` / `garuda` | `disable` | `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` | `JSC_useWasmIPInt=false` | webkit2gtk 2.52+ |
+
+### Build Commands
+
+```bash
+scripts/build-local-aur.sh --aur-target arch
+scripts/build-local-aur.sh --aur-target manjaro
+scripts/build-local-aur.sh --aur-target endeavour
+scripts/build-local-aur.sh --aur-target garuda
+```
 
 ---
 
@@ -231,21 +293,28 @@ protondrive-linux/
 │   ├── generate-package-specs.yml
 │   └── release.yml
 ├── patches/
-│ ├── common/ # Shared WebClients patches (all builds)
-│ ├── rpm/
-│ │ ├── common/
-│ │ ├── fedora40-compat/
-│ │ └── fedora42-compat/
-│ ├── deb/
-│ │ ├── common/
-│ │ ├── debian12-compat/
-│ │ ├── debian13-compat/
-│ │ ├── ubuntu22.04-compat/
-│ │ └── ubuntu24.04-compat/
-│ ├── appimage/
-│ │ └── common/
-│ ├── aur/
-│ │ └── common/
+│   ├── common/ # Shared WebClients patches (all builds)
+│   ├── rpm/
+│   │   ├── common/
+│   │   ├── fedora40-compat/
+│   │   └── fedora42-compat/
+│   ├── deb/
+│   │   ├── common/
+│   │   ├── debian12-compat/
+│   │   ├── debian13-compat/
+│   │   ├── ubuntu22.04-compat/
+│   │   └── ubuntu24.04-compat/
+│   ├── appimage/
+│   │   ├── common/
+│   │   ├── arch/
+│   │   ├── manjaro/
+│   │   └── ubuntu.24.04/
+│   ├── aur/
+│   │   ├── common/
+│   │   ├── arch.patch + arch.wrapper
+│   │   ├── manjaro.patch + manjaro.wrapper
+│   │   ├── endeavour.patch + endeavour.wrapper
+│   │   └── garuda.patch + garuda.wrapper
 │ ├── flatpak/
 │ │ └── common/
 │ └── snap/
@@ -279,8 +348,12 @@ protondrive-linux/
 | Debian 13 | `proton-drive_*_debian13_amd64.deb` |
 | Ubuntu 22.04 / Mint 21.x / Zorin 17 / Pop!_OS 22.04 | `proton-drive_*_ubuntu22.04_amd64.deb` |
 | Ubuntu 24.04 / Mint 22.x | `proton-drive_*_ubuntu24.04_amd64.deb` |
-| Arch / EndeavourOS / Manjaro | AUR: `proton-drive-bin` |
-| Other Linux distributions | `proton-drive_*_amd64.AppImage` |
+| Arch | AppImage: `proton-drive_*_arch_amd64.AppImage` or AUR: `proton-drive-bin` |
+| Manjaro | AppImage: `proton-drive_*_manjaro_amd64.AppImage` or AUR: `proton-drive-bin` |
+| EndeavourOS | AUR: `proton-drive-bin` |
+| Garuda | AUR: `proton-drive-bin` (best-effort) |
+| Ubuntu 24.04+ | AppImage: `proton-drive_*_ubuntu.24.04_amd64.AppImage` or DEB |
+| Other Linux distributions | Build from source or try nearest AppImage |
 
 ---
 
@@ -297,17 +370,19 @@ DEB  (4 files)
   proton-drive_1.1.6_ubuntu22.04_amd64.deb
   proton-drive_1.1.6_ubuntu24.04_amd64.deb
 
-AppImage  (1 file)
-  proton-drive_1.1.6_amd64.AppImage
+AppImage (3 files)
+proton-drive_1.1.6_arch_amd64.AppImage
+proton-drive_1.1.6_manjaro_amd64.AppImage
+proton-drive_1.1.6_ubuntu.24.04_amd64.AppImage
 
-AUR  (1 channel)
-  PKGBUILD / .SRCINFO published to AUR
+AUR (4 channels)
+PKGBUILD + wrapper + .SRCINFO published per distro target
 
-Verification  (1 file)
-  SHA256SUMS
+Verification (1 file)
+SHA256SUMS
 ```
 
-**Total: 8 release artifacts covering the major Linux desktop distros.**
+**Total: 9 release artifacts + 4 AUR channels covering the major Linux desktop distros.**
 
 ---
 
@@ -335,9 +410,19 @@ Verification  (1 file)
 
 ### Phase 3 — AppImage / AUR Alignment
 
-- [ ] Move AppImage patches into `patches/appimage/common/`
-- [ ] Align `scripts/build-local-appimage.sh` with the compat baseline pattern
-- [ ] Ensure AUR validation workflow references AppImage release asset
+- [x] Create per-distro AppImage patches: `patches/appimage/arch.patch`, `manjaro.patch`, `ubuntu.24.04.patch`
+- [x] Remove runtime `/etc/os-release` detection from AppRun — each target gets a static AppRun
+- [x] Create per-distro AUR patches + wrapper scripts: `patches/aur/{arch,manjaro,endeavour,garuda}.{patch,wrapper}`
+- [x] Rewrite `scripts/build-local-appimage.sh` with `--appimage-target` flag
+- [x] Rewrite `scripts/build-local-aur.sh` with `--aur-target` flag
+- [x] Update PKGBUILD to use wrapper script pattern (binary at `/usr/lib/proton-drive/proton-drive.bin`)
+- [x] Update `build-appimage.yml` workflow for per-distro targets
+- [x] Update `build-aur.yml` workflow for per-distro targets
+- [x] Update `packaging/compatibility-map.yml` with new AppImage/AUR targets
+- [ ] Test `appimage-manjaro` build on Manjaro
+- [ ] Test `aur-manjaro` build on Manjaro
+- [ ] Test `aur-arch` build on Arch
+- [ ] Validate: CI workflows pass for all targets
 
 ### Phase 4 — Release Workflow Update
 
@@ -354,7 +439,8 @@ Verification  (1 file)
 - [x] Confirm `fedora40-compat` RPM does NOT work on Fedora 42+ (expected — missing webkit2gtk 2.52+ fixes)
 - [x] Confirm `fedora40-compat` RPM does NOT work on Fedora 44 (crashes at 2FA — expected)
 - [ ] Test DEB baselines on their respective distros
-- [ ] Test AppImage on openSUSE, other distros
+- [ ] Test AppImage arch/manjaro on their respective distros
+- [ ] Test AUR arch/manjaro/endeavour/garuda on their respective distros
 
 ### Phase 6 — Deferred Packages
 
@@ -376,8 +462,13 @@ debian12-compat
 debian13-compat
 ubuntu22.04-compat
 ubuntu24.04-compat
-appimage-generic
-aur-bin
+appimage-arch
+appimage-manjaro
+appimage-ubuntu2404
+aur-arch
+aur-manjaro
+aur-endeavour
+aur-garuda
 ```
 
 ### CI artifact names
@@ -389,8 +480,13 @@ deb-debian12-compat
 deb-debian13-compat
 deb-ubuntu2204-compat
 deb-ubuntu2404-compat
-appimage-package
-aur-srcinfo
+appimage-arch
+appimage-manjaro
+appimage-ubuntu2404
+aur-arch-srcinfo
+aur-manjaro-srcinfo
+aur-endeavour-srcinfo
+aur-garuda-srcinfo
 ```
 
 ### Release filenames
@@ -402,6 +498,8 @@ proton-drive_${VERSION}_debian12_amd64.deb
 proton-drive_${VERSION}_debian13_amd64.deb
 proton-drive_${VERSION}_ubuntu22.04_amd64.deb
 proton-drive_${VERSION}_ubuntu24.04_amd64.deb
-proton-drive_${VERSION}_amd64.AppImage
+proton-drive_${VERSION}_arch_amd64.AppImage
+proton-drive_${VERSION}_manjaro_amd64.AppImage
+proton-drive_${VERSION}_ubuntu.24.04_amd64.AppImage
 SHA256SUMS
 ```
