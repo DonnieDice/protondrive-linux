@@ -21,7 +21,6 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: flatpak
-    DISTRO_PATCH: "${{ github.event.inputs.distro_patch || 'org.gnome.Platform.50' }}"
 
 jobs:
   build-flatpak:
@@ -75,6 +74,7 @@ jobs:
 
     - name: Apply distro patch
       run: |
+        DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'org.gnome.Platform.50' }}"
         PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
         if [ -f "$PATCH_FILE" ]; then
           git apply "$PATCH_FILE"
