@@ -1,6 +1,6 @@
 name: Build Flatpak
 
-on:
+"on":
   push:
     branches:
     - main
@@ -21,7 +21,7 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: flatpak
-    DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'org.gnome.Platform.50' }}
+    DISTRO_PATCH: "${{ github.event.inputs.distro_patch || 'org.gnome.Platform.50' }}"
 
 jobs:
   build-flatpak:

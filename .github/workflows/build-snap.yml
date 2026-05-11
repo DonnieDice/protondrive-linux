@@ -1,6 +1,6 @@
 name: Build Snap
 
-on:
+"on":
   push:
     branches:
     - main
@@ -21,7 +21,7 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: snap
-    DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'core24' }}
+    DISTRO_PATCH: "${{ github.event.inputs.distro_patch || 'core24' }}"
 
 jobs:
   build-snap:
