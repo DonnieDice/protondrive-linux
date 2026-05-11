@@ -18,7 +18,11 @@ These workflows are required for the current release gate:
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
-| `build-rpm.yml` | `.rpm` | Fedora/RHEL/openSUSE-style installs |
+| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40/41 compat baseline (F40 build container) |
+| `build-rpm.fedora.41.yml` | `.rpm` | Fedora 40/41 compat baseline (F41 build container) |
+| `build-rpm.fedora.42.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F42 build container) |
+| `build-rpm.fedora.43.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F43 build container) |
+| `build-rpm.fedora.44.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F44 build container) |
 | `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs |
 | `build-aur.yml` | `.SRCINFO` validation | Arch/AUR package metadata |
@@ -37,17 +41,29 @@ git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/
 Build the frontend and one package type:
 
 ```bash
-scripts/build-local-rpm.sh
-scripts/build-local-deb.sh
-scripts/build-local-appimage.sh
+scripts/rpm/build-local-rpm.fedora.40.sh
+scripts/rpm/build-local-rpm.fedora.41.sh
+scripts/rpm/build-local-rpm.fedora.42.sh
+scripts/rpm/build-local-rpm.fedora.43.sh
+scripts/rpm/build-local-rpm.fedora.44.sh
+scripts/deb/build-local-deb.sh
+scripts/appimage/build-local-appimage.sh
+scripts/flatpak/build-local-flatpak.sh
+scripts/snap/build-local-snap.sh
 ```
 
 If WebClients is already built:
 
 ```bash
-scripts/build-local-rpm.sh --skip-webclient
-scripts/build-local-deb.sh --skip-webclient
-scripts/build-local-appimage.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.40.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.41.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.42.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
+scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient
+scripts/deb/build-local-deb.sh --skip-webclient
+scripts/appimage/build-local-appimage.sh --skip-webclient
+scripts/flatpak/build-local-flatpak.sh --skip-webclient
+scripts/snap/build-local-snap.sh --skip-webclient
 ```
 
 ## Release Checklist
@@ -69,4 +85,9 @@ scripts/build-local-appimage.sh --skip-webclient
 
 ## Current v1.1.5 Status
 
-Fedora local validation passed through login, CAPTCHA, 2FA, app selection, and Drive launch. CI package workflows are being split and stabilized on `dev` before final promotion to `main`.
+**RPM compatibility baselines validated:**
+
+- `fedora40-compat` RPM: validated locally and on Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Does NOT work on Fedora 42+ (missing webkit2gtk 2.52+ fixes). Confirmed crash on Fedora 44.
+- `fedora42-compat` RPM: validated on Fedora 42, Fedora 43, and Fedora 44 (local + remote CI builds, login through 2FA and Drive launch). Fixes: `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`.
+
+DEB, AppImage, and AUR CI workflows pass. VM smoke tests pending. CI package workflows are being consolidated by compatibility baseline on `dev` before final promotion to `main`.

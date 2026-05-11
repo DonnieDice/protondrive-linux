@@ -1,6 +1,6 @@
-name: Build DEB
+name: Build Snap
 
-on:
+"on":
   push:
     branches:
     - main
@@ -10,25 +10,22 @@ on:
     - "v*"
   workflow_dispatch:
     inputs:
-      distro_patch:
-        description: Distro patch name (e.g. ubuntu.24.04)
-        required: false
-        default: ubuntu.24.04
+    distro_patch:
+      description: "Snap base patch name (e.g. core24)"
+      required: false
+      default: core24
 
 permissions:
   contents: read
 
 env:
   RUST_VERSION: stable
-  DISTRO_TYPE: deb
-  DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'ubuntu.24.04' }}
+  DISTRO_TYPE: snap
 
 jobs:
-  build-deb:
-    name: Debian Package
-    runs-on: ubuntu-latest
-    container:
-      image: debian:12
+  build-snap:
+    name: Snap Package
+    runs-on: ubuntu-24.04
     timeout-minutes: 120
     defaults:
       run:
@@ -37,15 +34,16 @@ jobs:
     steps:
     - name: Install build dependencies
       run: |
-        apt-get update
-        apt-get install -y \
+        sudo apt-get update
+        sudo apt-get install -y \
           bash git curl wget build-essential file pkg-config \
           libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev \
           libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
-          patchelf python3 ca-certificates \
-          libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
-        curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-        apt-get install -y nodejs
+        patchelf python3 ca-certificates \
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+        curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
+        sudo apt-get install -y nodejs
+        sudo snap install snapcraft --classic
 
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -67,8 +65,8 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           src-tauri/target/
-        key: deb-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-        restore-keys: deb-cargo-
+        key: snap-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+        restore-keys: snap-cargo-
 
     - name: Clone WebClients
       run: |
@@ -76,7 +74,8 @@ jobs:
 
     - name: Apply distro patch
       run: |
-        PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+        DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'core24' }}"
+        PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
         if [ -f "$PATCH_FILE" ]; then
           git apply "$PATCH_FILE"
           echo "Applied $PATCH_FILE"
@@ -84,7 +83,7 @@ jobs:
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
-    - name: Build DEB
+    - name: Build Snap
       run: |
         . "$HOME/.cargo/env"
         scripts/build-webclients.sh
@@ -92,24 +91,19 @@ jobs:
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
         sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
         npm install
-        npx tauri build --bundles deb --verbose
+        cd src-tauri && cargo build --release && cd ..
+        if [ ! -f "src-tauri/target/release/proton-drive" ]; then
+          echo "Binary not found!"
+          exit 1
+        fi
+        mkdir -p snap
+        sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > snap/snapcraft.yaml
+        snapcraft --destructive-mode
 
-    - name: Normalize DEB filename
-      run: |
-        cd src-tauri/target/release/bundle/deb
-        for file in *.deb; do
-          if [ -f "$file" ]; then
-            new_name="$(echo "$file" | sed 's/Proton\.Drive/proton-drive/g; s/Proton Drive/proton-drive/g')"
-            if [ "$file" != "$new_name" ]; then
-              mv "$file" "$new_name"
-            fi
-          fi
-        done
-
-    - name: Upload DEB artifact
+    - name: Upload Snap artifact
       uses: actions/upload-artifact@v4
       with:
-        name: deb-package
-        path: src-tauri/target/release/bundle/deb/*.deb
+        name: snap-package
+        path: "*.snap"
         if-no-files-found: error
         retention-days: 30

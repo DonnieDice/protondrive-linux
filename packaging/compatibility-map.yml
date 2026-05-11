@@ -1,0 +1,90 @@
+rpm:
+  fedora40-compat:
+    build_container: fedora:40
+    release_label: fedora40-41
+    artifact_name: rpm-fedora40-compat
+    supports:
+    - fedora-40
+    - fedora-41
+  fedora42-compat:
+    build_container: fedora:42
+    release_label: fedora42-44
+    artifact_name: rpm-fedora42-compat
+    supports:
+    - fedora-42
+    - fedora-43
+    - fedora-44
+
+deb:
+  debian12-compat:
+    build_container: debian:12
+    release_label: debian12
+    artifact_name: deb-debian12-compat
+    supports:
+    - debian-12
+  debian13-compat:
+    build_container: debian:13
+    release_label: debian13
+    artifact_name: deb-debian13-compat
+    supports:
+    - debian-13
+  ubuntu22.04-compat:
+    build_container: ubuntu:22.04
+    release_label: ubuntu22.04
+    artifact_name: deb-ubuntu2204-compat
+    supports:
+    - ubuntu-22.04
+    - linuxmint-21
+    - zorin-17
+    - popos-22.04
+  ubuntu24.04-compat:
+    build_container: ubuntu:24.04
+    release_label: ubuntu24.04
+    artifact_name: deb-ubuntu2404-compat
+    supports:
+    - ubuntu-24.04
+    - linuxmint-22
+
+appimage:
+  linux-baseline:
+    build_container: debian:12
+    release_label: linux-baseline
+    artifact_name: appimage-linux-baseline
+    supports:
+    - arch
+    - manjaro
+    - ubuntu-24.04
+    - fedora-40
+    - fedora-41
+    - fedora-42
+    - fedora-43
+    - fedora-44
+    - debian-12
+    - debian-13
+
+aur:
+  arch:
+    build_container: archlinux:base-devel
+    release_label: aur-arch
+    artifact_name: aur-arch
+    supports:
+    - arch
+    - manjaro
+    - endeavour
+    - garuda
+
+flatpak:
+  org.gnome.Platform.50:
+    build_container: ubuntu-24.04
+    release_label: flatpak-gnome50
+    artifact_name: flatpak-package
+    supports:
+    - org.gnome.Platform//50
+
+snap:
+  core24:
+    build_container: ubuntu-24.04
+    release_label: snap-core24
+    artifact_name: snap-package
+    supports:
+    - core24

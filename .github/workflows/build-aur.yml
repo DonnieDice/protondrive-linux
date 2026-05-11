@@ -1,57 +1,152 @@
 name: Build AUR
 
-on:
-  push:
-    branches:
-      - main
-      - dev
-      - alpha
-    tags:
-      - "v*"
-  workflow_dispatch:
+"on":
+ push:
+   branches:
+     - main
+     - dev
+     - alpha
+   tags:
+     - "v*"
+ workflow_dispatch:
+   inputs:
+     aur_target:
+       description: AUR target (arch)
+       required: false
+       default: arch
 
 permissions:
-  contents: read
+ contents: read
+
+env:
+ RUST_VERSION: stable
 
 jobs:
-  validate-aur:
-    name: Validate PKGBUILD
-    runs-on: ubuntu-latest
-    container:
-      image: archlinux:base-devel
-    timeout-minutes: 30
-    defaults:
-      run:
-        shell: bash
+ build-aur:
+   name: AUR ${{ github.event.inputs.aur_target || 'arch' }}
+   runs-on: ubuntu-latest
+   container:
+     image: archlinux:base-devel
+   timeout-minutes: 120
+   defaults:
+     run:
+       shell: bash
 
-    steps:
-      - name: Install Arch build dependencies
-        run: |
-          pacman -Sy --noconfirm git nodejs python
+   steps:
+   - name: Install build dependencies
+     run: |
+       pacman -Sy --noconfirm --needed bash git curl wget file pkg-config webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3 nodejs npm python rustup base-devel patchelf
 
-      - name: Checkout repository
-        uses: actions/checkout@v4
+   - name: Install Rust
+     run: |
+       rustup default "${RUST_VERSION}"
+       rustc --version
+       cargo --version
 
-      - name: Sync PKGBUILD version
-        run: |
-          VERSION=$(python -c "import json; print(json.load(open('package.json'))['version'])")
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" aur/PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/" aur/PKGBUILD
+   - name: Checkout repository
+     uses: actions/checkout@v4
 
-      - name: Validate PKGBUILD metadata
-        run: |
-          cd aur
-          useradd -m builder
-          chown -R builder:builder .
-          su builder -c "makepkg --printsrcinfo > .SRCINFO"
-          test -s .SRCINFO
-          cat .SRCINFO
+   - name: Cache Cargo
+     uses: actions/cache@v4
+     with:
+       path: |
+         ~/.cargo/bin/
+         ~/.cargo/registry/index/
+         ~/.cargo/registry/cache/
+         ~/.cargo/git/db/
+         src-tauri/target/
+       key: aur-${{ github.event.inputs.aur_target || 'arch' }}-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+       restore-keys: aur-${{ github.event.inputs.aur_target || 'arch' }}-cargo-
 
-      - name: Upload AUR metadata
-        uses: actions/upload-artifact@v4
-        with:
-          name: aur-srcinfo
-          path: aur/.SRCINFO
-          if-no-files-found: error
-          include-hidden-files: true
-          retention-days: 30
+   - name: Clone WebClients
+     run: git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+
+   - name: Apply distro patch
+     run: |
+       AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
+       AUR_PATCH="patches/aur/${AUR_TARGET}.patch"
+       if [ -f "$AUR_PATCH" ]; then
+         git apply "$AUR_PATCH"
+         echo "Applied $AUR_PATCH"
+       else
+         echo "No AUR-specific patch for ${AUR_TARGET}, skipping"
+       fi
+
+   - name: Build WebClients
+     run: scripts/build-webclients.sh
+
+   - name: Build Tauri binary
+     run: |
+       VERSION=$(node -p "require('./package.json').version")
+       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+       sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+       npm install
+       cargo build --manifest-path src-tauri/Cargo.toml --release
+
+   - name: Include distro wrapper
+     run: |
+       AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
+       WRAPPER_FILE="patches/aur/${AUR_TARGET}.wrapper"
+       if [ -f "$WRAPPER_FILE" ]; then
+         cp "$WRAPPER_FILE" aur/proton-drive.wrapper
+         echo "Included ${AUR_TARGET} wrapper script"
+       else
+         echo "WARNING: No wrapper found for ${AUR_TARGET}"
+       fi
+
+   - name: Build AUR package
+     run: |
+       VERSION=$(node -p "require('./package.json').version")
+       scripts/ci/build-aur-package.sh \
+         "${{ github.event.inputs.aur_target || 'arch' }}" \
+         "$VERSION" \
+         "src-tauri/target/release/proton-drive" \
+         "aur/proton-drive.wrapper" \
+         "src-tauri/icons"
+
+   - name: Generate .SRCINFO
+     run: |
+       cd aur
+       VERSION=$(node -p "require('../package.json').version")
+       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
+       if [ ! -s .SRCINFO ]; then
+         AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
+         {
+           echo "pkgbase = proton-drive-bin"
+           echo "pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri"
+           echo "pkgver = ${VERSION}"
+           echo "pkgrel = 1"
+           echo "url = https://github.com/DonnieDice/protondrive-linux"
+           echo "arch = x86_64"
+           echo "license = AGPL-3.0-only"
+           echo "depends = webkit2gtk-4.1"
+           echo "depends = gtk3"
+           echo "depends = libayatana-appindicator"
+           echo "provides = proton-drive"
+           echo "conflicts = proton-drive"
+           echo "options = !strip"
+           echo "source = proton-drive.wrapper"
+           echo "sha256sums = SKIP"
+           echo "pkgname = proton-drive-bin"
+         } > .SRCINFO
+       fi
+       cat .SRCINFO
+
+   - name: Upload AUR package
+     uses: actions/upload-artifact@v4
+     with:
+       name: aur-${{ github.event.inputs.aur_target || 'arch' }}
+       path: /tmp/aur-output/*.pkg.tar.zst
+       if-no-files-found: error
+       retention-days: 30
+
+   - name: Upload AUR metadata
+     uses: actions/upload-artifact@v4
+     with:
+       name: aur-${{ github.event.inputs.aur_target || 'arch' }}-srcinfo
+       path: aur/.SRCINFO
+       if-no-files-found: warn
+       include-hidden-files: true
+       retention-days: 30

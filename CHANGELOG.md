@@ -1,5 +1,30 @@
 # Changelog
 
+## 1.2.0 - 2026-05-11
+
+### Added
+
+- Full CI pipeline for all package formats: AppImage, Flatpak, Snap, AUR, DEB, RPM (Fedora 40-44).
+- Static `packaging/snap/snapcraft.yaml` template for Snap builds (version substituted at build time).
+- `packaging/compatibility-map.yml` with runtime/ABI-based naming convention for all targets.
+
+### Changed
+
+- Restructured patches to runtime/ABI naming: `appimage/linux-baseline`, `aur/arch`, `flatpak/org.gnome.Platform.50`, `snap/core24`.
+- Collapsed redundant per-distro Arch patches (manjaro, endeavour, garuda) into single `aur/arch.patch` + `aur/arch.wrapper`.
+- AppImage uses single `linux-baseline` target (glibc compatibility boundary) instead of per-distro targets.
+- Flatpak and Snap patches target the runtime (org.gnome.Platform.50, core24), not the host distro.
+- DEB patches regenerated against current `main.rs` base code.
+- Fixed Flatpak/Snap CI YAML parse errors by moving `DISTRO_PATCH` from top-level `env:` to step-level computation.
+- Fixed Snap CI: install `snapcraft` via snap (not apt), use static snapcraft.yaml template.
+- AUR CI now does full Tauri build + `makepkg` to produce real `.pkg.tar.zst` packages.
+- Updated README, compatibility docs, and packaging docs for runtime/ABI naming convention.
+
+### Removed
+
+- Deleted redundant patches: `appimage/arch.patch`, `appimage/manjaro.patch`, `aur/manjaro.{patch,wrapper}`, `aur/endeavour.{patch,wrapper}`, `aur/garuda.{patch,wrapper}`, `flatpak/ubuntu.24.04.patch`, `snap/ubuntu.24.04.patch`.
+- Deleted `docs/comprehensive-docs` branch (was a full Go rewrite, not documentation).
+
 ## 1.1.5 - 2026-05-07
 
 ### Fixed

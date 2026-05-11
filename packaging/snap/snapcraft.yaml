@@ -1,5 +1,5 @@
 name: proton-drive
-version: "1.1.5"
+version: "PLACEHOLDER"
 summary: Proton Drive Linux Desktop Client
 description: |
   Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
@@ -7,8 +7,6 @@ description: |
 grade: stable
 confinement: strict
 base: core24
-platforms:
-  amd64:
 
 apps:
   proton-drive:
@@ -16,6 +14,7 @@ apps:
     environment:
       WEBKIT_DISABLE_DMABUF_RENDERER: "1"
       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+      GDK_GL: software
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
       - home
@@ -43,20 +42,16 @@ parts:
     plugin: nil
     source: .
     override-build: |
-      # Copy pre-built binary
       install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
-
-      # Create wrapper script
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
       cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
       #!/bin/bash
       export WEBKIT_DISABLE_DMABUF_RENDERER=1
       export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      export GDK_GL=software
       exec "$SNAP/usr/bin/proton-drive" "$@"
       WRAPPEREOF
       chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-
-      # Desktop file
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
       cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
       [Desktop Entry]
@@ -68,8 +63,6 @@ parts:
       Icon=com.proton.drive
       Categories=Utility;
       DESKTOPEOF
-
-      # Icons
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
