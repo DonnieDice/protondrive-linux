@@ -35,11 +35,7 @@ jobs:
    steps:
    - name: Install build dependencies
      run: |
-       pacman -Sy --noconfirm --needed \
-         bash git curl wget file pkg-config \
-         webkit2gtk-4.1 gtk3 libayatana-appindicator \
-         openssl librsvg libsoup3 \
-         nodejs npm python rustup base-devel patchelf
+       pacman -Sy --noconfirm --needed bash git curl wget file pkg-config webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3 nodejs npm python rustup base-devel patchelf
 
    - name: Install Rust
      run: |
@@ -63,8 +59,7 @@ jobs:
        restore-keys: aur-${{ github.event.inputs.aur_target || 'arch' }}-cargo-
 
    - name: Clone WebClients
-     run: |
-       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+     run: git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
    - name: Apply common and distro patches
      run: |
@@ -81,8 +76,7 @@ jobs:
        fi
 
    - name: Build WebClients
-     run: |
-       scripts/build-webclients.sh
+     run: scripts/build-webclients.sh
 
    - name: Build Tauri binary
      run: |
@@ -92,120 +86,54 @@ jobs:
        npm install
        cargo build --manifest-path src-tauri/Cargo.toml --release
 
-   - name: Prepare AUR package sources
+   - name: Include distro wrapper
      run: |
        AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
-       VERSION=$(node -p "require('./package.json').version")
-
-       cd aur
-       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-
-       WRAPPER_FILE="../patches/aur/${AUR_TARGET}.wrapper"
+       WRAPPER_FILE="patches/aur/${AUR_TARGET}.wrapper"
        if [ -f "$WRAPPER_FILE" ]; then
-         cp "$WRAPPER_FILE" proton-drive.wrapper
+         cp "$WRAPPER_FILE" aur/proton-drive.wrapper
          echo "Included ${AUR_TARGET} wrapper script"
        else
-         echo "WARNING: No wrapper found for ${AUR_TARGET}, building without"
+         echo "WARNING: No wrapper found for ${AUR_TARGET}"
        fi
 
-       sed -i "s|^source=.*|source=(\"proton-drive-${VERSION}.tar.zst\" \"proton-drive.wrapper\")|" PKGBUILD
-       sed -i "s|^sha256sums=.*|sha256sums=('SKIP' 'SKIP')|" PKGBUILD
-
-       mkdir -p staging
-       install -Dm755 ../src-tauri/target/release/proton-drive staging/proton-drive
-
-   - name: Build AUR package (makepkg)
+   - name: Build AUR package
      run: |
-       AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
        VERSION=$(node -p "require('./package.json').version")
-
-       cd aur
-       BINARY_PATH="../src-tauri/target/release/proton-drive"
-
-       pkgdir_tmp=$(mktemp -d)
-       install -dm755 "${pkgdir_tmp}/usr/lib/proton-drive"
-       install -Dm755 "$BINARY_PATH" "${pkgdir_tmp}/usr/lib/proton-drive/proton-drive.bin"
-
-       install -Dm755 proton-drive.wrapper "${pkgdir_tmp}/usr/bin/proton-drive"
-
-       DESKTOP_SRC="../src-tauri/com.proton.drive.desktop"
-       if [ ! -f "$DESKTOP_SRC" ]; then
-         cat > /tmp/com.proton.drive.desktop << 'EOF'
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Proton Drive
-Comment=Secure cloud storage
-Exec=proton-drive %U
-Icon=com.proton.drive
-Categories=Utility;Network;FileTransfer;
-Keywords=proton;drive;cloud;storage;sync;
-Terminal=false
-StartupWMClass=proton-drive
-StartupNotify=true
-EOF
-         DESKTOP_SRC="/tmp/com.proton.drive.desktop"
-       fi
-       install -Dm644 "$DESKTOP_SRC" "${pkgdir_tmp}/usr/share/applications/com.proton.drive.desktop"
-
-       for size in 32x32 128x128 256x256; do
-         ICON_FILE="../src-tauri/icons/${size}.png"
-         if [ ! -f "$ICON_FILE" ]; then
-           case "$size" in
-             32x32) ICON_FILE="../src-tauri/icons/32x32.png" ;;
-             128x128) ICON_FILE="../src-tauri/icons/128x128.png" ;;
-             256x256) ICON_FILE="../src-tauri/icons/128x128@2x.png" ;;
-           esac
-         fi
-         if [ -f "$ICON_FILE" ]; then
-           install -Dm644 "$ICON_FILE" "${pkgdir_tmp}/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png"
-         fi
-       done
-
-       SVG_ICON="../src-tauri/icons/proton-drive.svg"
-       if [ -f "$SVG_ICON" ]; then
-         install -Dm644 "$SVG_ICON" "${pkgdir_tmp}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-       fi
-
-       PKG_NAME="proton-drive-bin"
-       PKG_FILE="${PKG_NAME}-${VERSION}-1-x86_64.pkg.tar.zst"
-
-       BUILDDIR=/tmp/makepkg-build \
-         PKGDEST=/tmp/makepkg-pkg \
-         SRCDEST=/tmp/makepkg-src \
-         makepkg --nodeps --skipinteg --noconfirm -f 2>/dev/null || true
-
-       mkdir -p /tmp/aur-output
-       pushd "${pkgdir_tmp}"
-       ZSTD_CLEVEL=19 tar --zstd -cf "/tmp/aur-output/${PKG_FILE}" *
-       popd
+       scripts/ci/build-aur-package.sh \
+         "${{ github.event.inputs.aur_target || 'arch' }}" \
+         "$VERSION" \
+         "src-tauri/target/release/proton-drive" \
+         "aur/proton-drive.wrapper" \
+         "src-tauri/icons"
 
    - name: Generate .SRCINFO
      run: |
        cd aur
+       VERSION=$(node -p "require('../package.json').version")
+       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
        makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
        if [ ! -s .SRCINFO ]; then
          AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
-         VERSION=$(node -p "require('./package.json').version")
-         cat > .SRCINFO << EOF
-pkgbase = proton-drive-bin
- pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
- pkgver = ${VERSION}
- pkgrel = 1
- url = https://github.com/DonnieDice/protondrive-linux
- arch = x86_64
- license = AGPL-3.0-only
- depends = webkit2gtk-4.1
- depends = gtk3
- depends = libayatana-appindicator
- provides = proton-drive
- conflicts = proton-drive
- options = !strip
- source = proton-drive.wrapper
- sha256sums = SKIP
- pkgname = proton-drive-bin
-EOF
+         {
+           echo "pkgbase = proton-drive-bin"
+           echo "pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri"
+           echo "pkgver = ${VERSION}"
+           echo "pkgrel = 1"
+           echo "url = https://github.com/DonnieDice/protondrive-linux"
+           echo "arch = x86_64"
+           echo "license = AGPL-3.0-only"
+           echo "depends = webkit2gtk-4.1"
+           echo "depends = gtk3"
+           echo "depends = libayatana-appindicator"
+           echo "provides = proton-drive"
+           echo "conflicts = proton-drive"
+           echo "options = !strip"
+           echo "source = proton-drive.wrapper"
+           echo "sha256sums = SKIP"
+           echo "pkgname = proton-drive-bin"
+         } > .SRCINFO
        fi
        cat .SRCINFO
 
