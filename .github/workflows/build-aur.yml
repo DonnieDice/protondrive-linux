@@ -1,13 +1,13 @@
 name: Build AUR
 
-on:
+"on":
  push:
    branches:
      - main
      - dev
      - alpha
- tags:
-   - "v*"
+   tags:
+     - "v*"
  workflow_dispatch:
    inputs:
      aur_target:
