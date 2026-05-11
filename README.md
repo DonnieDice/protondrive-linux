@@ -4,16 +4,16 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 ## Status
 
-**v1.1.5 — Working Beta**
+**v1.2.0 — Working Beta**
 
 | Format | Status | Notes |
 |--------|--------|-------|
 | RPM | ✅ Validated | Fedora 40–44 (per-distro baselines, login, CAPTCHA, 2FA, Drive launch) |
-| DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
+| DEB | ✅ CI build | Debian 12, Ubuntu 24.04 |
 | AppImage | ✅ CI build | Runtime target: `linux-baseline` (glibc 2.35+, webkit2gtk 2.46+) |
 | AUR | ✅ CI build | Runtime target: `arch` (webkit2gtk 2.52+, covers Arch/Manjaro/Endeavour/Garuda) |
-| Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
-| Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
+| Flatpak | ✅ CI build | Runtime target: `org.gnome.Platform.50` |
+| Snap | ✅ CI build | Runtime target: `core24` |
 
 Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`.
 
@@ -26,9 +26,9 @@ AppImage and AUR packages use runtime/ABI-named patches and wrapper scripts — 
 ```
 dev ──► alpha ──► main
  │         │        │
-│ │ └── Stable release (versioned tag, e.g. v1.1.5)
-│ └────────── Pre-release (alpha tag, e.g. v1.1.5-alpha)
-└──────────────────── Dev builds (pre-release tag, e.g. v1.1.5-dev)
+│ │ └── Stable release (versioned tag, e.g. v1.2.0)
+│ └────────── Pre-release (alpha tag, e.g. v1.2.0-alpha)
+└──────────────────── Dev builds (pre-release tag, e.g. v1.2.0-dev)
 ```
 
 - **`dev`** — active development, CI builds and publishes pre-release artifacts
