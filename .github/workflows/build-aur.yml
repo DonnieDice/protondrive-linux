@@ -61,11 +61,8 @@ jobs:
    - name: Clone WebClients
      run: git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-   - name: Apply common and distro patches
+   - name: Apply distro patch
      run: |
-       if [ -f patches/common/fix-tauri-worker-protocol.patch ]; then
-         git apply patches/common/fix-tauri-worker-protocol.patch
-       fi
        AUR_TARGET="${{ github.event.inputs.aur_target || 'arch' }}"
        AUR_PATCH="patches/aur/${AUR_TARGET}.patch"
        if [ -f "$AUR_PATCH" ]; then
