@@ -8,14 +8,18 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| RPM | ✅ Validated | `fedora40-compat` on Fedora 40/41; `fedora42-compat` on Fedora 42/43/44 (login, CAPTCHA, 2FA, Drive launch) |
+| RPM | ✅ Validated | Fedora 40–44 (per-distro baselines, login, CAPTCHA, 2FA, Drive launch) |
 | DEB | 🚧 CI validation | Debian/Ubuntu VM smoke test pending |
-| AppImage | 🚧 CI validation | Portable package path, Ubuntu smoke test pending |
-| AUR | 🚧 Metadata validation | `PKGBUILD`/`.SRCINFO` validation; publishing deferred |
+| AppImage | ✅ CI build | Per-distro targets: `arch`, `manjaro`, `ubuntu.24.04` |
+| AUR | ✅ CI build | Per-distro targets: `arch`, `manjaro`, `endeavour`, `garuda` |
 | Flatpak | ⏸ Deferred | Separate workflow to restore after native packages are green |
 | Snap | ⏸ Deferred | Separate workflow to restore after native packages are green |
 
-Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`. RPM is validated across two compatibility baselines: `fedora40-compat` (Fedora 40, 41) and `fedora42-compat` (Fedora 42, 43, 44). The `fedora42-compat` RPM includes fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash). The `fedora40-compat` RPM is confirmed broken on Fedora 42+ (expected — missing 2.52+ fixes).
+Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`.
+
+RPM is validated across five Fedora baselines (40–44). The `fedora42+` RPMs include fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
+
+AppImage and AUR packages use per-distro patches and wrapper scripts — each distro gets its own env vars (WEBKIT_DISABLE_SANDBOX, JSC_useWasmIPInt, GDK_GL, etc.) applied at build time via patch and at runtime via AppRun/wrapper. No runtime `/etc/os-release` detection.
 
 ## Branch Workflow
 
@@ -68,10 +72,16 @@ sudo apt install ./proton-drive_*.deb
 sudo dnf install ./proton-drive-*.rpm
 ```
 
-### Arch Linux (AUR)
+### Arch / Manjaro (AUR)
 
 ```bash
 yay -S proton-drive-bin
+```
+
+Or install a CI-built `.pkg.tar.zst` directly:
+
+```bash
+sudo pacman -U proton-drive-bin-*.pkg.tar.zst
 ```
 
 ### Flatpak (local bundle)
@@ -99,6 +109,7 @@ sudo snap install --dangerous proton-drive_*.snap
 - **Rust** — `curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh`
 - **System deps (Fedora):** `sudo dnf install webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel openssl-devel`
 - **System deps (Debian/Ubuntu):** `sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libssl-dev`
+- **System deps (Arch/Manjaro):** `sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator`
 
 ### Clone and Build
 
@@ -111,8 +122,14 @@ git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
 
 # Build WebClients + Tauri
 npm install
-npm run build:web      # build frontend (patches, yarn install, webpack)
-npm run build:rpm      # or build:deb, build:appimage
+npm run build:web    # build frontend (patches, yarn install, webpack)
+npm run build:rpm    # or build:deb, build:appimage
+
+# Or build AUR package locally
+scripts/build-local-aur.sh --aur-target manjaro
+
+# Or build AppImage locally
+scripts/appimage/build-local-appimage.sh --appimage-target manjaro
 ```
 
 Built packages land in `src-tauri/target/release/bundle/`.
@@ -125,21 +142,26 @@ npm run dev
 
 ## Architecture
 
-```
+```text
 protondrive-linux/
-├── src-tauri/src/main.rs     Rust backend: API proxy, download handler, captcha flow
-├── docs/debugging/           Debugging history and release validation notes
+├── src-tauri/src/main.rs   Rust backend: API proxy, download handler, captcha flow
+├── docs/                   Architecture, packaging, compatibility, troubleshooting
 ├── patches/
-│   ├── common/               WebClients patches required by every package
-│   ├── rpm/                  Fedora/RPM-specific patches
-│   ├── deb/                  Debian/Ubuntu-specific patches
-│   ├── appimage/             AppImage-specific patches
-│   └── aur/                  AUR-specific patches
+│   ├── common/             WebClients patches required by every package
+│   ├── rpm/                Fedora/RPM-specific patches
+│   ├── deb/                Debian/Ubuntu-specific patches
+│   ├── appimage/           AppImage-specific patches + per-distro AppRun
+│   ├── aur/                AUR-specific patches + per-distro wrapper scripts
+│   ├── flatpak/            Flatpak-specific patches
+│   └── snap/               Snap-specific patches
 ├── scripts/
-│   ├── build-webclients.sh   Patch + build frontend (local)
-│   ├── fix_deps.py           Strip private Proton deps, configure yarn registry
-│   └── create_stubs.py       Stub private npm packages (@proton/collect-metrics)
-└── .github/workflows/        CI: split RPM, DEB, AppImage, AUR, specs, release
+│   ├── build-webclients.sh       Patch + build frontend (local)
+│   ├── build-local-aur.sh        Build AUR .pkg.tar.zst locally
+│   ├── appimage/build-local-appimage.sh  Build AppImage locally
+│   ├── ci/build-aur-package.sh   CI helper: makepkg wrapper for AUR
+│   ├── fix_deps.py               Strip private Proton deps, configure yarn registry
+│   └── create_stubs.py           Stub private npm packages (@proton/collect-metrics)
+└── .github/workflows/      CI: per-distro RPM, DEB, AppImage, AUR, specs, release
 ```
 
 ## Build Standards
@@ -147,7 +169,8 @@ protondrive-linux/
 - Keep package workflows separate by distro/package type.
 - Keep package-specific behavior in that package workflow and `patches/<type>/`.
 - Use `patches/common/` only for WebClients changes required by all builds.
-- **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<type>/<distro>.<version>.patch`.
+- **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<type>/<distro>.patch` and the package's AppRun/wrapper script.
+- Each distro gets its own patch and runtime wrapper/AppRun. No runtime `/etc/os-release` detection.
 - Do not keep long-term distro branches for routine packaging differences.
 - Use `dev` for test builds and workflow fixes; use `main` for stable release tags.
 - Keep Snap and Flatpak separate from the native package release gate until they are restored.
@@ -191,7 +214,7 @@ Fixed in v1.1.5+ — API challenge iframes are blocked from document navigation,
 
 ## Contributing
 
-See [CONTRIBUTING.md](CONTRIBUTING.md). Branch your work off `dev`, not `main`. Current release tasks live in [TASKS.md](TASKS.md), packaging standards in [docs/packaging.md](docs/packaging.md), and maintainer/agent notes in [AGENTS.md](AGENTS.md).
+See [CONTRIBUTING.md](CONTRIBUTING.md). Branch your work off `dev`, not `main`. Packaging standards are in [docs/packaging.md](docs/packaging.md) and the compatibility baseline roadmap is in [docs/compatibility.md](docs/compatibility.md).
 
 ## License
 
