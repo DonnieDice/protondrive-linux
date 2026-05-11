@@ -1,6 +1,6 @@
 name: Build AppImage
 
-on:
+"on":
   push:
     branches:
       - main
@@ -24,7 +24,7 @@ env:
 
 jobs:
   build-appimage:
-    name: AppImage ${{ github.event.inputs.appimage_target || 'linux-baseline' }}
+    name: "AppImage ${{ github.event.inputs.appimage_target || 'linux-baseline' }}"
     runs-on: ubuntu-latest
     container:
       image: debian:12
