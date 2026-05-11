@@ -54,7 +54,7 @@ Do **not** add a new package only because a distro has a different brand name.
 ```text
 patches/
 ├── common/
-│   └── shared.patch          # Common WebKitGTK defaults (all builds)
+│ └── fix-tauri-worker-protocol.patch # WebClients tauri:// worker protocol fix
 ├── appimage/
 │   └── linux-baseline.patch  # AppImage universal (glibc 2.35+, webkit2gtk 2.46+)
 ├── deb/
