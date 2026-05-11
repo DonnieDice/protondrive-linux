@@ -1,5 +1,5 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..333235ce 100644
+index 51d68ebd..d191e35b 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
 @@ -194,9 +194,15 @@ async fn proxy_request(
@@ -9,8 +9,8 @@ index 51d68ebd..333235ce 100644
 -    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
 -    // They are distro-specific and belong in patches/<package>/<distro>.patch
 -    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Fedora 42 (webkit2gtk 2.52+).
-+    // Sandbox API changed; IPInt WASM interpreter disabled to fix SIGTRAP after 2FA.
++    // WebKitGTK environment for Snap core26 runtime.
++    // Newer WebKitGTK 2.52+; sandbox API changed; IPInt WASM disabled.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
@@ -21,3 +21,15 @@ index 51d68ebd..333235ce 100644
  
      // Create shared client with cookie jar
      let state = Arc::new(AppState {
+@@ -214,9 +220,9 @@ fn main() {
+     .setup(|app| {
+         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
+         let worker_init = match option_env!("DISTRO_TYPE") {
+-            Some("rpm") => {
++            Some("snap") => {
+                 r#"
+-        console.log('[INIT] RPM build - main-thread crypto active via source patch');
++        console.log('[INIT] Snap build - main-thread crypto active via source patch');
+         "#
+             }
+             _ => {

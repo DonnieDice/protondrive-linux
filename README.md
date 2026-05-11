@@ -8,18 +8,18 @@ Unofficial desktop GUI client for Proton Drive on Linux. Built with Tauri 2.0 an
 
 | Format | Status | Notes |
 |--------|--------|-------|
-| RPM | ✅ Validated | Fedora 40–44 (per-distro baselines, login, CAPTCHA, 2FA, Drive launch) |
-| DEB | ✅ CI build | Debian 12, Ubuntu 24.04 |
+| RPM | ✅ Validated | Fedora 43–44, el9, el10 (per-distro baselines, login, CAPTCHA, 2FA, Drive launch) |
+| DEB | ✅ CI build | Debian 12/13, Ubuntu 22.04/24.04/26.04 |
 | AppImage | ✅ CI build | Runtime target: `linux-baseline` (glibc 2.35+, webkit2gtk 2.46+) |
 | AUR | ✅ CI build | Runtime target: `arch` (webkit2gtk 2.52+, covers Arch/Manjaro/Endeavour/Garuda) |
 | Flatpak | ✅ CI build | Runtime target: `org.gnome.Platform.50` |
-| Snap | ✅ CI build | Runtime target: `core24` |
+| Snap | ✅ CI build | Runtime targets: `core24`, `core26` |
 
 Login, CAPTCHA, 2FA, app selection, Drive loading, and file browsing work. Downloads save to `~/Downloads`.
 
-RPM is validated across five Fedora baselines (40–44). The `fedora42+` RPMs include fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
+RPM is validated across Fedora baselines (43–44) and Enterprise Linux (el9, el10). Fedora 43+ and el10 patches include fixes for webkit2gtk 2.52+ (sandbox API change and IPInt WASM interpreter crash).
 
-AppImage and AUR packages use runtime/ABI-named patches and wrapper scripts — patches are named after the runtime target (e.g., `linux-baseline.patch`, `arch.patch`), not the host distro. The AppImage builds on the oldest supported glibc baseline and uses a single `linux-baseline` target. AUR uses a single `arch` target that covers all Arch-family distros. No runtime `/etc/os-release` detection.
+All packages use runtime/ABI-named patches — patches are named after the runtime target (e.g., `linux-baseline.patch`, `arch.patch`, `core24.patch`), not the host distro. No runtime `/etc/os-release` detection.
 
 ## Branch Workflow
 
@@ -39,14 +39,13 @@ Build and workflow fixes go to `dev` first. Stable releases are cut from `main` 
 
 Required release workflows:
 
-- `build-rpm.fedora.40.yml`
-- `build-rpm.fedora.41.yml`
-- `build-rpm.fedora.42.yml`
 - `build-rpm.fedora.43.yml`
 - `build-rpm.fedora.44.yml`
 - `build-deb.yml`
 - `build-appimage.yml`
 - `build-aur.yml`
+- `build-flatpak.yml`
+- `build-snap.yml`
 - `generate-package-specs.yml`
 
 Snap and Flatpak are intentionally not part of the current release gate.
@@ -147,13 +146,13 @@ protondrive-linux/
 ├── src-tauri/src/main.rs   Rust backend: API proxy, download handler, captcha flow
 ├── docs/                   Architecture, packaging, compatibility, troubleshooting
 ├── patches/
-│   ├── common/ WebClients patches required by every package
-│   ├── rpm/ Fedora/RPM-specific patches
-│   ├── deb/ Debian/Ubuntu-specific patches
-│   ├── appimage/ linux-baseline.patch + AppRun env vars
-│   ├── aur/ arch.patch + arch.wrapper
-│   ├── flatpak/ org.gnome.Platform.50.patch
-│   └── snap/ core24.patch
+│ ├── common/ fix-tauri-worker-protocol.patch (WebClients worker fix)
+│   ├── rpm/                 fedora.43, fedora.44, el9, el10
+│   ├── deb/                 debian.12, debian.13, ubuntu.22.04, ubuntu.24.04, ubuntu.26.04
+│   ├── appimage/            linux-baseline.patch
+│   ├── aur/                 arch.patch + arch.wrapper
+│   ├── flatpak/             org.gnome.Platform.50.patch
+│   └── snap/                core24.patch, core26.patch
 ├── scripts/
 │   ├── build-webclients.sh       Patch + build frontend (local)
 │   ├── build-local-aur.sh        Build AUR .pkg.tar.zst locally
@@ -170,7 +169,7 @@ protondrive-linux/
 - Keep package-specific behavior in that package workflow and `patches/<type>/`.
 - Use `patches/common/` only for WebClients changes required by all builds.
 - **Base code (`src-tauri/src/main.rs`) must never contain distro-specific env vars.** The base binary ships clean — zero distro/version-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<package>/<runtime>.patch` and the package's AppRun/wrapper script.
-- Patches are named by runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`), not by host distro. DEB/RPM patches remain distro-specific (e.g., `ubuntu.24.04.patch`, `fedora.42.patch`). No runtime `/etc/os-release` detection.
+- Patches are named by runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`, `el9`), not by host distro. No runtime `/etc/os-release` detection.
 - Do not keep long-term distro branches for routine packaging differences.
 - Use `dev` for test builds and workflow fixes; use `main` for stable release tags.
 - Keep Snap and Flatpak separate from the native package release gate until they are restored.

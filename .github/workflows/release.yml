@@ -1,242 +1,275 @@
 name: Create Release
 
-on:
-  push:
-    branches:
-      - main
-    tags:
-      - "v*"
-  workflow_dispatch:
-    inputs:
-      tag:
-        description: 'Tag to release (e.g., v1.1.0)'
-        required: true
-        type: string
+"on":
+ push:
+  branches:
+   - main
+  tags:
+   - "v*"
+ workflow_dispatch:
+  inputs:
+   tag:
+    description: "Tag to release (e.g., v1.2.0)"
+    required: true
+    type: string
 
 permissions:
-  contents: write
-  packages: write
+ contents: write
+ packages: write
 
 jobs:
-  # This job waits for builds and creates a release
-  check-and-release:
-    runs-on: ubuntu-latest
-    timeout-minutes: 180
+ check-and-release:
+  runs-on: ubuntu-latest
+  timeout-minutes: 180
 
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+  steps:
+   - name: Checkout repository
+     uses: actions/checkout@v4
+     with:
+      fetch-depth: 0
 
-      - name: Get version
-        id: version
-        run: |
-          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            TAG="${{ github.event.inputs.tag }}"
-          elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
-            TAG="${GITHUB_REF#refs/tags/}"
-          else
-            TAG="v$(node -p "require('./package.json').version")"
-          fi
+   - name: Get version
+     id: version
+     run: |
+       if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+         TAG="${{ github.event.inputs.tag }}"
+       elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+         TAG="${GITHUB_REF#refs/tags/}"
+       else
+         TAG="v$(node -p "require('./package.json').version")"
+       fi
+       echo "prerelease=false" >> "$GITHUB_OUTPUT"
+       echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+       echo "Version: ${TAG}"
 
-          echo "prerelease=false" >> $GITHUB_OUTPUT
+   - name: Create and push tag if needed
+     run: |
+       TAG="${{ steps.version.outputs.version }}"
+       if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+         echo "Tag ${TAG} already exists on remote, skipping creation"
+       else
+         echo "Creating tag ${TAG}..."
+         git config user.name "github-actions[bot]"
+         git config user.email "github-actions[bot]@users.noreply.github.com"
+         git tag -a "${TAG}" -m "Release ${TAG}"
+         git push origin "${TAG}"
+         echo "Tag ${TAG} created and pushed"
+       fi
 
-          echo "version=${TAG}" >> $GITHUB_OUTPUT
-          echo "Version: ${TAG}"
+   - name: Wait for all builds to complete
+     uses: actions/github-script@v7
+     with:
+      script: |
+        const sha = context.sha;
+        console.log(`Waiting for builds for SHA: ${sha}`);
 
-      - name: Create and push tag if needed
-        run: |
-          TAG="${{ steps.version.outputs.version }}"
+        const expectedWorkflows = [
+          'Build AppImage',
+          'Build Flatpak',
+          'Build Snap',
+          'Build AUR',
+          'Build DEB',
+          'Build RPM Fedora 43',
+          'Build RPM Fedora 44',
+        ];
 
-          # Check if tag already exists on remote
-          if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-            echo "Tag ${TAG} already exists on remote, skipping creation"
-          else
-            echo "Creating tag ${TAG}..."
-            git config user.name "github-actions[bot]"
-            git config user.email "github-actions[bot]@users.noreply.github.com"
-            git tag -a "${TAG}" -m "Release ${TAG}"
-            git push origin "${TAG}"
-            echo "Tag ${TAG} created and pushed"
-          fi
+        await new Promise(resolve => setTimeout(resolve, 30000));
 
-      - name: Wait for all builds to complete
-        uses: actions/github-script@v7
-        with:
-          script: |
-            const sha = context.sha;
-            console.log(`Waiting for builds for SHA: ${sha}`);
+        const maxAttempts = 75;
+        for (let i = 0; i < maxAttempts; i++) {
+          const { data: { workflow_runs } } = await github.rest.actions.listWorkflowRunsForRepo({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            head_sha: sha,
+          });
 
-            const expectedWorkflows = [
-              'Build RPM Fedora 40',
-              'Build DEB',
-              'Build AppImage'
-            ];
+          const buildWorkflows = workflow_runs.filter(r =>
+            expectedWorkflows.includes(r.name) && r.status !== 'queued'
+          );
 
-            // Give workflows time to start (30 seconds)
-            await new Promise(resolve => setTimeout(resolve, 30000));
+          console.log(`Attempt ${i + 1}/${maxAttempts}: Found ${buildWorkflows.length}/${expectedWorkflows.length} workflows`);
+          console.log(`Status: ${buildWorkflows.map(r => `${r.name}:${r.status}:${r.conclusion}`).join(', ')}`);
 
-            // Poll for workflow completion (max 2.5 hours)
-            const maxAttempts = 75;
-            for (let i = 0; i < maxAttempts; i++) {
-              const { data: { workflow_runs } } = await github.rest.actions.listWorkflowRunsForRepo({
-                owner: context.repo.owner,
-                repo: context.repo.repo,
-                head_sha: sha,
-              });
-
-              const buildWorkflows = workflow_runs.filter(r =>
-                expectedWorkflows.includes(r.name) && r.status !== 'queued'
-              );
-
-              console.log(`Attempt ${i + 1}/${maxAttempts}: Found ${buildWorkflows.length}/${expectedWorkflows.length} workflows`);
-              console.log(`Status: ${buildWorkflows.map(r => `${r.name}:${r.status}:${r.conclusion}`).join(', ')}`);
-
-              if (buildWorkflows.length >= expectedWorkflows.length) {
-                const allComplete = buildWorkflows.every(r => r.status === 'completed');
-
-                if (allComplete) {
-                  const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
-
-                  if (allSuccess) {
-                    console.log('✅ All builds succeeded!');
-                    return;
-                  } else {
-                    const failed = buildWorkflows.filter(r => r.conclusion !== 'success').map(r => r.name).join(', ');
-                    throw new Error(`❌ Some builds failed: ${failed}`);
-                  }
-                }
-              }
-
-              if (i < maxAttempts - 1) {
-                await new Promise(resolve => setTimeout(resolve, 120000)); // Wait 2 minutes
+          if (buildWorkflows.length >= expectedWorkflows.length) {
+            const allComplete = buildWorkflows.every(r => r.status === 'completed');
+            if (allComplete) {
+              const allSuccess = buildWorkflows.every(r => r.conclusion === 'success');
+              if (allSuccess) {
+                console.log('All builds succeeded!');
+                return;
+              } else {
+                const failed = buildWorkflows.filter(r => r.conclusion !== 'success').map(r => r.name).join(', ');
+                throw new Error(`Some builds failed: ${failed}`);
               }
             }
+          }
 
-            throw new Error('⏱️ Build workflows did not complete within 2.5 hours');
+          if (i < maxAttempts - 1) {
+            await new Promise(resolve => setTimeout(resolve, 120000));
+          }
+        }
 
-      - name: Download RPM artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-rpm.fedora.40.yml
-          name: rpm-package-fedora40
-          path: artifacts/rpm
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          search_artifacts: true
-          if_no_artifact_found: fail
+        throw new Error('Build workflows did not complete within 2.5 hours');
 
-      - name: Download DEB artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-deb.yml
-          name: deb-package
-          path: artifacts/deb
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          search_artifacts: true
-          if_no_artifact_found: fail
+   - name: Download AppImage artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-appimage.yml
+      name: appimage-linux-baseline
+      path: artifacts/appimage
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-      - name: Download AppImage artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-appimage.yml
-          name: appimage-package
-          path: artifacts/appimage
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          search_artifacts: true
-          if_no_artifact_found: fail
+   - name: Download Flatpak artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-flatpak.yml
+      name: flatpak-package
+      path: artifacts/flatpak
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-      - name: Prepare release files
-        run: |
-          mkdir -p release
-          VERSION=${{ steps.version.outputs.version }}
+   - name: Download Snap artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-snap.yml
+      name: snap-package
+      path: artifacts/snap
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-          echo "📦 Collecting artifacts..."
+   - name: Download AUR artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-aur.yml
+      name: aur-arch
+      path: artifacts/aur
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-          # Copy all artifacts
-          find artifacts/deb -name "*.deb" -exec cp {} release/ \;
-          find artifacts/rpm -name "*.rpm" -exec cp {} release/ \;
-          find artifacts/appimage -name "*.AppImage" -exec cp {} release/ \;
+   - name: Download DEB artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-deb.yml
+      name: deb-package
+      path: artifacts/deb
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-          # Generate checksums
-          cd release
-          sha256sum * > SHA256SUMS
+   - name: Download RPM Fedora 43 artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-rpm.fedora.43.yml
+      name: rpm-package-fedora43
+      path: artifacts/rpm-fedora43
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-          echo "📦 Release artifacts:"
-          ls -lah
-          cd ..
+   - name: Download RPM Fedora 44 artifact
+     uses: dawidd6/action-download-artifact@v6
+     with:
+      workflow: build-rpm.fedora.44.yml
+      name: rpm-package-fedora44
+      path: artifacts/rpm-fedora44
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
-      - name: Create release notes
-        run: |
-          RELEASE_DATE=$(date -u +'%Y-%m-%d')
-          VERSION=${{ steps.version.outputs.version }}
-          
-          cat > RELEASE_NOTES.md << EOF
-          # Proton Drive Linux ${VERSION}
+   - name: Prepare release files
+     run: |
+       mkdir -p release
+       find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \) -exec cp {} release/ \;
+       cd release
+       sha256sum * > SHA256SUMS
+       echo "Release artifacts:"
+       ls -lah
+       cd ..
 
-          **Release Date:** ${RELEASE_DATE}
+   - name: Create release notes
+     run: |
+       RELEASE_DATE=$(date -u +'%Y-%m-%d')
+       VERSION=${{ steps.version.outputs.version }}
 
-          An unofficial Linux desktop client for Proton Drive, built with Tauri.
+       cat > RELEASE_NOTES.md << EOF
+       # Proton Drive Linux ${VERSION}
 
-          ## Highlights
+       **Release Date:** ${RELEASE_DATE}
 
-          - Fixed Fedora/RPM login through CAPTCHA, 2FA, app selection, and Drive launch
-          - Fixed Account/Verify chunk loading by disabling Webpack SRI and correcting nested public paths
-          - Fixed login refresh loops caused by \`/api/challenge/\` document navigations
-          - Fixed CAPTCHA completion handoff and retried auth with Proton human-verification headers
+       An unofficial Linux desktop client for Proton Drive, built with Tauri.
 
-          ## Downloads
+       ## Downloads
 
-          | Format | File | Description |
-          |--------|------|-------------|
-          | DEB | \`proton-drive_*.deb\` | Debian, Ubuntu, Linux Mint |
-          | RPM | \`proton-drive-*.rpm\` | Fedora, RHEL, CentOS, openSUSE |
-          | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable) |
+       | Format | File | Description |
+       |--------|------|-------------|
+       | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
+       | Flatpak | \`proton-drive_*.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
+       | Snap | \`proton-drive_*.snap\` | Snap package (core24) |
+       | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
+       | DEB | \`proton-drive_*.deb\` | Debian, Ubuntu, Linux Mint |
+       | RPM | \`proton-drive-*.rpm\` | Fedora 43+, RHEL, CentOS |
 
-          ## Installation
+       ## Installation
 
-          ### Debian/Ubuntu
-          \`\`\`bash
-          sudo apt install ./proton-drive_*.deb
-          \`\`\`
+       ### AppImage (Portable)
+       \`\`\`bash
+       chmod +x proton-drive_*.AppImage
+       ./proton-drive_*.AppImage
+       \`\`\`
 
-          ### Fedora/RHEL
-          \`\`\`bash
-          sudo dnf install ./proton-drive-*.rpm
-          \`\`\`
+       ### Flatpak
+       \`\`\`bash
+       flatpak install proton-drive_*.flatpak
+       \`\`\`
 
-          ### AppImage (Portable)
-          \`\`\`bash
-          chmod +x proton-drive_*.AppImage
-          ./proton-drive_*.AppImage
-          \`\`\`
+       ### Snap
+       \`\`\`bash
+       sudo snap install proton-drive_*.snap --dangerous
+       \`\`\`
 
-          ## Checksums
+       ### Arch Linux (AUR)
+       \`\`\`bash
+       sudo pacman -U proton-drive-*.pkg.tar.zst
+       \`\`\`
 
-          All files have SHA256 checksums available in \`SHA256SUMS\`.
+       ### Debian/Ubuntu
+       \`\`\`bash
+       sudo apt install ./proton-drive_*.deb
+       \`\`\`
 
-          ## System Requirements
+       ### Fedora/RHEL
+       \`\`\`bash
+       sudo dnf install ./proton-drive-*.rpm
+       \`\`\`
 
-          - Linux x86_64
-          - GTK 3.0+ and WebKitGTK
-          - ~200MB disk space
+       ## Checksums
 
-          ## Issues
+       All files have SHA256 checksums available in \`SHA256SUMS\`.
 
-          Report issues at https://github.com/${{ github.repository }}/issues
-          EOF
+       ## System Requirements
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
-        with:
-          tag_name: ${{ steps.version.outputs.version }}
-          body_path: RELEASE_NOTES.md
-          files: release/*
-          draft: false
-          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-          generate_release_notes: false
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+       - Linux x86_64
+       - GTK 3.0+ and WebKitGTK
+       - ~200MB disk space
+
+       ## Issues
+
+       Report issues at https://github.com/${{ github.repository }}/issues
+       EOF
+
+   - name: Create GitHub Release
+     uses: softprops/action-gh-release@v1
+     with:
+      tag_name: ${{ steps.version.outputs.version }}
+      body_path: RELEASE_NOTES.md
+      files: release/*
+      draft: false
+      prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+      generate_release_notes: false
+     env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
