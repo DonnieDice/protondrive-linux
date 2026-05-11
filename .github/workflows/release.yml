@@ -18,9 +18,9 @@ permissions:
  packages: write
 
 jobs:
- check-and-release:
-  runs-on: ubuntu-latest
-  timeout-minutes: 180
+  check-and-release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
 
   steps:
    - name: Checkout repository
@@ -67,10 +67,16 @@ jobs:
           'Build AppImage',
           'Build Flatpak',
           'Build Snap',
+          'Build Snap Core26',
           'Build AUR',
           'Build DEB',
+          'Build DEB Debian 13',
+          'Build DEB Ubuntu 22.04',
+          'Build DEB Ubuntu 26.04',
           'Build RPM Fedora 43',
           'Build RPM Fedora 44',
+          'Build RPM EL9',
+          'Build RPM EL10',
         ];
 
         await new Promise(resolve => setTimeout(resolve, 30000));
@@ -171,15 +177,75 @@ jobs:
       workflow_conclusion: success
       if_no_artifact_found: fail
 
-   - name: Download RPM Fedora 44 artifact
-     uses: dawidd6/action-download-artifact@v6
-     with:
-      workflow: build-rpm.fedora.44.yml
-      name: rpm-package-fedora44
-      path: artifacts/rpm-fedora44
-      commit: ${{ github.sha }}
-      workflow_conclusion: success
-      if_no_artifact_found: fail
+    - name: Download RPM Fedora 44 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-rpm.fedora.44.yml
+        name: rpm-package-fedora44
+        path: artifacts/rpm-fedora44
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Debian 13 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-deb.debian.13.yml
+        name: deb-package-debian13
+        path: artifacts/deb-debian13
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Ubuntu 22.04 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-deb.ubuntu.22.04.yml
+        name: deb-package-ubuntu2204
+        path: artifacts/deb-ubuntu2204
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Ubuntu 26.04 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-deb.ubuntu.26.04.yml
+        name: deb-package-ubuntu2604
+        path: artifacts/deb-ubuntu2604
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM EL9 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-rpm.el9.yml
+        name: rpm-package-el9
+        path: artifacts/rpm-el9
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM EL10 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-rpm.el10.yml
+        name: rpm-package-el10
+        path: artifacts/rpm-el10
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download Snap Core26 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-snap.core26.yml
+        name: snap-package-core26
+        path: artifacts/snap-core26
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
 
    - name: Prepare release files
      run: |
@@ -196,71 +262,79 @@ jobs:
        RELEASE_DATE=$(date -u +'%Y-%m-%d')
        VERSION=${{ steps.version.outputs.version }}
 
-       cat > RELEASE_NOTES.md << EOF
-       # Proton Drive Linux ${VERSION}
+        cat > RELEASE_NOTES.md << EOF
+        # Proton Drive Linux ${VERSION}
 
-       **Release Date:** ${RELEASE_DATE}
+        **Release Date:** ${RELEASE_DATE}
 
-       An unofficial Linux desktop client for Proton Drive, built with Tauri.
+        An unofficial Linux desktop client for Proton Drive, built with Tauri.
 
-       ## Downloads
+        ## Downloads
 
-       | Format | File | Description |
-       |--------|------|-------------|
-       | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
-       | Flatpak | \`proton-drive_*.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
-       | Snap | \`proton-drive_*.snap\` | Snap package (core24) |
-       | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
-       | DEB | \`proton-drive_*.deb\` | Debian, Ubuntu, Linux Mint |
-       | RPM | \`proton-drive-*.rpm\` | Fedora 43+, RHEL, CentOS |
+        | Format | File | Description |
+        |--------|------|-------------|
+        | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
+        | Flatpak | \`proton-drive_*.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
+        | Snap (core24) | \`proton-drive_*_amd64.snap\` | Snap package (core24 runtime) |
+        | Snap (core26) | \`proton-drive_*_amd64.snap\` | Snap package (core26 runtime) |
+        | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
+        | DEB (Ubuntu 22.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 22.04 LTS (Jammy) |
+        | DEB (Ubuntu 24.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |
+        | DEB (Ubuntu 26.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 26.04 LTS |
+        | DEB (Debian 12) | \`proton-drive_*_amd64.deb\` | Debian 12 (Bookworm) |
+        | DEB (Debian 13) | \`proton-drive_*_amd64.deb\` | Debian 13 (Trixie) |
+        | RPM (Fedora 43) | \`proton-drive-*.rpm\` | Fedora 43+ |
+        | RPM (Fedora 44) | \`proton-drive-*.rpm\` | Fedora 44+ |
+        | RPM (EL9) | \`proton-drive-*.rpm\` | RHEL 9 / Alma 9 / Rocky 9 |
+        | RPM (EL10) | \`proton-drive-*.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
 
-       ## Installation
+        ## Installation
 
-       ### AppImage (Portable)
-       \`\`\`bash
-       chmod +x proton-drive_*.AppImage
-       ./proton-drive_*.AppImage
-       \`\`\`
+        ### AppImage (Portable)
+        \`\`\`bash
+        chmod +x proton-drive_*.AppImage
+        ./proton-drive_*.AppImage
+        \`\`\`
 
-       ### Flatpak
-       \`\`\`bash
-       flatpak install proton-drive_*.flatpak
-       \`\`\`
+        ### Flatpak
+        \`\`\`bash
+        flatpak install proton-drive_*.flatpak
+        \`\`\`
 
-       ### Snap
-       \`\`\`bash
-       sudo snap install proton-drive_*.snap --dangerous
-       \`\`\`
+        ### Snap
+        \`\`\`bash
+        sudo snap install proton-drive_*.snap --dangerous
+        \`\`\`
 
-       ### Arch Linux (AUR)
-       \`\`\`bash
-       sudo pacman -U proton-drive-*.pkg.tar.zst
-       \`\`\`
+        ### Arch Linux (AUR)
+        \`\`\`bash
+        sudo pacman -U proton-drive-*.pkg.tar.zst
+        \`\`\`
 
-       ### Debian/Ubuntu
-       \`\`\`bash
-       sudo apt install ./proton-drive_*.deb
-       \`\`\`
+        ### Debian/Ubuntu
+        \`\`\`bash
+        sudo apt install ./proton-drive_*.deb
+        \`\`\`
 
-       ### Fedora/RHEL
-       \`\`\`bash
-       sudo dnf install ./proton-drive-*.rpm
-       \`\`\`
+        ### Fedora/RHEL
+        \`\`\`bash
+        sudo dnf install ./proton-drive-*.rpm
+        \`\`\`
 
-       ## Checksums
+        ## Checksums
 
-       All files have SHA256 checksums available in \`SHA256SUMS\`.
+        All files have SHA256 checksums available in \`SHA256SUMS\`.
 
-       ## System Requirements
+        ## System Requirements
 
-       - Linux x86_64
-       - GTK 3.0+ and WebKitGTK
-       - ~200MB disk space
+        - Linux x86_64
+        - GTK 3.0+ and WebKitGTK
+        - ~200MB disk space
 
-       ## Issues
+        ## Issues
 
-       Report issues at https://github.com/${{ github.repository }}/issues
-       EOF
+        Report issues at https://github.com/${{ github.repository }}/issues
+        EOF
 
    - name: Create GitHub Release
      uses: softprops/action-gh-release@v1
