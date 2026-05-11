@@ -146,7 +146,7 @@ protondrive-linux/
 ├── src-tauri/src/main.rs   Rust backend: API proxy, download handler, captcha flow
 ├── docs/                   Architecture, packaging, compatibility, troubleshooting
 ├── patches/
-│   ├── common/              shared.patch (common WebKitGTK defaults)
+│ ├── common/ fix-tauri-worker-protocol.patch (WebClients worker fix)
 │   ├── rpm/                 fedora.43, fedora.44, el9, el10
 │   ├── deb/                 debian.12, debian.13, ubuntu.22.04, ubuntu.24.04, ubuntu.26.04
 │   ├── appimage/            linux-baseline.patch
