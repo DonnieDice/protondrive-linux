@@ -11,7 +11,7 @@ name: Build AUR
  workflow_dispatch:
    inputs:
      aur_target:
-       description: AUR target (arch, manjaro, endeavour, garuda)
+       description: AUR target (arch)
        required: false
        default: arch
 

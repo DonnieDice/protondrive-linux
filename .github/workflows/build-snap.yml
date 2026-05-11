@@ -10,10 +10,10 @@ on:
     - "v*"
   workflow_dispatch:
     inputs:
-      distro_patch:
-        description: Distro patch name (e.g. ubuntu.24.04)
-        required: false
-        default: ubuntu.24.04
+    distro_patch:
+      description: Snap base patch name (e.g. core24)
+      required: false
+      default: core24
 
 permissions:
   contents: read
@@ -21,7 +21,7 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: snap
-  DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'ubuntu.24.04' }}
+    DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'core24' }}
 
 jobs:
   build-snap:
