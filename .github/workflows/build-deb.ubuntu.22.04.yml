@@ -92,17 +92,72 @@ jobs:
             echo "WARNING: $PATCH_FILE not found, building without distro patch"
           fi
 
-      - name: Build DEB
-        run: |
-          . "$HOME/.cargo/env"
-          scripts/build-webclients.sh
-          VERSION=$(node -p "require('./package.json').version")
-          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-          npm install
-          npx tauri build --bundles deb --verbose
+    - name: Build DEB
+      run: |
+        . "$HOME/.cargo/env"
+        scripts/build-webclients.sh
+        VERSION=$(node -p "require('./package.json').version")
+        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+        sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+        npm install
+        npx tauri build --bundles deb --verbose
 
-      - name: Normalize DEB filename
+    - name: Bundle webkit2gtk-4.1 libs for Ubuntu 22.04
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        cd src-tauri/target/release/bundle/deb
+        ORIG_DEB="$(ls *.deb 2>/dev/null | head -1)"
+        if [ -z "$ORIG_DEB" ]; then echo "No DEB found!"; exit 1; fi
+        mkdir -p rebuild && cd rebuild
+        dpkg-deb -R "../$ORIG_DEB" .
+        BUNDLED_DIR="usr/lib/proton-drive"
+        mkdir -p "$BUNDLED_DIR"
+        for lib in \
+          /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.1.so.0 \
+          /usr/lib/x86_64-linux-gnu/libwebkit2gtk-4.1.so.0.*.*.* \
+          /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.1.so.0 \
+          /usr/lib/x86_64-linux-gnu/libjavascriptcoregtk-4.1.so.0.*.*.* \
+          /usr/lib/x86_64-linux-gnu/libsoup-3.0.so.0 \
+          /usr/lib/x86_64-linux-gnu/libsoup-3.0.so.0.*.*.* \
+          /usr/lib/x86_64-linux-gnu/libwebp.so.7 \
+          /usr/lib/x86_64-linux-gnu/libenchant-2.so.2 \
+          /usr/lib/x86_64-linux-gnu/libmanette-0.2.so.0 \
+          /usr/lib/x86_64-linux-gnu/libWPEBackend-fdo-1.0.so.1 \
+          /usr/lib/x86_64-linux-gnu/libwpe-1.0.so.1; do
+          for f in $lib; do
+            if [ -f "$f" ]; then
+              cp -L "$f" "$BUNDLED_DIR/"
+              echo "Bundled: $(basename $f)"
+            fi
+          done
+        done
+      for proc in WebKitNetworkProcess WebKitWebProcess WebKitGPUProcess; do
+        if [ -f "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/$proc" ]; then
+          cp -L "/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/$proc" "$BUNDLED_DIR/"
+          echo "Bundled: $proc"
+        fi
+      done
+      mv usr/bin/proton-drive usr/bin/proton-drive-bin
+      cat > usr/bin/proton-drive << 'WRAPPER'
+      #!/bin/bash
+      export LD_LIBRARY_PATH="/usr/lib/proton-drive${LD_LIBRARY_PATH:+:$LD_LIBRARY_PATH}"
+      export WEBKIT_EXEC_PATH="/usr/lib/proton-drive/WebKitWebProcess"
+      export WEBKIT_DISABLE_DMABUF_RENDERER=1
+      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+      export GDK_GL=disable
+      export LIBGL_ALWAYS_SOFTWARE=1
+      export GSK_RENDERER=cairo
+      exec /usr/bin/proton-drive-bin "$@"
+      WRAPPER
+        chmod +x usr/bin/proton-drive
+        sed -i 's/libwebkit2gtk-4.1-0/libwebkit2gtk-4.0-37/g' DEBIAN/control
+        NEW_DEB="proton-drive_${VERSION}_amd64.deb"
+        dpkg-deb -b . "../$NEW_DEB"
+        cd ..
+        rm -rf rebuild
+
+    - name: Normalize DEB filename
         run: |
           cd src-tauri/target/release/bundle/deb
           for file in *.deb; do
