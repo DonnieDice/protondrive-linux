@@ -5,7 +5,7 @@ The release process is branch-gated. Build and workflow fixes land on `dev` firs
 ## Branch Policy
 
 ```text
-dev  -> active build and workflow fixes
+dev -> active build and workflow fixes
 main -> stable release source
 tags -> release artifacts
 ```
@@ -14,21 +14,23 @@ Do not cut a stable release directly from `dev`. Once `dev` is green, fast-forwa
 
 ## Required Release Workflows
 
-These workflows are required for the current release gate:
+These workflows are required for the current release gate (`release.yml` waits for all 13 builds):
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
-| `build-rpm.fedora.40.yml` | `.rpm` | Fedora 40/41 compat baseline (F40 build container) |
-| `build-rpm.fedora.41.yml` | `.rpm` | Fedora 40/41 compat baseline (F41 build container) |
-| `build-rpm.fedora.42.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F42 build container) |
-| `build-rpm.fedora.43.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F43 build container) |
-| `build-rpm.fedora.44.yml` | `.rpm` | Fedora 42/43/44 compat baseline (F44 build container) |
-| `build-deb.yml` | `.deb` | Debian/Ubuntu/Mint/Zorin installs |
-| `build-appimage.yml` | `.AppImage` | Portable Linux installs |
-| `build-aur.yml` | `.SRCINFO` validation | Arch/AUR package metadata |
-| `generate-package-specs.yml` | source packaging specs | downstream packaging |
-
-Snap and Flatpak are intentionally outside the current required gate. Restore them as separate workflows after the native package release path is stable.
+| `build-rpm.fedora.43.yml` | `.rpm` | Fedora 43 |
+| `build-rpm.fedora.44.yml` | `.rpm` | Fedora 44 |
+| `build-rpm.el9.yml` | `.rpm` | RHEL 9 / CentOS Stream 9 / Alma 9 / Rocky 9 |
+| `build-rpm.el10.yml` | `.rpm` | RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10 |
+| `build-deb.yml` | `.deb` | Debian 12 / Ubuntu 24.04 (default patch) |
+| `build-deb.debian.13.yml` | `.deb` | Debian 13 |
+| `build-deb.ubuntu.22.04.yml` | `.deb` | Ubuntu 22.04 LTS |
+| `build-deb.ubuntu.26.04.yml` | `.deb` | Ubuntu 26.04 LTS |
+| `build-appimage.yml` | `.AppImage` | Portable Linux installs (glibc 2.35+) |
+| `build-flatpak.yml` | `.flatpak` | Flatpak (org.gnome.Platform//50) |
+| `build-snap.yml` | `.snap` | Snap core24 |
+| `build-snap.core26.yml` | `.snap` | Snap core26 |
+| `build-aur.yml` | `.pkg.tar.zst` | Arch / AUR |
 
 ## Local Build Commands
 
@@ -41,25 +43,22 @@ git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/
 Build the frontend and one package type:
 
 ```bash
-scripts/rpm/build-local-rpm.fedora.40.sh
-scripts/rpm/build-local-rpm.fedora.41.sh
-scripts/rpm/build-local-rpm.fedora.42.sh
 scripts/rpm/build-local-rpm.fedora.43.sh
 scripts/rpm/build-local-rpm.fedora.44.sh
+scripts/rpm/build-local-rpm.fedora.40.sh    # legacy, still available
+scripts/rpm/build-local-rpm.fedora.41.sh    # legacy, still available
+scripts/rpm/build-local-rpm.fedora.42.sh    # legacy, still available
 scripts/deb/build-local-deb.sh
 scripts/appimage/build-local-appimage.sh
 scripts/flatpak/build-local-flatpak.sh
 scripts/snap/build-local-snap.sh
+scripts/build-local-aur.sh
 ```
 
 If WebClients is already built:
 
 ```bash
-scripts/rpm/build-local-rpm.fedora.40.sh --skip-webclient
-scripts/rpm/build-local-rpm.fedora.41.sh --skip-webclient
-scripts/rpm/build-local-rpm.fedora.42.sh --skip-webclient
 scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
-scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient
 scripts/deb/build-local-deb.sh --skip-webclient
 scripts/appimage/build-local-appimage.sh --skip-webclient
 scripts/flatpak/build-local-flatpak.sh --skip-webclient
@@ -68,12 +67,12 @@ scripts/snap/build-local-snap.sh --skip-webclient
 
 ## Release Checklist
 
-- `dev` has passing RPM, DEB, AppImage, AUR validation, and generated package spec workflows.
+- `dev` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
 - Fedora/RPM local install has been validated.
 - Ubuntu/DEB and AppImage smoke tests are recorded when available.
 - `main` contains only the tested dev commits intended for release.
 - Release tag points at `main`, not `dev`.
-- GitHub release contains `.rpm`, `.deb`, `.AppImage`, and `SHA256SUMS`.
+- GitHub release contains all 13 artifacts plus `SHA256SUMS`.
 
 ## Version Source
 
@@ -82,12 +81,3 @@ scripts/snap/build-local-snap.sh --skip-webclient
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
 - `aur/PKGBUILD`
-
-## Current v1.1.5 Status
-
-**RPM compatibility baselines validated:**
-
-- `fedora40-compat` RPM: validated locally and on Fedora 41 (login, CAPTCHA, 2FA, Drive launch). Does NOT work on Fedora 42+ (missing webkit2gtk 2.52+ fixes). Confirmed crash on Fedora 44.
-- `fedora42-compat` RPM: validated on Fedora 42, Fedora 43, and Fedora 44 (local + remote CI builds, login through 2FA and Drive launch). Fixes: `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`.
-
-DEB, AppImage, and AUR CI workflows pass. VM smoke tests pending. CI package workflows are being consolidated by compatibility baseline on `dev` before final promotion to `main`.

@@ -1,5 +1,22 @@
 # Changelog
 
+## 1.3.0 - 2026-05-11
+
+### Added
+
+- DEB workflows for Debian 13 (`build-deb.debian.13.yml`), Ubuntu 22.04 (`build-deb.ubuntu.22.04.yml`), and Ubuntu 26.04 (`build-deb.ubuntu.26.04.yml`).
+- RPM workflows for EL9 (`build-rpm.el9.yml`) and EL10 (`build-rpm.el10.yml`).
+- Snap core26 workflow (`build-snap.core26.yml`) with `core26.patch` for webkit2gtk 2.52+ sandbox and IPInt fixes.
+- Distro patches: `deb/debian.13.patch`, `deb/ubuntu.22.04.patch`, `deb/ubuntu.26.04.patch`, `rpm/el9.patch`, `rpm/el10.patch`, `snap/core26.patch`.
+- WebKitGTK and runtime mapping entries in `packaging/compatibility-map.yml` for all new targets.
+- Release workflow (`release.yml`) updated to download and attach all 13 build artifacts.
+
+### Changed
+
+- Removed Fedora 40, 41, and 42 workflows and patches (EOL or replaced by EL/F43+ baselines).
+- Updated `docs/`, `README.md`, and `packaging.md` to reflect current workflow and patch inventory.
+- Bumped version to 1.3.0.
+
 ## 1.2.0 - 2026-05-11
 
 ### Added

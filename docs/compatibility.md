@@ -89,7 +89,7 @@ patches/
 | `fedora43` | `fedora:43` | Fedora 43 | `fedora.43` |
 | `fedora44` | `fedora:44` | Fedora 44 | `fedora.44` |
 | `el9` | `almalinux:9` | RHEL 9, CentOS Stream 9, Alma 9, Rocky 9 | `el9` |
-| `el10` | `almalinux:10` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 | `el10` |
+| `el10` | `centos:stream10` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 | `el10` |
 
 ### Known Differences
 
@@ -183,7 +183,8 @@ Patches target the Snap base, not the host distro. `core26` includes webkit2gtk 
 | Arch / Manjaro / EndeavourOS / Garuda | `proton-drive-*.pkg.tar.zst` (AUR) or AppImage |
 | Any Linux (portable) | `proton-drive_*.AppImage` |
 | Flatpak | `proton-drive_*.flatpak` |
-| Snap | `proton-drive_*.snap` |
+| Snap (core24) | `proton-drive_*.snap` (core24) |
+| Snap (core26) | `proton-drive_*.snap` (core26) |
 
 ---
 
