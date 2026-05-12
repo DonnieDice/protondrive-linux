@@ -1,0 +1,187 @@
+name: Build Flatpak GNOME 44
+
+"on":
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      distro_patch:
+        description: "Flatpak runtime patch name (e.g. org.gnome.Platform.44)"
+        required: false
+        default: "org.gnome.Platform.44"
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSION: stable
+  DISTRO_TYPE: flatpak
+
+jobs:
+  build-flatpak:
+    name: Flatpak GNOME 44 Package
+    runs-on: ubuntu-22.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    steps:
+      - name: Install build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            bash git curl wget build-essential file pkg-config \
+            libssl-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev \
+            patchelf python3 ca-certificates \
+            libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev \
+            flatpak flatpak-builder lsb-release gnupg2 software-properties-common
+          # Ubuntu 22.04 only has webkit2gtk-4.0 (libsoup2.4); Tauri v2 needs -4.1 (libsoup3).
+          # Add Debian bookworm repo to pull webkit2gtk-4.1 + libsoup3 for building.
+          echo "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main" | sudo tee /etc/apt/sources.list.d/debian-bookworm.list
+          sudo apt-get install -y debian-archive-keyring || true
+          sudo apt-get update
+          sudo apt-get install -y -t bookworm \
+            libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
+          curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
+          sudo apt-get install -y nodejs
+
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
+          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+          . "$HOME/.cargo/env"
+          rustc --version
+          cargo --version
+
+      - name: Cache Cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            src-tauri/target/
+          key: flatpak-gnome44-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+          restore-keys: flatpak-gnome44-cargo-
+
+      - name: Clone WebClients
+        run: |
+          git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+
+      - name: Apply distro patch
+        run: |
+          DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'org.gnome.Platform.44' }}"
+          PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
+          if [ -f "$PATCH_FILE" ]; then
+            git apply "$PATCH_FILE"
+            echo "Applied $PATCH_FILE"
+          else
+            echo "WARNING: $PATCH_FILE not found, building without distro patch"
+          fi
+
+      - name: Build Flatpak
+        run: |
+          . "$HOME/.cargo/env"
+          scripts/build-webclients.sh
+          VERSION=$(node -p "require('./package.json').version")
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+          npm install
+          cd src-tauri && cargo build --release && cd ..
+          if [ ! -f "src-tauri/target/release/proton-drive" ]; then
+            echo "Binary not found!"
+            exit 1
+          fi
+
+          flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+          flatpak install --user -y flathub org.gnome.Platform//44 org.gnome.Sdk//44 || true
+
+          cat > proton-drive-wrapper.sh << 'EOF'
+          #!/bin/bash
+          export WEBKIT_DISABLE_DMABUF_RENDERER=1
+          export WEBKIT_DISABLE_COMPOSITING_MODE=1
+          export WEBKIT_FORCE_SANDBOX=0
+          export GDK_GL=disable
+          export LIBGL_ALWAYS_SOFTWARE=1
+          export GSK_RENDERER=cairo
+          exec /app/bin/proton-drive-bin "$@"
+          EOF
+          chmod +x proton-drive-wrapper.sh
+
+          cat > com.proton.drive.desktop << 'EOF'
+          [Desktop Entry]
+          Version=1.0
+          Type=Application
+          Name=Proton Drive
+          Comment=Secure cloud storage
+          Exec=proton-drive
+          Icon=com.proton.drive
+          Categories=Network;FileTransfer;
+          EOF
+
+          rm -rf flatpak-staging
+          mkdir -p flatpak-staging/icons
+          cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
+          cp proton-drive-wrapper.sh flatpak-staging/proton-drive
+          cp src-tauri/icons/32x32.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128.png flatpak-staging/icons/
+          cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
+          cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
+          cp com.proton.drive.desktop flatpak-staging/
+
+          cat > com.proton.drive.yml << YAMLEOF
+          app-id: com.proton.drive
+          runtime: org.gnome.Platform
+          runtime-version: '44'
+          sdk: org.gnome.Sdk
+          command: proton-drive
+          finish-args:
+            - --share=network
+            - --share=ipc
+            - --socket=x11
+            - --socket=wayland
+            - --socket=pulseaudio
+            - --device=dri
+            - --filesystem=home
+            - --filesystem=xdg-download
+            - --talk-name=org.freedesktop.secrets
+            - --talk-name=org.freedesktop.Notifications
+            - --system-talk-name=org.freedesktop.NetworkManager
+          modules:
+            - name: proton-drive
+              buildsystem: simple
+              sources:
+                - type: dir
+                  path: flatpak-staging
+              build-commands:
+                - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin
+                - install -Dm755 proton-drive /app/bin/proton-drive
+                - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+                - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+                - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+                - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+                - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
+          YAMLEOF
+
+          rm -rf build-dir repo
+          flatpak-builder --user --force-clean --repo=repo build-dir com.proton.drive.yml
+          flatpak build-bundle repo "proton-drive_${VERSION}_gnome44.flatpak" com.proton.drive
+
+      - name: Upload Flatpak artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: flatpak-package-gnome44
+          path: "*.flatpak"
+          if-no-files-found: error
+          retention-days: 30

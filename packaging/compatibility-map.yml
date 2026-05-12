@@ -124,6 +124,15 @@ aur:
       - garuda
 
 flatpak:
+  org.gnome.Platform.44:
+    workflow: .github/workflows/build-flatpak.gnome44.yml
+    build_container: ubuntu-22.04
+    release_label: flatpak-gnome44
+    artifact_name: flatpak-package-gnome44
+    patch: org.gnome.Platform.44
+    supports:
+    - org.gnome.Platform//44
+    - ubuntu-22.04
   org.gnome.Platform.50:
     workflow: .github/workflows/build-flatpak.yml
     build_container: ubuntu-24.04
@@ -131,7 +140,7 @@ flatpak:
     artifact_name: flatpak-package
     patch: org.gnome.Platform.50
     supports:
-      - org.gnome.Platform//50
+    - org.gnome.Platform//50
 
 snap:
   core24:
