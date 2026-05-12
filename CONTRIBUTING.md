@@ -1,4 +1,4 @@
-# Contributing to Proton Drive Tauri
+# Contributing to Proton Drive Linux
 
 Thank you for your interest in contributing! This guide will help you understand the project structure and how to get started.
 
@@ -6,51 +6,67 @@ Thank you for your interest in contributing! This guide will help you understand
 
 ```
 protondrive-linux/
-├── src-tauri/          # Rust backend (Tauri framework)
-│   ├── src/main.rs    # IPC commands, system tray, menus
-│   ├── Cargo.toml     # Rust dependencies
-│   └── tauri.conf.json # Configuration
-├── WebClients/        # Git submodule (Proton Drive web app)
+├── src-tauri/            # Rust backend (Tauri framework)
+│   ├── src/main.rs       # IPC commands, system tray, menus
+│   ├── Cargo.toml        # Rust dependencies
+│   └── tauri.conf.json   # Configuration
+├── WebClients/           # Proton Drive web app (cloned at build time, NOT a submodule)
 │   └── applications/drive/
-│       ├── src/       # React/TypeScript source
-│       └── build/     # Compiled output
-└── scripts/           # Build and setup scripts
+│       ├── src/          # React/TypeScript source
+│       └── build/        # Compiled output
+├── patches/              # Distro-specific patches (applied before cargo build)
+├── scripts/              # Build and packaging scripts
+├── packaging/            # Compatibility map and packaging templates
+├── docs/                 # Documentation
+└── aur/                  # AUR PKGBUILD
 ```
 
 ## Development Workflow
 
 ### Setup
 
-1. Clone with submodules:
-   ```bash
-   git clone --recurse-submodules https://github.com/yourusername/protondrive-linux.git
-   cd protondrive-linux
-   ```
+1. Clone the repository:
+```bash
+git clone https://github.com/DonnieDice/protondrive-linux.git
+cd protondrive-linux
+```
 
-2. Run the setup script:
-   ```bash
-   bash scripts/setup.sh
-   ```
+2. Clone the WebClients repository (needed for builds):
+```bash
+git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
+```
 
-   Or manually:
-   ```bash
-   npm install
-   rustup update
-   ```
+3. Install dependencies:
+```bash
+npm install
+rustup update
+```
+
+Install system dependencies for your distribution:
+
+```bash
+# Fedora
+sudo dnf install webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel openssl-devel
+
+# Debian / Ubuntu
+sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libssl-dev
+
+# Arch / Manjaro
+sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator
+```
 
 ### Development
 
 1. **Web app changes** (React/TypeScript):
-   - Edit files in `WebClients/applications/drive/src/`
-   - Changes hot-reload in dev mode
+- Edit files in `WebClients/applications/drive/src/`
+- Changes hot-reload in dev mode
 
 2. **Desktop features** (Rust):
-   - Edit `src-tauri/src/main.rs` for IPC commands, system tray, etc.
-   - Restart dev server to apply changes
+- Edit `src-tauri/src/main.rs` for IPC commands, system tray, etc.
+- Restart dev server to apply changes
+- **Do NOT add distro-specific env vars or DISTRO_TYPE branching in `main.rs`** — these belong in `patches/`
 
-3. **Configuration**:
-   - `src-tauri/tauri.conf.json` - Window size, bundles, metadata
-   - `src-tauri/Cargo.toml` - Rust dependencies
+3. **Configuration**: Edit `src-tauri/tauri.conf.json` for window size, bundles, and metadata.
 
 ### Running in Development
 
@@ -66,10 +82,24 @@ This will:
 ### Building
 
 ```bash
-npm run build
+npm run build:web         # Build web frontend only
+npm run build:appimage    # Build AppImage
+npm run build:deb         # Build DEB package
+npm run build:rpm         # Build RPM package
 ```
 
-This creates production binaries in `src-tauri/target/release/bundle/`.
+For more package types, use the scripts in `scripts/`:
+
+```bash
+scripts/appimage/build-local-appimage.sh
+scripts/deb/build-local-deb.sh
+scripts/rpm/build-local-rpm.fedora.43.sh
+scripts/flatpak/build-local-flatpak.sh
+scripts/snap/build-local-snap.sh
+scripts/build-local-aur.sh
+```
+
+Built packages are created in `src-tauri/target/release/bundle/`.
 
 ## Code Style
 
@@ -77,13 +107,13 @@ This creates production binaries in `src-tauri/target/release/bundle/`.
 
 - Follow [Rust naming conventions](https://rust-lang.github.io/api-guidelines/naming.html)
 - Use `cargo fmt` to format:
-  ```bash
-  cd src-tauri && cargo fmt
-  ```
+```bash
+cd src-tauri && cargo fmt
+```
 - Use `cargo clippy` to lint:
-  ```bash
-  cd src-tauri && cargo clippy -- -D warnings
-  ```
+```bash
+cd src-tauri && cargo clippy -- -D warnings
+```
 
 ### TypeScript/React
 
@@ -110,9 +140,9 @@ fn main() {
             open_file_dialog,
             get_app_version,
             check_for_updates,
-            my_new_command,  // Add here
+            my_new_command, // Add here
         ])
-        // ...
+    // ...
 }
 ```
 
@@ -124,23 +154,14 @@ import { invoke } from "@tauri-apps/api/tauri";
 const result = await invoke("my_new_command", { param: "test" });
 ```
 
-### Adding system tray actions
+### Adding a new distro patch
 
-Edit the `on_system_tray_event` handler in `src-tauri/src/main.rs`:
+1. Create the patch file in `patches/<package>/<runtime>.patch`
+2. Add the workflow in `.github/workflows/`
+3. Add the target to `packaging/compatibility-map.yml`
+4. Update `docs/compatibility.md` and `docs/packaging.md`
 
-```rust
-.on_system_tray_event(|app, event| match event {
-    SystemTrayEvent::MenuItemClick { id, .. } => {
-        match id.as_str() {
-            "my_action" => {
-                // Handle your action
-            }
-            _ => {}
-        }
-    }
-    _ => {}
-})
-```
+See existing patches for the patch convention. Patches are named by runtime/ABI target, not host distro.
 
 ## Testing
 
@@ -161,34 +182,27 @@ npm test
 
 ## Updating WebClients
 
-The WebClients repository is a git submodule. To update:
+The WebClients repository is cloned at build time (not a submodule). To update the version used:
 
-```bash
-cd WebClients
-git fetch origin
-git checkout <tag-or-commit>
-cd ..
-git add WebClients
-git commit -m "Update WebClients to <version>"
-git push
-```
+1. Edit the clone command or branch reference in `scripts/build-webclients.sh`
+2. Re-run the build
 
 ## Submitting Changes
 
 1. Create a feature branch:
-   ```bash
-   git checkout -b feature/my-feature
-   ```
+```bash
+git checkout -b feature/my-feature
+```
 
 2. Commit with clear messages:
-   ```bash
-   git commit -m "Add system tray icon support"
-   ```
+```bash
+git commit -m "Add system tray icon support"
+```
 
 3. Push and create a pull request:
-   ```bash
-   git push origin feature/my-feature
-   ```
+```bash
+git push origin feature/my-feature
+```
 
 ## Building for Distribution
 
@@ -216,6 +230,24 @@ npm run build:rpm
 
 Output: `src-tauri/target/release/bundle/rpm/proton-drive-*.rpm`
 
+### Flatpak
+
+```bash
+scripts/flatpak/build-local-flatpak.sh
+```
+
+### Snap
+
+```bash
+scripts/snap/build-local-snap.sh
+```
+
+### AUR
+
+```bash
+scripts/build-local-aur.sh
+```
+
 ## Troubleshooting
 
 ### Build errors related to Tauri dependencies
@@ -226,10 +258,17 @@ rustup update
 cd src-tauri && cargo update
 ```
 
-### WebClients submodule not initialized
+### WebClients not present
 
 ```bash
-git submodule update --init --recursive
+git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
+```
+
+### Node.js version too old
+
+Node.js 20+ is required. Check your version:
+```bash
+node -v
 ```
 
 ### Port 5173 already in use
