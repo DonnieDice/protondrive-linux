@@ -63,21 +63,22 @@ jobs:
             const sha = context.sha;
             console.log(`Waiting for builds for SHA: ${sha}`);
 
-            const expectedWorkflows = [
-              'Build AppImage',
-              'Build Flatpak',
-              'Build Snap',
-              'Build Snap Core26',
-              'Build AUR',
-              'Build DEB',
-              'Build DEB Debian 13',
-              'Build DEB Ubuntu 22.04',
-              'Build DEB Ubuntu 26.04',
-              'Build RPM Fedora 43',
-              'Build RPM Fedora 44',
-              'Build RPM EL9',
-              'Build RPM EL10',
-            ];
+        const expectedWorkflows = [
+          'Build AppImage',
+          'Build Flatpak',
+          'Build Flatpak GNOME 44',
+          'Build Snap',
+          'Build Snap Core26',
+          'Build AUR',
+          'Build DEB',
+          'Build DEB Debian 13',
+          'Build DEB Ubuntu 22.04',
+          'Build DEB Ubuntu 26.04',
+          'Build RPM Fedora 43',
+          'Build RPM Fedora 44',
+          'Build RPM EL9',
+          'Build RPM EL10',
+        ];
 
             await new Promise(resolve => setTimeout(resolve, 30000));
 
@@ -127,15 +128,25 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
-      - name: Download Flatpak artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-flatpak.yml
-          name: flatpak-package
-          path: artifacts/flatpak
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          if_no_artifact_found: fail
+  - name: Download Flatpak artifact
+    uses: dawidd6/action-download-artifact@v6
+    with:
+      workflow: build-flatpak.yml
+      name: flatpak-package
+      path: artifacts/flatpak
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
+
+  - name: Download Flatpak GNOME 44 artifact
+    uses: dawidd6/action-download-artifact@v6
+    with:
+      workflow: build-flatpak.gnome44.yml
+      name: flatpak-package-gnome44
+      path: artifacts/flatpak-gnome44
+      commit: ${{ github.sha }}
+      workflow_conclusion: success
+      if_no_artifact_found: fail
 
       - name: Download Snap artifact
         uses: dawidd6/action-download-artifact@v6
@@ -273,9 +284,10 @@ jobs:
 
           | Format | File | Description |
           |--------|------|-------------|
-          | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
-          | Flatpak | \`proton-drive_*.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
-          | Snap (core24) | \`proton-drive_*_amd64.snap\` | Snap package (core24 runtime) |
+| AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
+| Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
+| Flatpak (GNOME 44) | \`proton-drive_*_gnome44.flatpak\` | Flatpak sandbox (org.gnome.Platform//44, Ubuntu 22.04 compat) |
+| Snap (core24) | \`proton-drive_*_amd64.snap\` | Snap package (core24 runtime) |
           | Snap (core26) | \`proton-drive_*_amd64.snap\` | Snap package (core26 runtime) |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
           | DEB (Ubuntu 22.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 22.04 LTS (Jammy) |
