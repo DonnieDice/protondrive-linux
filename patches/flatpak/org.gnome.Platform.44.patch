@@ -1,8 +1,6 @@
-diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..76282f77 100644
---- a/src-tauri/src/main.rs
-+++ b/src-tauri/src/main.rs
-@@ -194,9 +194,15 @@ async fn proxy_request(
+--- a/src-tauri/src/main.rs	2026-05-12 14:10:31.281127538 -0500
++++ b/src-tauri/src/main.rs	2026-05-12 14:47:42.451093305 -0500
+@@ -194,9 +194,15 @@
  }
  
  fn main() {
@@ -14,14 +12,14 @@ index 51d68ebd..76282f77 100644
 +    // Older Mesa on Ubuntu 22.04 host; GDK_GL=disable is safe; no DMABUF.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-+    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 +    std::env::set_var("GDK_GL", "disable");
 +    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
 +    std::env::set_var("GSK_RENDERER", "cairo");
  
      // Create shared client with cookie jar
      let state = Arc::new(AppState {
-@@ -214,9 +220,9 @@ fn main() {
+@@ -214,9 +220,9 @@
      .setup(|app| {
          // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
          let worker_init = match option_env!("DISTRO_TYPE") {

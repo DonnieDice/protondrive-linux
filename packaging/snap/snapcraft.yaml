@@ -8,25 +8,13 @@ grade: stable
 confinement: strict
 base: core24
 
-layout:
-  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1:
-    bind: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1
-  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess:
-    bind-file: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess
-  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess:
-    bind-file: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess
-  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess:
-    bind-file: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess
-
 apps:
   proton-drive:
     command: usr/bin/proton-drive-wrapper
-  environment:
-    WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-    WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-    WEBKIT_FORCE_SANDBOX: "0"
-    GDK_GL: software
-    GSK_RENDERER: cairo
+    environment:
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+      GDK_GL: software
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
       - home
@@ -54,17 +42,15 @@ parts:
     plugin: nil
     source: .
     override-build: |
-    mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
-    install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
-  cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
-  #!/bin/bash
-  export WEBKIT_DISABLE_DMABUF_RENDERER=1
-  export WEBKIT_DISABLE_COMPOSITING_MODE=1
-  export WEBKIT_FORCE_SANDBOX=0
-  export GDK_GL=software
-  export GSK_RENDERER=cairo
-  exec "$SNAP/usr/bin/proton-drive" "$@"
-  WRAPPEREOF
+      install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
+      mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
+      cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
+      #!/bin/bash
+      export WEBKIT_DISABLE_DMABUF_RENDERER=1
+      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      export GDK_GL=software
+      exec "$SNAP/usr/bin/proton-drive" "$@"
+      WRAPPEREOF
       chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
       cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
