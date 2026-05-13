@@ -126,6 +126,7 @@ chmod +x appimagetool
 ./appimagetool --appimage-extract
 ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage"
 
+rm -rf src-tauri/target/release/bundle/appimage
 mkdir -p src-tauri/target/release/bundle/appimage
 mv "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
 APPRUN_BUILD
