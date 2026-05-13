@@ -101,15 +101,32 @@ jobs:
           echo "Binary not found!"
           exit 1
         fi
-        mkdir -p snap
-        sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > snap/snapcraft.yaml
-        snapcraft --destructive-mode
-        SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
+        BUILD_CONTEXT="$(mktemp -d)"
+        mkdir -p "$BUILD_CONTEXT/packaging/snap"
+        mkdir -p "$BUILD_CONTEXT/src-tauri/target/release"
+        mkdir -p "$BUILD_CONTEXT/src-tauri/icons"
+        cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+        cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+        cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+        cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
+        cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
+        cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
+        sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
+        SNAPCRAFT_STATUS=0
+        (
+          cd "$BUILD_CONTEXT"
+          snapcraft pack --destructive-mode --output "$GITHUB_WORKSPACE"
+        ) || SNAPCRAFT_STATUS=$?
+        if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
+          exit "$SNAPCRAFT_STATUS"
+        fi
+        SNAP_FILE="$(find . "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
         if [ -z "$SNAP_FILE" ]; then
           echo "No Snap package found!"
           exit 1
         fi
         mv "$SNAP_FILE" "proton-drive_${VERSION}_core24_amd64.snap"
+        rm -rf "$BUILD_CONTEXT"
 
     - name: Upload Snap artifact
       uses: actions/upload-artifact@v4
