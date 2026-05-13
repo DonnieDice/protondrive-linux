@@ -1,13 +1,13 @@
 name: Build RPM EL9
 
-on:
+"on":
   push:
     branches:
-      - main
-      - dev
-      - alpha
+    - main
+    - dev
+    - alpha
     tags:
-      - "v*"
+    - "v*"
   workflow_dispatch:
     inputs:
       distro_patch:
@@ -21,7 +21,6 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: rpm
-  DISTRO_PATCH: "${{ github.event.inputs.distro_patch || 'el9' }}"
 
 jobs:
   build-rpm:
@@ -38,10 +37,10 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf install -y epel-release
-          dnf --enablerepo=crb install -y \
+          dnf --enablerepo=crb --enablerepo=epel install -y \
             bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
-            openssl-devel webkit2gtk4.1-devel gtk3-devel \
-            libappindicator-gtk3-devel librsvg2-devel libsoup3-devel \
+            openssl-devel webkit2gtk3-devel gtk3-devel \
+            libappindicator-gtk3-devel librsvg2-devel \
             patchelf rpm-build nodejs npm python3 findutils which
 
       - name: Checkout repository
@@ -73,6 +72,7 @@ jobs:
 
       - name: Apply distro patch
         run: |
+          DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'el9' }}"
           PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
           if [ -f "$PATCH_FILE" ]; then
             if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then

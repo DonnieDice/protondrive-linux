@@ -41,11 +41,16 @@ jobs:
             libayatana-appindicator3-dev librsvg2-dev \
             patchelf python3 ca-certificates \
             libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev \
-            flatpak flatpak-builder lsb-release gnupg2 software-properties-common
+          flatpak flatpak-builder lsb-release gnupg2 software-properties-common
           # Ubuntu 22.04 only has webkit2gtk-4.0 (libsoup2.4); Tauri v2 needs -4.1 (libsoup3).
           # Add Debian bookworm repo to pull webkit2gtk-4.1 + libsoup3 for building.
-          echo "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main" | sudo tee /etc/apt/sources.list.d/debian-bookworm.list
+          # Fetch GPG keys first so apt can verify the bookworm repo.
           sudo apt-get install -y debian-archive-keyring || true
+          if [ ! -f /usr/share/keyrings/debian-archive-keyring.gpg ]; then
+            curl -fsSL https://ftp.debian.org/debian/pool/main/d/debian-archive-keyring/debian-archive-keyring_2023.5_all.deb -o /tmp/debian-keyring.deb
+            sudo dpkg -i /tmp/debian-keyring.deb || true
+          fi
+          echo "deb [signed-by=/usr/share/keyrings/debian-archive-keyring.gpg] http://deb.debian.org/debian bookworm main" | sudo tee /etc/apt/sources.list.d/debian-bookworm.list
           sudo apt-get update
           sudo apt-get install -y -t bookworm \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev

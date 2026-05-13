@@ -13,7 +13,7 @@ index 51d68ebd..6237f5fd 100644
 +    // Ubuntu 24.04+ (WebKitGTK 2.46, Mesa 24.x) SIGABRTs with GDK_GL=disable.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-+    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++ std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 +    std::env::set_var("GDK_GL", "software");
 +    std::env::set_var("GSK_RENDERER", "cairo");
  
