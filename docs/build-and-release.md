@@ -81,6 +81,15 @@ scripts/snap/build-local-snap.sh core24 --skip-webclient
 - Release tag points at `main`, not `dev`.
 - GitHub release contains all 14 package artifacts plus `SHA256SUMS`.
 
+## Manual Runtime Testing Guardrails
+
+Interactive app tests are user-controlled. Automation may download, install, inspect, and launch an artifact only when requested, but it must not close or kill a GUI session during login, 2FA, CAPTCHA, Drive load, or file-browsing checks.
+
+- Do not wrap GUI launches in `timeout`, `kill`, `pkill`, or similar automatic stop commands.
+- If a test app is launched from automation, leave it running until the tester explicitly says to stop it.
+- Prefer artifact inspection for non-interactive checks, and let the tester perform credentialed login flows.
+- Do not close runtime/login GitHub issues until the tester confirms the relevant artifact reaches the expected screen or file view.
+
 ## Version Source
 
 `package.json` is the source of truth. Workflows sync it into:
