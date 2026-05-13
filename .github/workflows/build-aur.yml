@@ -1,19 +1,19 @@
 name: Build AUR
 
 "on":
- push:
-   branches:
-     - main
-     - dev
-     - alpha
-   tags:
-     - "v*"
- workflow_dispatch:
-   inputs:
-     aur_target:
-       description: AUR target (arch)
-       required: false
-       default: arch
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      aur_target:
+        description: AUR target (arch)
+        required: false
+        default: arch
 
 permissions:
  contents: read

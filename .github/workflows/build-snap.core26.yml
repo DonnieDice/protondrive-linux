@@ -1,19 +1,19 @@
 name: Build Snap Core26
 
 "on":
- push:
-  branches:
-   - main
-   - dev
-   - alpha
- tags:
-  - "v*"
- workflow_dispatch:
-  inputs:
-   distro_patch:
-    description: "Snap base patch name (e.g. core26)"
-    required: false
-    default: "core26"
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      distro_patch:
+        description: "Snap base patch name (e.g. core26)"
+        required: false
+        default: "core26"
 
 permissions:
  contents: read

@@ -1,19 +1,19 @@
 name: Build DEB Ubuntu 26.04
 
 "on":
- push:
-  branches:
-   - main
-   - dev
-   - alpha
- tags:
-  - "v*"
- workflow_dispatch:
-  inputs:
-   distro_patch:
-    description: "Distro patch name (e.g. ubuntu.26.04)"
-    required: false
-    default: "ubuntu.26.04"
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      distro_patch:
+        description: "Distro patch name (e.g. ubuntu.26.04)"
+        required: false
+        default: "ubuntu.26.04"
 
 permissions:
  contents: read

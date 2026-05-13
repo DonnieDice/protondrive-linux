@@ -37,7 +37,7 @@ jobs:
       - name: Install build dependencies
         run: |
           dnf install -y epel-release
-          dnf --enablerepo=crb --enablerepo=epel install -y \
+          dnf --enablerepo=crb --enablerepo=epel install -y --allowerasing \
             bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
             openssl-devel webkit2gtk3-devel gtk3-devel \
             libappindicator-gtk3-devel librsvg2-devel \

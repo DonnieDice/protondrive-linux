@@ -27,7 +27,7 @@ jobs:
     name: EL10 RPM
     runs-on: ubuntu-latest
     container:
-      image: centos:stream10
+      image: quay.io/centos/centos:stream10
     timeout-minutes: 120
     defaults:
       run:
