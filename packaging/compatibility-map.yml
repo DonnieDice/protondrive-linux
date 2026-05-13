@@ -27,17 +27,6 @@ rpm:
     patch: fedora.44
     supports:
       - fedora-44
-  el9:
-    workflow: .github/workflows/build-rpm.el9.yml
-    build_container: almalinux:9
-    release_label: el9
-    artifact_name: rpm-package-el9
-    patch: el9
-    supports:
-      - rhel-9
-      - centos-stream-9
-      - almalinux-9
-      - rockylinux-9
   el10:
     workflow: .github/workflows/build-rpm.el10.yml
     build_container: centos:stream10
@@ -53,10 +42,9 @@ rpm:
 deb:
   debian12:
     workflow: .github/workflows/build-deb.yml
-    workflow_default_patch: ubuntu.24.04
     build_container: debian:12
     release_label: debian12
-    artifact_name: deb-package
+    artifact_name: deb-package-debian12
     patch: debian.12
     supports:
       - debian-12
@@ -80,11 +68,10 @@ deb:
       - zorin-17
       - popos-22.04
   ubuntu24.04:
-    workflow: .github/workflows/build-deb.yml
-    workflow_default_patch: ubuntu.24.04
-    build_container: debian:12
+    workflow: .github/workflows/build-deb.ubuntu.24.04.yml
+    build_container: ubuntu:24.04
     release_label: ubuntu24.04
-    artifact_name: deb-package
+    artifact_name: deb-package-ubuntu2404
     patch: ubuntu.24.04
     supports:
       - ubuntu-24.04

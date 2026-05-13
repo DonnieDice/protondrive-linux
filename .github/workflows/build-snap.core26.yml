@@ -44,6 +44,8 @@ jobs:
       curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
       sudo apt-get install -y nodejs
       sudo snap install snapcraft --classic
+      sudo snap install core26 --channel=latest/stable
+      snap list core26
 
    - name: Checkout repository
      uses: actions/checkout@v4
@@ -101,7 +103,11 @@ jobs:
         sed -e "s/base: core24/base: core26/" \
             -e "s/grade: stable/grade: devel/" \
             -e "/^base: core26/a\\build-base: devel" > snap/snapcraft.yaml
-      snapcraft --destructive-mode
+      snapcraft --destructive-mode || {
+       status=$?
+       find "$HOME/.local/state/snapcraft/log" -maxdepth 1 -type f -name 'snapcraft-*.log' -print -exec tail -n 200 {} \; || true
+       exit "$status"
+      }
       SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
       if [ -z "$SNAP_FILE" ]; then
        echo "No Snap package found!"

@@ -78,9 +78,16 @@ if [ "$SNAP_TARGET" = "core26" ]; then
         -e "s/grade: stable/grade: devel/" \
         -e "/^base: core26/a\\build-base: devel" \
         snap/snapcraft.yaml
+    if ! snap list core26 >/dev/null 2>&1; then
+        echo "core26 base snap is not installed; install it with: sudo snap install core26 --channel=latest/stable"
+    fi
 fi
 
-snapcraft --destructive-mode
+snapcraft --destructive-mode || {
+    status=$?
+    find "$HOME/.local/state/snapcraft/log" -maxdepth 1 -type f -name 'snapcraft-*.log' -print -exec tail -n 200 {} \; || true
+    exit "$status"
+}
 SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
 if [ -z "$SNAP_FILE" ]; then
     echo "ERROR: Snap package was not produced"

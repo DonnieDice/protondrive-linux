@@ -13,7 +13,7 @@ Build fewer packages. Test more systems. Split only when a patch/runtime differe
 
 ## Clean Base Rule
 
-**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`, `el9`), not the host distro.
+**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`, `fedora.43`), not the host distro.
 
 If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment:
 
@@ -66,7 +66,6 @@ patches/
 ├── rpm/
 │   ├── fedora.43.patch       # Fedora 43 (webkit2gtk 2.52+, sandbox+IPInt fix)
 │   ├── fedora.44.patch       # Fedora 44 (webkit2gtk 2.52+, sandbox+IPInt fix)
-│   ├── el9.patch             # RHEL 9 / CentOS Stream 9 / Alma 9 / Rocky 9
 │   └── el10.patch            # RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10
 ├── flatpak/
 │   ├── org.gnome.Platform.44.patch  # Ubuntu 22.04-compatible Flatpak runtime
@@ -89,7 +88,6 @@ patches/
 |-------------|----------------|---------------------|-------|
 | `fedora43` | `fedora:43` | Fedora 43 | `fedora.43` |
 | `fedora44` | `fedora:44` | Fedora 44 | `fedora.44` |
-| `el9` | `almalinux:9` | RHEL 9, CentOS Stream 9, Alma 9, Rocky 9 | `el9` |
 | `el10` | `centos:stream10` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 | `el10` |
 
 ### Known Differences
@@ -98,8 +96,9 @@ patches/
 |----------|-------------|-------------------|--------|--------|
 | `fedora.43` | `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` | `JSC_useWasmIPInt=false` | `disable` | webkit2gtk 2.52+ sandbox API change + IPInt SIGTRAP |
 | `fedora.44` | `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` | `JSC_useWasmIPInt=false` | `disable` | Same as F43 |
-| `el9` | `WEBKIT_FORCE_SANDBOX=0` | Default (JIT) | `disable` | Older webkit2gtk 2.40 |
 | `el10` | `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` | `JSC_useWasmIPInt=false` | `disable` | webkit2gtk 2.52+ |
+
+RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases. EL9 provides `glib2 2.68.x`; current Tauri/GTK crates require `glib-2.0 >= 2.70` at build time.
 
 ---
 
@@ -175,7 +174,6 @@ Patches target the Snap base, not the host distro. `core26` includes webkit2gtk 
 |--------|----------|
 | Fedora 43 | `proton-drive-*.rpm` (fedora43) |
 | Fedora 44 | `proton-drive-*.rpm` (fedora44) |
-| RHEL 9 / Alma 9 / Rocky 9 | `proton-drive-*.rpm` (el9) |
 | RHEL 10 / Alma 10 / Rocky 10 | `proton-drive-*.rpm` (el10) |
 | Debian 12 | `proton-drive_*.deb` (debian12) |
 | Debian 13 | `proton-drive_*.deb` (debian13) |

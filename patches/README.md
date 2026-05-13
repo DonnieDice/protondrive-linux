@@ -18,7 +18,6 @@ patches/
 ├── rpm/
 │   ├── fedora.43.patch
 │   ├── fedora.44.patch
-│   ├── el9.patch
 │   └── el10.patch
 ├── flatpak/
 │   ├── org.gnome.Platform.44.patch
@@ -82,7 +81,6 @@ Each package type has a corresponding local build script that takes a patch name
 ### rpm/
 - `fedora.43.patch` - Fedora 43 WebKitGTK 2.52+ sandbox/IPInt workaround
 - `fedora.44.patch` - Fedora 44 WebKitGTK 2.52+ sandbox/IPInt workaround
-- `el9.patch` - RHEL/Alma/Rocky/CentOS Stream 9 baseline
 - `el10.patch` - RHEL/Alma/Rocky/CentOS Stream 10 baseline
 
 ### flatpak/
