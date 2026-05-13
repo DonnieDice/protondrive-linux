@@ -6,7 +6,7 @@ An unofficial desktop app for Proton Drive on Linux.
 
 ## Download
 
-**v1.3.0 — Working Beta**
+**v1.3.0**
 
 Download the latest release from the [Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
 

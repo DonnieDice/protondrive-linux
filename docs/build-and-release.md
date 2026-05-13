@@ -90,7 +90,7 @@ Remote artifacts from the `dev` branch package workflows are the release gate fo
 | 2026-05-13 | `proton-drive_*_ubuntu2204_bundled_amd64.deb` | Remote workflow artifact | Passed manual install, launch, login, and Drive file-view testing on Ubuntu 22.04. |
 | 2026-05-13 | `proton-drive_*_linux-baseline_amd64.AppImage` | Remote workflow artifact | Passed manual launch, login, and Drive file-view testing on Ubuntu 22.04. |
 | 2026-05-13 | `proton-drive_*_gnome44.flatpak` | Remote workflow artifact | Passed manual install, launch, login, and Drive file-view testing on Ubuntu 22.04. |
-| 2026-05-13 | `proton-drive_*_core24_amd64.snap` | Local build / workflow mirror | Passed manual install, launch, login, 2FA, and Drive load/file-listing smoke testing on Ubuntu 22.04 after adding snap runtime `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`. |
+| 2026-05-13 | `proton-drive_*_core24_amd64.snap` | Remote workflow artifact | Passed manual install, launch, login, 2FA, and Drive load/file-listing smoke testing on Ubuntu 22.04 after adding snap runtime `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`. |
 
 ## Manual Runtime Testing Guardrails
 
