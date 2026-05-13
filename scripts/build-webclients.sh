@@ -86,6 +86,7 @@ echo "📦 Installing WebClients dependencies..."
 rm -rf .yarn/cache
 YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
 export NODE_OPTIONS="--max-old-space-size=4096"
+export SHARP_IGNORE_GLOBAL_LIBVIPS=1
 $YARN install || $YARN install --network-timeout 300000
 
 # 3b. Create stubs for Proton packages that are private/not published to npm
