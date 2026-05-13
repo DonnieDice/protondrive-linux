@@ -16,7 +16,7 @@ Packages are distributed as GitHub release artifacts. There is no apt repository
 |--------|----------|
 | AppImage | Most Linux distributions (portable, no install needed) |
 | DEB | Debian, Ubuntu, Linux Mint, Zorin, Pop!\_OS |
-| RPM | Fedora, RHEL, CentOS, Alma Linux, Rocky Linux |
+| RPM | Fedora 43/44 and RHEL/CentOS/Alma/Rocky 10 |
 | AUR | Arch, Manjaro, EndeavourOS, Garuda |
 | Flatpak | Flatpak sandbox installs |
 | Snap | Snap installs |
@@ -56,12 +56,13 @@ Choose the RPM that matches your system:
 |---------|-----|
 | `proton-drive-*~fedora43.x86_64.rpm` | Fedora 43 |
 | `proton-drive-*~fedora44.x86_64.rpm` | Fedora 44 |
-| `proton-drive-*~el9.x86_64.rpm` | RHEL 9, CentOS Stream 9, Alma 9, Rocky 9 |
 | `proton-drive-*~el10.x86_64.rpm` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 |
 
 ```bash
 sudo dnf install ./proton-drive-*.rpm
 ```
+
+RHEL/Alma/Rocky/CentOS Stream 9 is not supported by the current native RPM because EL9 ships GLib 2.68 and the current Tauri/GTK stack requires GLib 2.70 or newer.
 
 ### Arch / Manjaro / EndeavourOS / Garuda
 

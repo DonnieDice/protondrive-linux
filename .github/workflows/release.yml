@@ -76,7 +76,6 @@ jobs:
               'Build DEB Ubuntu 26.04',
               'Build RPM Fedora 43',
               'Build RPM Fedora 44',
-              'Build RPM EL9',
               'Build RPM EL10',
             ];
             await new Promise(resolve => setTimeout(resolve, 30000));
@@ -231,16 +230,6 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
-      - name: Download RPM EL9 artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-rpm.el9.yml
-          name: rpm-package-el9
-          path: artifacts/rpm-el9
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          if_no_artifact_found: fail
-
       - name: Download RPM EL10 artifact
         uses: dawidd6/action-download-artifact@v6
         with:
@@ -300,7 +289,6 @@ jobs:
           | DEB (Debian 13) | \`proton-drive_*_debian13_amd64.deb\` | Debian 13 (Trixie) |
           | RPM (Fedora 43) | \`proton-drive-*.rpm\` | Fedora 43+ |
           | RPM (Fedora 44) | \`proton-drive-*.rpm\` | Fedora 44+ |
-          | RPM (EL9) | \`proton-drive-*.rpm\` | RHEL 9 / Alma 9 / Rocky 9 |
           | RPM (EL10) | \`proton-drive-*.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
 
           ## Installation
