@@ -7,7 +7,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 | Package | Workflows | Patch Directory | Distro Patches | Notes |
 |---------|-----------|-----------------|----------------|-------|
 | RPM | `build-rpm.fedora.43.yml`, `build-rpm.fedora.44.yml`, `build-rpm.el9.yml`, `build-rpm.el10.yml` | `patches/rpm/` | `fedora.43.patch`, `fedora.44.patch`, `el9.patch`, `el10.patch` | Fedora and RHEL/EL family. F43/F44 share compat baseline (webkit2gtk 2.52+). EL9 uses older webkit2gtk 2.40; EL10 uses 2.52+. |
-| DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.22.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.22.04.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` covers Debian 12 and Ubuntu 24.04 (default patch). |
+| DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.22.04.yml`, `build-deb.ubuntu.24.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.22.04.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` is the Debian 12 workflow. |
 | AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline. |
 | Flatpak | `build-flatpak.gnome44.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.44.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 44 for Ubuntu 22.04-compatible testing; GNOME Platform 50 for the current runtime. |
 | Snap | `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core24.patch`, `core26.patch` | core24 and core26 Snap packages. core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
@@ -82,9 +82,14 @@ Each build sets the `DISTRO_TYPE` env var at compile time so Rust code can use `
 Required release artifacts:
 
 - `proton-drive-*.rpm` (fedora43, fedora44, el9, el10)
-- `proton-drive_*.deb` (debian12, debian13, ubuntu22.04, ubuntu24.04, ubuntu26.04)
+- `proton-drive_*_debian12_amd64.deb`
+- `proton-drive_*_debian13_amd64.deb`
+- `proton-drive_*_ubuntu2204_bundled_amd64.deb`
+- `proton-drive_*_ubuntu24.04_amd64.deb`
+- `proton-drive_*_ubuntu26.04_amd64.deb`
 - `proton-drive_*.AppImage`
 - `proton-drive_*.flatpak`
-- `proton-drive_*_amd64.snap` (core24, core26)
+- `proton-drive_*_core24_amd64.snap`
+- `proton-drive_*_core26_amd64.snap`
 - `proton-drive-*.pkg.tar.zst` (AUR)
 - `SHA256SUMS`

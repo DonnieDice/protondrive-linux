@@ -89,7 +89,7 @@ Not currently available on Flathub. Download the `.flatpak` artifact from [Relea
 ### Snap
 
 ```bash
-sudo snap install --dangerous proton-drive_*.snap
+sudo snap install --dangerous proton-drive_*_core24_amd64.snap
 ```
 
 Not currently available in the Snap Store. Download the `.snap` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally with `--dangerous`.

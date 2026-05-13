@@ -21,13 +21,14 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: deb
+  DISTRO_SUFFIX: ubuntu26.04
 
 jobs:
  build-deb:
   name: Debian Package
   runs-on: ubuntu-latest
   container:
-   image: ubuntu:devel
+   image: ubuntu:26.04
   timeout-minutes: 120
   defaults:
    run:
@@ -96,13 +97,11 @@ jobs:
 
    - name: Normalize DEB filename
      run: |
+      VERSION=$(node -p "require('./package.json').version")
       cd src-tauri/target/release/bundle/deb
       for file in *.deb; do
        if [ -f "$file" ]; then
-        new_name="$(echo "$file" | sed 's/Proton\.Drive/proton-drive/g; s/Proton Drive/proton-drive/g')"
-        if [ "$file" != "$new_name" ]; then
-         mv "$file" "$new_name"
-        fi
+        mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
        fi
       done
 
@@ -110,6 +109,6 @@ jobs:
      uses: actions/upload-artifact@v4
      with:
       name: deb-package-ubuntu2604
-      path: src-tauri/target/release/bundle/deb/*.deb
+      path: src-tauri/target/release/bundle/deb/proton-drive_*_ubuntu26.04_amd64.deb
       if-no-files-found: error
       retention-days: 30
