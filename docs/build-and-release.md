@@ -81,6 +81,15 @@ scripts/snap/build-local-snap.sh core24 --skip-webclient
 - Release tag points at `main`, not `dev`.
 - GitHub release contains all 14 package artifacts plus `SHA256SUMS`.
 
+## Ubuntu 22.04 Runtime Test Notes
+
+Remote artifacts from the `dev` branch package workflows are the release gate for Ubuntu 22.04 testing. Local builds are used only to debug workflow/package failures.
+
+| Date | Artifact | Source | Result |
+| --- | --- | --- | --- |
+| 2026-05-13 | `proton-drive_*_ubuntu2204_bundled_amd64.deb` | Remote workflow artifact | Passed manual install, launch, login, and Drive file-view testing on Ubuntu 22.04. |
+| 2026-05-13 | `proton-drive_*_linux-baseline_amd64.AppImage` | Remote workflow artifact | Passed manual launch, login, and Drive file-view testing on Ubuntu 22.04. |
+
 ## Manual Runtime Testing Guardrails
 
 Interactive app tests are user-controlled. Automation may download, install, inspect, and launch an artifact only when requested, but it must not close or kill a GUI session during login, 2FA, CAPTCHA, Drive load, or file-browsing checks.
