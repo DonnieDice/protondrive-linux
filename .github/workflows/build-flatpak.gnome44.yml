@@ -53,7 +53,12 @@ jobs:
             echo "deb [trusted=yes] http://deb.debian.org/debian bookworm main" | sudo tee /etc/apt/sources.list.d/debian-bookworm.list
             sudo apt-get update
           }
-          sudo apt-get install -y -t bookworm \
+          sudo tee /etc/apt/preferences.d/bookworm-webkit > /dev/null << 'EOF'
+          Package: libwebkit2gtk-4.1-dev libwebkit2gtk-4.1-0 libjavascriptcoregtk-4.1-dev libjavascriptcoregtk-4.1-0 libsoup-3.0-dev libsoup-3.0-0 libjson-glib-dev libjson-glib-1.0-0 gir1.2-json-1.0
+          Pin: release n=bookworm
+          Pin-Priority: 1001
+          EOF
+          sudo apt-get install -y --allow-downgrades -t bookworm \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
           curl -fsSL https://deb.nodesource.com/setup_20.x | sudo bash -
           sudo apt-get install -y nodejs
