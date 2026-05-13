@@ -24,6 +24,22 @@ if ! command -v snapcraft &> /dev/null; then
     exit 1
 fi
 
+SNAPCRAFT_ARGS=(pack --destructive-mode)
+if [ -r /etc/os-release ]; then
+    . /etc/os-release
+    if [ "${ID:-}" = "ubuntu" ] && [ "${VERSION_ID:-}" = "22.04" ]; then
+        if command -v lxc >/dev/null 2>&1; then
+            SNAPCRAFT_ARGS=(pack --use-lxd)
+            echo "Using LXD build because Ubuntu 22.04 cannot destructively build Ubuntu 24.04-based snaps."
+        else
+            echo "Ubuntu 22.04 cannot destructively build this snap target with snapcraft 8."
+            echo "Install LXD first: sudo snap install lxd"
+            echo "Then initialize it: sudo lxd init --auto"
+            exit 1
+        fi
+    fi
+fi
+
 if [ "$SKIP_WEBCLIENT" = false ]; then
     "$PROJECT_ROOT/scripts/build-webclients.sh"
 else
@@ -70,30 +86,49 @@ if [ ! -f "src-tauri/target/release/proton-drive" ]; then
     exit 1
 fi
 
-mkdir -p snap
-sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > snap/snapcraft.yaml
+BUILD_CONTEXT="$(mktemp -d "$PROJECT_ROOT/.snap-build.XXXXXX")"
+cleanup_build_context() {
+    rm -rf "$BUILD_CONTEXT"
+}
+trap 'cleanup_patch; cleanup_build_context' EXIT
+
+mkdir -p "$BUILD_CONTEXT/packaging/snap"
+mkdir -p "$BUILD_CONTEXT/src-tauri/target/release"
+mkdir -p "$BUILD_CONTEXT/src-tauri/icons"
+cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
+cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
+cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
+sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
 if [ "$SNAP_TARGET" = "core26" ]; then
     sed -i \
         -e "s/base: core24/base: core26/" \
         -e "s/grade: stable/grade: devel/" \
         -e "/^base: core26/a\\build-base: devel" \
-        snap/snapcraft.yaml
+        "$BUILD_CONTEXT/snapcraft.yaml"
     if ! snap list core26 >/dev/null 2>&1; then
         echo "core26 base snap is not installed; install it with: sudo snap install core26 --channel=latest/stable"
     fi
 fi
 
-snapcraft --destructive-mode || {
-    status=$?
+SNAPCRAFT_STATUS=0
+(
+    cd "$BUILD_CONTEXT"
+    snapcraft "${SNAPCRAFT_ARGS[@]}" --output "$PROJECT_ROOT"
+) || SNAPCRAFT_STATUS=$?
+
+if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
     find "$HOME/.local/state/snapcraft/log" -maxdepth 1 -type f -name 'snapcraft-*.log' -print -exec tail -n 200 {} \; || true
-    exit "$status"
-}
-SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
+    exit "$SNAPCRAFT_STATUS"
+fi
+SNAP_FILE="$(find "$PROJECT_ROOT" "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
 if [ -z "$SNAP_FILE" ]; then
     echo "ERROR: Snap package was not produced"
     exit 1
 fi
-mv "$SNAP_FILE" "proton-drive_${VERSION}_${SNAP_TARGET}_amd64.snap"
+mv "$SNAP_FILE" "$PROJECT_ROOT/proton-drive_${VERSION}_${SNAP_TARGET}_amd64.snap"
 
 echo ""
 echo "=========================================="

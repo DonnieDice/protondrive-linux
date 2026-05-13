@@ -4,6 +4,7 @@ summary: Proton Drive Linux Desktop Client
 description: |
   Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
   Built with Tauri and Rust for a native-performance experience.
+icon: src-tauri/icons/128x128.png
 grade: stable
 confinement: strict
 base: core24
@@ -13,27 +14,31 @@ apps:
     command: usr/bin/proton-drive-wrapper
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
-    - home
-    - network
-    - network-bind
-    - network-status
-    - desktop
-    - desktop-legacy
-    - x11
-    - wayland
-    - opengl
-    - audio-playback
-    - browser-support
-    - password-manager-service
-    - dbus
+      - home
+      - network
+      - network-bind
+      - network-status
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
+      - opengl
+      - audio-playback
+      - browser-support
+      - password-manager-service
+      - dbus
     environment:
-      LD_LIBRARY_PATH: $SNAP/lib:$SNAP/usr/lib:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
       WEBKIT_DISABLE_DMABUF_RENDERER: "1"
       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
       WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+      JSC_useWasmIPInt: "false"
+      WEBKIT_NETWORK_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess
+      WEBKIT_WEB_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess
+      WEBKIT_GPU_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess
       WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
-      GDK_GL: disable
-      LIBGL_ALWAYS_SOFTWARE: "1"
+      GDK_GL: software
       GSK_RENDERER: cairo
 
 plugs:

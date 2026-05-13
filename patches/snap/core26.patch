@@ -1,35 +1,45 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..d191e35b 100644
+index 51d68ebd..cf9dc506 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,15 @@ async fn proxy_request(
- }
- 
- fn main() {
--    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
--    // They are distro-specific and belong in patches/<package>/<distro>.patch
--    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Snap core26 runtime.
-+    // Newer WebKitGTK 2.52+; sandbox API changed; IPInt WASM disabled.
-+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-+    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-+    std::env::set_var("JSC_useWasmIPInt", "false");
-+    std::env::set_var("GDK_GL", "disable");
-+    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-+    std::env::set_var("GSK_RENDERER", "cairo");
- 
-     // Create shared client with cookie jar
-     let state = Arc::new(AppState {
-@@ -214,9 +220,9 @@ fn main() {
+@@ -214,9 +214,9 @@ fn main() {
      .setup(|app| {
          // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
          let worker_init = match option_env!("DISTRO_TYPE") {
 -            Some("rpm") => {
-+            Some("snap") => {
++            Some("rpm") | Some("snap") => {
                  r#"
 -        console.log('[INIT] RPM build - main-thread crypto active via source patch');
-+        console.log('[INIT] Snap build - main-thread crypto active via source patch');
++        console.log('[INIT] Snap/System package build - main-thread crypto active via source patch');
          "#
              }
              _ => {
+diff --git a/packaging/snap/proton-drive-wrapper.sh b/packaging/snap/proton-drive-wrapper.sh
+index 6f9ec355..47802cd6 100755
+--- a/packaging/snap/proton-drive-wrapper.sh
++++ b/packaging/snap/proton-drive-wrapper.sh
+@@ -1,6 +1,9 @@
+ #!/bin/bash
+ export WEBKIT_DISABLE_DMABUF_RENDERER=1
+ export WEBKIT_DISABLE_COMPOSITING_MODE=1
++export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
++export WEBKIT_INJECTED_BUNDLE_PATH="$SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle"
++export JSC_useWasmIPInt=false
+ export GDK_GL=software
+ export GSK_RENDERER=cairo
+ exec "$SNAP/usr/bin/proton-drive" "$@"
+diff --git a/packaging/snap/snapcraft.yaml b/packaging/snap/snapcraft.yaml
+index 3766be73..444f0427 100644
+--- a/packaging/snap/snapcraft.yaml
++++ b/packaging/snap/snapcraft.yaml
+@@ -29,5 +29,9 @@ apps:
+     environment:
+       WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+-      GDK_GL: software
++      WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
++      WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
++      JSC_useWasmIPInt: "false"
++      GDK_GL: disable
++      LIBGL_ALWAYS_SOFTWARE: "1"
+       GSK_RENDERER: cairo

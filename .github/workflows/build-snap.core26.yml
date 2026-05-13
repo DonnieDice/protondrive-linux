@@ -98,22 +98,36 @@ jobs:
        echo "Binary not found!"
        exit 1
       fi
-      mkdir -p snap
+      BUILD_CONTEXT="$(mktemp -d)"
+      mkdir -p "$BUILD_CONTEXT/packaging/snap"
+      mkdir -p "$BUILD_CONTEXT/src-tauri/target/release"
+      mkdir -p "$BUILD_CONTEXT/src-tauri/icons"
+      cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+      cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+      cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+      cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
+      cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
+      cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
       sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml | \
         sed -e "s/base: core24/base: core26/" \
             -e "s/grade: stable/grade: devel/" \
-            -e "/^base: core26/a\\build-base: devel" > snap/snapcraft.yaml
-      snapcraft --destructive-mode || {
-       status=$?
+            -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
+      SNAPCRAFT_STATUS=0
+      (
+        cd "$BUILD_CONTEXT"
+        snapcraft pack --destructive-mode --output "$GITHUB_WORKSPACE"
+      ) || SNAPCRAFT_STATUS=$?
+      if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
        find "$HOME/.local/state/snapcraft/log" -maxdepth 1 -type f -name 'snapcraft-*.log' -print -exec tail -n 200 {} \; || true
-       exit "$status"
-      }
-      SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
+       exit "$SNAPCRAFT_STATUS"
+      fi
+      SNAP_FILE="$(find . "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
       if [ -z "$SNAP_FILE" ]; then
        echo "No Snap package found!"
        exit 1
       fi
       mv "$SNAP_FILE" "proton-drive_${VERSION}_core26_amd64.snap"
+      rm -rf "$BUILD_CONTEXT"
 
    - name: Upload Snap artifact
      uses: actions/upload-artifact@v4
