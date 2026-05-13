@@ -11,14 +11,6 @@ base: core24
 apps:
   proton-drive:
     command: usr/bin/proton-drive-wrapper
-    environment:
-      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-      GDK_GL: software
-      WEBKIT_NETWORK_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess
-      WEBKIT_WEB_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess
-      WEBKIT_GPU_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess
-      WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
     - home
@@ -34,12 +26,25 @@ apps:
     - browser-support
     - password-manager-service
     - dbus
+    environment:
+      LD_LIBRARY_PATH: $SNAP/lib:$SNAP/usr/lib:$SNAP/lib/x86_64-linux-gnu:$SNAP/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+      WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
+      WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
+      GDK_GL: disable
+      LIBGL_ALWAYS_SOFTWARE: "1"
+      GSK_RENDERER: cairo
 
 plugs:
   dbus:
     interface: dbus
     bus: session
     name: com.proton.drive
+
+layout:
+  /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1:
+    bind: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1
 
 parts:
   proton-drive:
