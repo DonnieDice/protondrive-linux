@@ -1,0 +1,8 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=Proton Drive
+Comment=Secure cloud storage
+Exec=proton-drive-wrapper
+Icon=com.proton.drive
+Categories=Utility;
