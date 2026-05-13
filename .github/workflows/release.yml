@@ -69,9 +69,10 @@ jobs:
               'Build Snap',
               'Build Snap Core26',
               'Build AUR',
-              'Build DEB',
+              'Build DEB Debian 12',
               'Build DEB Debian 13',
               'Build DEB Ubuntu 22.04',
+              'Build DEB Ubuntu 24.04',
               'Build DEB Ubuntu 26.04',
               'Build RPM Fedora 43',
               'Build RPM Fedora 44',
@@ -160,12 +161,12 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
-      - name: Download DEB artifact
+      - name: Download DEB Debian 12 artifact
         uses: dawidd6/action-download-artifact@v6
         with:
           workflow: build-deb.yml
-          name: deb-package
-          path: artifacts/deb
+          name: deb-package-debian12
+          path: artifacts/deb-debian12
           commit: ${{ github.sha }}
           workflow_conclusion: success
           if_no_artifact_found: fail
@@ -206,6 +207,16 @@ jobs:
           workflow: build-deb.ubuntu.22.04.yml
           name: deb-package-ubuntu2204
           path: artifacts/deb-ubuntu2204
+          commit: ${{ github.sha }}
+          workflow_conclusion: success
+          if_no_artifact_found: fail
+
+      - name: Download DEB Ubuntu 24.04 artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-deb.ubuntu.24.04.yml
+          name: deb-package-ubuntu2404
+          path: artifacts/deb-ubuntu2404
           commit: ${{ github.sha }}
           workflow_conclusion: success
           if_no_artifact_found: fail
@@ -277,16 +288,16 @@ jobs:
           | Format | File | Description |
           |--------|------|-------------|
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
-          | Flatpak (GNOME 47) | \`proton-drive_*_gnome47.flatpak\` | Flatpak sandbox (org.gnome.Platform//47) |
+          | Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
           | Flatpak (GNOME 44) | \`proton-drive_*_gnome44.flatpak\` | Flatpak sandbox (org.gnome.Platform//44, Ubuntu 22.04 compat) |
-          | Snap (core24) | \`proton-drive_*_amd64.snap\` | Snap package (core24 runtime) |
-          | Snap (core26) | \`proton-drive_*_amd64.snap\` | Snap package (core26 runtime) |
+          | Snap (core24) | \`proton-drive_*_core24_amd64.snap\` | Snap package (core24 runtime) |
+          | Snap (core26) | \`proton-drive_*_core26_amd64.snap\` | Snap package (core26 runtime) |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
-          | DEB (Ubuntu 22.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 22.04 LTS (Jammy) |
-          | DEB (Ubuntu 24.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |
-          | DEB (Ubuntu 26.04) | \`proton-drive_*_amd64.deb\` | Ubuntu 26.04 LTS |
-          | DEB (Debian 12) | \`proton-drive_*_amd64.deb\` | Debian 12 (Bookworm) |
-          | DEB (Debian 13) | \`proton-drive_*_amd64.deb\` | Debian 13 (Trixie) |
+          | DEB (Ubuntu 22.04) | \`proton-drive_*_ubuntu2204_bundled_amd64.deb\` | Ubuntu 22.04 LTS (Jammy) |
+          | DEB (Ubuntu 24.04) | \`proton-drive_*_ubuntu24.04_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |
+          | DEB (Ubuntu 26.04) | \`proton-drive_*_ubuntu26.04_amd64.deb\` | Ubuntu 26.04 LTS |
+          | DEB (Debian 12) | \`proton-drive_*_debian12_amd64.deb\` | Debian 12 (Bookworm) |
+          | DEB (Debian 13) | \`proton-drive_*_debian13_amd64.deb\` | Debian 13 (Trixie) |
           | RPM (Fedora 43) | \`proton-drive-*.rpm\` | Fedora 43+ |
           | RPM (Fedora 44) | \`proton-drive-*.rpm\` | Fedora 44+ |
           | RPM (EL9) | \`proton-drive-*.rpm\` | RHEL 9 / Alma 9 / Rocky 9 |

@@ -41,13 +41,15 @@ if [ ! -f "src-tauri/target/release/proton-drive" ]; then
 fi
 
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user -y flathub org.gnome.Platform//47 org.gnome.Sdk//47 || true
+flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50 || true
 
 cat > proton-drive-wrapper.sh << 'EOF'
 #!/bin/bash
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
 export GDK_GL=software
+export GSK_RENDERER=cairo
 exec /app/bin/proton-drive-bin "$@"
 EOF
 chmod +x proton-drive-wrapper.sh
@@ -76,7 +78,7 @@ cp com.proton.drive.desktop flatpak-staging/
 cat > com.proton.drive.yml << EOF
 app-id: com.proton.drive
 runtime: org.gnome.Platform
-runtime-version: '47'
+runtime-version: '50'
 sdk: org.gnome.Sdk
 command: proton-drive
 finish-args:
@@ -109,11 +111,11 @@ EOF
 
 rm -rf build-dir repo
 flatpak-builder --user --force-clean --repo=repo build-dir com.proton.drive.yml
-flatpak build-bundle repo "proton-drive_${VERSION}.flatpak" com.proton.drive
+flatpak build-bundle repo "proton-drive_${VERSION}_gnome50.flatpak" com.proton.drive
 
 echo ""
 echo "=========================================="
 echo "Flatpak Build Complete!"
 echo "=========================================="
-echo "Output: proton-drive_${VERSION}.flatpak"
-echo "Install: flatpak install --user proton-drive_${VERSION}.flatpak"
+echo "Output: proton-drive_${VERSION}_gnome50.flatpak"
+echo "Install: flatpak install --user proton-drive_${VERSION}_gnome50.flatpak"

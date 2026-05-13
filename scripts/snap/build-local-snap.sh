@@ -81,9 +81,16 @@ if [ "$SNAP_TARGET" = "core26" ]; then
 fi
 
 snapcraft --destructive-mode
+SNAP_FILE="$(ls proton-drive_*_amd64.snap 2>/dev/null | head -1)"
+if [ -z "$SNAP_FILE" ]; then
+    echo "ERROR: Snap package was not produced"
+    exit 1
+fi
+mv "$SNAP_FILE" "proton-drive_${VERSION}_${SNAP_TARGET}_amd64.snap"
 
 echo ""
 echo "=========================================="
 echo "Snap Build Complete!"
 echo "=========================================="
-find . -maxdepth 1 -name "*.snap" -exec ls -lh {} \;
+find . -maxdepth 1 -name "proton-drive_*_${SNAP_TARGET}_amd64.snap" -exec ls -lh {} \;
+echo "Install: sudo snap install --dangerous proton-drive_${VERSION}_${SNAP_TARGET}_amd64.snap"

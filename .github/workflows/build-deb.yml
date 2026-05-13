@@ -1,4 +1,4 @@
-name: Build DEB
+name: Build DEB Debian 12
 
 on:
   push:
@@ -11,9 +11,9 @@ on:
   workflow_dispatch:
     inputs:
       distro_patch:
-        description: Distro patch name (e.g. ubuntu.24.04)
+        description: Distro patch name (e.g. debian.12)
         required: false
-        default: ubuntu.24.04
+        default: debian.12
 
 permissions:
   contents: read
@@ -21,7 +21,8 @@ permissions:
 env:
   RUST_VERSION: stable
   DISTRO_TYPE: deb
-  DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'ubuntu.24.04' }}
+  DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'debian.12' }}
+  DISTRO_SUFFIX: debian12
 
 jobs:
   build-deb:
@@ -67,8 +68,8 @@ jobs:
           ~/.cargo/registry/cache/
           ~/.cargo/git/db/
           src-tauri/target/
-        key: deb-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-        restore-keys: deb-cargo-
+        key: deb-debian12-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+        restore-keys: deb-debian12-cargo-
 
     - name: Clone WebClients
       run: |
@@ -96,20 +97,18 @@ jobs:
 
     - name: Normalize DEB filename
       run: |
+        VERSION=$(node -p "require('./package.json').version")
         cd src-tauri/target/release/bundle/deb
         for file in *.deb; do
           if [ -f "$file" ]; then
-            new_name="$(echo "$file" | sed 's/Proton\.Drive/proton-drive/g; s/Proton Drive/proton-drive/g')"
-            if [ "$file" != "$new_name" ]; then
-              mv "$file" "$new_name"
-            fi
+            mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
           fi
         done
 
     - name: Upload DEB artifact
       uses: actions/upload-artifact@v4
       with:
-        name: deb-package
-        path: src-tauri/target/release/bundle/deb/*.deb
+        name: deb-package-debian12
+        path: src-tauri/target/release/bundle/deb/proton-drive_*_debian12_amd64.deb
         if-no-files-found: error
         retention-days: 30
