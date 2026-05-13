@@ -23,12 +23,26 @@ else
 fi
 
 PATCH_FILE="patches/deb/ubuntu.22.04.patch"
-if [ -f "$PATCH_FILE" ]; then
-    git apply "$PATCH_FILE"
-    echo "Applied $PATCH_FILE"
-else
+if [ ! -f "$PATCH_FILE" ]; then
     echo "ERROR: $PATCH_FILE not found!"
     exit 1
+fi
+
+PATCH_APPLIED=false
+cleanup_patch() {
+    if [ "$PATCH_APPLIED" = true ]; then
+        git apply --reverse "$PATCH_FILE"
+    fi
+}
+trap cleanup_patch EXIT
+
+if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+    echo "Patch already applied: $PATCH_FILE"
+else
+    git apply --check "$PATCH_FILE"
+    git apply "$PATCH_FILE"
+    PATCH_APPLIED=true
+    echo "Applied $PATCH_FILE"
 fi
 
 VERSION=$(node -p "require('./package.json').version")

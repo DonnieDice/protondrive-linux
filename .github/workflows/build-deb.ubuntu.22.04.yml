@@ -56,6 +56,7 @@ jobs:
             apt-get update
           }
           apt-get install -y -t bookworm \
+            libjson-glib-1.0-0 gir1.2-json-1.0 \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           apt-get install -y nodejs
@@ -158,9 +159,10 @@ jobs:
           WRAPPER
           chmod +x usr/bin/proton-drive
           sed -i 's/libwebkit2gtk-4.1-0/libwebkit2gtk-4.0-37/g' DEBIAN/control
-          NEW_DEB="proton-drive_${VERSION}_amd64.deb"
+          NEW_DEB="proton-drive_${VERSION}_ubuntu2204_bundled_amd64.deb"
           dpkg-deb -b . "../$NEW_DEB"
           cd ..
+          rm -f "$ORIG_DEB"
           rm -rf rebuild
 
       - name: Normalize DEB filename
@@ -179,6 +181,6 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: deb-package-ubuntu2204
-          path: src-tauri/target/release/bundle/deb/*.deb
+          path: src-tauri/target/release/bundle/deb/proton-drive_*_ubuntu2204_bundled_amd64.deb
           if-no-files-found: error
           retention-days: 30

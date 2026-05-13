@@ -9,7 +9,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 | RPM | `build-rpm.fedora.43.yml`, `build-rpm.fedora.44.yml`, `build-rpm.el9.yml`, `build-rpm.el10.yml` | `patches/rpm/` | `fedora.43.patch`, `fedora.44.patch`, `el9.patch`, `el10.patch` | Fedora and RHEL/EL family. F43/F44 share compat baseline (webkit2gtk 2.52+). EL9 uses older webkit2gtk 2.40; EL10 uses 2.52+. |
 | DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.22.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.22.04.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` covers Debian 12 and Ubuntu 24.04 (default patch). |
 | AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline. |
-| Flatpak | `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.50.patch` | GNOME Platform 50 runtime Flatpak package. |
+| Flatpak | `build-flatpak.gnome44.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.44.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 44 for Ubuntu 22.04-compatible testing; GNOME Platform 50 for the current runtime. |
 | Snap | `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core24.patch`, `core26.patch` | core24 and core26 Snap packages. core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
 | AUR | `build-aur.yml`, `publish-aur.yml` | `patches/aur/` | `arch.patch`, `arch.wrapper` | Full Tauri build + makepkg. Single `arch` target covers all Arch-family distros. |
 
@@ -39,6 +39,7 @@ patches/
 ├── rpm/fedora.44.patch                      # Fedora 44: same as fedora.43 (same compat baseline)
 ├── rpm/el9.patch                            # EL9: WEBKIT_FORCE_SANDBOX=0, GDK_GL=disable
 ├── rpm/el10.patch                           # EL10: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
+├── flatpak/org.gnome.Platform.44.patch      # GNOME Platform 44 runtime
 ├── flatpak/org.gnome.Platform.50.patch      # GNOME Platform 50 runtime
 ├── snap/core24.patch                        # Snap core24 base
 └── snap/core26.patch                        # Snap core26 base (webkit2gtk 2.52+)

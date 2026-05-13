@@ -41,7 +41,9 @@ jobs:
             bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
             openssl-devel webkit2gtk3-devel gtk3-devel \
             libappindicator-gtk3-devel librsvg2-devel \
-            patchelf rpm-build nodejs npm python3 findutils which
+            patchelf rpm-build python3 findutils which
+          curl -fsSL https://rpm.nodesource.com/setup_20.x | bash -
+          dnf install -y nodejs
 
       - name: Checkout repository
         uses: actions/checkout@v4

@@ -5,12 +5,19 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(dirname "$(dirname "$SCRIPT_DIR")")"
 cd "$PROJECT_ROOT"
 
+SNAP_TARGET="${1:-core24}"
 SKIP_WEBCLIENT=false
-[[ "${1:-}" == "--skip-webclient" ]] && SKIP_WEBCLIENT=true
+if [[ "${1:-}" == "--skip-webclient" ]]; then
+    SNAP_TARGET="core24"
+    SKIP_WEBCLIENT=true
+elif [[ "${2:-}" == "--skip-webclient" ]]; then
+    SKIP_WEBCLIENT=true
+fi
 
 echo "=========================================="
 echo "Proton Drive Snap Build"
 echo "=========================================="
+echo "Snap target: $SNAP_TARGET"
 
 if ! command -v snapcraft &> /dev/null; then
     echo "snapcraft not installed. Install with: sudo snap install snapcraft --classic"
@@ -32,6 +39,29 @@ echo "Building version: $VERSION"
 sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
 sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
 
+PATCH_FILE="patches/snap/${SNAP_TARGET}.patch"
+if [ ! -f "$PATCH_FILE" ]; then
+    echo "ERROR: Missing snap patch: $PATCH_FILE"
+    exit 1
+fi
+
+PATCH_APPLIED=false
+cleanup_patch() {
+    if [ "$PATCH_APPLIED" = true ]; then
+        git apply --reverse "$PATCH_FILE"
+    fi
+}
+trap cleanup_patch EXIT
+
+if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+    echo "Patch already applied: $PATCH_FILE"
+else
+    git apply --check "$PATCH_FILE"
+    git apply "$PATCH_FILE"
+    PATCH_APPLIED=true
+    echo "Applied $PATCH_FILE"
+fi
+
 export DISTRO_TYPE=snap
 npm install
 cd src-tauri && cargo build --release && cd ..
@@ -41,81 +71,19 @@ if [ ! -f "src-tauri/target/release/proton-drive" ]; then
 fi
 
 mkdir -p snap
-cat > snap/snapcraft.yaml << EOF
-name: proton-drive
-version: "${VERSION}"
-summary: Proton Drive Linux Desktop Client
-description: |
-  Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
-  Built with Tauri and Rust for a native-performance experience.
-grade: stable
-confinement: strict
-base: core24
-platforms:
-  amd64:
+sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > snap/snapcraft.yaml
+if [ "$SNAP_TARGET" = "core26" ]; then
+    sed -i \
+        -e "s/base: core24/base: core26/" \
+        -e "s/grade: stable/grade: devel/" \
+        -e "/^base: core26/a\\build-base: core26" \
+        snap/snapcraft.yaml
+fi
 
-apps:
-  proton-drive:
-    command: usr/bin/proton-drive-wrapper
-    environment:
-      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-      GDK_GL: software
-    desktop: usr/share/applications/com.proton.drive.desktop
-    plugs:
-    - home
-    - network
-    - network-bind
-    - network-status
-    - desktop
-    - desktop-legacy
-    - x11
-    - wayland
-    - opengl
-    - audio-playback
-    - browser-support
-    - password-manager-service
-    - dbus
+snapcraft --destructive-mode
 
-plugs:
-  dbus:
-    interface: dbus
-    bus: session
-    name: com.proton.drive
-
-parts:
-  proton-drive:
-    plugin: nil
-    source: .
-    override-build: |
-      install -Dm755 src-tauri/target/release/proton-drive "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
-      mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/bin"
-      cat > "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
-#!/bin/bash
-export WEBKIT_DISABLE_DMABUF_RENDERER=1
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-export GDK_GL=software
-exec "\$SNAP/usr/bin/proton-drive" "\$@"
-WRAPPEREOF
-      chmod +x "\$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
-      mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/applications"
-      cat > "\$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
-[Desktop Entry]
-Version=1.0
-Type=Application
-Name=Proton Drive
-Comment=Secure cloud storage
-Exec=proton-drive-wrapper
-Icon=com.proton.drive
-Categories=Utility;
-DESKTOPEOF
-      mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps"
-      mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps"
-      mkdir -p "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps"
-      cp src-tauri/icons/32x32.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
-      cp src-tauri/icons/128x128.png "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
-      cp src-tauri/icons/proton-drive.svg "\$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-    stage-packages:
-    - libssl3
-    - libwebkit2gtk-4.1-0
-EOF
+echo ""
+echo "=========================================="
+echo "Snap Build Complete!"
+echo "=========================================="
+find . -maxdepth 1 -name "*.snap" -exec ls -lh {} \;

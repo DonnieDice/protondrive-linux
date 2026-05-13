@@ -10,6 +10,8 @@ An unofficial desktop app for Proton Drive on Linux.
 
 Download the latest release from the [Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
 
+Packages are distributed as GitHub release artifacts. There is no apt repository, Flathub listing, or Snap Store listing at this time.
+
 | Format | Best for |
 |--------|----------|
 | AppImage | Most Linux distributions (portable, no install needed) |
@@ -36,7 +38,7 @@ Choose the DEB that matches your system:
 
 | Package | For |
 |---------|-----|
-| `proton-drive_*_ubuntu22.04_amd64.deb` | Ubuntu 22.04, Linux Mint 21.x, Zorin 17, Pop!\_OS 22.04 |
+| `proton-drive_*_ubuntu2204_bundled_amd64.deb` | Ubuntu 22.04, Linux Mint 21.x, Zorin 17, Pop!\_OS 22.04 |
 | `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x |
 | `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 |
 | `proton-drive_*_debian12_amd64.deb` | Debian 12 (Bookworm) |
@@ -82,7 +84,7 @@ flatpak install --user proton-drive_*.flatpak
 flatpak run com.proton.drive
 ```
 
-Not currently available on Flathub — download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases).
+Not currently available on Flathub. Download the `.flatpak` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally.
 
 ### Snap
 
@@ -90,7 +92,7 @@ Not currently available on Flathub — download from [Releases](https://github.c
 sudo snap install --dangerous proton-drive_*.snap
 ```
 
-Not currently available in the Snap Store — download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases).
+Not currently available in the Snap Store. Download the `.snap` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally with `--dangerous`.
 
 ## Using the app
 

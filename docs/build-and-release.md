@@ -32,7 +32,9 @@ These workflows are required for the current release gate (`release.yml` waits f
 | `build-snap.core26.yml` | `.snap` | Snap core26 |
 | `build-aur.yml` | `.pkg.tar.zst` | Arch / AUR |
 
-## Local Build Commands
+## Local Debug Commands
+
+Remote GitHub Actions workflows are the source of truth for release artifacts. Local build scripts exist to reproduce workflow failures, test patches quickly, and inspect package contents before pushing.
 
 Clone WebClients first:
 
@@ -40,7 +42,7 @@ Clone WebClients first:
 git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Build the frontend and one package type:
+Build the frontend and one package type locally:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.43.sh
@@ -49,8 +51,10 @@ scripts/rpm/build-local-rpm.fedora.40.sh    # legacy, still available
 scripts/rpm/build-local-rpm.fedora.41.sh    # legacy, still available
 scripts/rpm/build-local-rpm.fedora.42.sh    # legacy, still available
 scripts/deb/build-local-deb.sh
+scripts/deb/build-local-deb.ubuntu.22.04.sh
 scripts/appimage/build-local-appimage.sh
 scripts/flatpak/build-local-flatpak.sh
+scripts/flatpak/build-local-flatpak.gnome44.sh
 scripts/snap/build-local-snap.sh
 scripts/build-local-aur.sh
 ```
@@ -59,10 +63,11 @@ If WebClients is already built:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
-scripts/deb/build-local-deb.sh --skip-webclient
+scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient
 scripts/appimage/build-local-appimage.sh --skip-webclient
 scripts/flatpak/build-local-flatpak.sh --skip-webclient
-scripts/snap/build-local-snap.sh --skip-webclient
+scripts/flatpak/build-local-flatpak.gnome44.sh --skip-webclient
+scripts/snap/build-local-snap.sh core24 --skip-webclient
 ```
 
 ## Release Checklist
