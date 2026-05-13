@@ -69,7 +69,8 @@ patches/
 │   ├── el9.patch             # RHEL 9 / CentOS Stream 9 / Alma 9 / Rocky 9
 │   └── el10.patch            # RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10
 ├── flatpak/
-│   └── org.gnome.Platform.50.patch  # Flatpak runtime
+│   ├── org.gnome.Platform.44.patch  # Ubuntu 22.04-compatible Flatpak runtime
+│   └── org.gnome.Platform.50.patch  # Current Flatpak runtime
 ├── snap/
 │   ├── core24.patch          # Snap core24 base
 │   └── core26.patch          # Snap core26 base (webkit2gtk 2.52+)
@@ -150,6 +151,7 @@ A single `arch` patch and wrapper covers all Arch-family distros — they share 
 
 | Build target | Build container | Patch |
 |-------------|----------------|-------|
+| `org.gnome.Platform.44` | `ubuntu-22.04` | `org.gnome.Platform.44` |
 | `org.gnome.Platform.50` | `ubuntu-24.04` | `org.gnome.Platform.50` |
 
 Patches target the Flatpak runtime, not the host distro.

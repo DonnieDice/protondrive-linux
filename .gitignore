@@ -31,10 +31,26 @@ target/
 *.AppImage
 *.rpm
 *.deb
+*.flatpak
+*.snap
+*.pkg.tar.zst
 *.dmg
 *.exe
 *.msi
 dist/
+
+# Local packaging work directories
+/.flatpak-builder/
+/AppDir/
+/build-dir/
+/flatpak-staging/
+/repo/
+/snap/
+/squashfs-root/
+/appimagetool
+/com.proton.drive.desktop
+/com.proton.drive.yml
+/proton-drive-wrapper.sh
 
 # Environment
 .env

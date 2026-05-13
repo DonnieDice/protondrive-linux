@@ -10,10 +10,10 @@ name: Build Snap
     - "v*"
   workflow_dispatch:
     inputs:
-    distro_patch:
-      description: "Snap base patch name (e.g. core24)"
-      required: false
-      default: core24
+      distro_patch:
+        description: "Snap base patch name (e.g. core24)"
+        required: false
+        default: "core24"
 
 permissions:
   contents: read
@@ -39,8 +39,8 @@ jobs:
           bash git curl wget build-essential file pkg-config \
           libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev \
           libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev \
-        patchelf python3 ca-certificates \
-        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+          patchelf python3 ca-certificates \
+          libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
         sudo apt-get install -y nodejs
         sudo snap install snapcraft --classic
@@ -77,8 +77,13 @@ jobs:
         DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'core24' }}"
         PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
         if [ -f "$PATCH_FILE" ]; then
-          git apply "$PATCH_FILE"
-          echo "Applied $PATCH_FILE"
+          if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+            echo "Patch already applied: $PATCH_FILE"
+          else
+            git apply --check "$PATCH_FILE"
+            git apply "$PATCH_FILE"
+            echo "Applied $PATCH_FILE"
+          fi
         else
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi

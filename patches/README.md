@@ -1,24 +1,31 @@
 # Patches Directory
 
-Patches are organized by package type, then by distro version. Package workflows are intentionally separate, and each package owns its patch directory.
+Patches are organized by package type, then by distro/runtime target. Package workflows are intentionally separate, and each package owns its patch directory.
 
 ## Structure
 
 ```
 patches/
-├── common/            # Shared patches for ALL builds
+├── common/            # Shared WebClients patches for ALL builds
 ├── appimage/
-│   └── ubuntu.24.04.patch  # AppImage on Ubuntu 24.04 (runtime OS detection, GDK_GL=software)
+│   └── linux-baseline.patch
 ├── deb/
-│   ├── ubuntu.24.04.patch  # DEB on Ubuntu 24.04 (GDK_GL=software)
-│   └── debian.12.patch     # DEB on Debian 12 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
+│   ├── debian.12.patch
+│   ├── debian.13.patch
+│   ├── ubuntu.22.04.patch
+│   ├── ubuntu.24.04.patch
+│   └── ubuntu.26.04.patch
 ├── rpm/
-│   ├── fedora.40.patch     # RPM on Fedora 40 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
-│   └── fedora.42.patch     # RPM on Fedora 42 (new sandbox var + IPInt WASM disabled)
+│   ├── fedora.43.patch
+│   ├── fedora.44.patch
+│   ├── el9.patch
+│   └── el10.patch
 ├── flatpak/
-│   └── gnome.46.patch      # Flatpak on GNOME 46 runtime (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
+│   ├── org.gnome.Platform.44.patch
+│   └── org.gnome.Platform.50.patch
 ├── snap/
-│   └── ubuntu.24.04.patch  # Snap on core24 (GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE)
+│   ├── core24.patch
+│   └── core26.patch
 └── aur/                    # Arch Linux AUR-specific
 ```
 
@@ -26,9 +33,9 @@ patches/
 
 1. **Base code is universal.** `src-tauri/src/main.rs` must NOT contain distro-specific env vars (GDK_GL, LIBGL_ALWAYS_SOFTWARE, WEBKIT_DISABLE_*, etc.) or DISTRO_TYPE compile-time branching. The base binary ships clean.
 
-2. **Distro-specific overrides go in `patches/<package>/<distro>.<version>.patch`.** Each patch is named after the distro and version it targets (e.g., `ubuntu.24.04.patch`, `fedora.40.patch`, `debian.12.patch`).
+2. **Distro/runtime-specific overrides go in `patches/<package>/<target>.patch`.** DEB/RPM targets are distro versions (for example `ubuntu.22.04` or `fedora.44`); AppImage/Flatpak/Snap targets are runtime names (for example `linux-baseline`, `org.gnome.Platform.44`, or `core24`).
 
-3. **Build scripts take a patch argument.** Local build scripts (`build-local-*.sh`) require `<patch-name>` as the first argument (e.g., `ubuntu.24.04`). CI workflows apply the patch via `DISTRO_PATCH` variable (defaults to the primary distro for that package type).
+3. **Build scripts take or imply a patch target.** Local build scripts either default to their target or accept one as the first argument. CI workflows apply the matching patch via `DISTRO_PATCH`.
 
 4. **`DISTRO_TYPE` env var is set at build time.** Each workflow and build script exports `DISTRO_TYPE=appimage|deb|rpm|flatpak|snap` so the Rust code can use `option_env!("DISTRO_TYPE")` for package-specific behavior (like Worker init).
 
@@ -49,12 +56,13 @@ Each package type has a corresponding local build script that takes a patch name
 
 | Package | Local Script | Usage | DISTRO_TYPE |
 |---------|--------------|-------|-------------|
-| AppImage | `scripts/build-local-appimage.sh` | `./scripts/build-local-appimage.sh ubuntu.24.04` | `appimage` |
-| DEB | `scripts/build-local-deb.sh` | `./scripts/build-local-deb.sh ubuntu.24.04` | `deb` |
-| RPM (Fedora 40) | `scripts/rpm/build-local-rpm.fedora.40.sh` | `./scripts/rpm/build-local-rpm.fedora.40.sh` | `rpm` |
-| RPM (Fedora 42) | `scripts/rpm/build-local-rpm.fedora.42.sh` | `./scripts/rpm/build-local-rpm.fedora.42.sh` | `rpm` |
-| Flatpak | `scripts/build-local-flatpak.sh` | `./scripts/build-local-flatpak.sh gnome.46` | `flatpak` |
-| Snap | `scripts/build-local-snap.sh` | `./scripts/build-local-snap.sh ubuntu.24.04` | `snap` |
+| AppImage | `scripts/appimage/build-local-appimage.sh` | `./scripts/appimage/build-local-appimage.sh --skip-webclient` | `appimage` |
+| DEB Ubuntu 22.04 | `scripts/deb/build-local-deb.ubuntu.22.04.sh` | `./scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient` | `deb` |
+| RPM Fedora 43 | `scripts/rpm/build-local-rpm.fedora.43.sh` | `./scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient` | `rpm` |
+| RPM Fedora 44 | `scripts/rpm/build-local-rpm.fedora.44.sh` | `./scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient` | `rpm` |
+| Flatpak GNOME 44 | `scripts/flatpak/build-local-flatpak.gnome44.sh` | `./scripts/flatpak/build-local-flatpak.gnome44.sh --skip-webclient` | `flatpak` |
+| Flatpak GNOME 50 | `scripts/flatpak/build-local-flatpak.sh` | `./scripts/flatpak/build-local-flatpak.sh --skip-webclient` | `flatpak` |
+| Snap core24 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core24 --skip-webclient` | `snap` |
 
 ## Current Patches
 
@@ -62,25 +70,32 @@ Each package type has a corresponding local build script that takes a patch name
 - `fix-tauri-worker-protocol.patch` - Disables Web Workers in Tauri environment (WebKitGTK doesn't support workers from tauri:// protocol)
 
 ### appimage/
-- `ubuntu.24.04.patch` - Runtime OS detection: GDK_GL=software on Ubuntu, GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE on Debian/Fedora
+- `linux-baseline.patch` - Portable AppImage baseline.
 
 ### deb/
-- `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software (avoids WebKitWebProcess crash)
 - `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
+- `debian.13.patch` - Debian 13 WebKitGTK 2.46+ renderer settings
+- `ubuntu.22.04.patch` - Ubuntu 22.04 bundled-WebKit build
+- `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software (avoids WebKitWebProcess crash)
+- `ubuntu.26.04.patch` - Ubuntu 26.04 WebKitGTK 2.48+ renderer settings
 
 ### rpm/
-- `fedora.40.patch` - Fedora-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
-- `fedora.42.patch` - Fedora 42-safe: new sandbox override + GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
+- `fedora.43.patch` - Fedora 43 WebKitGTK 2.52+ sandbox/IPInt workaround
+- `fedora.44.patch` - Fedora 44 WebKitGTK 2.52+ sandbox/IPInt workaround
+- `el9.patch` - RHEL/Alma/Rocky/CentOS Stream 9 baseline
+- `el10.patch` - RHEL/Alma/Rocky/CentOS Stream 10 baseline
 
 ### flatpak/
-- `gnome.46.patch` - GNOME 46 runtime: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
+- `org.gnome.Platform.44.patch` - GNOME 44 runtime for Ubuntu 22.04-compatible Flatpak testing
+- `org.gnome.Platform.50.patch` - GNOME 50 runtime
 
 ### snap/
-- `ubuntu.24.04.patch` - core24 runtime: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
+- `core24.patch` - Stable Snap base
+- `core26.patch` - Experimental core26 base
 
 ## Adding New Patches
 
-1. Create patch against git HEAD: `diff -u /tmp/main.rs.base /tmp/main.rs.patched > patches/<package>/<distro>.<version>.patch`
+1. Create patch against git HEAD: `diff -u /tmp/main.rs.base /tmp/main.rs.patched > patches/<package>/<target>.patch`
 2. Fix paths in the patch header: `--- a/src-tauri/src/main.rs` and `+++ b/src-tauri/src/main.rs`
 3. Name the patch after the distro and version (e.g., `ubuntu.24.04.patch`, `fedora.40.patch`)
 4. Test: `git apply --check patches/<package>/<distro>.<version>.patch`

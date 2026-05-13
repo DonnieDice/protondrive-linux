@@ -97,7 +97,10 @@ jobs:
        exit 1
       fi
       mkdir -p snap
-      sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml | sed "s/base: core24/base: core26/" > snap/snapcraft.yaml
+      sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml | \
+        sed -e "s/base: core24/base: core26/" \
+            -e "s/grade: stable/grade: devel/" \
+            -e "/^base: core26/a\\build-base: core26" > snap/snapcraft.yaml
       snapcraft --destructive-mode
 
    - name: Upload Snap artifact

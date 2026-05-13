@@ -73,15 +73,15 @@ jobs:
      run: |
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 
-      - name: Apply distro patch
-        run: |
-          DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'debian.13' }}"
-          PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+   - name: Apply distro patch
+     run: |
+      DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'debian.13' }}"
+      PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
-       git apply "$PATCH_FILE"
-       echo "Applied $PATCH_FILE"
+        git apply "$PATCH_FILE"
+        echo "Applied $PATCH_FILE"
       else
-       echo "WARNING: $PATCH_FILE not found, building without distro patch"
+        echo "WARNING: $PATCH_FILE not found, building without distro patch"
       fi
 
    - name: Build DEB
