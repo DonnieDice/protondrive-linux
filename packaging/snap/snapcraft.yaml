@@ -11,10 +11,14 @@ base: core24
 apps:
   proton-drive:
     command: usr/bin/proton-drive-wrapper
-    environment:
-      WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-      WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-      GDK_GL: software
+  environment:
+    WEBKIT_DISABLE_DMABUF_RENDERER: "1"
+    WEBKIT_DISABLE_COMPOSITING_MODE: "1"
+    GDK_GL: software
+    WEBKIT_NETWORK_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess
+    WEBKIT_WEB_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess
+    WEBKIT_GPU_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess
+    WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
       - home
@@ -44,13 +48,17 @@ parts:
     override-build: |
       install -Dm755 src-tauri/target/release/proton-drive "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/bin"
-      cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
-      #!/bin/bash
-      export WEBKIT_DISABLE_DMABUF_RENDERER=1
-      export WEBKIT_DISABLE_COMPOSITING_MODE=1
-      export GDK_GL=software
-      exec "$SNAP/usr/bin/proton-drive" "$@"
-      WRAPPEREOF
+    cat > "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper" << 'WRAPPEREOF'
+#!/bin/bash
+export WEBKIT_DISABLE_DMABUF_RENDERER=1
+export WEBKIT_DISABLE_COMPOSITING_MODE=1
+export GDK_GL=software
+export WEBKIT_NETWORK_PROCESS_PATH="$SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess"
+export WEBKIT_WEB_PROCESS_PATH="$SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess"
+export WEBKIT_GPU_PROCESS_PATH="$SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess"
+export WEBKIT_INJECTED_BUNDLE_PATH="$SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle"
+exec "$SNAP/usr/bin/proton-drive" "$@"
+WRAPPEREOF
       chmod +x "$SNAPCRAFT_PART_INSTALL/usr/bin/proton-drive-wrapper"
       mkdir -p "$SNAPCRAFT_PART_INSTALL/usr/share/applications"
       cat > "$SNAPCRAFT_PART_INSTALL/usr/share/applications/com.proton.drive.desktop" << 'DESKTOPEOF'
