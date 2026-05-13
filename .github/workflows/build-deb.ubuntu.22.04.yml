@@ -56,7 +56,6 @@ jobs:
             apt-get update
           }
           apt-get install -y -t bookworm \
-            libjson-glib-1.0-0 gir1.2-json-1.0 \
             libwebkit2gtk-4.1-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev
           curl -fsSL https://deb.nodesource.com/setup_20.x | bash -
           apt-get install -y nodejs
