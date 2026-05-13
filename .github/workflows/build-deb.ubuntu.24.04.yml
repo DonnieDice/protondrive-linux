@@ -101,7 +101,10 @@ jobs:
           cd src-tauri/target/release/bundle/deb
           for file in *.deb; do
             if [ -f "$file" ]; then
-              mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
+              target="proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
+              if [ "$file" != "$target" ]; then
+                mv "$file" "$target"
+              fi
             fi
           done
 
