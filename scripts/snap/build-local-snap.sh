@@ -76,7 +76,7 @@ if [ "$SNAP_TARGET" = "core26" ]; then
     sed -i \
         -e "s/base: core24/base: core26/" \
         -e "s/grade: stable/grade: devel/" \
-        -e "/^base: core26/a\\build-base: core26" \
+        -e "/^base: core26/a\\build-base: devel" \
         snap/snapcraft.yaml
 fi
 
