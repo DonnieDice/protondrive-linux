@@ -1,19 +1,19 @@
 name: Build AppImage
 
 "on":
- push:
-  branches:
-   - main
-   - dev
-   - alpha
-  tags:
-   - "v*"
- workflow_dispatch:
-  inputs:
-   appimage_target:
-    description: AppImage target (linux-baseline)
-    required: false
-    default: linux-baseline
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      appimage_target:
+        description: AppImage target (linux-baseline)
+        required: false
+        default: linux-baseline
 
 permissions:
  contents: read

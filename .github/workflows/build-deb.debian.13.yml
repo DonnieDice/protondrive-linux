@@ -1,19 +1,19 @@
 name: Build DEB Debian 13
 
 "on":
- push:
-  branches:
-   - main
-   - dev
-   - alpha
- tags:
-  - "v*"
- workflow_dispatch:
-  inputs:
-   distro_patch:
-    description: "Distro patch name (e.g. debian.13)"
-    required: false
-    default: "debian.13"
+  push:
+    branches:
+      - main
+      - dev
+      - alpha
+    tags:
+      - "v*"
+  workflow_dispatch:
+    inputs:
+      distro_patch:
+        description: "Distro patch name (e.g. debian.13)"
+        required: false
+        default: "debian.13"
 
 permissions:
  contents: read
