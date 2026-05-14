@@ -14,7 +14,7 @@ Do not cut a stable release directly from `dev`. Once `dev` is green, fast-forwa
 
 ## Required Release Workflows
 
-These workflows are required for the current release gate (`release.yml` waits for all 15 builds):
+These workflows are required for the current release gate (`release.yml` waits for all 13 builds):
 
 | Workflow | Artifact | Target |
 |----------|----------|--------|
@@ -23,12 +23,11 @@ These workflows are required for the current release gate (`release.yml` waits f
 | `build-rpm.el10.yml` | `.rpm` | RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10 |
 | `build-deb.yml` | `.deb` | Debian 12 |
 | `build-deb.debian.13.yml` | `.deb` | Debian 13 |
-| `build-deb.ubuntu.22.04.yml` | `.deb` | Ubuntu 22.04 LTS |
 | `build-deb.ubuntu.24.04.yml` | `.deb` | Ubuntu 24.04 LTS |
 | `build-deb.ubuntu.26.04.yml` | `.deb` | Ubuntu 26.04 LTS |
 | `build-appimage.yml` | `.AppImage` | Portable Linux installs (glibc 2.35+) |
+| `build-flatpak.gnome49.yml` | `.flatpak` | Flatpak (org.gnome.Platform//49) |
 | `build-flatpak.yml` | `.flatpak` | Flatpak (org.gnome.Platform//50) |
-| `build-snap.core22.yml` | `.snap` | Snap core22 |
 | `build-snap.yml` | `.snap` | Snap core24 |
 | `build-snap.core26.yml` | `.snap` | Snap core26 |
 | `build-aur.yml` | `.pkg.tar.zst` | Arch / AUR |
@@ -54,12 +53,13 @@ scripts/rpm/build-local-rpm.fedora.40.sh    # legacy, still available
 scripts/rpm/build-local-rpm.fedora.41.sh    # legacy, still available
 scripts/rpm/build-local-rpm.fedora.42.sh    # legacy, still available
 scripts/deb/build-local-deb.sh
-scripts/deb/build-local-deb.ubuntu.22.04.sh
+scripts/deb/build-local-deb.ubuntu.24.04.sh
+scripts/deb/build-local-deb.ubuntu.26.04.sh
 scripts/appimage/build-local-appimage.sh
+scripts/flatpak/build-local-flatpak.gnome49.sh
 scripts/flatpak/build-local-flatpak.sh
-scripts/flatpak/build-local-flatpak.gnome44.sh
-scripts/snap/build-local-snap.sh core22
 scripts/snap/build-local-snap.sh
+scripts/snap/build-local-snap.sh core26
 scripts/build-local-aur.sh
 ```
 
@@ -67,12 +67,13 @@ If WebClients is already built:
 
 ```bash
 scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
-scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient
+scripts/deb/build-local-deb.ubuntu.24.04.sh --skip-webclient
+scripts/deb/build-local-deb.ubuntu.26.04.sh --skip-webclient
 scripts/appimage/build-local-appimage.sh --skip-webclient
+scripts/flatpak/build-local-flatpak.gnome49.sh --skip-webclient
 scripts/flatpak/build-local-flatpak.sh --skip-webclient
-scripts/flatpak/build-local-flatpak.gnome44.sh --skip-webclient
-scripts/snap/build-local-snap.sh core22 --skip-webclient
 scripts/snap/build-local-snap.sh core24 --skip-webclient
+scripts/snap/build-local-snap.sh core26 --skip-webclient
 ```
 
 ## Release Checklist
@@ -82,18 +83,21 @@ scripts/snap/build-local-snap.sh core24 --skip-webclient
 - Ubuntu/DEB and AppImage smoke tests are recorded when available.
 - `main` contains only the tested dev commits intended for release.
 - Release tag points at `main`, not `dev`.
-- GitHub release contains all 15 package artifacts plus `SHA256SUMS`.
+- GitHub release contains all 13 package artifacts plus `SHA256SUMS`.
 
-## Ubuntu 22.04 Runtime Test Notes
+## Ubuntu 24.04 Runtime Test Notes
 
-Remote artifacts from the `dev` branch package workflows are the release gate for Ubuntu 22.04 testing. Local builds are used only to debug workflow/package failures.
+Remote artifacts from the `dev` branch package workflows are the release gate for Ubuntu 24.04 testing. Local builds are used only to debug workflow/package failures.
 
-| Date | Artifact | Source | Result |
-| --- | --- | --- | --- |
-| 2026-05-13 | `proton-drive_*_ubuntu2204_bundled_amd64.deb` | Remote workflow artifact | Passed manual install, launch, login, and Drive file-view testing on Ubuntu 22.04. |
-| 2026-05-13 | `proton-drive_*_linux-baseline_amd64.AppImage` | Remote workflow artifact | Passed manual launch, login, and Drive file-view testing on Ubuntu 22.04. |
-| 2026-05-13 | `proton-drive_*_gnome44.flatpak` | Remote workflow artifact | Passed manual install, launch, login, and Drive file-view testing on Ubuntu 22.04. |
-| 2026-05-13 | `proton-drive_*_core22_amd64.snap` | Remote workflow artifact | Passed manual install, launch, login, 2FA, and Drive load/file-listing smoke testing on Ubuntu 22.04 after adding snap runtime `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1` and `JSC_useWasmIPInt=false`. |
+Record the Ubuntu 24.04 test results for:
+
+- `proton-drive_*_ubuntu24.04_amd64.deb`
+- `proton-drive_*_ubuntu26.04_amd64.deb`
+- `proton-drive_*_linux-baseline_amd64.AppImage`
+- `proton-drive_*_gnome49.flatpak`
+- `proton-drive_*_gnome50.flatpak`
+- `proton-drive_*_core24_amd64.snap`
+- `proton-drive_*_core26_amd64.snap`
 
 ## Manual Runtime Testing Guardrails
 

@@ -36,7 +36,8 @@ Each package type has its own subdirectory with local build scripts:
 | Script | Target |
 |--------|--------|
 | `build-local-deb.sh` | Debian/Ubuntu (configurable via DISTRO_TYPE) |
-| `build-local-deb.ubuntu.22.04.sh` | Ubuntu 22.04 / Mint 21.x / Zorin 17 bundled-WebKit DEB |
+| `build-local-deb.ubuntu.24.04.sh` | Ubuntu 24.04 / Mint 22.x bundled-WebKit DEB |
+| `build-local-deb.ubuntu.26.04.sh` | Ubuntu 26.04 bundled DEB |
 
 ### `appimage/`
 
@@ -49,21 +50,23 @@ Each package type has its own subdirectory with local build scripts:
 | Script | Target |
 |--------|--------|
 | `build-local-flatpak.sh` | Flatpak (org.gnome.Platform//50) |
-| `build-local-flatpak.gnome44.sh` | Flatpak (org.gnome.Platform//44, Ubuntu 22.04-compatible runtime) |
+| `build-local-flatpak.gnome49.sh` | Flatpak (org.gnome.Platform//49) |
 
 ### `snap/`
 
 | Script | Target |
 |--------|--------|
-| `build-local-snap.sh` | Snap core24 by default; pass `core22` for Ubuntu 22.04 or `core26` for the experimental core26 target |
+| `build-local-snap.sh` | Snap core24 by default; pass `core26` for the experimental core26 target |
 
 ## Usage
 
 All local build scripts support `--skip-webclient` to skip the WebClients build if it's already done:
 
 ```bash
-scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient
-scripts/snap/build-local-snap.sh core22 --skip-webclient
+scripts/deb/build-local-deb.ubuntu.24.04.sh --skip-webclient
+scripts/flatpak/build-local-flatpak.gnome49.sh --skip-webclient
+scripts/snap/build-local-snap.sh core24 --skip-webclient
+scripts/snap/build-local-snap.sh core26 --skip-webclient
 ```
 
 ## Related Documentation

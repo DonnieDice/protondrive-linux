@@ -25,20 +25,6 @@ if ! command -v snapcraft &> /dev/null; then
 fi
 
 SNAPCRAFT_ARGS=(pack --destructive-mode)
-if [ -r /etc/os-release ]; then
-    . /etc/os-release
-    if [ "${ID:-}" = "ubuntu" ] && [ "${VERSION_ID:-}" = "22.04" ]; then
-        if command -v lxc >/dev/null 2>&1; then
-            SNAPCRAFT_ARGS=(pack --use-lxd)
-            echo "Using LXD build because Ubuntu 22.04 cannot destructively build Ubuntu 24.04-based snaps."
-        else
-            echo "Ubuntu 22.04 cannot destructively build this snap target with snapcraft 8."
-            echo "Install LXD first: sudo snap install lxd"
-            echo "Then initialize it: sudo lxd init --auto"
-            exit 1
-        fi
-    fi
-fi
 
 if [ "$SKIP_WEBCLIENT" = false ]; then
     "$PROJECT_ROOT/scripts/build-webclients.sh"
@@ -102,15 +88,7 @@ cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
 cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
 cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
 sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
-if [ "$SNAP_TARGET" = "core22" ]; then
-    sed -i \
-        -e "s/base: core24/base: core22/" \
-        -e "s/GDK_GL: software/GDK_GL: disable/" \
-        "$BUILD_CONTEXT/snapcraft.yaml"
-    sed -i \
-        -e 's/export GDK_GL=software/export GDK_GL=disable/' \
-        "$BUILD_CONTEXT/packaging/snap/proton-drive-wrapper.sh"
-elif [ "$SNAP_TARGET" = "core26" ]; then
+if [ "$SNAP_TARGET" = "core26" ]; then
     sed -i \
         -e "s/base: core24/base: core26/" \
         -e "s/grade: stable/grade: devel/" \
@@ -121,14 +99,13 @@ elif [ "$SNAP_TARGET" != "core24" ]; then
     exit 1
 fi
 
-if [ "$SNAP_TARGET" = "core22" ]; then
-    if ! snap list core22 >/dev/null 2>&1; then
-        echo "core22 base snap is not installed; install it with: sudo snap install core22 --channel=latest/stable"
-    fi
-elif [ "$SNAP_TARGET" = "core26" ]; then
+if [ "$SNAP_TARGET" = "core26" ]; then
     if ! snap list core26 >/dev/null 2>&1; then
         echo "core26 base snap is not installed; install it with: sudo snap install core26 --channel=latest/stable"
     fi
+elif [ "$SNAP_TARGET" != "core24" ]; then
+    echo "ERROR: Unsupported snap target: $SNAP_TARGET"
+    exit 1
 fi
 
 SNAPCRAFT_STATUS=0

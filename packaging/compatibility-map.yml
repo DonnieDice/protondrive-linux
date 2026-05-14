@@ -56,17 +56,6 @@ deb:
     patch: debian.13
     supports:
       - debian-13
-  ubuntu22.04:
-    workflow: .github/workflows/build-deb.ubuntu.22.04.yml
-    build_container: ubuntu:22.04
-    release_label: ubuntu22.04
-    artifact_name: deb-package-ubuntu2204
-    patch: ubuntu.22.04
-    supports:
-      - ubuntu-22.04
-      - linuxmint-21
-      - zorin-17
-      - popos-22.04
   ubuntu24.04:
     workflow: .github/workflows/build-deb.ubuntu.24.04.yml
     build_container: ubuntu:24.04
@@ -111,15 +100,14 @@ aur:
       - garuda
 
 flatpak:
-  org.gnome.Platform.44:
-    workflow: .github/workflows/build-flatpak.gnome44.yml
-    build_container: ubuntu-22.04
-    release_label: flatpak-gnome44
-    artifact_name: flatpak-package-gnome44
-    patch: org.gnome.Platform.44
+  org.gnome.Platform.49:
+    workflow: .github/workflows/build-flatpak.gnome49.yml
+    build_container: ubuntu-24.04
+    release_label: flatpak-gnome49
+    artifact_name: flatpak-package-gnome49
+    patch: org.gnome.Platform.49
     supports:
-    - org.gnome.Platform//44
-    - ubuntu-22.04
+      - org.gnome.Platform//49
   org.gnome.Platform.50:
     workflow: .github/workflows/build-flatpak.yml
     build_container: ubuntu-24.04
@@ -127,17 +115,9 @@ flatpak:
     artifact_name: flatpak-package
     patch: org.gnome.Platform.50
     supports:
-    - org.gnome.Platform//50
+      - org.gnome.Platform//50
 
 snap:
-  core22:
-    workflow: .github/workflows/build-snap.core22.yml
-    build_container: ubuntu-22.04
-    release_label: snap-core22
-    artifact_name: snap-package-core22
-    patch: core22
-    supports:
-      - core22
   core24:
     workflow: .github/workflows/build-snap.yml
     build_container: ubuntu-24.04
