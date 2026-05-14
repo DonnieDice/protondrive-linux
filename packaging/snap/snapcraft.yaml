@@ -72,3 +72,20 @@ parts:
     - libayatana-appindicator3-1
     - librsvg2-2
     - libsoup-3.0-0
+    prime:
+    # glibc and the dynamic loader must come from the Snap base. Staging them
+    # into the app snap can mix GLIBC_PRIVATE symbols with the base runtime.
+    - -usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+    - -usr/lib64/ld-linux-x86-64.so.2
+    - -usr/lib/x86_64-linux-gnu/libc.so.6
+    - -usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0
+    - -usr/lib/x86_64-linux-gnu/libdl.so.2
+    - -usr/lib/x86_64-linux-gnu/libm.so.6
+    - -usr/lib/x86_64-linux-gnu/libmvec.so.1
+    - -usr/lib/x86_64-linux-gnu/libpthread.so.0
+    - -usr/lib/x86_64-linux-gnu/libresolv.so.2
+    - -usr/lib/x86_64-linux-gnu/librt.so.1
+    - -usr/lib/x86_64-linux-gnu/libnss_compat.so.2
+    - -usr/lib/x86_64-linux-gnu/libnss_dns.so.2
+    - -usr/lib/x86_64-linux-gnu/libnss_files.so.2
+    - -usr/lib/x86_64-linux-gnu/libnss_hesiod.so.2
