@@ -85,7 +85,9 @@ scripts/snap/build-local-snap.sh core26 --skip-webclient
 - Release tag points at `main`, not `dev`.
 - GitHub release contains all 13 package artifacts plus `SHA256SUMS`.
 
-## Ubuntu 24.04 Runtime Test Notes
+## Runtime Test Notes
+
+The table below tracks the artifact smoke tests we have personally confirmed. A successful GitHub Actions run is still useful, but it is not the same thing as downloading the built package and testing it on the target host.
 
 Remote artifacts from the `dev` branch package workflows are the release gate for Ubuntu 24.04 testing. Local builds are used only to debug workflow/package failures.
 
