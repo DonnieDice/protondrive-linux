@@ -61,8 +61,6 @@ Choose the RPM that matches your system:
 sudo dnf install ./proton-drive-*.rpm
 ```
 
-RHEL/Alma/Rocky/CentOS Stream 9 is not supported by the current native RPM because EL9 ships GLib 2.68 and the current Tauri/GTK stack requires GLib 2.70 or newer.
-
 ### Arch / Manjaro / EndeavourOS / Garuda
 
 Install from the AUR:
