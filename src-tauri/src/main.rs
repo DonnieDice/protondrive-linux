@@ -214,9 +214,9 @@ fn main() {
     .setup(|app| {
         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
         let worker_init = match option_env!("DISTRO_TYPE") {
-            Some("rpm") | Some("snap") => {
+            Some("rpm") => {
                 r#"
-        console.log('[INIT] Snap/System package build - main-thread crypto active via source patch');
+        console.log('[INIT] RPM build - main-thread crypto active via source patch');
         "#
             }
             _ => {
