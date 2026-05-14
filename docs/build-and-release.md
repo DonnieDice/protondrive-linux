@@ -32,8 +32,6 @@ These workflows are required for the current release gate (`release.yml` waits f
 | `build-snap.core26.yml` | `.snap` | Snap core26 |
 | `build-aur.yml` | `.pkg.tar.zst` | Arch / AUR |
 
-RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM release target for current builds. The current Tauri/GTK dependency graph requires `glib-2.0 >= 2.70`; EL9 ships `glib2 2.68.x`, so a valid EL9 RPM cannot be produced without downgrading the app stack.
-
 ## Local Debug Commands
 
 Remote GitHub Actions workflows are the source of truth for release artifacts. The repo no longer keeps package-specific local build wrappers; use the package workflows for release artifacts and use local commands only to debug WebClients or Rust/Tauri compilation.
@@ -105,7 +103,6 @@ Pending compatibility checks:
 
 - Debian 12 DEB
 - Debian 13 DEB
-- EL9 RPM test-only lane
 - EL10 RPM
 - Snap core26 remote artifact on Ubuntu 26.04
 
