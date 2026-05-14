@@ -8,7 +8,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 |---------|-----------|-----------------|----------------|-------|
 | RPM | `build-rpm.fedora.43.yml`, `build-rpm.fedora.44.yml`, `build-rpm.el10.yml` | `patches/rpm/` | `fedora.43.patch`, `fedora.44.patch`, `el10.patch` | Fedora and RHEL/EL family. F43/F44 share compat baseline (webkit2gtk 2.52+). EL10 uses 2.52+. EL9 is not a current native RPM target because its GLib is too old for the current Tauri/GTK stack. |
 | DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.24.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` is the Debian 12 workflow. |
-| AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline. |
+| AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline, `JSC_useWasmIPInt=false`. |
 | Flatpak | `build-flatpak.gnome49.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.49.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 49 and 50 Flatpak runtimes. Both require `JSC_useWasmIPInt=false` for the post-2FA WebKit/JSC path. |
 | Snap | `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core24.patch`, `core26.patch` | core24 and core26 Snap packages. core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
 | AUR | `build-aur.yml`, `publish-aur.yml` | `patches/aur/` | `arch.patch`, `arch.wrapper` | Full Tauri build + makepkg. Single `arch` target covers all Arch-family distros. |
@@ -28,7 +28,7 @@ Patches are named by runtime/ABI target inside the package directory:
 ```
 patches/
 ├── common/fix-tauri-worker-protocol.patch   # WebClients tauri:// worker protocol fix
-├── appimage/linux-baseline.patch            # Linux baseline (glibc 2.35+): GDK_GL=software
+├── appimage/linux-baseline.patch            # Linux baseline (glibc 2.35+): GDK_GL=software, JSC_useWasmIPInt=false
 ├── aur/arch.patch                           # Arch-family (webkit2gtk 2.52+): GDK_GL=disable, sandbox+IPInt fixes
 ├── deb/debian.12.patch                      # Debian 12: GDK_GL=disable
 ├── deb/debian.13.patch                      # Debian 13: GDK_GL=software

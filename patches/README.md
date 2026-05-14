@@ -69,7 +69,7 @@ Each package type has a corresponding local build script that takes a patch name
 - `fix-tauri-worker-protocol.patch` - Disables Web Workers in Tauri environment (WebKitGTK doesn't support workers from tauri:// protocol)
 
 ### appimage/
-- `linux-baseline.patch` - Portable AppImage baseline.
+- `linux-baseline.patch` - Portable AppImage baseline with `JSC_useWasmIPInt=false`.
 
 ### deb/
 - `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE

@@ -129,7 +129,7 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases.
 |-------------|----------------|---------------------|-------|
 | `linux-baseline` | `debian:12` | All Linux with glibc 2.35+, webkit2gtk 2.46+ | `linux-baseline` |
 
-AppImage is host-distro portable. The compatibility boundary is glibc age — build on the oldest supported baseline (Debian 12). Single `linux-baseline` target, `GDK_GL=software` (avoids crashes from `GDK_GL=disable` on some distros).
+AppImage is host-distro portable. The compatibility boundary is glibc age — build on the oldest supported baseline (Debian 12). Single `linux-baseline` target, `GDK_GL=software`, `JSC_useWasmIPInt=false` (avoids the post-2FA WebKit/JSC trap path).
 
 ---
 
