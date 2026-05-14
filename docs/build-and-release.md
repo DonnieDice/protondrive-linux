@@ -111,7 +111,7 @@ Record test results for:
 Current status:
 
 - Ubuntu 24.04 DEB: remote artifact pass
-- Ubuntu 26.04 DEB: pending remote artifact test on Ubuntu 26.04
+- Ubuntu 26.04 DEB: remote artifact pass
 - Flatpak GNOME 49: pass
 - Snap core24: remote artifact pass
 - AppImage: remote artifact pass
@@ -126,7 +126,6 @@ Pending compatibility checks:
 - Debian 13 DEB
 - EL9 RPM test-only lane
 - EL10 RPM
-- Ubuntu 26.04 DEB remote artifact on Ubuntu 26.04
 - Snap core26 remote artifact on Ubuntu 26.04
 
 ## Manual Runtime Testing Guardrails
