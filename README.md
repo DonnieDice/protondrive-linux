@@ -163,7 +163,7 @@ ProtonDrive Linux wraps Proton Drive's official web frontend in a Tauri WebView.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines. Technical packaging and compatibility notes are in [`docs/`](docs/).
+Contributions are welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines. Technical packaging and compatibility notes are in [`docs/`](docs/).
 
 ## License
 
