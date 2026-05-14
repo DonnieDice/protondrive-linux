@@ -38,7 +38,6 @@ Choose the DEB that matches your system:
 
 | Package | For |
 |---------|-----|
-| `proton-drive_*_ubuntu2204_bundled_amd64.deb` | Ubuntu 22.04, Linux Mint 21.x, Zorin 17, Pop!\_OS 22.04 |
 | `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x |
 | `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 |
 | `proton-drive_*_debian12_amd64.deb` | Debian 12 (Bookworm) |
@@ -90,7 +89,7 @@ Not currently available on Flathub. Download the `.flatpak` artifact from [Relea
 ### Snap
 
 ```bash
-sudo snap install --dangerous proton-drive_*_core22_amd64.snap
+sudo snap install --dangerous proton-drive_*_core24_amd64.snap
 ```
 
 Not currently available in the Snap Store. Download the `.snap` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally with `--dangerous`.

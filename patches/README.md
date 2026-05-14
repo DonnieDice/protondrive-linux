@@ -12,7 +12,6 @@ patches/
 ├── deb/
 │   ├── debian.12.patch
 │   ├── debian.13.patch
-│   ├── ubuntu.22.04.patch
 │   ├── ubuntu.24.04.patch
 │   └── ubuntu.26.04.patch
 ├── rpm/
@@ -20,10 +19,9 @@ patches/
 │   ├── fedora.44.patch
 │   └── el10.patch
 ├── flatpak/
-│   ├── org.gnome.Platform.44.patch
+│   ├── org.gnome.Platform.49.patch
 │   └── org.gnome.Platform.50.patch
 ├── snap/
-│   ├── core22.patch
 │   ├── core24.patch
 │   └── core26.patch
 └── aur/                    # Arch Linux AUR-specific
@@ -33,7 +31,7 @@ patches/
 
 1. **Base code is universal.** `src-tauri/src/main.rs` must NOT contain distro-specific env vars (GDK_GL, LIBGL_ALWAYS_SOFTWARE, WEBKIT_DISABLE_*, etc.) or DISTRO_TYPE compile-time branching. The base binary ships clean.
 
-2. **Distro/runtime-specific overrides go in `patches/<package>/<target>.patch`.** DEB/RPM targets are distro versions (for example `ubuntu.22.04` or `fedora.44`); AppImage/Flatpak/Snap targets are runtime names (for example `linux-baseline`, `org.gnome.Platform.44`, `core22`, or `core24`).
+2. **Distro/runtime-specific overrides go in `patches/<package>/<target>.patch`.** DEB/RPM targets are distro versions (for example `ubuntu.24.04` or `fedora.44`); AppImage/Flatpak/Snap targets are runtime names (for example `linux-baseline`, `org.gnome.Platform.49`, `core24`, or `core26`).
 
 3. **Build scripts take or imply a patch target.** Local build scripts either default to their target or accept one as the first argument. CI workflows apply the matching patch via `DISTRO_PATCH`.
 
@@ -57,13 +55,13 @@ Each package type has a corresponding local build script that takes a patch name
 | Package | Local Script | Usage | DISTRO_TYPE |
 |---------|--------------|-------|-------------|
 | AppImage | `scripts/appimage/build-local-appimage.sh` | `./scripts/appimage/build-local-appimage.sh --skip-webclient` | `appimage` |
-| DEB Ubuntu 22.04 | `scripts/deb/build-local-deb.ubuntu.22.04.sh` | `./scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient` | `deb` |
+| DEB Ubuntu 24.04 | `scripts/deb/build-local-deb.ubuntu.24.04.sh` | `./scripts/deb/build-local-deb.ubuntu.24.04.sh --skip-webclient` | `deb` |
 | RPM Fedora 43 | `scripts/rpm/build-local-rpm.fedora.43.sh` | `./scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient` | `rpm` |
 | RPM Fedora 44 | `scripts/rpm/build-local-rpm.fedora.44.sh` | `./scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient` | `rpm` |
-| Flatpak GNOME 44 | `scripts/flatpak/build-local-flatpak.gnome44.sh` | `./scripts/flatpak/build-local-flatpak.gnome44.sh --skip-webclient` | `flatpak` |
+| Flatpak GNOME 49 | `scripts/flatpak/build-local-flatpak.gnome49.sh` | `./scripts/flatpak/build-local-flatpak.gnome49.sh --skip-webclient` | `flatpak` |
 | Flatpak GNOME 50 | `scripts/flatpak/build-local-flatpak.sh` | `./scripts/flatpak/build-local-flatpak.sh --skip-webclient` | `flatpak` |
-| Snap core22 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core22 --skip-webclient` | `snap` |
 | Snap core24 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core24 --skip-webclient` | `snap` |
+| Snap core26 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core26 --skip-webclient` | `snap` |
 
 ## Current Patches
 
@@ -76,7 +74,6 @@ Each package type has a corresponding local build script that takes a patch name
 ### deb/
 - `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 - `debian.13.patch` - Debian 13 WebKitGTK 2.46+ renderer settings
-- `ubuntu.22.04.patch` - Ubuntu 22.04 bundled-WebKit build
 - `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software (avoids WebKitWebProcess crash)
 - `ubuntu.26.04.patch` - Ubuntu 26.04 WebKitGTK 2.48+ renderer settings
 
@@ -86,11 +83,10 @@ Each package type has a corresponding local build script that takes a patch name
 - `el10.patch` - RHEL/Alma/Rocky/CentOS Stream 10 baseline
 
 ### flatpak/
-- `org.gnome.Platform.44.patch` - GNOME 44 runtime for Ubuntu 22.04-compatible Flatpak testing
+- `org.gnome.Platform.49.patch` - GNOME 49 runtime
 - `org.gnome.Platform.50.patch` - GNOME 50 runtime
 
 ### snap/
-- `core22.patch` - Ubuntu 22.04-era Snap base
 - `core24.patch` - Stable Snap base
 - `core26.patch` - Experimental core26 base
 

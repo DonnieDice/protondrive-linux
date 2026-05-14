@@ -13,7 +13,7 @@ Build fewer packages. Test more systems. Split only when a patch/runtime differe
 
 ## Clean Base Rule
 
-**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core22`, `core24`, `fedora.43`), not the host distro.
+**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.49`, `org.gnome.Platform.50`, `core24`, `fedora.43`), not the host distro.
 
 If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment:
 
@@ -60,7 +60,6 @@ patches/
 ├── deb/
 │   ├── debian.12.patch       # Debian 12 (webkit2gtk 2.40, GDK_GL=disable)
 │   ├── debian.13.patch       # Debian 13 (webkit2gtk 2.46+, GDK_GL=software)
-│   ├── ubuntu.22.04.patch    # Ubuntu 22.04 (webkit2gtk 2.36, GDK_GL=disable)
 │   ├── ubuntu.24.04.patch    # Ubuntu 24.04 (webkit2gtk 2.46+, GDK_GL=software)
 │   └── ubuntu.26.04.patch    # Ubuntu 26.04 (webkit2gtk 2.48+, GDK_GL=software)
 ├── rpm/
@@ -68,10 +67,9 @@ patches/
 │   ├── fedora.44.patch       # Fedora 44 (webkit2gtk 2.52+, sandbox+IPInt fix)
 │   └── el10.patch            # RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10
 ├── flatpak/
-│   ├── org.gnome.Platform.44.patch  # Ubuntu 22.04-compatible Flatpak runtime
-│   └── org.gnome.Platform.50.patch  # Current Flatpak runtime
+│   ├── org.gnome.Platform.49.patch  # GNOME Platform 49 runtime
+│   └── org.gnome.Platform.50.patch  # GNOME Platform 50 runtime
 ├── snap/
-│   ├── core22.patch          # Snap core22 base
 │   ├── core24.patch          # Snap core24 base
 │   └── core26.patch          # Snap core26 base (webkit2gtk 2.52+)
 └── aur/
@@ -111,7 +109,6 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases.
 |-------------|----------------|---------------------|-------|
 | `debian12` | `debian:12` | Debian 12 | `debian.12` |
 | `debian13` | `debian:13` | Debian 13 | `debian.13` |
-| `ubuntu22.04` | `ubuntu:22.04` | Ubuntu 22.04, Linux Mint 21.x, Zorin 17, Pop!_OS 22.04 | `ubuntu.22.04` |
 | `ubuntu24.04` | `ubuntu:24.04` | Ubuntu 24.04, Linux Mint 22.x | `ubuntu.24.04` |
 | `ubuntu26.04` | `ubuntu:26.04` | Ubuntu 26.04 | `ubuntu.26.04` |
 
@@ -121,7 +118,6 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases.
 |----------|--------|--------|
 | `debian.12` | `disable` | Safe on older WebKitGTK 2.40; sets `LIBGL_ALWAYS_SOFTWARE=1` |
 | `debian.13` | `software` | `GDK_GL=disable` crashes WebKitWebProcess on 2.46+ |
-| `ubuntu.22.04` | `disable` | Safe on WebKitGTK 2.36; no DMABUF renderer |
 | `ubuntu.24.04` | `software` | `GDK_GL=disable` crashes on 2.46+ |
 | `ubuntu.26.04` | `software` | Same as 24.04 for newer WebKitGTK |
 
@@ -151,7 +147,7 @@ A single `arch` patch and wrapper covers all Arch-family distros — they share 
 
 | Build target | Build container | Patch |
 |-------------|----------------|-------|
-| `org.gnome.Platform.44` | `ubuntu-22.04` | `org.gnome.Platform.44` |
+| `org.gnome.Platform.49` | `ubuntu-24.04` | `org.gnome.Platform.49` |
 | `org.gnome.Platform.50` | `ubuntu-24.04` | `org.gnome.Platform.50` |
 
 Patches target the Flatpak runtime, not the host distro.
@@ -162,11 +158,10 @@ Patches target the Flatpak runtime, not the host distro.
 
 | Build target | Build container | Patch |
 |-------------|----------------|-------|
-| `core22` | `ubuntu-22.04` | `core22` |
 | `core24` | `ubuntu-24.04` | `core24` |
 | `core26` | `ubuntu-24.04` | `core26` |
 
-Patches target the Snap base, not the host distro. `core22` is the Ubuntu 22.04-era base, `core24` is the Ubuntu 24.04-era base, and `core26` includes webkit2gtk 2.52+ sandbox and IPInt fixes.
+Patches target the Snap base, not the host distro. `core24` is the Ubuntu 24.04-era base, and `core26` includes webkit2gtk 2.52+ sandbox and IPInt fixes.
 
 ---
 
@@ -179,13 +174,11 @@ Patches target the Snap base, not the host distro. `core22` is the Ubuntu 22.04-
 | RHEL 10 / Alma 10 / Rocky 10 | `proton-drive-*.rpm` (el10) |
 | Debian 12 | `proton-drive_*.deb` (debian12) |
 | Debian 13 | `proton-drive_*.deb` (debian13) |
-| Ubuntu 22.04 / Mint 21.x / Zorin 17 | `proton-drive_*.deb` (ubuntu22.04) |
 | Ubuntu 24.04 / Mint 22.x | `proton-drive_*.deb` (ubuntu24.04) |
 | Ubuntu 26.04 | `proton-drive_*.deb` (ubuntu26.04) |
 | Arch / Manjaro / EndeavourOS / Garuda | `proton-drive-*.pkg.tar.zst` (AUR) or AppImage |
 | Any Linux (portable) | `proton-drive_*.AppImage` |
-| Flatpak | `proton-drive_*.flatpak` |
-| Snap (core22) | `proton-drive_*.snap` (core22) |
+| Flatpak (GNOME 49/50) | `proton-drive_*.flatpak` |
 | Snap (core24) | `proton-drive_*.snap` (core24) |
 | Snap (core26) | `proton-drive_*.snap` (core26) |
 

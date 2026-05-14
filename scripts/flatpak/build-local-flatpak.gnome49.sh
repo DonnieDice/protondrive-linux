@@ -9,8 +9,7 @@ SKIP_WEBCLIENT=false
 [[ "${1:-}" == "--skip-webclient" ]] && SKIP_WEBCLIENT=true
 
 echo "=========================================="
-echo "Proton Drive Flatpak Build — GNOME 44"
-echo "  (Ubuntu 22.04 compat)"
+echo "Proton Drive Flatpak Build — GNOME 49"
 echo "=========================================="
 
 if ! command -v flatpak-builder &> /dev/null; then
@@ -28,7 +27,7 @@ else
     fi
 fi
 
-PATCH_FILE="patches/flatpak/org.gnome.Platform.44.patch"
+PATCH_FILE="patches/flatpak/org.gnome.Platform.49.patch"
 if [ -f "$PATCH_FILE" ]; then
     git apply "$PATCH_FILE"
     echo "Applied $PATCH_FILE"
@@ -51,15 +50,14 @@ if [ ! -f "src-tauri/target/release/proton-drive" ]; then
 fi
 
 flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
-flatpak install --user -y flathub org.gnome.Platform//44 org.gnome.Sdk//44 || true
+flatpak install --user -y flathub org.gnome.Platform//49 org.gnome.Sdk//49 || true
 
 cat > proton-drive-wrapper.sh << 'EOF'
 #!/bin/bash
 export WEBKIT_DISABLE_DMABUF_RENDERER=1
 export WEBKIT_DISABLE_COMPOSITING_MODE=1
 export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-export GDK_GL=disable
-export LIBGL_ALWAYS_SOFTWARE=1
+export GDK_GL=software
 export GSK_RENDERER=cairo
 exec /app/bin/proton-drive-bin "$@"
 EOF
@@ -86,10 +84,10 @@ cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
 cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
 cp com.proton.drive.desktop flatpak-staging/
 
-cat > com.proton.drive.yml << YAMLEOF
+cat > com.proton.drive.yml << EOF
 app-id: com.proton.drive
 runtime: org.gnome.Platform
-runtime-version: '44'
+runtime-version: '49'
 sdk: org.gnome.Sdk
 command: proton-drive
 finish-args:
@@ -118,15 +116,15 @@ modules:
   - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
   - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
   - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
-YAMLEOF
+EOF
 
 rm -rf build-dir repo
 flatpak-builder --user --force-clean --repo=repo build-dir com.proton.drive.yml
-flatpak build-bundle repo "proton-drive_${VERSION}_gnome44.flatpak" com.proton.drive
+flatpak build-bundle repo "proton-drive_${VERSION}_gnome49.flatpak" com.proton.drive
 
 echo ""
 echo "=========================================="
-echo "Flatpak GNOME 44 Build Complete!"
+echo "Flatpak GNOME 49 Build Complete!"
 echo "=========================================="
-echo "Output: proton-drive_${VERSION}_gnome44.flatpak"
-echo "Install: flatpak install --user proton-drive_${VERSION}_gnome44.flatpak"
+echo "Output: proton-drive_${VERSION}_gnome49.flatpak"
+echo "Install: flatpak install --user proton-drive_${VERSION}_gnome49.flatpak"
