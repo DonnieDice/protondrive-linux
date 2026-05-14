@@ -89,9 +89,16 @@ scripts/snap/build-local-snap.sh core26 --skip-webclient
 
 The table below tracks the artifact smoke tests we have personally confirmed. A successful GitHub Actions run is still useful, but it is not the same thing as downloading the built package and testing it on the target host.
 
-Remote artifacts from the `dev` branch package workflows are the release gate for Ubuntu 24.04 testing. Local builds are used only to debug workflow/package failures.
+Remote artifacts from the `dev` branch package workflows are the release gate. Local builds are used only to debug workflow/package failures.
 
-Record the Ubuntu 24.04 test results for:
+Runtime smoke tests must run on the artifact's intended target:
+
+- DEB/RPM artifacts count only on their matching distro release (`debian12` on Debian 12, `ubuntu26.04` on Ubuntu 26.04, `el10` on EL10, etc.).
+- Snap artifacts count against their Snap base/runtime (`core24` or `core26`) on a host that supports that base.
+- Flatpak artifacts count against their GNOME runtime (`org.gnome.Platform//49` or `//50`), not the host desktop version.
+- AppImage is the portable target and is validated against the supported glibc baseline.
+
+Record test results for:
 
 - `proton-drive_*_ubuntu24.04_amd64.deb`
 - `proton-drive_*_ubuntu26.04_amd64.deb`
@@ -104,14 +111,14 @@ Record the Ubuntu 24.04 test results for:
 Current status:
 
 - Ubuntu 24.04 DEB: remote artifact pass
-- Ubuntu 26.04 DEB: remote artifact pass
+- Ubuntu 26.04 DEB: pending remote artifact test on Ubuntu 26.04
 - Flatpak GNOME 49: pass
 - Snap core24: remote artifact pass
 - AppImage: remote artifact pass
 - Flatpak GNOME 50: remote artifact pass
-- Snap core26: remote artifact pass
+- Snap core26: local pass on Ubuntu 26.04; remote artifact test pending
 
-Ubuntu 26.04 artifacts are tracked separately from Ubuntu 24.04 artifacts. A passing 26.04 DEB on this host does not count as Ubuntu 24.04 compatibility evidence.
+Ubuntu 26.04 artifacts are tracked separately from Ubuntu 24.04 artifacts. A passing 26.04 DEB on an Ubuntu 24.04 host does not count as Ubuntu 26.04 compatibility evidence, and Debian artifacts do not count when tested on Ubuntu.
 
 Pending compatibility checks:
 
@@ -119,6 +126,8 @@ Pending compatibility checks:
 - Debian 13 DEB
 - EL9 RPM test-only lane
 - EL10 RPM
+- Ubuntu 26.04 DEB remote artifact on Ubuntu 26.04
+- Snap core26 remote artifact on Ubuntu 26.04
 
 ## Manual Runtime Testing Guardrails
 
