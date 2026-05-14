@@ -2,7 +2,7 @@ diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
 index 51d68ebd..71c52a3d 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,14 @@ async fn proxy_request(
+@@ -194,9 +194,15 @@ async fn proxy_request(
  }
  
  fn main() {
@@ -13,7 +13,8 @@ index 51d68ebd..71c52a3d 100644
 +    // Flatpak runtime is distro-agnostic; GDK_GL=software is safe in sandbox.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-+ std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++    std::env::set_var("JSC_useWasmIPInt", "false");
 +    std::env::set_var("GDK_GL", "software");
 +    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
 +    std::env::set_var("GSK_RENDERER", "cairo");

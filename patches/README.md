@@ -83,8 +83,8 @@ Each package type has a corresponding local build script that takes a patch name
 - `el10.patch` - RHEL/Alma/Rocky/CentOS Stream 10 baseline
 
 ### flatpak/
-- `org.gnome.Platform.49.patch` - GNOME 49 runtime
-- `org.gnome.Platform.50.patch` - GNOME 50 runtime
+- `org.gnome.Platform.49.patch` - GNOME 49 runtime + JSC_useWasmIPInt=false
+- `org.gnome.Platform.50.patch` - GNOME 50 runtime + JSC_useWasmIPInt=false
 
 ### snap/
 - `core24.patch` - Stable Snap base

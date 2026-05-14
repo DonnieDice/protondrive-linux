@@ -9,7 +9,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 | RPM | `build-rpm.fedora.43.yml`, `build-rpm.fedora.44.yml`, `build-rpm.el10.yml` | `patches/rpm/` | `fedora.43.patch`, `fedora.44.patch`, `el10.patch` | Fedora and RHEL/EL family. F43/F44 share compat baseline (webkit2gtk 2.52+). EL10 uses 2.52+. EL9 is not a current native RPM target because its GLib is too old for the current Tauri/GTK stack. |
 | DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.24.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` is the Debian 12 workflow. |
 | AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline. |
-| Flatpak | `build-flatpak.gnome49.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.49.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 49 and 50 Flatpak runtimes. |
+| Flatpak | `build-flatpak.gnome49.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.49.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 49 and 50 Flatpak runtimes. Both require `JSC_useWasmIPInt=false` for the post-2FA WebKit/JSC path. |
 | Snap | `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core24.patch`, `core26.patch` | core24 and core26 Snap packages. core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
 | AUR | `build-aur.yml`, `publish-aur.yml` | `patches/aur/` | `arch.patch`, `arch.wrapper` | Full Tauri build + makepkg. Single `arch` target covers all Arch-family distros. |
 
@@ -37,8 +37,8 @@ patches/
 ├── rpm/fedora.43.patch                      # Fedora 43: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
 ├── rpm/fedora.44.patch                      # Fedora 44: same as fedora.43 (same compat baseline)
 ├── rpm/el10.patch                           # EL10: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
-├── flatpak/org.gnome.Platform.49.patch      # GNOME Platform 49 runtime
-├── flatpak/org.gnome.Platform.50.patch      # GNOME Platform 50 runtime
+├── flatpak/org.gnome.Platform.49.patch      # GNOME Platform 49 runtime, JSC_useWasmIPInt=false
+├── flatpak/org.gnome.Platform.50.patch      # GNOME Platform 50 runtime, JSC_useWasmIPInt=false
 ├── snap/core24.patch                        # Snap core24 base
 └── snap/core26.patch                        # Snap core26 base (webkit2gtk 2.52+)
 ```
@@ -57,6 +57,7 @@ The current Tauri/WebKitGTK app requires:
 - `WEBKIT_DISABLE_DMABUF_RENDERER=1` (all distros).
 - `WEBKIT_DISABLE_COMPOSITING_MODE=1` (all distros).
 - **Fedora 43+/EL10 (webkit2gtk 2.52+):** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (regression that causes SIGTRAP in WASM during post-2FA crypto).
+- **Flatpak GNOME 49/50:** `JSC_useWasmIPInt=false` to avoid the post-2FA WebKit/JSC trap path seen in the login handoff.
 - **Ubuntu 24.04+/Debian 13+:** `GDK_GL=software` plus `LIBGL_ALWAYS_SOFTWARE=1` (NOT `GDK_GL=disable` — crashes WebKitWebProcess). Ubuntu 24.04/26.04 also need `JSC_useWasmIPInt=false` to avoid the post-2FA WebKit/JSC trap path.
 - **Debian 12:** `GDK_GL=disable` + `LIBGL_ALWAYS_SOFTWARE=1`.
 - Account and Verify nested asset path fixes.
