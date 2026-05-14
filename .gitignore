@@ -34,10 +34,13 @@ target/
 *.flatpak
 *.snap
 *.pkg.tar.zst
+*.pkg.tar.xz
 *.dmg
 *.exe
 *.msi
 dist/
+artifacts/
+downloads/
 
 # Local packaging work directories
 /.flatpak-builder/
@@ -47,10 +50,12 @@ dist/
 /repo/
 /snap/
 /squashfs-root/
+/.snap-build.*/
 /appimagetool
 /com.proton.drive.desktop
 /com.proton.drive.yml
 /proton-drive-wrapper.sh
+/protondrive-linux-repo
 
 # Environment
 .env
