@@ -106,7 +106,7 @@ Current status:
 - Ubuntu 24.04 DEB: remote artifact pass
 - Ubuntu 26.04 DEB: remote artifact pass
 - Flatpak GNOME 49: pass
-- Snap core24: pass
+- Snap core24: remote artifact pass
 - AppImage: pass
 - Flatpak GNOME 50: remote artifact pass
 - Snap core26 currently fails on this host at launch with `libc.so.6: undefined symbol: __nptl_change_stack_perm, version GLIBC_PRIVATE`
