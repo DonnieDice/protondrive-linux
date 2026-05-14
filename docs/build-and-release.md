@@ -105,7 +105,8 @@ Current status:
 - Ubuntu 26.04 DEB: pass
 - Flatpak GNOME 49: pass
 - Snap core24: pass
-- AppImage and Flatpak GNOME 50 still require confirmation on the remote artifacts
+- AppImage: pass
+- Flatpak GNOME 50 still requires confirmation on the remote artifact
 - Snap core26 currently fails on this host at launch with `libc.so.6: undefined symbol: __nptl_change_stack_perm, version GLIBC_PRIVATE`
 
 ## Manual Runtime Testing Guardrails
