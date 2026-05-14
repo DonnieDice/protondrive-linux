@@ -99,6 +99,8 @@ patches/
 
 RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases. EL9 provides `glib2 2.68.x`; current Tauri/GTK crates require `glib-2.0 >= 2.70` at build time.
 
+EL9 can still be used as a compatibility test-only environment if you want to probe the current runtime boundary, but it is not a supported release target and should not be added to the release matrix without downgrading the app stack.
+
 ---
 
 ## DEB

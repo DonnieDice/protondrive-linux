@@ -113,6 +113,14 @@ Current status:
 
 Ubuntu 26.04 artifacts are tracked separately from Ubuntu 24.04 artifacts. A passing 26.04 DEB on this host does not count as Ubuntu 24.04 compatibility evidence.
 
+Pending compatibility checks:
+
+- Debian 12 DEB
+- Debian 13 DEB
+- EL9 RPM test-only lane
+- EL10 RPM
+- Snap core26 fix/retest
+
 ## Manual Runtime Testing Guardrails
 
 Interactive app tests are user-controlled. Automation may download, install, inspect, and launch an artifact only when requested, but it must not close or kill a GUI session during login, 2FA, CAPTCHA, Drive load, or file-browsing checks.
