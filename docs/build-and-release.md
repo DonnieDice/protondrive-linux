@@ -91,6 +91,7 @@ Current status:
 
 - Ubuntu 24.04 DEB: remote artifact pass
 - Ubuntu 26.04 DEB: remote artifact pass
+- Debian 12 DEB: pass
 - Flatpak GNOME 49: pass
 - Snap core24: remote artifact pass
 - AppImage: remote artifact pass
@@ -101,7 +102,6 @@ Ubuntu 26.04 artifacts are tracked separately from Ubuntu 24.04 artifacts. A pas
 
 Pending compatibility checks:
 
-- Debian 12 DEB
 - Debian 13 DEB
 - EL10 RPM
 
