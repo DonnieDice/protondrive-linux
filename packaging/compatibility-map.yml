@@ -130,6 +130,14 @@ flatpak:
     - org.gnome.Platform//50
 
 snap:
+  core22:
+    workflow: .github/workflows/build-snap.core22.yml
+    build_container: ubuntu-22.04
+    release_label: snap-core22
+    artifact_name: snap-package-core22
+    patch: core22
+    supports:
+      - core22
   core24:
     workflow: .github/workflows/build-snap.yml
     build_container: ubuntu-24.04

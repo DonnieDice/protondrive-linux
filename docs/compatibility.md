@@ -13,7 +13,7 @@ Build fewer packages. Test more systems. Split only when a patch/runtime differe
 
 ## Clean Base Rule
 
-**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`, `fedora.43`), not the host distro.
+**The base binary (`src-tauri/src/main.rs`) must never contain distro-specific env vars, DISTRO_TYPE branching, or any distro/version-specific code.** The base ships clean. All WebKitGTK env vars, sandbox overrides, renderer flags, and distro-specific behavior belong exclusively in `patches/<package>/<runtime>.patch`. Patches are named after the runtime/ABI target (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core22`, `core24`, `fedora.43`), not the host distro.
 
 If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment:
 
@@ -71,6 +71,7 @@ patches/
 │   ├── org.gnome.Platform.44.patch  # Ubuntu 22.04-compatible Flatpak runtime
 │   └── org.gnome.Platform.50.patch  # Current Flatpak runtime
 ├── snap/
+│   ├── core22.patch          # Snap core22 base
 │   ├── core24.patch          # Snap core24 base
 │   └── core26.patch          # Snap core26 base (webkit2gtk 2.52+)
 └── aur/
@@ -161,10 +162,11 @@ Patches target the Flatpak runtime, not the host distro.
 
 | Build target | Build container | Patch |
 |-------------|----------------|-------|
+| `core22` | `ubuntu-22.04` | `core22` |
 | `core24` | `ubuntu-24.04` | `core24` |
 | `core26` | `ubuntu-24.04` | `core26` |
 
-Patches target the Snap base, not the host distro. `core26` includes webkit2gtk 2.52+ sandbox and IPInt fixes.
+Patches target the Snap base, not the host distro. `core22` is the Ubuntu 22.04-era base, `core24` is the Ubuntu 24.04-era base, and `core26` includes webkit2gtk 2.52+ sandbox and IPInt fixes.
 
 ---
 
@@ -183,6 +185,7 @@ Patches target the Snap base, not the host distro. `core26` includes webkit2gtk 
 | Arch / Manjaro / EndeavourOS / Garuda | `proton-drive-*.pkg.tar.zst` (AUR) or AppImage |
 | Any Linux (portable) | `proton-drive_*.AppImage` |
 | Flatpak | `proton-drive_*.flatpak` |
+| Snap (core22) | `proton-drive_*.snap` (core22) |
 | Snap (core24) | `proton-drive_*.snap` (core24) |
 | Snap (core26) | `proton-drive_*.snap` (core26) |
 

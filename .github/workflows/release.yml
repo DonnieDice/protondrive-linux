@@ -66,6 +66,7 @@ jobs:
               'Build AppImage',
               'Build Flatpak',
               'Build Flatpak GNOME 44',
+              'Build Snap Core22',
               'Build Snap',
               'Build Snap Core26',
               'Build AUR',
@@ -146,6 +147,16 @@ jobs:
           workflow: build-snap.yml
           name: snap-package
           path: artifacts/snap
+          commit: ${{ github.sha }}
+          workflow_conclusion: success
+          if_no_artifact_found: fail
+
+      - name: Download Snap Core22 artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-snap.core22.yml
+          name: snap-package-core22
+          path: artifacts/snap-core22
           commit: ${{ github.sha }}
           workflow_conclusion: success
           if_no_artifact_found: fail
@@ -279,6 +290,7 @@ jobs:
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
           | Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
           | Flatpak (GNOME 44) | \`proton-drive_*_gnome44.flatpak\` | Flatpak sandbox (org.gnome.Platform//44, Ubuntu 22.04 compat) |
+          | Snap (core22) | \`proton-drive_*_core22_amd64.snap\` | Snap package (core22 runtime, Ubuntu 22.04 baseline) |
           | Snap (core24) | \`proton-drive_*_core24_amd64.snap\` | Snap package (core24 runtime) |
           | Snap (core26) | \`proton-drive_*_core26_amd64.snap\` | Snap package (core26 runtime) |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |

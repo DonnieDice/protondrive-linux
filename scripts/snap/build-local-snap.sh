@@ -102,12 +102,30 @@ cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
 cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
 cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
 sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
-if [ "$SNAP_TARGET" = "core26" ]; then
+if [ "$SNAP_TARGET" = "core22" ]; then
+    sed -i \
+        -e "s/base: core24/base: core22/" \
+        -e "s/GDK_GL: software/GDK_GL: disable/" \
+        "$BUILD_CONTEXT/snapcraft.yaml"
+    sed -i \
+        -e 's/export GDK_GL=software/export GDK_GL=disable/' \
+        "$BUILD_CONTEXT/packaging/snap/proton-drive-wrapper.sh"
+elif [ "$SNAP_TARGET" = "core26" ]; then
     sed -i \
         -e "s/base: core24/base: core26/" \
         -e "s/grade: stable/grade: devel/" \
         -e "/^base: core26/a\\build-base: devel" \
         "$BUILD_CONTEXT/snapcraft.yaml"
+elif [ "$SNAP_TARGET" != "core24" ]; then
+    echo "ERROR: Unsupported snap target: $SNAP_TARGET"
+    exit 1
+fi
+
+if [ "$SNAP_TARGET" = "core22" ]; then
+    if ! snap list core22 >/dev/null 2>&1; then
+        echo "core22 base snap is not installed; install it with: sudo snap install core22 --channel=latest/stable"
+    fi
+elif [ "$SNAP_TARGET" = "core26" ]; then
     if ! snap list core26 >/dev/null 2>&1; then
         echo "core26 base snap is not installed; install it with: sudo snap install core26 --channel=latest/stable"
     fi
