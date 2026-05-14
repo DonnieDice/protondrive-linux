@@ -103,7 +103,7 @@ Record the Ubuntu 24.04 test results for:
 
 Current status:
 
-- Ubuntu 24.04 DEB: pass
+- Ubuntu 24.04 DEB: remote artifact pass
 - Ubuntu 26.04 DEB: pass
 - Flatpak GNOME 49: pass
 - Snap core24: pass
