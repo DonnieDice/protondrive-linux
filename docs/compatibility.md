@@ -118,7 +118,7 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases.
 |----------|--------|--------|
 | `debian.12` | `disable` | Safe on older WebKitGTK 2.40; sets `LIBGL_ALWAYS_SOFTWARE=1` |
 | `debian.13` | `software` | `GDK_GL=disable` crashes WebKitWebProcess on 2.46+ |
-| `ubuntu.24.04` | `software` | `GDK_GL=disable` crashes on 2.46+ |
+| `ubuntu.24.04` | `software` | `GDK_GL=disable` crashes on 2.46+; `LIBGL_ALWAYS_SOFTWARE=1` keeps Mesa on software rendering |
 | `ubuntu.26.04` | `software` | Same as 24.04 for newer WebKitGTK |
 
 ---

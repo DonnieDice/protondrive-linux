@@ -57,7 +57,7 @@ The current Tauri/WebKitGTK app requires:
 - `WEBKIT_DISABLE_DMABUF_RENDERER=1` (all distros).
 - `WEBKIT_DISABLE_COMPOSITING_MODE=1` (all distros).
 - **Fedora 43+/EL10 (webkit2gtk 2.52+):** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (regression that causes SIGTRAP in WASM during post-2FA crypto).
-- **Ubuntu 24.04+/Debian 13+:** `GDK_GL=software` (NOT `GDK_GL=disable` — crashes WebKitWebProcess).
+- **Ubuntu 24.04+/Debian 13+:** `GDK_GL=software` plus `LIBGL_ALWAYS_SOFTWARE=1` (NOT `GDK_GL=disable` — crashes WebKitWebProcess).
 - **Debian 12:** `GDK_GL=disable` + `LIBGL_ALWAYS_SOFTWARE=1`.
 - Account and Verify nested asset path fixes.
 - Webpack SRI disabled at build time for Drive, Account, and Verify.

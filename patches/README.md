@@ -74,7 +74,7 @@ Each package type has a corresponding local build script that takes a patch name
 ### deb/
 - `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
 - `debian.13.patch` - Debian 13 WebKitGTK 2.46+ renderer settings
-- `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software (avoids WebKitWebProcess crash)
+- `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software + LIBGL_ALWAYS_SOFTWARE=1 (avoids WebKitWebProcess crash)
 - `ubuntu.26.04.patch` - Ubuntu 26.04 WebKitGTK 2.48+ renderer settings
 
 ### rpm/
