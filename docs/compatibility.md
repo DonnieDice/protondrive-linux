@@ -60,8 +60,8 @@ patches/
 ├── deb/
 │   ├── debian.12.patch       # Debian 12 (webkit2gtk 2.40, GDK_GL=disable)
 │   ├── debian.13.patch       # Debian 13 (webkit2gtk 2.46+, GDK_GL=software)
-│   ├── ubuntu.24.04.patch    # Ubuntu 24.04 (webkit2gtk 2.46+, GDK_GL=software)
-│   └── ubuntu.26.04.patch    # Ubuntu 26.04 (webkit2gtk 2.48+, GDK_GL=software)
+│   ├── ubuntu.24.04.patch    # Ubuntu 24.04 (webkit2gtk 2.46+, GDK_GL=software, JSC_useWasmIPInt=false)
+│   └── ubuntu.26.04.patch    # Ubuntu 26.04 (webkit2gtk 2.48+, GDK_GL=software, JSC_useWasmIPInt=false)
 ├── rpm/
 │   ├── fedora.43.patch       # Fedora 43 (webkit2gtk 2.52+, sandbox+IPInt fix)
 │   ├── fedora.44.patch       # Fedora 44 (webkit2gtk 2.52+, sandbox+IPInt fix)
@@ -118,8 +118,8 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM target for current releases.
 |----------|--------|--------|
 | `debian.12` | `disable` | Safe on older WebKitGTK 2.40; sets `LIBGL_ALWAYS_SOFTWARE=1` |
 | `debian.13` | `software` | `GDK_GL=disable` crashes WebKitWebProcess on 2.46+ |
-| `ubuntu.24.04` | `software` | `GDK_GL=disable` crashes on 2.46+; `LIBGL_ALWAYS_SOFTWARE=1` keeps Mesa on software rendering |
-| `ubuntu.26.04` | `software` | Same as 24.04 for newer WebKitGTK |
+| `ubuntu.24.04` | `software` | `GDK_GL=disable` crashes on 2.46+; `LIBGL_ALWAYS_SOFTWARE=1` keeps Mesa on software rendering; `JSC_useWasmIPInt=false` avoids the post-2FA WebKit/JSC trap path |
+| `ubuntu.26.04` | `software` | Same as 24.04 for newer WebKitGTK; also requires `JSC_useWasmIPInt=false` |
 
 ---
 

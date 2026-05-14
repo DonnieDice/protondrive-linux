@@ -32,8 +32,8 @@ patches/
 ├── aur/arch.patch                           # Arch-family (webkit2gtk 2.52+): GDK_GL=disable, sandbox+IPInt fixes
 ├── deb/debian.12.patch                      # Debian 12: GDK_GL=disable
 ├── deb/debian.13.patch                      # Debian 13: GDK_GL=software
-├── deb/ubuntu.24.04.patch                   # Ubuntu 24.04: GDK_GL=software
-├── deb/ubuntu.26.04.patch                   # Ubuntu 26.04: GDK_GL=software
+├── deb/ubuntu.24.04.patch                   # Ubuntu 24.04: GDK_GL=software, JSC_useWasmIPInt=false
+├── deb/ubuntu.26.04.patch                   # Ubuntu 26.04: GDK_GL=software, JSC_useWasmIPInt=false
 ├── rpm/fedora.43.patch                      # Fedora 43: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
 ├── rpm/fedora.44.patch                      # Fedora 44: same as fedora.43 (same compat baseline)
 ├── rpm/el10.patch                           # EL10: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
@@ -57,7 +57,7 @@ The current Tauri/WebKitGTK app requires:
 - `WEBKIT_DISABLE_DMABUF_RENDERER=1` (all distros).
 - `WEBKIT_DISABLE_COMPOSITING_MODE=1` (all distros).
 - **Fedora 43+/EL10 (webkit2gtk 2.52+):** `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`; `JSC_useWasmIPInt=false` disables the IPInt WASM interpreter (regression that causes SIGTRAP in WASM during post-2FA crypto).
-- **Ubuntu 24.04+/Debian 13+:** `GDK_GL=software` plus `LIBGL_ALWAYS_SOFTWARE=1` (NOT `GDK_GL=disable` — crashes WebKitWebProcess).
+- **Ubuntu 24.04+/Debian 13+:** `GDK_GL=software` plus `LIBGL_ALWAYS_SOFTWARE=1` (NOT `GDK_GL=disable` — crashes WebKitWebProcess). Ubuntu 24.04/26.04 also need `JSC_useWasmIPInt=false` to avoid the post-2FA WebKit/JSC trap path.
 - **Debian 12:** `GDK_GL=disable` + `LIBGL_ALWAYS_SOFTWARE=1`.
 - Account and Verify nested asset path fixes.
 - Webpack SRI disabled at build time for Drive, Account, and Verify.
