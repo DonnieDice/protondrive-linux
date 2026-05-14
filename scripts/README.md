@@ -55,7 +55,7 @@ Each package type has its own subdirectory with local build scripts:
 
 | Script | Target |
 |--------|--------|
-| `build-local-snap.sh` | Snap core24 by default; pass `core26` for the experimental core26 target |
+| `build-local-snap.sh` | Snap core24 by default; pass `core22` for Ubuntu 22.04 or `core26` for the experimental core26 target |
 
 ## Usage
 
@@ -63,7 +63,7 @@ All local build scripts support `--skip-webclient` to skip the WebClients build 
 
 ```bash
 scripts/deb/build-local-deb.ubuntu.22.04.sh --skip-webclient
-scripts/snap/build-local-snap.sh core24 --skip-webclient
+scripts/snap/build-local-snap.sh core22 --skip-webclient
 ```
 
 ## Related Documentation

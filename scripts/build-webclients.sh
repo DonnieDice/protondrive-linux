@@ -41,12 +41,21 @@ if [ -d "$DIST_DIR" ] && [ -f "$CACHE_KEY_FILE" ] && [ "$(cat "$CACHE_KEY_FILE")
     exit 0
 fi
 
-if [ ! -d "$WEBCLIENTS_DIR/.git" ] && [ ! -d "$WEBCLIENTS_DIR" ]; then
+if [ ! -d "$WEBCLIENTS_DIR/.git" ]; then
+    if [ -d "$WEBCLIENTS_DIR" ]; then
+        if [ ! -f "$WEBCLIENTS_DIR/package.json" ] || [ ! -f "$WEBCLIENTS_DIR/applications/drive/package.json" ]; then
+            echo "⚠️  WebClients directory exists but is not a valid checkout; resetting it..."
+            rm -rf "$WEBCLIENTS_DIR"
+        fi
+    fi
+fi
+
+if [ ! -d "$WEBCLIENTS_DIR" ]; then
     echo "📥 WebClients checkout missing; cloning once..."
     git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git "$WEBCLIENTS_DIR"
 fi
 
-if [ ! -d "$WEBCLIENTS_DIR" ]; then
+if [ ! -d "$WEBCLIENTS_DIR/.git" ]; then
     echo "❌ ERROR: WebClients directory not found!"
     exit 1
 fi

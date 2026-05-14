@@ -1,0 +1,16 @@
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+index 51d68ebd..cf9dc506 100644
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -214,9 +214,9 @@ fn main() {
+     .setup(|app| {
+         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
+         let worker_init = match option_env!("DISTRO_TYPE") {
+-            Some("rpm") => {
++            Some("rpm") | Some("snap") => {
+                 r#"
+-        console.log('[INIT] RPM build - main-thread crypto active via source patch');
++        console.log('[INIT] Snap/System package build - main-thread crypto active via source patch');
+         "#
+             }
+             _ => {

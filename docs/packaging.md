@@ -10,7 +10,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 | DEB | `build-deb.yml`, `build-deb.debian.13.yml`, `build-deb.ubuntu.22.04.yml`, `build-deb.ubuntu.24.04.yml`, `build-deb.ubuntu.26.04.yml` | `patches/deb/` | `debian.12.patch`, `debian.13.patch`, `ubuntu.22.04.patch`, `ubuntu.24.04.patch`, `ubuntu.26.04.patch` | Debian/Ubuntu/Mint/Zorin/Pop!\_OS. `build-deb.yml` is the Debian 12 workflow. |
 | AppImage | `build-appimage.yml` | `patches/appimage/` | `linux-baseline.patch` | Single universal target; glibc 2.35+ baseline. |
 | Flatpak | `build-flatpak.gnome44.yml`, `build-flatpak.yml` | `patches/flatpak/` | `org.gnome.Platform.44.patch`, `org.gnome.Platform.50.patch` | GNOME Platform 44 for Ubuntu 22.04-compatible testing; GNOME Platform 50 for the current runtime. |
-| Snap | `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core24.patch`, `core26.patch` | core24 and core26 Snap packages. core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
+| Snap | `build-snap.core22.yml`, `build-snap.yml`, `build-snap.core26.yml` | `patches/snap/` | `core22.patch`, `core24.patch`, `core26.patch` | core22, core24, and core26 Snap packages. core22 is the Ubuntu 22.04-era base; core26 includes webkit2gtk 2.52+ sandbox and IPInt fixes. |
 | AUR | `build-aur.yml`, `publish-aur.yml` | `patches/aur/` | `arch.patch`, `arch.wrapper` | Full Tauri build + makepkg. Single `arch` target covers all Arch-family distros. |
 
 ## Design Standards
@@ -19,7 +19,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 - Keep distro-specific patches out of `patches/common/`.
 - Use `patches/common/` only for changes required by all packages.
 - **Base code (`src-tauri/src/main.rs`) must NOT contain distro-specific env vars or DISTRO_TYPE branching.** The base binary ships clean — zero distro-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<package>/<runtime>.patch`. If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment: `// NOTE: WebKitGTK env vars are NOT set here. They are distro-specific and belong in patches.`
-- **Patches are named by runtime/ABI target, not host distro.** AppImage/Flatpak/Snap patches target the runtime (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core24`, `core26`). DEB/RPM patches remain distro-specific (e.g., `ubuntu.24.04.patch`, `fedora.43.patch`, `el10.patch`). AUR uses a single `arch` target covering all Arch-family distros.
+- **Patches are named by runtime/ABI target, not host distro.** AppImage/Flatpak/Snap patches target the runtime (e.g., `linux-baseline`, `org.gnome.Platform.50`, `core22`, `core24`, `core26`). DEB/RPM patches remain distro-specific (e.g., `ubuntu.24.04.patch`, `fedora.43.patch`, `el10.patch`). AUR uses a single `arch` target covering all Arch-family distros.
 
 ## Distro Patch Convention
 
@@ -40,6 +40,7 @@ patches/
 ├── rpm/el10.patch                           # EL10: WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1, JSC_useWasmIPInt=false
 ├── flatpak/org.gnome.Platform.44.patch      # GNOME Platform 44 runtime
 ├── flatpak/org.gnome.Platform.50.patch      # GNOME Platform 50 runtime
+├── snap/core22.patch                        # Snap core22 base
 ├── snap/core24.patch                        # Snap core24 base
 └── snap/core26.patch                        # Snap core26 base (webkit2gtk 2.52+)
 ```
@@ -87,6 +88,7 @@ Required release artifacts:
 - `proton-drive_*_ubuntu26.04_amd64.deb`
 - `proton-drive_*.AppImage`
 - `proton-drive_*.flatpak`
+- `proton-drive_*_core22_amd64.snap`
 - `proton-drive_*_core24_amd64.snap`
 - `proton-drive_*_core26_amd64.snap`
 - `proton-drive-*.pkg.tar.zst` (AUR)
