@@ -99,6 +99,14 @@ Record the Ubuntu 24.04 test results for:
 - `proton-drive_*_core24_amd64.snap`
 - `proton-drive_*_core26_amd64.snap`
 
+Current status:
+
+- Ubuntu 24.04 DEB: pass
+- Ubuntu 26.04 DEB: pass
+- Flatpak GNOME 49: pass
+- Snap core24: pass
+- AppImage, Flatpak GNOME 50, and Snap core26 still require confirmation on the remote artifacts
+
 ## Manual Runtime Testing Guardrails
 
 Interactive app tests are user-controlled. Automation may download, install, inspect, and launch an artifact only when requested, but it must not close or kill a GUI session during login, 2FA, CAPTCHA, Drive load, or file-browsing checks.
