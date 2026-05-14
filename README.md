@@ -155,7 +155,7 @@ npm run build:web
 npm run build:appimage
 ```
 
-Built packages go to `src-tauri/target/release/bundle/`. For other package types, see `scripts/` and `docs/`.
+Built packages go to `src-tauri/target/release/bundle/`. Release artifacts are produced by the package workflows documented in `docs/`.
 
 ## How it works
 

@@ -48,20 +48,18 @@ patches/
 - Do not add Fedora/RPM-only fixes to `deb/`, `appimage/`, or `common/`.
 - Do not use long-term distro branches for packaging differences.
 
-## Build Scripts (Local)
+## Build Workflows
 
-Each package type has a corresponding local build script that takes a patch name argument:
+Release artifacts are built by GitHub Actions. Package patches are applied in the matching workflow before the package is built:
 
-| Package | Local Script | Usage | DISTRO_TYPE |
-|---------|--------------|-------|-------------|
-| AppImage | `scripts/appimage/build-local-appimage.sh` | `./scripts/appimage/build-local-appimage.sh --skip-webclient` | `appimage` |
-| DEB Ubuntu 24.04 | `scripts/deb/build-local-deb.ubuntu.24.04.sh` | `./scripts/deb/build-local-deb.ubuntu.24.04.sh --skip-webclient` | `deb` |
-| RPM Fedora 43 | `scripts/rpm/build-local-rpm.fedora.43.sh` | `./scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient` | `rpm` |
-| RPM Fedora 44 | `scripts/rpm/build-local-rpm.fedora.44.sh` | `./scripts/rpm/build-local-rpm.fedora.44.sh --skip-webclient` | `rpm` |
-| Flatpak GNOME 49 | `scripts/flatpak/build-local-flatpak.gnome49.sh` | `./scripts/flatpak/build-local-flatpak.gnome49.sh --skip-webclient` | `flatpak` |
-| Flatpak GNOME 50 | `scripts/flatpak/build-local-flatpak.sh` | `./scripts/flatpak/build-local-flatpak.sh --skip-webclient` | `flatpak` |
-| Snap core24 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core24 --skip-webclient` | `snap` |
-| Snap core26 | `scripts/snap/build-local-snap.sh` | `./scripts/snap/build-local-snap.sh core26 --skip-webclient` | `snap` |
+| Package | Workflow | DISTRO_TYPE |
+|---------|----------|-------------|
+| AppImage | `.github/workflows/build-appimage.yml` | `appimage` |
+| DEB | `.github/workflows/build-deb*.yml` | `deb` |
+| RPM | `.github/workflows/build-rpm*.yml` | `rpm` |
+| Flatpak | `.github/workflows/build-flatpak*.yml` | `flatpak` |
+| Snap | `.github/workflows/build-snap*.yml` | `snap` |
+| AUR | `.github/workflows/build-aur.yml` | `aur` |
 
 ## Current Patches
 
