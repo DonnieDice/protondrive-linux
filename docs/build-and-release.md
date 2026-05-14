@@ -36,7 +36,7 @@ RHEL/Alma/Rocky/CentOS Stream 9 is not a native RPM release target for current b
 
 ## Local Debug Commands
 
-Remote GitHub Actions workflows are the source of truth for release artifacts. Local build scripts exist to reproduce workflow failures, test patches quickly, and inspect package contents before pushing.
+Remote GitHub Actions workflows are the source of truth for release artifacts. The repo no longer keeps package-specific local build wrappers; use the package workflows for release artifacts and use local commands only to debug WebClients or Rust/Tauri compilation.
 
 Clone WebClients first:
 
@@ -44,36 +44,17 @@ Clone WebClients first:
 git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Build the frontend and one package type locally:
+Build the frontend locally:
 
 ```bash
-scripts/rpm/build-local-rpm.fedora.43.sh
-scripts/rpm/build-local-rpm.fedora.44.sh
-scripts/rpm/build-local-rpm.fedora.40.sh    # legacy, still available
-scripts/rpm/build-local-rpm.fedora.41.sh    # legacy, still available
-scripts/rpm/build-local-rpm.fedora.42.sh    # legacy, still available
-scripts/deb/build-local-deb.sh
-scripts/deb/build-local-deb.ubuntu.24.04.sh
-scripts/deb/build-local-deb.ubuntu.26.04.sh
-scripts/appimage/build-local-appimage.sh
-scripts/flatpak/build-local-flatpak.gnome49.sh
-scripts/flatpak/build-local-flatpak.sh
-scripts/snap/build-local-snap.sh
-scripts/snap/build-local-snap.sh core26
-scripts/build-local-aur.sh
+npm run build:web
 ```
 
-If WebClients is already built:
+Debug Rust/Tauri compilation locally:
 
 ```bash
-scripts/rpm/build-local-rpm.fedora.43.sh --skip-webclient
-scripts/deb/build-local-deb.ubuntu.24.04.sh --skip-webclient
-scripts/deb/build-local-deb.ubuntu.26.04.sh --skip-webclient
-scripts/appimage/build-local-appimage.sh --skip-webclient
-scripts/flatpak/build-local-flatpak.gnome49.sh --skip-webclient
-scripts/flatpak/build-local-flatpak.sh --skip-webclient
-scripts/snap/build-local-snap.sh core24 --skip-webclient
-scripts/snap/build-local-snap.sh core26 --skip-webclient
+cd src-tauri
+cargo build --release
 ```
 
 ## Release Checklist
