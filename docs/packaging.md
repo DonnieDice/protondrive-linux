@@ -20,6 +20,7 @@ Packaging is intentionally split by distro/package type. Each package owns its w
 - Use `patches/common/` only for changes required by all packages.
 - **Base code (`src-tauri/src/main.rs`) must NOT contain distro-specific env vars or DISTRO_TYPE branching.** The base binary ships clean — zero distro-specific code. All WebKitGTK env vars, sandbox overrides, and renderer flags belong exclusively in `patches/<package>/<runtime>.patch`. If a distro-specific value appears in `main.rs`, it is a bug. The only acceptable content in `main.rs` for these settings is the placeholder comment: `// NOTE: WebKitGTK env vars are NOT set here. They are distro-specific and belong in patches.`
 - **Patches are named by runtime/ABI target, not host distro.** AppImage/Flatpak/Snap patches target the runtime (e.g., `linux-baseline`, `org.gnome.Platform.49`, `org.gnome.Platform.50`, `core24`, `core26`). DEB/RPM patches remain distro-specific (e.g., `ubuntu.24.04.patch`, `fedora.43.patch`, `el10.patch`). AUR uses a single `arch` target covering all Arch-family distros.
+- **DEB/RPM smoke tests must run on the matching target distro release.** Building a Debian 12 DEB on Ubuntu 26.04 can catch compile errors, but it does not validate the Debian 12 package. Runtime passes are only counted on the intended target host.
 
 ## Distro Patch Convention
 

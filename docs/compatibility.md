@@ -107,12 +107,14 @@ EL9 can still be used as a compatibility test-only environment if you want to pr
 
 ### Compatibility Baselines
 
-| Build target | Build container | Compatibility range | Patch |
-|-------------|----------------|---------------------|-------|
-| `debian12` | `debian:12` | Debian 12 | `debian.12` |
-| `debian13` | `debian:13` | Debian 13 | `debian.13` |
-| `ubuntu24.04` | `ubuntu:24.04` | Ubuntu 24.04, Linux Mint 22.x | `ubuntu.24.04` |
-| `ubuntu26.04` | `ubuntu:26.04` | Ubuntu 26.04 | `ubuntu.26.04` |
+| Build target | Build container | Runtime smoke host | Compatibility range | Patch |
+|-------------|----------------|--------------------|---------------------|-------|
+| `debian12` | `debian:12` | Debian 12 | Debian 12 | `debian.12` |
+| `debian13` | `debian:13` | Debian 13 | Debian 13 | `debian.13` |
+| `ubuntu24.04` | `ubuntu:24.04` | Ubuntu 24.04 | Ubuntu 24.04, Linux Mint 22.x | `ubuntu.24.04` |
+| `ubuntu26.04` | `ubuntu:26.04` | Ubuntu 26.04 | Ubuntu 26.04 | `ubuntu.26.04` |
+
+DEB compatibility is target-release-specific. Do not count a Debian DEB test on Ubuntu, or an Ubuntu DEB test on a different Ubuntu release, as compatibility evidence for the target release.
 
 ### Known Differences
 
