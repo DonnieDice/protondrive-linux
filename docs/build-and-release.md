@@ -95,7 +95,7 @@ Current status:
 - Snap core24: remote artifact pass
 - AppImage: remote artifact pass
 - Flatpak GNOME 50: remote artifact pass
-- Snap core26: local pass on Ubuntu 26.04; remote artifact test pending
+- Snap core26: remote artifact pass on Ubuntu 26.04
 
 Ubuntu 26.04 artifacts are tracked separately from Ubuntu 24.04 artifacts. A passing 26.04 DEB on an Ubuntu 24.04 host does not count as Ubuntu 26.04 compatibility evidence, and Debian artifacts do not count when tested on Ubuntu.
 
@@ -104,7 +104,6 @@ Pending compatibility checks:
 - Debian 12 DEB
 - Debian 13 DEB
 - EL10 RPM
-- Snap core26 remote artifact on Ubuntu 26.04
 
 ## Manual Runtime Testing Guardrails
 
