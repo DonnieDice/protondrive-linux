@@ -67,8 +67,8 @@ patches/
 │   ├── fedora.44.patch       # Fedora 44 (webkit2gtk 2.52+, sandbox+IPInt fix)
 │   └── el10.patch            # RHEL 10 / CentOS Stream 10 / Alma 10 / Rocky 10
 ├── flatpak/
-│   ├── org.gnome.Platform.49.patch  # GNOME Platform 49 runtime
-│   └── org.gnome.Platform.50.patch  # GNOME Platform 50 runtime
+│   ├── org.gnome.Platform.49.patch  # GNOME Platform 49 runtime, JSC_useWasmIPInt=false
+│   └── org.gnome.Platform.50.patch  # GNOME Platform 50 runtime, JSC_useWasmIPInt=false
 ├── snap/
 │   ├── core24.patch          # Snap core24 base
 │   └── core26.patch          # Snap core26 base (webkit2gtk 2.52+)
