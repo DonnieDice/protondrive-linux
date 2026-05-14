@@ -261,6 +261,7 @@ fi
 # 6. Go back to root
 cd ..
 
+mkdir -p "$CACHE_DIR"
 printf '%s\n' "$CURRENT_CACHE_KEY" > "$CACHE_KEY_FILE"
 
 echo "✅ WebClients build complete"
