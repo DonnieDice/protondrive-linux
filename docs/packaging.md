@@ -32,7 +32,7 @@ architecture target, but it is not release-gated yet.
 | DEB | Ubuntu 26.04 | `build-deb.ubuntu.26.04.yml` | `deb/ubuntu.26.04.patch` | `deb-package-ubuntu2604` |
 | RPM | Fedora 43 | `build-rpm.fedora.43.yml` | `rpm/fedora.43.patch` | `rpm-package-fedora43` |
 | RPM | Fedora 44 | `build-rpm.fedora.44.yml` | `rpm/fedora.44.patch` | `rpm-package-fedora44` |
-| RPM | EL10 | `build-rpm.el10.yml` | `rpm/el10.patch` | `rpm-package-el10` |
+| RPM | EL10 / RHEL-family 10 | `build-rpm.el10.yml` | `rpm/el10.patch` | `rpm-package-el10` |
 | Flatpak | GNOME Platform 49 | `build-flatpak.gnome49.yml` | `flatpak/org.gnome.Platform.49.patch` | `flatpak-package-gnome49` |
 | Flatpak | GNOME Platform 50 | `build-flatpak.yml` | `flatpak/org.gnome.Platform.50.patch` | `flatpak-package` |
 | Snap | core24 | `build-snap.yml` | `snap/core24.patch` | `snap-package` |
@@ -46,7 +46,7 @@ Release artifacts:
 - `proton-drive_*_debian13_amd64.deb`
 - `proton-drive_*_ubuntu24.04_amd64.deb`
 - `proton-drive_*_ubuntu26.04_amd64.deb`
-- `proton-drive-*.rpm` for Fedora 43, Fedora 44, and EL10
+- `proton-drive-*.rpm` for Fedora 43, Fedora 44, and EL10/RHEL-family 10
 - `proton-drive_*_gnome49.flatpak`
 - `proton-drive_*_gnome50.flatpak`
 - `proton-drive_*_core24_amd64.snap`
@@ -237,12 +237,25 @@ runtime or distro.
 | Ubuntu 26.04 DEB | yes | remote artifact pass |
 | Fedora 43 RPM | yes | remote artifact pass |
 | Fedora 44 RPM | yes | remote artifact pass |
-| EL10 RPM | yes | pending |
+| EL10 RPM / RHEL-family 10 | yes | pending |
 | Flatpak GNOME 49 | yes | remote artifact pass |
 | Flatpak GNOME 50 | yes | remote artifact pass |
 | Snap core24 | yes | remote artifact pass |
 | Snap core26 | yes | remote artifact pass |
 | AUR Arch package | yes | remote artifact pass |
+
+Coverage notes:
+
+| Distro or family | Current coverage | Notes |
+|------------------|------------------|-------|
+| CentOS Stream 10 | EL10 RPM | Release-gated artifact; runtime smoke still pending |
+| RHEL 10 | EL10 RPM | Same EL10 package line as CentOS Stream 10 |
+| AlmaLinux 10 / Rocky Linux 10 | EL10 RPM | Same EL10 package line; verify after EL10 smoke |
+| openSUSE Tumbleweed | roadmap patch-ready | Patch exists, but no zypper workflow, release artifact, or runtime smoke yet |
+| openSUSE Leap 16 | roadmap patch-ready | Patch exists, but no zypper workflow, release artifact, or runtime smoke yet |
+| Alpine 3.22 / 3.23 | roadmap patch-ready | Needs APK/musl packaging; glibc DEB/RPM/AppImage artifacts are not Alpine packages |
+| Linux Mint / Ubuntu derivatives | matching Ubuntu DEB | Use the DEB for the matching Ubuntu base |
+| Arch derivatives | AUR package or AppImage | AUR artifact is release-gated and marked remote artifact pass |
 
 Interactive app tests are user-controlled. Automation may download, install,
 inspect, and launch an artifact only when requested, but it must not close or
