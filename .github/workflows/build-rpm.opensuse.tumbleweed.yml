@@ -29,6 +29,8 @@ jobs:
     container:
       image: opensuse/tumbleweed:latest
       options: --user root
+      env:
+        PATH: /usr/local/bin:/usr/bin:/bin
     timeout-minutes: 120
     defaults:
       run:
@@ -46,6 +48,7 @@ jobs:
             librsvg-devel libsoup-devel \
             webkitgtk3-devel libwebkit2gtk-4_1-0 \
             patchelf rpm-build nodejs-default npm-default python313 findutils which
+          echo "/usr/local/bin:/usr/bin:/bin" >> "$GITHUB_PATH"
 
       - name: Checkout repository
         uses: actions/checkout@v4
