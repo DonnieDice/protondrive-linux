@@ -28,16 +28,17 @@ jobs:
     runs-on: ubuntu-latest
     container:
       image: opensuse/tumbleweed:latest
+      options: --user root
     timeout-minutes: 120
     defaults:
       run:
-        shell: bash
+        shell: /bin/bash -e -o pipefail {0}
 
     steps:
       - name: Install build dependencies
+        shell: /bin/sh -e {0}
         run: |
           zypper --non-interactive refresh
-          zypper --non-interactive install -t pattern devel_basis || true
           zypper --non-interactive install \
             bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
             libopenssl-devel gtk3-devel \
