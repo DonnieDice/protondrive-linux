@@ -142,7 +142,7 @@ flatpak:
     status: release-gated
     runtime_smoke:
       status: pass
-      evidence: recorded Flatpak GNOME 49 runtime pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.gnome49.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome49
