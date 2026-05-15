@@ -238,7 +238,7 @@ runtime or distro.
 | Fedora 43 RPM | yes | remote artifact pass |
 | Fedora 44 RPM | yes | remote artifact pass |
 | EL10 RPM | yes | pending |
-| Flatpak GNOME 49 | yes | pass |
+| Flatpak GNOME 49 | yes | remote artifact pass |
 | Flatpak GNOME 50 | yes | remote artifact pass |
 | Snap core24 | yes | remote artifact pass |
 | Snap core26 | yes | remote artifact pass |
