@@ -1,94 +1,62 @@
 # Packaging, Compatibility, And Release
 
-This is the canonical human-readable Linux packaging document. It merges the
-release process, compatibility matrix, ABI roadmap, and patch requirements.
-
-Machine-readable target metadata lives in
+This is the canonical human-readable Linux packaging policy. Machine-readable
+target metadata lives in
 [`packaging/compatibility-map.yml`](../packaging/compatibility-map.yml). Keep
-that map in sync with this document and the workflow files.
+this file, the compatibility map, the patch tree, and GitHub Actions workflows
+in sync.
 
-## Support States
+Current release artifacts are `x86_64` only. The accurate support claim today
+is mainstream `x86_64` Linux desktop coverage through AppImage, DEB, RPM,
+Flatpak, Snap, and AUR packages. Do not claim "all Linux" until at least
+`aarch64`, openSUSE RPM, and Alpine APK/musl targets are built, released, and
+smoke-tested.
+
+## State Model
 
 | State | Meaning |
 |-------|---------|
 | release-gated | CI builds it, `release.yml` waits for it, GitHub releases publish it |
-| roadmap patch-ready | patch exists, but workflow/artifact/runtime test do not |
+| roadmap patch-ready | patch exists, but workflow, artifact, release integration, or runtime smoke is missing |
 | legacy candidate | possible target, but dependency availability must be verified first |
 | not primary | outside the current WebKitGTK 4.1/Tauri 2 support baseline |
 
-Current release artifacts are `x86_64`. `aarch64` is the next practical
-architecture target, but it is not release-gated yet.
+## Support Matrix
 
-## Release-Gated Matrix
+This table is the release and compatibility source of truth. A `release-gated`
+row is part of the current release gate. A `roadmap patch-ready` row is not a
+released package yet.
 
-`release.yml` currently waits for 13 `x86_64` artifacts:
+| Package target | State | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
+|----------------|-------|---------------------|-------|---------------|------------------------|-------------|
+| AppImage glibc baseline | release-gated | `build-appimage.yml` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
+| Debian 12 DEB | release-gated | `build-deb.yml` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
+| Debian 13 DEB | release-gated | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | pending | Debian 13 | run Debian 13 artifact smoke |
+| Ubuntu 24.04 DEB | release-gated | `build-deb.ubuntu.24.04.yml` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
+| Ubuntu 26.04 DEB | release-gated | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
+| Fedora 43 RPM | release-gated | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
+| Fedora 44 RPM | release-gated | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
+| EL10 / RHEL-family RPM | release-gated | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | run EL10 artifact smoke |
+| Flatpak GNOME 49 | release-gated | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
+| Flatpak GNOME 50 | release-gated | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
+| Snap core24 | release-gated | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
+| Snap core26 | release-gated | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
+| AUR Arch package | release-gated | `build-aur.yml` / `aur-arch` | `aur/arch.patch` + `aur/arch.wrapper` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
+| openSUSE Tumbleweed RPM | roadmap patch-ready | none yet / `rpm-package-opensuse-tumbleweed` planned | `rpm/opensuse.tumbleweed.patch` | no release artifact | openSUSE Tumbleweed | add zypper workflow, release artifact, and runtime smoke |
+| openSUSE Leap 16 RPM | roadmap patch-ready | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
+| Alpine 3.22 APK | roadmap patch-ready | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+| Alpine 3.23 APK | roadmap patch-ready | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+| Ubuntu 22.04 DEB | legacy candidate | none | none | not verified | Jammy-family users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 and Tauri 2 dependencies |
+| EL9 RPM | legacy candidate | none | none | not verified | RHEL-family 9 users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 availability in target repos |
+| Snap core22 | legacy candidate | none | none | not verified | older Snap base | verify WebKitGTK stage packages and desktop behavior |
+| Ubuntu 20.04 DEB | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
+| Debian 11 DEB | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
+| EL8 RPM | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
+| Alpine 3.20 APK | not primary | none | none | not applicable | past listed Alpine support as of the 2026-05-15 baseline check | none |
+| 32-bit x86 | not primary | none | none | not applicable | outside the current release architecture plan | none |
 
-| Package family | Target | Workflow | Patch | Artifact |
-|----------------|--------|----------|-------|----------|
-| AppImage | glibc baseline | `build-appimage.yml` | `appimage/linux-baseline.patch` | `appimage-linux-baseline` |
-| DEB | Debian 12 | `build-deb.yml` | `deb/debian.12.patch` | `deb-package-debian12` |
-| DEB | Debian 13 | `build-deb.debian.13.yml` | `deb/debian.13.patch` | `deb-package-debian13` |
-| DEB | Ubuntu 24.04 | `build-deb.ubuntu.24.04.yml` | `deb/ubuntu.24.04.patch` | `deb-package-ubuntu2404` |
-| DEB | Ubuntu 26.04 | `build-deb.ubuntu.26.04.yml` | `deb/ubuntu.26.04.patch` | `deb-package-ubuntu2604` |
-| RPM | Fedora 43 | `build-rpm.fedora.43.yml` | `rpm/fedora.43.patch` | `rpm-package-fedora43` |
-| RPM | Fedora 44 | `build-rpm.fedora.44.yml` | `rpm/fedora.44.patch` | `rpm-package-fedora44` |
-| RPM | EL10 / RHEL-family 10 | `build-rpm.el10.yml` | `rpm/el10.patch` | `rpm-package-el10` |
-| Flatpak | GNOME Platform 49 | `build-flatpak.gnome49.yml` | `flatpak/org.gnome.Platform.49.patch` | `flatpak-package-gnome49` |
-| Flatpak | GNOME Platform 50 | `build-flatpak.yml` | `flatpak/org.gnome.Platform.50.patch` | `flatpak-package` |
-| Snap | core24 | `build-snap.yml` | `snap/core24.patch` | `snap-package` |
-| Snap | core26 | `build-snap.core26.yml` | `snap/core26.patch` | `snap-package-core26` |
-| AUR | Arch family | `build-aur.yml` | `aur/arch.patch` + `aur/arch.wrapper` | `aur-arch` |
-
-Release artifacts:
-
-- `proton-drive_*.AppImage`
-- `proton-drive_*_debian12_amd64.deb`
-- `proton-drive_*_debian13_amd64.deb`
-- `proton-drive_*_ubuntu24.04_amd64.deb`
-- `proton-drive_*_ubuntu26.04_amd64.deb`
-- `proton-drive-*.rpm` for Fedora 43, Fedora 44, and EL10/RHEL-family 10
-- `proton-drive_*_gnome49.flatpak`
-- `proton-drive_*_gnome50.flatpak`
-- `proton-drive_*_core24_amd64.snap`
-- `proton-drive_*_core26_amd64.snap`
-- `proton-drive-*.pkg.tar.zst` for AUR
-- `SHA256SUMS`
-
-## Roadmap Patch-Ready Matrix
-
-These targets are in the patch tree because they are real ABI/package-manager
-gaps. They are not release-supported until the missing work is done.
-
-| Package family | Roadmap target | Patch | Missing work |
-|----------------|----------------|-------|--------------|
-| RPM | openSUSE Tumbleweed | `rpm/opensuse.tumbleweed.patch` | zypper workflow, artifact upload, release integration, runtime smoke test |
-| RPM | openSUSE Leap 16 | `rpm/opensuse.leap.16.patch` | zypper workflow, artifact upload, release integration, runtime smoke test |
-| APK | Alpine 3.22 | `apk/alpine.3.22.patch` | APK packaging, musl build/test host, artifact upload, release integration |
-| APK | Alpine 3.23 | `apk/alpine.3.23.patch` | APK packaging, musl build/test host, artifact upload, release integration |
-
-Do not add these to `release.yml` until their package workflow is green and a
-runtime smoke test has been recorded.
-
-## Legacy Candidates
-
-Do not add these to the release gate until dependency availability is verified
-on the target image/host.
-
-| Target | Rule |
-|--------|------|
-| Ubuntu 22.04 | verify WebKitGTK 4.1 and Tauri 2 dependency availability before adding a workflow |
-| Snap core22 | verify WebKitGTK stage packages and desktop behavior before adding a workflow |
-| EL9 | verify WebKitGTK 4.1 availability in supported repos before adding a workflow |
-
-## Not Primary
-
-| Target | Reason |
-|--------|--------|
-| Ubuntu 20.04 | too old for current WebKitGTK 4.1/Tauri 2 baseline |
-| Debian 11 | too old for current WebKitGTK 4.1/Tauri 2 baseline |
-| EL8 | too old for current WebKitGTK 4.1/Tauri 2 baseline |
-| Alpine 3.20 | past listed Alpine support as of the 2026-05-15 check |
-| 32-bit x86 | outside current release architecture plan |
+Current GitHub releases should contain the 13 `release-gated` artifacts above
+plus `SHA256SUMS`.
 
 ## Architecture Plan
 
@@ -99,23 +67,39 @@ on the target image/host.
 | `armv7` | experimental | add only if users request it and WebKitGTK/Tauri packaging is available |
 | `riscv64` | experimental | requires separate build/test work |
 
-Do not claim "all Linux" until at least `aarch64` artifacts are built and
-smoke-tested. The accurate claim today is mainstream `x86_64` Linux desktop
-coverage, with patch-ready roadmap entries for openSUSE and Alpine/musl.
-
 ## Compatibility Rules
 
-- Linux Mint, Pop!_OS, Zorin, and similar Ubuntu derivatives use the matching
-  Ubuntu DEB when their base release matches.
+- Linux Mint, Pop!_OS, Zorin, and similar Ubuntu derivatives use the Ubuntu DEB
+  that matches their Ubuntu base.
 - Arch derivatives use the AUR target or AppImage.
-- openSUSE users should use AppImage until openSUSE RPM workflows and tests are
-  added.
-- Alpine users should use a future APK target only after musl packaging exists;
-  glibc packages are not Alpine-compatible.
+- RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
+  line.
+- openSUSE users should use AppImage until openSUSE RPM workflows and smoke
+  tests are added.
+- Alpine users need future APK/musl packages. Current glibc DEB/RPM/AppImage
+  artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
 
-## Patch Inventory
+## Patch Policy
+
+A patch file is not a supported package target. A target becomes release-gated
+only after it has a workflow, artifact upload, `release.yml` integration, and a
+recorded runtime smoke result.
+
+Base Rust source must not hard-code distro WebKitGTK environment values.
+Target-specific runtime settings belong in `patches/<package>/<target>.patch`
+or in that package family's wrapper/manifest.
+
+Rules:
+
+- `patches/common/` is only for source changes required by every package.
+- AppImage, Flatpak, and Snap patches target runtimes, not host distros.
+- DEB, RPM, APK, and AUR patches target package-manager/ABI baselines.
+- One target owns one patch file. Do not split target behavior across multiple
+  patch files.
+
+Patch tree:
 
 ```text
 patches/
@@ -139,21 +123,6 @@ patches/
 `-- snap/core26.patch
 ```
 
-## Patch Requirements
-
-Base Rust source must not hard-code distro WebKitGTK environment values.
-Target-specific runtime settings belong in `patches/<package>/<target>.patch`
-or in that package family wrapper/manifest.
-
-Rules:
-
-- `patches/common/` is only for source changes required by every package.
-- AppImage, Flatpak, and Snap patches target runtimes, not host distros.
-- DEB, RPM, APK, and AUR patches target package-manager/ABI baselines.
-- A patch file does not create a supported release target. A supported target
-  also needs a workflow, artifact upload, release workflow integration, and a
-  runtime smoke test.
-
 Runtime settings by baseline:
 
 | Baseline | Runtime fixes |
@@ -174,7 +143,7 @@ asset path fixes, and Webpack SRI disabled for Drive, Account, and Verify.
 
 ## Release Process
 
-The release process is branch-gated:
+Release flow:
 
 ```text
 dev -> active build and workflow fixes
@@ -183,22 +152,21 @@ tags -> release artifacts
 ```
 
 Do not cut a stable release directly from `dev`. Once `dev` is green, merge the
-tested commits into `main`, push `main`, then create/update the release tag from
-`main`.
+tested commits into `main`, push `main`, then create or update the release tag
+from `main`.
 
 Release checklist:
 
 - `dev` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
-- Roadmap patch-ready targets are either intentionally excluded from
-  `release.yml` or have completed the promotion checklist below.
-- Runtime smoke tests are recorded for the intended target where available.
+- Roadmap patch-ready targets are intentionally excluded from `release.yml`
+  unless they completed the promotion checklist.
+- Runtime smoke records are updated in this file and
+  `packaging/compatibility-map.yml`.
 - `main` contains only the tested dev commits intended for release.
 - Release tag points at `main`, not `dev`.
 - GitHub release contains all 13 release-gated artifacts plus `SHA256SUMS`.
 
-## Promotion Checklist
-
-To promote a roadmap patch-ready target to release-gated:
+Promotion checklist for roadmap targets:
 
 1. Add a package workflow under `.github/workflows/`.
 2. Build inside the target container or a defensible ABI-equivalent container.
@@ -206,48 +174,21 @@ To promote a roadmap patch-ready target to release-gated:
 4. Normalize the output filename with the target label.
 5. Upload a uniquely named artifact.
 6. Add the workflow and artifact download to `release.yml`.
-7. Add the target to this document and `packaging/compatibility-map.yml`.
-8. Run and record a runtime smoke test on the target runtime/distro.
+7. Update this file and `packaging/compatibility-map.yml`.
+8. Run and record a runtime smoke test on the target runtime or distro.
 
-## Runtime Testing
+## Runtime Verification
 
 A successful GitHub Actions run is useful, but it is not the same thing as
 downloading the built package and testing it on the target host.
 
-Runtime smoke tests must run on the artifact's intended target:
+Runtime smoke boundaries:
 
-- DEB, RPM, and future APK artifacts count only against their target distro
-  release or declared compatible family.
+- DEB, RPM, and APK artifacts count only against their target distro release or
+  declared compatible family.
 - Snap artifacts count against their Snap base/runtime.
 - Flatpak artifacts count against their GNOME runtime, not the host desktop.
 - AppImage is validated against the supported glibc baseline.
-
-## Release Verification And Coverage Matrix
-
-This matrix combines release verification and distro/package coverage. A
-`release-gated` row has workflow, artifact upload, and release integration. A
-`roadmap patch-ready` row has a patch only; it is not a current release
-artifact.
-
-| Package target | State | Runtime smoke record | Covered systems / notes |
-|----------------|-------|----------------------|-------------------------|
-| AppImage glibc baseline | release-gated | remote artifact pass | Portable glibc baseline; not Alpine/musl |
-| Debian 12 DEB | release-gated | remote artifact pass | Debian 12 |
-| Debian 13 DEB | release-gated | pending | Debian 13 |
-| Ubuntu 24.04 DEB | release-gated | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu-based derivatives |
-| Ubuntu 26.04 DEB | release-gated | remote artifact pass | Ubuntu 26.04 and matching Ubuntu-based derivatives |
-| Fedora 43 RPM | release-gated | remote artifact pass | Fedora 43 |
-| Fedora 44 RPM | release-gated | remote artifact pass | Fedora 44 |
-| EL10 RPM / RHEL-family 10 | release-gated | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 |
-| Flatpak GNOME 49 | release-gated | remote artifact pass | GNOME Platform 49 runtime |
-| Flatpak GNOME 50 | release-gated | remote artifact pass | GNOME Platform 50 runtime |
-| Snap core24 | release-gated | remote artifact pass | Snap core24 base |
-| Snap core26 | release-gated | remote artifact pass | Snap core26 base |
-| AUR Arch package | release-gated | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda |
-| openSUSE Tumbleweed RPM | roadmap patch-ready | no release artifact | Patch exists; needs zypper workflow, artifact upload, release integration, and runtime smoke |
-| openSUSE Leap 16 RPM | roadmap patch-ready | no release artifact | Patch exists; needs zypper workflow, artifact upload, release integration, and runtime smoke |
-| Alpine 3.22 APK | roadmap patch-ready | no release artifact | Patch exists; needs APK/musl packaging and runtime smoke; glibc artifacts are not Alpine-compatible |
-| Alpine 3.23 APK | roadmap patch-ready | no release artifact | Patch exists; needs APK/musl packaging and runtime smoke; glibc artifacts are not Alpine-compatible |
 
 Interactive app tests are user-controlled. Automation may download, install,
 inspect, and launch an artifact only when requested, but it must not close or
@@ -278,15 +219,14 @@ cd src-tauri
 cargo build --release
 ```
 
-## DISTRO_TYPE
+## Build Metadata
 
-Each build sets `DISTRO_TYPE` at compile time. In the current code it is used
-only for package-type diagnostics in the injected initialization script. Worker
-behavior is controlled by the shared WebClients patch.
+`DISTRO_TYPE` is set at compile time by package workflows. In the current code
+it is used only for package-type diagnostics in the injected initialization
+script. Worker behavior is controlled by the shared WebClients patch.
 
-## Version Source
-
-`package.json` is the source of truth. Workflows sync it into:
+`package.json` is the source of truth for the release version. Workflows sync it
+into:
 
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
