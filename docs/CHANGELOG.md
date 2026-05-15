@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 1.3.1 - 2026-05-15
 
 ### Added
 
@@ -14,6 +14,7 @@
   roadmap patch-ready, legacy candidate, and not primary.
 - Explicit release verification checklist in `docs/packaging.md`, with runtime
   smoke status mirrored in `packaging/compatibility-map.yml`.
+- Debian 13 DEB workflow and patch alignment for the current release matrix.
 
 ### Changed
 
