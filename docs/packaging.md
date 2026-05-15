@@ -9,8 +9,8 @@ in sync.
 Current release artifacts are `x86_64` only. The accurate support claim today
 is mainstream `x86_64` Linux desktop coverage through AppImage, DEB, RPM,
 Flatpak, Snap, and AUR packages. Do not claim "all Linux" until at least
-`aarch64`, openSUSE RPM, and Alpine APK/musl targets are built, released, and
-smoke-tested.
+`aarch64`, openSUSE RPM, Alpine APK/musl, and at least one of Nix/Gentoo/Slackware
+targets are built, released, and smoke-tested.
 
 ## State Model
 
@@ -18,45 +18,105 @@ smoke-tested.
 |-------|---------|
 | release-gated | CI builds it, `release.yml` waits for it, GitHub releases publish it |
 | roadmap patch-ready | patch exists, but workflow, artifact, release integration, or runtime smoke is missing |
-| legacy candidate | possible target, but dependency availability must be verified first |
-| not primary | outside the current WebKitGTK 4.1/Tauri 2 support baseline |
+| roadmap | planned target, no patch yet; needs packaging design, workflow, and smoke test |
+| legacy candidate | one compatibility gate passes but the other is unverified or failing |
+| not primary | both compatibility gates fail or the failing gate has no upgrade path |
+
+## Compatibility Gates
+
+ProtonDrive Linux has **two independent compatibility gates** that must
+both be satisfied for a native package target to work:
+
+| Gate | Requirement | What it controls |
+|------|-------------|-------------------|
+| **glibc / libc** | glibc ≥ 2.35 (or musl for Alpine APK targets) | Whether the compiled Rust/Tauri binary can run on the host C library |
+| **WebKitGTK** | WebKitGTK 4.1 (with GTK 3) available in the target repos or runtime | Whether the Tauri 2 webview can render |
+
+A target can pass one gate and fail the other. The two are not coupled:
+
+- **Passes glibc, fails WebKitGTK** — Ubuntu 22.04 (Jammy) ships glibc 2.35
+  but does not officially package WebKitGTK 4.1. The binary would run, but
+  the webview dependency is missing. These are `legacy candidate` targets.
+- **Passes WebKitGTK, fails glibc** — A hypothetical distro with current
+  WebKitGTK but a glibc older than 2.35. The library is available but the
+  binary cannot link. These are `not primary` targets.
+- **Fails both** — Ubuntu 20.04, Debian 11, EL8: too old on both counts.
+  These are `not primary` targets.
+- **Passes both** — Debian 12+, Ubuntu 24.04+, Fedora 43+, EL10, Arch,
+  Alpine (via musl APK), Flatpak GNOME 49+, Snap core24+. These are
+  `release-gated` or `roadmap patch-ready`.
+
+The AppImage target is a special case: it bundles its own glibc baseline
+and therefore only has a WebKitGTK gate at runtime. The Snap and Flatpak
+targets carry their own WebKitGTK inside the runtime/snap, so both gates
+are satisfied by the runtime, not the host distro.
+
+### Impact on the Support Matrix
+
+The `glibc` and `WebKitGTK` columns in the support matrix below show the
+gate status for each target. A target is `release-gated` only when **both**
+gates pass. A `legacy candidate` has one gate passing and one failing or
+unverified. A `not primary` target has both gates failing or the failing
+gate has no upgrade path.
 
 ## Support Matrix
 
-This table is the release and compatibility source of truth. A `release-gated`
-row is part of the current release gate. A `roadmap patch-ready` row is not a
-released package yet.
+This table is the release and compatibility source of truth. The **glibc**
+and **WebKitGTK** columns are the two independent compatibility gates
+described above. Both must pass for a target to be `release-gated`.
 
-| Package target | State | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
-|----------------|-------|---------------------|-------|---------------|------------------------|-------------|
-| AppImage glibc baseline | release-gated | `build-appimage.yml` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
-| Debian 12 DEB | release-gated | `build-deb.yml` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
-| Debian 13 DEB | release-gated | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | pending | Debian 13 | run Debian 13 artifact smoke |
-| Ubuntu 24.04 DEB | release-gated | `build-deb.ubuntu.24.04.yml` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
-| Ubuntu 26.04 DEB | release-gated | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
-| Fedora 43 RPM | release-gated | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
-| Fedora 44 RPM | release-gated | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
-| EL10 / RHEL-family RPM | release-gated | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | run EL10 artifact smoke |
-| Flatpak GNOME 49 | release-gated | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
-| Flatpak GNOME 50 | release-gated | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
-| Snap core24 | release-gated | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
-| Snap core26 | release-gated | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
-| AUR Arch package | release-gated | `build-aur.yml` / `aur-arch` | `aur/arch.patch` + `aur/arch.wrapper` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
-| openSUSE Tumbleweed RPM | roadmap patch-ready | none yet / `rpm-package-opensuse-tumbleweed` planned | `rpm/opensuse.tumbleweed.patch` | no release artifact | openSUSE Tumbleweed | add zypper workflow, release artifact, and runtime smoke |
-| openSUSE Leap 16 RPM | roadmap patch-ready | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.22 APK | roadmap patch-ready | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
-| Alpine 3.23 APK | roadmap patch-ready | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
-| Ubuntu 22.04 DEB | legacy candidate | none | none | not verified | Jammy-family users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 and Tauri 2 dependencies |
-| EL9 RPM | legacy candidate | none | none | not verified | RHEL-family 9 users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 availability in target repos |
-| Snap core22 | legacy candidate | none | none | not verified | older Snap base | verify WebKitGTK stage packages and desktop behavior |
-| Ubuntu 20.04 DEB | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
-| Debian 11 DEB | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
-| EL8 RPM | not primary | none | none | not applicable | too old for current WebKitGTK 4.1/Tauri 2 baseline | none |
-| Alpine 3.20 APK | not primary | none | none | not applicable | past listed Alpine support as of the 2026-05-15 baseline check | none |
-| 32-bit x86 | not primary | none | none | not applicable | outside the current release architecture plan | none |
+### Release-gated targets
 
-Current GitHub releases should contain the 13 `release-gated` artifacts above
-plus `SHA256SUMS`.
+| Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
+|----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
+| AppImage glibc baseline | bundled (2.35) | host must provide | `build-appimage.yml` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
+| Debian 12 DEB | pass (2.36) | pass | `build-deb.yml` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
+| Debian 13 DEB | pass (2.38) | pass | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | pending | Debian 13 | run Debian 13 artifact smoke |
+| Ubuntu 24.04 DEB | pass (2.39) | pass | `build-deb.ubuntu.24.04.yml` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
+| Ubuntu 26.04 DEB | pass (2.41) | pass | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
+| Fedora 43 RPM | pass (2.42) | pass | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
+| Fedora 44 RPM | pass (2.42) | pass | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
+| EL10 / RHEL-family RPM | pass (2.39) | pass | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | run EL10 artifact smoke |
+| Flatpak GNOME 49 | runtime | runtime | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
+| Flatpak GNOME 50 | runtime | runtime | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
+| Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
+| Snap core26 | runtime | runtime | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
+| AUR Arch package (AppImage wrapper) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch` | `aur/arch.patch` + `aur/arch.wrapper` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate; plan migration to native build |
+
+### Roadmap patch-ready targets
+
+| Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
+|----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
+| openSUSE Tumbleweed RPM | pass | pass | none yet / `rpm-package-opensuse-tumbleweed` planned | `rpm/opensuse.tumbleweed.patch` | no release artifact | openSUSE Tumbleweed | add zypper workflow, release artifact, and runtime smoke |
+| openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
+| Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+| Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+
+### Roadmap targets (no patch yet)
+
+| Package target | glibc gate | WebKitGTK gate | Covered systems / rule | Next action |
+|----------------|-----------|----------------|------------------------|-------------|
+| AUR native Arch build | pass | pass | Arch, Manjaro, EndeavourOS, Garuda; replaces current AppImage-wrapper AUR with a natively compiled package | design native PKGBUILD, add CI workflow, create patch, validate smoke test |
+| Nix flake | n/a (Nix manages libc) | pass (nixpkgs provides) | NixOS and any host with Nix | design flake.nix, add CI workflow, create patch, validate smoke test |
+| Gentoo ebuild | pass | pass | Gentoo | design ebuild, add CI workflow, create patch, validate smoke test |
+| Slackware package | pass | verify | Slackware current; WebKitGTK 4.1 availability must be confirmed for target | verify WebKitGTK 4.1 in Slackware current repos, then design package, workflow, and patch |
+
+### Legacy candidate targets
+
+| Package target | glibc gate | WebKitGTK gate | Covered systems / rule | Next action |
+|----------------|-----------|----------------|------------------------|-------------|
+| Ubuntu 22.04 DEB | pass (2.35) | unverified | Jammy-family users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 availability in Jammy repos or backports |
+| EL9 RPM | pass (2.34) | unverified | RHEL-family 9 users should use AppImage until dependencies are verified | verify WebKitGTK 4.1 availability in EPEL or target repos |
+| Snap core22 | runtime | unverified | older Snap base | verify WebKitGTK stage packages and desktop behavior |
+
+### Not-primary targets
+
+| Package target | glibc gate | WebKitGTK gate | Reason | Next action |
+|----------------|-----------|----------------|--------|-------------|
+| Ubuntu 20.04 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
+| Debian 11 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
+| EL8 RPM | fail (2.28) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
+| Alpine 3.20 APK | musl pass | fail | Past listed Alpine support; no WebKitGTK 4.1 in 3.20 repos | none |
 
 ## Architecture Plan
 
@@ -64,14 +124,18 @@ plus `SHA256SUMS`.
 |--------------|-------|-------|
 | `x86_64` | release-gated | current artifact architecture |
 | `aarch64` | roadmap | next practical architecture for AppImage, DEB, RPM, Flatpak, Snap, and AUR |
-| `armv7` | experimental | add only if users request it and WebKitGTK/Tauri packaging is available |
+| `armv7` / RPi 2/3 | legacy | 32-bit ARM; WebKitGTK 4.1 cross-compilation and runtime on armv7 must be verified before any workflow is added; RPi 2/3 users can use the AppImage today if their glibc is sufficient, but native packages require a separate armv7 build pipeline |
 | `riscv64` | experimental | requires separate build/test work |
+| `x86` (32-bit) | legacy | 32-bit x86; not planned for native packages; users on 32-bit x86 should use AppImage if glibc permits, but no CI workflow is planned |
 
 ## Compatibility Rules
 
 - Linux Mint, Pop!_OS, Zorin, and similar Ubuntu derivatives use the Ubuntu DEB
   that matches their Ubuntu base.
 - Arch derivatives use the AUR target or AppImage.
+- The current AUR package wraps the AppImage. A future native AUR build will
+  compile against Arch system packages and replace the wrapper. Both targets
+  will coexist until the native build is smoke-tested.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE users should use AppImage until openSUSE RPM workflows and smoke
@@ -80,6 +144,17 @@ plus `SHA256SUMS`.
   artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
+- Nix users will use a future Nix flake that manages both libc and WebKitGTK
+  through nixpkgs. Until then, use the AppImage or Flatpak.
+- Gentoo users will use a future ebuild that builds against system packages.
+  Until then, use the AppImage or Flatpak.
+- Slackware users should use the AppImage until a Slackware package and
+  WebKitGTK 4.1 availability on Slackware current are verified.
+- armv7 / RPi 2/3 users should use the AppImage if their glibc baseline
+  permits. Native armv7 packages are a legacy target pending WebKitGTK
+  cross-compilation verification.
+- 32-bit x86 users should use the AppImage if their glibc baseline permits.
+  No native 32-bit x86 packages are planned.
 
 ## Patch Policy
 
@@ -96,6 +171,8 @@ Rules:
 - `patches/common/` is only for source changes required by every package.
 - AppImage, Flatpak, and Snap patches target runtimes, not host distros.
 - DEB, RPM, APK, and AUR patches target package-manager/ABI baselines.
+- Nix and Gentoo patches target build configuration and runtime wrappers
+  specific to those package managers.
 - One target owns one patch file. Do not split target behavior across multiple
   patch files.
 
@@ -106,6 +183,7 @@ patches/
 |-- common/fix-tauri-worker-protocol.patch
 |-- appimage/linux-baseline.patch
 |-- aur/arch.patch
+|-- aur/arch-native.patch          (roadmap: native AUR build)
 |-- deb/debian.12.patch
 |-- deb/debian.13.patch
 |-- deb/ubuntu.24.04.patch
@@ -120,7 +198,10 @@ patches/
 |-- flatpak/org.gnome.Platform.49.patch
 |-- flatpak/org.gnome.Platform.50.patch
 |-- snap/core24.patch
-`-- snap/core26.patch
+|-- snap/core26.patch
+|-- nix/flake.patch                 (roadmap)
+|-- gentoo/ebuild.patch             (roadmap)
+|-- slackware/slackware.current.patch (roadmap)
 ```
 
 Runtime settings by baseline:
@@ -136,7 +217,11 @@ Runtime settings by baseline:
 | Alpine roadmap | musl package target plus current-WebKitGTK conservative path |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |
-| AUR | Arch-family wrapper and patch for current WebKitGTK |
+| AUR (AppImage wrapper) | Arch-family wrapper and patch for current WebKitGTK |
+| AUR (native) roadmap | Arch-family native build against system WebKitGTK; runtime settings TBD after smoke test |
+| Nix roadmap | nixpkgs-managed WebKitGTK; runtime settings TBD after smoke test |
+| Gentoo roadmap | system WebKitGTK; runtime settings TBD after smoke test |
+| Slackware roadmap | Slackware current WebKitGTK; runtime settings TBD after smoke test |
 
 All package families also require WebKitGTK 4.1, GTK 3, Account/Verify nested
 asset path fixes, and Webpack SRI disabled for Drive, Account, and Verify.
@@ -189,6 +274,10 @@ Runtime smoke boundaries:
 - Snap artifacts count against their Snap base/runtime.
 - Flatpak artifacts count against their GNOME runtime, not the host desktop.
 - AppImage is validated against the supported glibc baseline.
+- AUR native (roadmap) counts against Arch current.
+- Nix flake (roadmap) counts against the declared nixpkgs channel.
+- Gentoo ebuild (roadmap) counts against Gentoo current stable.
+- Slackware package (roadmap) counts against Slackware current.
 
 Interactive app tests are user-controlled. Automation may download, install,
 inspect, and launch an artifact only when requested, but it must not close or
