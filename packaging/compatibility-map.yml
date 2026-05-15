@@ -12,6 +12,10 @@ ci_workflows:
 
 rpm:
   fedora43:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-rpm.fedora.43.yml
     build_container: fedora:43
     release_label: fedora43
@@ -20,6 +24,10 @@ rpm:
     supports:
       - fedora-43
   fedora44:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-rpm.fedora.44.yml
     build_container: fedora:44
     release_label: fedora44
@@ -28,8 +36,12 @@ rpm:
     supports:
       - fedora-44
   el10:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-rpm.el10.yml
-    build_container: centos:stream10
+    build_container: quay.io/centos/centos:stream10
     release_label: el10
     artifact_name: rpm-package-el10
     patch: el10
@@ -41,6 +53,10 @@ rpm:
 
 deb:
   debian12:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-deb.yml
     build_container: debian:12
     release_label: debian12
@@ -49,14 +65,22 @@ deb:
     supports:
       - debian-12
   debian13:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-deb.debian.13.yml
-    build_container: debian:sid
+    build_container: debian:13
     release_label: debian13
     artifact_name: deb-package-debian13
     patch: debian.13
     supports:
       - debian-13
   ubuntu24.04:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.ubuntu.24.04.yml
     build_container: ubuntu:24.04
     release_label: ubuntu24.04
@@ -65,17 +89,27 @@ deb:
     supports:
       - ubuntu-24.04
       - linuxmint-22
+      - ubuntu-24.04-derivatives
   ubuntu26.04:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.ubuntu.26.04.yml
-    build_container: ubuntu:devel
+    build_container: ubuntu:26.04
     release_label: ubuntu26.04
     artifact_name: deb-package-ubuntu2604
     patch: ubuntu.26.04
     supports:
       - ubuntu-26.04
+      - ubuntu-26.04-derivatives
 
 appimage:
   linux-baseline:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-appimage.yml
     build_container: debian:12
     release_label: linux-baseline
@@ -86,6 +120,10 @@ appimage:
 
 aur:
   arch:
+    status: release-gated
+    runtime_smoke:
+      status: pending
+      evidence: no current target-host smoke record
     workflow: .github/workflows/build-aur.yml
     publish_workflow: .github/workflows/publish-aur.yml
     build_container: archlinux:base-devel
@@ -101,6 +139,10 @@ aur:
 
 flatpak:
   org.gnome.Platform.49:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: recorded Flatpak GNOME 49 runtime pass
     workflow: .github/workflows/build-flatpak.gnome49.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome49
@@ -109,6 +151,10 @@ flatpak:
     supports:
       - org.gnome.Platform//49
   org.gnome.Platform.50:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome50
@@ -119,6 +165,10 @@ flatpak:
 
 snap:
   core24:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-snap.yml
     build_container: ubuntu-24.04
     release_label: snap-core24
@@ -127,6 +177,10 @@ snap:
     supports:
       - core24
   core26:
+    status: release-gated
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass on Ubuntu 26.04/core26
     workflow: .github/workflows/build-snap.core26.yml
     build_container: ubuntu-24.04
     release_label: snap-core26
@@ -134,3 +188,99 @@ snap:
     patch: core26
     supports:
       - core26
+
+roadmap_patch_ready:
+  rpm:
+    opensuse_tumbleweed:
+      status: roadmap-patch-ready
+      workflow: null
+      build_container: registry.opensuse.org/opensuse/tumbleweed
+      release_label: opensuse-tumbleweed
+      artifact_name: rpm-package-opensuse-tumbleweed
+      patch: opensuse.tumbleweed
+      supports:
+        - opensuse-tumbleweed
+      before_release_gate:
+        - add zypper-based RPM workflow
+        - validate runtime install and login smoke test on Tumbleweed
+    opensuse_leap16:
+      status: roadmap-patch-ready
+      workflow: null
+      build_container: registry.opensuse.org/opensuse/leap:16.0
+      release_label: opensuse-leap16
+      artifact_name: rpm-package-opensuse-leap16
+      patch: opensuse.leap.16
+      supports:
+        - opensuse-leap-16
+      before_release_gate:
+        - add zypper-based RPM workflow
+        - validate runtime install and login smoke test on Leap 16
+  apk:
+    alpine322:
+      status: roadmap-patch-ready
+      workflow: null
+      build_container: alpine:3.22
+      release_label: alpine322
+      artifact_name: apk-package-alpine322
+      patch: alpine.3.22
+      supports:
+        - alpine-3.22
+      before_release_gate:
+        - add APK packaging workflow
+        - validate musl runtime install and login smoke test
+    alpine323:
+      status: roadmap-patch-ready
+      workflow: null
+      build_container: alpine:3.23
+      release_label: alpine323
+      artifact_name: apk-package-alpine323
+      patch: alpine.3.23
+      supports:
+        - alpine-3.23
+      before_release_gate:
+        - add APK packaging workflow
+        - validate musl runtime install and login smoke test
+
+legacy_candidates:
+  deb:
+    ubuntu22.04:
+      status: verify-first
+      reason: WebKitGTK 4.1 and Tauri 2 dependency availability must be verified on Jammy before adding a DEB target.
+  rpm:
+    el9:
+      status: verify-first
+      reason: WebKitGTK 4.1 availability must be verified in target repos before adding an EL9 RPM workflow.
+  snap:
+    core22:
+      status: verify-first
+      reason: WebKitGTK 4.1 stage packages and desktop extension behavior must be verified before adding a core22 Snap.
+
+not_primary:
+  deb:
+    ubuntu20.04:
+      status: not-primary
+      reason: Too old for the current WebKitGTK 4.1/Tauri 2 baseline.
+    debian11:
+      status: not-primary
+      reason: Too old for the current WebKitGTK 4.1/Tauri 2 baseline.
+  rpm:
+    el8:
+      status: not-primary
+      reason: Too old for the current WebKitGTK 4.1/Tauri 2 baseline.
+  apk:
+    alpine320:
+      status: not-primary
+      reason: Past listed Alpine support as of the 2026-05-15 baseline check.
+  architecture:
+    x86_32:
+      status: not-primary
+      reason: Outside the current release architecture plan.
+
+architectures:
+  release_gate:
+    - x86_64
+  planned:
+    - aarch64
+  experimental:
+    - armv7
+    - riscv64
