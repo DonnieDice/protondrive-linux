@@ -57,8 +57,8 @@ rpm:
       glibc: pass
       webkitgtk: pass
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact install and launch on CentOS Stream 10 host
     workflow: .github/workflows/build-rpm.el10.yml
     build_container: quay.io/centos/centos:stream10
     release_label: el10
