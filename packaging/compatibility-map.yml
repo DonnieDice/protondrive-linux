@@ -92,8 +92,8 @@ deb:
       glibc: pass
       webkitgtk: pass
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact install and launch on Debian 13 host
     workflow: .github/workflows/build-deb.debian.13.yml
     build_container: debian:13
     release_label: debian13

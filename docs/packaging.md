@@ -71,7 +71,7 @@ described above. Both must pass for a target to be `release-gated`.
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | AppImage glibc baseline | bundled (2.35) | host must provide | `build-appimage.yml` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
 | Debian 12 DEB | pass (2.36) | pass | `build-deb.yml` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
-| Debian 13 DEB | pass (2.38) | pass | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | pending | Debian 13 | run Debian 13 artifact smoke |
+| Debian 13 DEB | pass (2.38) | pass | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | remote artifact pass | Debian 13 | keep in release gate |
 | Ubuntu 24.04 DEB | pass (2.39) | pass | `build-deb.ubuntu.24.04.yml` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
 | Ubuntu 26.04 DEB | pass (2.41) | pass | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
 | Fedora 43 RPM | pass (2.42) | pass | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
