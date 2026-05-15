@@ -14,8 +14,8 @@ rpm:
   fedora43:
     status: release-gated
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-rpm.fedora.43.yml
     build_container: fedora:43
     release_label: fedora43
@@ -26,8 +26,8 @@ rpm:
   fedora44:
     status: release-gated
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-rpm.fedora.44.yml
     build_container: fedora:44
     release_label: fedora44
@@ -55,8 +55,8 @@ deb:
   debian12:
     status: release-gated
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.yml
     build_container: debian:12
     release_label: debian12
@@ -122,8 +122,8 @@ aur:
   arch:
     status: release-gated
     runtime_smoke:
-      status: pending
-      evidence: no current target-host smoke record
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-aur.yml
     publish_workflow: .github/workflows/publish-aur.yml
     build_container: archlinux:base-devel
@@ -180,7 +180,7 @@ snap:
     status: release-gated
     runtime_smoke:
       status: pass
-      evidence: remote artifact pass on Ubuntu 26.04/core26
+      evidence: remote artifact pass
     workflow: .github/workflows/build-snap.core26.yml
     build_container: ubuntu-24.04
     release_label: snap-core26

@@ -231,18 +231,18 @@ runtime or distro.
 | Target | Release gate | Runtime smoke record |
 |--------|--------------|----------------------|
 | AppImage glibc baseline | yes | remote artifact pass |
-| Debian 12 DEB | yes | pending |
+| Debian 12 DEB | yes | remote artifact pass |
 | Debian 13 DEB | yes | pending |
 | Ubuntu 24.04 DEB | yes | remote artifact pass |
 | Ubuntu 26.04 DEB | yes | remote artifact pass |
-| Fedora 43 RPM | yes | pending target-host smoke record |
-| Fedora 44 RPM | yes | pending target-host smoke record |
+| Fedora 43 RPM | yes | remote artifact pass |
+| Fedora 44 RPM | yes | remote artifact pass |
 | EL10 RPM | yes | pending |
 | Flatpak GNOME 49 | yes | pass |
 | Flatpak GNOME 50 | yes | remote artifact pass |
 | Snap core24 | yes | remote artifact pass |
-| Snap core26 | yes | remote artifact pass on Ubuntu 26.04/core26 |
-| AUR Arch package | yes | pending target-host smoke record |
+| Snap core26 | yes | remote artifact pass |
+| AUR Arch package | yes | remote artifact pass |
 
 Interactive app tests are user-controlled. Automation may download, install,
 inspect, and launch an artifact only when requested, but it must not close or
