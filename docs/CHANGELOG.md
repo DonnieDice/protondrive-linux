@@ -19,6 +19,9 @@
 
 - Rewrote compatibility, packaging, patch, and release docs to separate the
   current 13-artifact release gate from roadmap patch-ready targets.
+- Collapsed `docs/packaging.md` around one support matrix covering release
+  artifacts, roadmap patch-ready targets, legacy candidates, and non-primary
+  targets.
 - Corrected compatibility-map build containers for Debian 13, Ubuntu 26.04, and
   EL10 to match the actual workflow container images.
 
