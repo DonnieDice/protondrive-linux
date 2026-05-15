@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.3.2 - 2026-05-15
+
+### Added
+
+- openSUSE Tumbleweed RPM workflow (`build-rpm.opensuse.tumbleweed.yml`)
+  with `opensuse.tumbleweed` distro patch for WebKitGTK rolling-release
+  environment flags (DMABUF renderer, compositing mode, sandbox, IPInt,
+  software GL, Cairo renderer).
+- openSUSE Tumbleweed RPM artifact in the release workflow (`release.yml`)
+  download, rename, and install instructions.
+- Local build script `scripts/ci/build-opensuse-tumbleweed-rpm.sh` for
+  reproducible RPM builds outside CI.
+
 ## 1.3.1 - 2026-05-15
 
 ### Added
