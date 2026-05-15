@@ -1,97 +1,106 @@
 # Patches Directory
 
-Patches are organized by package type, then by distro/runtime target. Package workflows are intentionally separate, and each package owns its patch directory.
+Patches are organized by package type and ABI/runtime target. The patch tree
+contains both release-gated targets and roadmap patch-ready targets.
 
-## Structure
+A patch file is not a binary package. A target becomes release-supported only
+after it has a package workflow, artifact upload, release workflow integration,
+and a runtime smoke test. The current target verification checklist lives in
+[`docs/packaging.md`](../docs/packaging.md) and
+[`packaging/compatibility-map.yml`](../packaging/compatibility-map.yml).
 
-```
+## Full Patch Tree
+
+```text
 patches/
-├── common/            # Shared WebClients patches for ALL builds
-├── appimage/
-│   └── linux-baseline.patch
-├── deb/
-│   ├── debian.12.patch
-│   ├── debian.13.patch
-│   ├── ubuntu.24.04.patch
-│   └── ubuntu.26.04.patch
-├── rpm/
-│   ├── fedora.43.patch
-│   ├── fedora.44.patch
-│   └── el10.patch
-├── flatpak/
-│   ├── org.gnome.Platform.49.patch
-│   └── org.gnome.Platform.50.patch
-├── snap/
-│   ├── core24.patch
-│   └── core26.patch
-└── aur/                    # Arch Linux AUR-specific
+|-- common/
+|   `-- fix-tauri-worker-protocol.patch
+|-- appimage/
+|   `-- linux-baseline.patch
+|-- deb/
+|   |-- debian.12.patch
+|   |-- debian.13.patch
+|   |-- ubuntu.24.04.patch
+|   `-- ubuntu.26.04.patch
+|-- rpm/
+|   |-- fedora.43.patch
+|   |-- fedora.44.patch
+|   |-- el10.patch
+|   |-- opensuse.tumbleweed.patch
+|   `-- opensuse.leap.16.patch
+|-- apk/
+|   |-- alpine.3.22.patch
+|   `-- alpine.3.23.patch
+|-- flatpak/
+|   |-- org.gnome.Platform.49.patch
+|   `-- org.gnome.Platform.50.patch
+|-- snap/
+|   |-- core24.patch
+|   `-- core26.patch
+`-- aur/
+    |-- arch.patch
+    `-- arch.wrapper
 ```
 
-## Architecture Rules
+## Release-Gated Patches
 
-1. **Base code is universal.** `src-tauri/src/main.rs` must NOT contain distro-specific env vars (GDK_GL, LIBGL_ALWAYS_SOFTWARE, WEBKIT_DISABLE_*, etc.) or DISTRO_TYPE compile-time branching. The base binary ships clean.
+These are currently built and published by the release workflow:
 
-2. **Distro/runtime-specific overrides go in `patches/<package>/<target>.patch`.** DEB/RPM targets are distro versions (for example `ubuntu.24.04` or `fedora.44`); AppImage/Flatpak/Snap targets are runtime names (for example `linux-baseline`, `org.gnome.Platform.49`, `core24`, or `core26`).
+- `appimage/linux-baseline.patch`
+- `aur/arch.patch`
+- `deb/debian.12.patch`
+- `deb/debian.13.patch`
+- `deb/ubuntu.24.04.patch`
+- `deb/ubuntu.26.04.patch`
+- `flatpak/org.gnome.Platform.49.patch`
+- `flatpak/org.gnome.Platform.50.patch`
+- `rpm/el10.patch`
+- `rpm/fedora.43.patch`
+- `rpm/fedora.44.patch`
+- `snap/core24.patch`
+- `snap/core26.patch`
 
-3. **Build scripts take or imply a patch target.** Local build scripts either default to their target or accept one as the first argument. CI workflows apply the matching patch via `DISTRO_PATCH`.
+`common/fix-tauri-worker-protocol.patch` is applied to the cloned WebClients
+source during package builds. It is common source behavior, not a package
+target.
 
-4. **`DISTRO_TYPE` env var is set at build time.** Each workflow and build script exports `DISTRO_TYPE=appimage|deb|rpm|flatpak|snap` so the Rust code can use `option_env!("DISTRO_TYPE")` for package-specific behavior (like Worker init).
+## Roadmap Patch-Ready Patches
 
-5. **`patches/common/` is for changes ALL packages need.** Never put distro-specific fixes here.
+These patches exist because the targets are real ABI/package-manager gaps. They
+are not release-gated yet.
 
-6. **One patch per distro version per package type.** Do not split a distro's changes across multiple patch files. Merge them into a single `<distro>.<version>.patch`.
+| Patch | Target | Required before publishing |
+|-------|--------|----------------------------|
+| `rpm/opensuse.tumbleweed.patch` | openSUSE Tumbleweed | zypper RPM workflow, artifact upload, runtime smoke test |
+| `rpm/opensuse.leap.16.patch` | openSUSE Leap 16 | zypper RPM workflow, artifact upload, runtime smoke test |
+| `apk/alpine.3.22.patch` | Alpine 3.22 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
+| `apk/alpine.3.23.patch` | Alpine 3.23 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
 
-## Ownership Rule
+No optional desktop-runtime variants or older GNOME Flatpak patches are
+tracked. Flatpak releases target GNOME Platform runtimes because the app is
+GTK/WebKitGTK-based.
 
-- Put patches in `common/` only when every package needs the same WebClients source change.
-- Put distro/package-specific behavior in that package directory under `<distro>.<version>.patch`.
-- Do not add Fedora/RPM-only fixes to `deb/`, `appimage/`, or `common/`.
-- Do not use long-term distro branches for packaging differences.
+## Patch Rules
 
-## Build Workflows
+1. Base code is universal. `src-tauri/src/main.rs` must not hard-code distro
+   WebKitGTK environment values.
+2. Distro/runtime-specific overrides go in `patches/<package>/<target>.patch`
+   or in the package wrapper/manifest.
+3. `patches/common/` is only for changes every package needs.
+4. AppImage, Flatpak, and Snap patches target runtimes.
+5. DEB, RPM, APK, and AUR patches target package-manager/ABI baselines.
+6. One target owns one patch file. Do not split target behavior across multiple
+   patch files.
 
-Release artifacts are built by GitHub Actions. Package patches are applied in the matching workflow before the package is built:
+## Adding a Target
 
-| Package | Workflow | DISTRO_TYPE |
-|---------|----------|-------------|
-| AppImage | `.github/workflows/build-appimage.yml` | `appimage` |
-| DEB | `.github/workflows/build-deb*.yml` | `deb` |
-| RPM | `.github/workflows/build-rpm*.yml` | `rpm` |
-| Flatpak | `.github/workflows/build-flatpak*.yml` | `flatpak` |
-| Snap | `.github/workflows/build-snap*.yml` | `snap` |
-| AUR | `.github/workflows/build-aur.yml` | `aur` |
-
-## Current Patches
-
-### common/
-- `fix-tauri-worker-protocol.patch` - Disables Web Workers in Tauri environment (WebKitGTK doesn't support workers from tauri:// protocol)
-
-### appimage/
-- `linux-baseline.patch` - Portable AppImage baseline with `JSC_useWasmIPInt=false`.
-
-### deb/
-- `debian.12.patch` - Debian-safe: GDK_GL=disable + LIBGL_ALWAYS_SOFTWARE
-- `debian.13.patch` - Debian 13 WebKitGTK 2.46+ renderer settings
-- `ubuntu.24.04.patch` - Ubuntu-safe: GDK_GL=software + LIBGL_ALWAYS_SOFTWARE=1 + JSC_useWasmIPInt=false
-- `ubuntu.26.04.patch` - Ubuntu 26.04 WebKitGTK 2.48+ renderer settings + JSC_useWasmIPInt=false
-
-### rpm/
-- `fedora.43.patch` - Fedora 43 WebKitGTK 2.52+ sandbox/IPInt workaround
-- `fedora.44.patch` - Fedora 44 WebKitGTK 2.52+ sandbox/IPInt workaround
-- `el10.patch` - RHEL/Alma/Rocky/CentOS Stream 10 baseline
-
-### flatpak/
-- `org.gnome.Platform.49.patch` - GNOME 49 runtime + JSC_useWasmIPInt=false
-- `org.gnome.Platform.50.patch` - GNOME 50 runtime + JSC_useWasmIPInt=false
-
-### snap/
-- `core24.patch` - Stable Snap base
-- `core26.patch` - Experimental core26 base
-
-## Adding New Patches
-
-1. Create patch against git HEAD: `diff -u /tmp/main.rs.base /tmp/main.rs.patched > patches/<package>/<target>.patch`
-2. Fix paths in the patch header: `--- a/src-tauri/src/main.rs` and `+++ b/src-tauri/src/main.rs`
-3. Name the patch after the distro and version (e.g., `ubuntu.24.04.patch`, `fedora.40.patch`)
-4. Test: `git apply --check patches/<package>/<distro>.<version>.patch`
-5. Document why the patch is distro-specific in the commit message
+1. Create the patch against the clean repository base.
+2. Name it after the ABI/runtime target, for example `ubuntu.24.04.patch`,
+   `opensuse.leap.16.patch`, or `alpine.3.23.patch`.
+3. Test repository patches with `git apply --check`.
+4. For `common/` patches that apply to cloned WebClients, test after
+   `scripts/build-webclients.sh` has cloned WebClients.
+5. Add the target to `packaging/compatibility-map.yml`.
+6. Add or update documentation in `docs/packaging.md`.
+7. Promote to release-gated only after a workflow, artifact upload, release
+   integration, and runtime smoke test exist.

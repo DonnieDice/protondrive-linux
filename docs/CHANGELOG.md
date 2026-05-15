@@ -1,5 +1,31 @@
 # Changelog
 
+## 1.3.1 - 2026-05-15
+
+### Added
+
+- Merged build/release, compatibility, Linux ABI target, and packaging notes
+  into `docs/packaging.md`.
+- Patch-ready entries for openSUSE Tumbleweed, openSUSE Leap 16, Alpine 3.22,
+  and Alpine 3.23.
+- Roadmap patch-ready metadata in `packaging/compatibility-map.yml` for musl,
+  openSUSE, legacy candidates, and architecture expansion.
+- Documentation now uses the same support states everywhere: release-gated,
+  roadmap patch-ready, legacy candidate, and not primary.
+- Explicit release verification checklist in `docs/packaging.md`, with runtime
+  smoke status mirrored in `packaging/compatibility-map.yml`.
+- Debian 13 DEB workflow and patch alignment for the current release matrix.
+
+### Changed
+
+- Rewrote compatibility, packaging, patch, and release docs to separate the
+  current 13-artifact release gate from roadmap patch-ready targets.
+- Collapsed `docs/packaging.md` around one support matrix covering release
+  artifacts, roadmap patch-ready targets, legacy candidates, and non-primary
+  targets.
+- Corrected compatibility-map build containers for Debian 13, Ubuntu 26.04, and
+  EL10 to match the actual workflow container images.
+
 ## 1.3.0 - 2026-05-11
 
 ### Added

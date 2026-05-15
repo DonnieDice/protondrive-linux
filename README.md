@@ -8,24 +8,35 @@ An unofficial desktop app for Proton Drive on Linux.
 
 **v1.3.0**
 
-Download the latest release from the [Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
+Download the latest release from the
+[Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
 
-Packages are distributed as GitHub release artifacts. There is no apt repository, Flathub listing, or Snap Store listing at this time.
+Packages are distributed as GitHub release artifacts. There is no apt
+repository, Flathub listing, or Snap Store listing at this time.
 
-| Format | Best for |
-|--------|----------|
-| AppImage | Most Linux distributions (portable, no install needed) |
-| DEB | Debian, Ubuntu, Linux Mint, Zorin, Pop!\_OS |
-| RPM | Fedora 43/44 and RHEL/CentOS/Alma/Rocky 10 |
+## Current Release Support
+
+Current release artifacts are `x86_64`.
+
+| Format | Release-gated targets |
+|--------|-----------------------|
+| AppImage | portable glibc baseline |
+| DEB | Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 |
+| RPM | Fedora 43, Fedora 44, RHEL/CentOS/Alma/Rocky 10 |
 | AUR | Arch, Manjaro, EndeavourOS, Garuda |
-| Flatpak | Flatpak sandbox installs |
-| Snap | Snap installs |
+| Flatpak | GNOME Platform 49, GNOME Platform 50 |
+| Snap | core24, core26 |
+
+Roadmap patch-ready targets are openSUSE Tumbleweed, openSUSE Leap 16, Alpine
+3.22, and Alpine 3.23. They are not release artifacts yet. See
+[`docs/packaging.md`](docs/packaging.md).
 
 ## Installation
 
 ### AppImage
 
-The AppImage is the easiest option for most users — just download, make executable, and run.
+The AppImage is the easiest option for most users: download, make executable,
+and run.
 
 ```bash
 chmod +x proton-drive_*.AppImage
@@ -38,10 +49,10 @@ Choose the DEB that matches your system:
 
 | Package | For |
 |---------|-----|
-| `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x |
-| `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 |
-| `proton-drive_*_debian12_amd64.deb` | Debian 12 (Bookworm) |
-| `proton-drive_*_debian13_amd64.deb` | Debian 13 (Trixie) |
+| `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu-based derivatives |
+| `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 and matching Ubuntu-based derivatives |
+| `proton-drive_*_debian12_amd64.deb` | Debian 12 |
+| `proton-drive_*_debian13_amd64.deb` | Debian 13 |
 
 ```bash
 sudo apt install ./proton-drive_*.deb
@@ -60,6 +71,10 @@ Choose the RPM that matches your system:
 ```bash
 sudo dnf install ./proton-drive-*.rpm
 ```
+
+openSUSE RPMs are roadmap targets, not current release artifacts. Use the
+AppImage on openSUSE until the zypper-based RPM workflows and smoke tests are
+added.
 
 ### Arch / Manjaro / EndeavourOS / Garuda
 
@@ -82,7 +97,10 @@ flatpak install --user proton-drive_*.flatpak
 flatpak run com.proton.drive
 ```
 
-Not currently available on Flathub. Download the `.flatpak` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally.
+Not currently available on Flathub. Download the `.flatpak` artifact from
+[Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install
+it locally. Flatpak releases target the GNOME Platform runtime because the app
+is GTK/WebKitGTK-based.
 
 ### Snap
 
@@ -90,17 +108,26 @@ Not currently available on Flathub. Download the `.flatpak` artifact from [Relea
 sudo snap install --dangerous proton-drive_*_core24_amd64.snap
 ```
 
-Not currently available in the Snap Store. Download the `.snap` artifact from [Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install it locally with `--dangerous`.
+Not currently available in the Snap Store. Download the `.snap` artifact from
+[Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install
+it locally with `--dangerous`.
 
-## Using the app
+### Alpine
 
-Open ProtonDrive Linux from your application launcher, then sign in with your Proton account. The app supports login, CAPTCHA, two-factor authentication, and normal Proton Drive browsing.
+Alpine APK packages are roadmap targets. Current glibc DEB/RPM/AppImage
+artifacts are not Alpine/musl packages.
+
+## Using The App
+
+Open ProtonDrive Linux from your application launcher, then sign in with your
+Proton account. The app supports login, CAPTCHA, two-factor authentication, and
+normal Proton Drive browsing.
 
 Downloads are saved to `~/Downloads`.
 
 ## Troubleshooting
 
-### White screen or crash on startup
+### White Screen Or Startup Crash
 
 Try launching with WebKitGTK rendering workarounds:
 
@@ -110,19 +137,21 @@ WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./proton-driv
 
 This can help on some AMD/Wayland systems affected by WebKitGTK rendering bugs.
 
-### Login error, chunk loading error, or CAPTCHA freeze
+### Login Error, Chunk Loading Error, Or CAPTCHA Freeze
 
-Upgrade to the latest release — these issues are fixed in current builds.
+Upgrade to the latest release; these issues are fixed in current builds.
 
-### App stuck on the loading screen
+### App Stuck On The Loading Screen
 
 - Check that your internet connection is working.
 - Launch the app from a terminal to see error output.
 - Open a GitHub issue and include the terminal log.
 
-## Building from source
+## Building From Source
 
-Most users should download a package from [Releases](https://github.com/DonnieDice/protondrive-linux/releases). Build from source only if you want to test changes or package the app yourself.
+Most users should download a package from
+[Releases](https://github.com/DonnieDice/protondrive-linux/releases). Build from
+source only if you want to test changes or package the app yourself.
 
 ### Requirements
 
@@ -153,16 +182,21 @@ npm run build:web
 npm run build:appimage
 ```
 
-Built packages go to `src-tauri/target/release/bundle/`. Release artifacts are produced by the package workflows documented in `docs/`.
+Built packages go to `src-tauri/target/release/bundle/`. Release artifacts are
+produced by the package workflows documented in `docs/`.
 
-## How it works
+## How It Works
 
-ProtonDrive Linux wraps Proton Drive's official web frontend in a Tauri WebView. A local Rust layer helps the web app communicate with Proton's servers from the desktop environment. Authentication, encryption, and file operations are handled by Proton's web app.
+ProtonDrive Linux wraps Proton Drive's official web frontend in a Tauri WebView.
+A local Rust layer helps the web app communicate with Proton's servers from the
+desktop environment. Authentication, encryption, and file operations are handled
+by Proton's web app.
 
 ## Contributing
 
-Contributions are welcome — see [CONTRIBUTING.md](docs/CONTRIBUTING.md) for guidelines. Technical packaging and compatibility notes are in [`docs/`](docs/).
+Contributions are welcome. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for
+guidelines. Technical packaging and compatibility notes are in [`docs/`](docs/).
 
 ## License
 
-AGPL-3.0 — see [LICENSE](LICENSE).
+AGPL-3.0. See [LICENSE](LICENSE).

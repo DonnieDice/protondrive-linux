@@ -1,3 +1,13 @@
+compatibility_gates:
+  glibc:
+    minimum: "2.35"
+    description: "Minimum glibc for compiled Rust/Tauri binary to link and run"
+  musl:
+    description: "Alpine APK targets use musl instead of glibc; no minimum glibc applies"
+  webkitgtk:
+    minimum: "4.1"
+    description: "WebKitGTK 4.1 with GTK 3 must be available in target repos or runtime"
+
 webkitgtk_runtime:
   deb: libwebkit2gtk-4.1-0
   rpm: webkit2gtk4.1
@@ -12,80 +22,146 @@ ci_workflows:
 
 rpm:
   fedora43:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-rpm.fedora.43.yml
     build_container: fedora:43
     release_label: fedora43
     artifact_name: rpm-package-fedora43
     patch: fedora.43
     supports:
-      - fedora-43
+    - fedora-43
   fedora44:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-rpm.fedora.44.yml
     build_container: fedora:44
     release_label: fedora44
     artifact_name: rpm-package-fedora44
     patch: fedora.44
     supports:
-      - fedora-44
+    - fedora-44
   el10:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact install and launch on CentOS Stream 10 host
     workflow: .github/workflows/build-rpm.el10.yml
-    build_container: centos:stream10
+    build_container: quay.io/centos/centos:stream10
     release_label: el10
     artifact_name: rpm-package-el10
     patch: el10
     supports:
-      - rhel-10
-      - centos-stream-10
-      - almalinux-10
-      - rockylinux-10
+    - rhel-10
+    - centos-stream-10
+    - almalinux-10
+    - rockylinux-10
 
 deb:
   debian12:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.yml
     build_container: debian:12
     release_label: debian12
     artifact_name: deb-package-debian12
     patch: debian.12
     supports:
-      - debian-12
+    - debian-12
   debian13:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact install and launch on Debian 13 host
     workflow: .github/workflows/build-deb.debian.13.yml
-    build_container: debian:sid
+    build_container: debian:13
     release_label: debian13
     artifact_name: deb-package-debian13
     patch: debian.13
     supports:
-      - debian-13
+    - debian-13
   ubuntu24.04:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.ubuntu.24.04.yml
     build_container: ubuntu:24.04
     release_label: ubuntu24.04
     artifact_name: deb-package-ubuntu2404
     patch: ubuntu.24.04
     supports:
-      - ubuntu-24.04
-      - linuxmint-22
+    - ubuntu-24.04
+    - linuxmint-22
+    - ubuntu-24.04-derivatives
   ubuntu26.04:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-deb.ubuntu.26.04.yml
-    build_container: ubuntu:devel
+    build_container: ubuntu:26.04
     release_label: ubuntu26.04
     artifact_name: deb-package-ubuntu2604
     patch: ubuntu.26.04
     supports:
-      - ubuntu-26.04
+    - ubuntu-26.04
+    - ubuntu-26.04-derivatives
 
 appimage:
   linux-baseline:
+    status: release-gated
+    gates:
+      glibc: bundled
+      webkitgtk: host-provided
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-appimage.yml
     build_container: debian:12
     release_label: linux-baseline
     artifact_name: appimage-linux-baseline
     patch: linux-baseline
     supports:
-      - any-linux-glibc-2.35+
+    - any-linux-glibc-2.35+
 
 aur:
   arch:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    packaging_mode: appimage-wrapper
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-aur.yml
     publish_workflow: .github/workflows/publish-aur.yml
     build_container: archlinux:base-devel
@@ -94,43 +170,295 @@ aur:
     metadata_artifact_name: aur-arch-srcinfo
     patch: arch
     supports:
-      - arch
-      - manjaro
-      - endeavour
-      - garuda
+    - arch
+    - manjaro
+    - endeavour
+    - garuda
+    migration_note: "Current AUR package wraps the AppImage. A future native AUR build (arch-native) will compile against Arch system packages and replace this wrapper."
 
 flatpak:
   org.gnome.Platform.49:
+    status: release-gated
+    gates:
+      glibc: runtime
+      webkitgtk: runtime
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.gnome49.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome49
     artifact_name: flatpak-package-gnome49
     patch: org.gnome.Platform.49
     supports:
-      - org.gnome.Platform//49
+    - org.gnome.Platform//49
   org.gnome.Platform.50:
+    status: release-gated
+    gates:
+      glibc: runtime
+      webkitgtk: runtime
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome50
     artifact_name: flatpak-package
     patch: org.gnome.Platform.50
     supports:
-      - org.gnome.Platform//50
+    - org.gnome.Platform//50
 
 snap:
   core24:
+    status: release-gated
+    gates:
+      glibc: runtime
+      webkitgtk: runtime
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-snap.yml
     build_container: ubuntu-24.04
     release_label: snap-core24
     artifact_name: snap-package
     patch: core24
     supports:
-      - core24
+    - core24
   core26:
+    status: release-gated
+    gates:
+      glibc: runtime
+      webkitgtk: runtime
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
     workflow: .github/workflows/build-snap.core26.yml
     build_container: ubuntu-24.04
     release_label: snap-core26
     artifact_name: snap-package-core26
     patch: core26
     supports:
-      - core26
+    - core26
+
+roadmap_patch_ready:
+  rpm:
+    opensuse_tumbleweed:
+      status: roadmap-patch-ready
+      gates:
+        glibc: pass
+        webkitgtk: pass
+      workflow: null
+      build_container: registry.opensuse.org/opensuse/tumbleweed
+      release_label: opensuse-tumbleweed
+      artifact_name: rpm-package-opensuse-tumbleweed
+      patch: opensuse.tumbleweed
+      supports:
+      - opensuse-tumbleweed
+      before_release_gate:
+      - add zypper-based RPM workflow
+      - validate runtime install and login smoke test on Tumbleweed
+    opensuse_leap16:
+      status: roadmap-patch-ready
+      gates:
+        glibc: pass
+        webkitgtk: pass
+      workflow: null
+      build_container: registry.opensuse.org/opensuse/leap:16.0
+      release_label: opensuse-leap16
+      artifact_name: rpm-package-opensuse-leap16
+      patch: opensuse.leap.16
+      supports:
+      - opensuse-leap-16
+      before_release_gate:
+      - add zypper-based RPM workflow
+      - validate runtime install and login smoke test on Leap 16
+  apk:
+    alpine322:
+      status: roadmap-patch-ready
+      gates:
+        glibc: musl-pass
+        webkitgtk: pass
+      workflow: null
+      build_container: alpine:3.22
+      release_label: alpine322
+      artifact_name: apk-package-alpine322
+      patch: alpine.3.22
+      supports:
+      - alpine-3.22
+      before_release_gate:
+      - add APK packaging workflow
+      - validate musl runtime install and login smoke test
+    alpine323:
+      status: roadmap-patch-ready
+      gates:
+        glibc: musl-pass
+        webkitgtk: pass
+      workflow: null
+      build_container: alpine:3.23
+      release_label: alpine323
+      artifact_name: apk-package-alpine323
+      patch: alpine.3.23
+      supports:
+      - alpine-3.23
+      before_release_gate:
+      - add APK packaging workflow
+      - validate musl runtime install and login smoke test
+
+roadmap:
+  aur:
+    arch_native:
+      status: roadmap
+      gates:
+        glibc: pass
+        webkitgtk: pass
+      packaging_mode: native
+      workflow: null
+      build_container: archlinux:base-devel
+      release_label: aur-arch-native
+      artifact_name: aur-arch-native
+      patch: arch-native
+      supports:
+      - arch
+      - manjaro
+      - endeavour
+      - garuda
+      replaces: arch
+      before_release_gate:
+      - design native PKGBUILD that compiles against system WebKitGTK
+      - add CI workflow for native AUR build
+      - create arch-native patch
+      - validate runtime install and login smoke test on Arch
+      - plan migration from appimage-wrapper to native AUR
+  nix:
+    nixos:
+      status: roadmap
+      gates:
+        glibc: nix-managed
+        webkitgtk: pass
+      workflow: null
+      build_container: null
+      release_label: nix-flake
+      artifact_name: nix-flake
+      patch: nix/flake
+      supports:
+      - nixos
+      - any-host-with-nix
+      before_release_gate:
+      - design flake.nix and associated nix expressions
+      - add CI workflow using nix build
+      - validate runtime install and login smoke test on NixOS
+  gentoo:
+    current:
+      status: roadmap
+      gates:
+        glibc: pass
+        webkitgtk: pass
+      workflow: null
+      build_container: gentoo/stage3
+      release_label: gentoo
+      artifact_name: gentoo-ebuild
+      patch: gentoo/ebuild
+      supports:
+      - gentoo-current
+      before_release_gate:
+      - design ebuild
+      - add CI workflow using gentoo stage3 container
+      - validate runtime install and login smoke test on Gentoo
+  slackware:
+    current:
+      status: roadmap
+      gates:
+        glibc: pass
+        webkitgtk: verify
+      workflow: null
+      build_container: vbatts/slackware
+      release_label: slackware
+      artifact_name: slackware-package
+      patch: slackware/slackware.current
+      supports:
+      - slackware-current
+      before_release_gate:
+      - verify WebKitGTK 4.1 availability in Slackware current repos
+      - design Slackware package format and build script
+      - add CI workflow
+      - validate runtime install and login smoke test on Slackware
+
+legacy_candidates:
+  deb:
+    ubuntu22.04:
+      status: verify-first
+      gates:
+        glibc: pass
+        webkitgtk: unverified
+      reason: "glibc 2.35 passes; WebKitGTK 4.1 availability in Jammy repos or backports must be verified before adding a DEB target."
+  rpm:
+    el9:
+      status: verify-first
+      gates:
+        glibc: pass
+        webkitgtk: unverified
+      reason: "glibc 2.34 passes; WebKitGTK 4.1 availability in EPEL or target repos must be verified before adding an EL9 RPM workflow."
+  snap:
+    core22:
+      status: verify-first
+      gates:
+        glibc: runtime
+        webkitgtk: unverified
+      reason: "glibc is provided by core22 runtime; WebKitGTK 4.1 stage packages and desktop extension behavior must be verified before adding a core22 Snap."
+
+not_primary:
+  deb:
+    ubuntu20.04:
+      status: not-primary
+      gates:
+        glibc: fail
+        webkitgtk: fail
+      reason: "Both gates fail. glibc 2.31 is below the 2.35 minimum and WebKitGTK 4.1 is not available."
+    debian11:
+      status: not-primary
+      gates:
+        glibc: fail
+        webkitgtk: fail
+      reason: "Both gates fail. glibc 2.31 is below the 2.35 minimum and WebKitGTK 4.1 is not available."
+  rpm:
+    el8:
+      status: not-primary
+      gates:
+        glibc: fail
+        webkitgtk: fail
+      reason: "Both gates fail. glibc 2.28 is below the 2.35 minimum and WebKitGTK 4.1 is not available."
+  apk:
+    alpine320:
+      status: not-primary
+      gates:
+        glibc: musl-pass
+        webkitgtk: fail
+      reason: "musl passes but WebKitGTK 4.1 is not available in Alpine 3.20 repos. Past listed Alpine support as of the 2026-05-15 baseline check."
+
+architectures:
+  release_gate:
+  - x86_64
+  planned:
+  - aarch64
+  legacy:
+  - armv7
+  - x86
+  experimental:
+  - riscv64
+
+architecture_details:
+  x86_64:
+    status: release-gated
+    notes: "current artifact architecture"
+  aarch64:
+    status: roadmap
+    notes: "next practical architecture for AppImage, DEB, RPM, Flatpak, Snap, and AUR"
+  armv7:
+    status: legacy
+    notes: "32-bit ARM including RPi 2/3; WebKitGTK 4.1 cross-compilation and runtime on armv7 must be verified before any workflow is added; users can use AppImage if glibc permits"
+  x86:
+    status: legacy
+    notes: "32-bit x86; no native packages planned; users can use AppImage if glibc permits"
+  riscv64:
+    status: experimental
+    notes: "requires separate build/test work"
