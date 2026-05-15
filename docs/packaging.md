@@ -216,46 +216,38 @@ downloading the built package and testing it on the target host.
 
 Runtime smoke tests must run on the artifact's intended target:
 
-- DEB/RPM artifacts count only on their matching distro release.
+- DEB, RPM, and future APK artifacts count only against their target distro
+  release or declared compatible family.
 - Snap artifacts count against their Snap base/runtime.
 - Flatpak artifacts count against their GNOME runtime, not the host desktop.
 - AppImage is validated against the supported glibc baseline.
 
-## Release Verification Checklist
+## Release Verification And Coverage Matrix
 
-This checklist tracks runtime evidence separately from the release gate. A
-release-gated target has workflow, artifact, and release integration. It is not
-fully runtime-verified until the built artifact has been exercised on the target
-runtime or distro.
+This matrix combines release verification and distro/package coverage. A
+`release-gated` row has workflow, artifact upload, and release integration. A
+`roadmap patch-ready` row has a patch only; it is not a current release
+artifact.
 
-| Target | Release gate | Runtime smoke record |
-|--------|--------------|----------------------|
-| AppImage glibc baseline | yes | remote artifact pass |
-| Debian 12 DEB | yes | remote artifact pass |
-| Debian 13 DEB | yes | pending |
-| Ubuntu 24.04 DEB | yes | remote artifact pass |
-| Ubuntu 26.04 DEB | yes | remote artifact pass |
-| Fedora 43 RPM | yes | remote artifact pass |
-| Fedora 44 RPM | yes | remote artifact pass |
-| EL10 RPM / RHEL-family 10 | yes | pending |
-| Flatpak GNOME 49 | yes | remote artifact pass |
-| Flatpak GNOME 50 | yes | remote artifact pass |
-| Snap core24 | yes | remote artifact pass |
-| Snap core26 | yes | remote artifact pass |
-| AUR Arch package | yes | remote artifact pass |
-
-Coverage notes:
-
-| Distro or family | Current coverage | Notes |
-|------------------|------------------|-------|
-| CentOS Stream 10 | EL10 RPM | Release-gated artifact; runtime smoke still pending |
-| RHEL 10 | EL10 RPM | Same EL10 package line as CentOS Stream 10 |
-| AlmaLinux 10 / Rocky Linux 10 | EL10 RPM | Same EL10 package line; verify after EL10 smoke |
-| openSUSE Tumbleweed | roadmap patch-ready | Patch exists, but no zypper workflow, release artifact, or runtime smoke yet |
-| openSUSE Leap 16 | roadmap patch-ready | Patch exists, but no zypper workflow, release artifact, or runtime smoke yet |
-| Alpine 3.22 / 3.23 | roadmap patch-ready | Needs APK/musl packaging; glibc DEB/RPM/AppImage artifacts are not Alpine packages |
-| Linux Mint / Ubuntu derivatives | matching Ubuntu DEB | Use the DEB for the matching Ubuntu base |
-| Arch derivatives | AUR package or AppImage | AUR artifact is release-gated and marked remote artifact pass |
+| Package target | State | Runtime smoke record | Covered systems / notes |
+|----------------|-------|----------------------|-------------------------|
+| AppImage glibc baseline | release-gated | remote artifact pass | Portable glibc baseline; not Alpine/musl |
+| Debian 12 DEB | release-gated | remote artifact pass | Debian 12 |
+| Debian 13 DEB | release-gated | pending | Debian 13 |
+| Ubuntu 24.04 DEB | release-gated | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu-based derivatives |
+| Ubuntu 26.04 DEB | release-gated | remote artifact pass | Ubuntu 26.04 and matching Ubuntu-based derivatives |
+| Fedora 43 RPM | release-gated | remote artifact pass | Fedora 43 |
+| Fedora 44 RPM | release-gated | remote artifact pass | Fedora 44 |
+| EL10 RPM / RHEL-family 10 | release-gated | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 |
+| Flatpak GNOME 49 | release-gated | remote artifact pass | GNOME Platform 49 runtime |
+| Flatpak GNOME 50 | release-gated | remote artifact pass | GNOME Platform 50 runtime |
+| Snap core24 | release-gated | remote artifact pass | Snap core24 base |
+| Snap core26 | release-gated | remote artifact pass | Snap core26 base |
+| AUR Arch package | release-gated | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda |
+| openSUSE Tumbleweed RPM | roadmap patch-ready | no release artifact | Patch exists; needs zypper workflow, artifact upload, release integration, and runtime smoke |
+| openSUSE Leap 16 RPM | roadmap patch-ready | no release artifact | Patch exists; needs zypper workflow, artifact upload, release integration, and runtime smoke |
+| Alpine 3.22 APK | roadmap patch-ready | no release artifact | Patch exists; needs APK/musl packaging and runtime smoke; glibc artifacts are not Alpine-compatible |
+| Alpine 3.23 APK | roadmap patch-ready | no release artifact | Patch exists; needs APK/musl packaging and runtime smoke; glibc artifacts are not Alpine-compatible |
 
 Interactive app tests are user-controlled. Automation may download, install,
 inspect, and launch an artifact only when requested, but it must not close or
