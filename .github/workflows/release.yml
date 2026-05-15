@@ -242,7 +242,25 @@ jobs:
       - name: Prepare release files
         run: |
           mkdir -p release
-          find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \) -exec cp {} release/ \;
+          find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \) -print0 | while IFS= read -r -d '' src; do
+            rel="${src#artifacts/}"
+            name="$(basename "$src")"
+            case "$rel" in
+              rpm-fedora43/*)
+                dest="release/${name%.rpm}-fedora43.rpm"
+                ;;
+              rpm-fedora44/*)
+                dest="release/${name%.rpm}-fedora44.rpm"
+                ;;
+              rpm-el10/*)
+                dest="release/${name%.rpm}-el10.rpm"
+                ;;
+              *)
+                dest="release/${name}"
+                ;;
+            esac
+            cp "$src" "$dest"
+          done
           cd release
           sha256sum * > SHA256SUMS
           echo "Release artifacts:"
@@ -275,9 +293,9 @@ jobs:
           | DEB (Ubuntu 26.04) | \`proton-drive_*_ubuntu26.04_amd64.deb\` | Ubuntu 26.04 LTS |
           | DEB (Debian 12) | \`proton-drive_*_debian12_amd64.deb\` | Debian 12 (Bookworm) |
           | DEB (Debian 13) | \`proton-drive_*_debian13_amd64.deb\` | Debian 13 (Trixie) |
-          | RPM (Fedora 43) | \`proton-drive-*.rpm\` | Fedora 43+ |
-          | RPM (Fedora 44) | \`proton-drive-*.rpm\` | Fedora 44+ |
-          | RPM (EL10) | \`proton-drive-*.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
+          | RPM (Fedora 43) | \`proton-drive-*-fedora43.rpm\` | Fedora 43+ |
+          | RPM (Fedora 44) | \`proton-drive-*-fedora44.rpm\` | Fedora 44+ |
+          | RPM (EL10) | \`proton-drive-*-el10.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
 
           ## Installation
 
