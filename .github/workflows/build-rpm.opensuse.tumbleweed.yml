@@ -39,12 +39,12 @@ jobs:
           zypper --non-interactive refresh
           zypper --non-interactive install -t pattern devel_basis || true
           zypper --non-interactive install \
-            bash git curl wget gcc gcc-c++ make file pkg-config \
-            openssl-devel gtk3-devel \
+            bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
+            libopenssl-devel gtk3-devel \
             libappindicator3-devel libayatana-appindicator3-devel \
-            librsvg2-devel libsoup3-devel \
-            webkit2gtk4_1-devel libwebkit2gtk-4_1-0 \
-            patchelf rpm-build nodejs npm python3 findutils which
+            librsvg-devel libsoup-devel \
+            webkitgtk3-devel libwebkit2gtk-4_1-0 \
+            patchelf rpm-build nodejs-default npm-default python313 findutils which
 
       - name: Checkout repository
         uses: actions/checkout@v4
