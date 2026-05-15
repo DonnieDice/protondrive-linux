@@ -76,7 +76,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Ubuntu 26.04 DEB | pass (2.41) | pass | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
 | Fedora 43 RPM | pass (2.42) | pass | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
 | Fedora 44 RPM | pass (2.42) | pass | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
-| EL10 / RHEL-family RPM | pass (2.39) | pass | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | pending | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | run EL10 artifact smoke |
+| EL10 / RHEL-family RPM | pass (2.39) | pass | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | remote artifact pass | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | keep in release gate |
 | Flatpak GNOME 49 | runtime | runtime | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
 | Flatpak GNOME 50 | runtime | runtime | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
 | Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
