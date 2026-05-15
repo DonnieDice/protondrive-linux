@@ -1,5 +1,5 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..2108c67a 100644
+index 51d68ebd..0d0b5e77 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
 @@ -194,9 +194,15 @@ async fn proxy_request(
@@ -9,8 +9,8 @@ index 51d68ebd..2108c67a 100644
 -    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
 -    // They are distro-specific and belong in patches/<package>/<distro>.patch
 -    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Fedora 44 (webkit2gtk 2.52+).
-+    // Sandbox API changed; IPInt WASM interpreter disabled to fix SIGTRAP after 2FA.
++    // WebKitGTK environment for Alpine 3.23 APK builds.
++    // Alpine is musl-based, so APK support must be built and tested separately.
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
