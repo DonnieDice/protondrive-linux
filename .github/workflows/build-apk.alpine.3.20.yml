@@ -133,7 +133,6 @@ jobs:
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128/apps"
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps"
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
-        mkdir -p "$APK_STAGING/APKBUILD"
 
         cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
         strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
