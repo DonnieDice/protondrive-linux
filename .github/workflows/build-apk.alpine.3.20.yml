@@ -80,7 +80,7 @@ jobs:
         cat > .cargo/config.toml <<'EOF'
         [target.x86_64-unknown-linux-musl]
         linker = "gcc"
-        rustflags = ["-C", "link-self-contained=no"]
+        rustflags = ["-C", "target-feature=-crt-static"]
         EOF
         echo "Created .cargo/config.toml:"
         cat .cargo/config.toml
@@ -114,7 +114,7 @@ jobs:
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
         sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
         npm install
-        npx tauri build --verbose
+        cd src-tauri && cargo build --release --verbose
 
     - name: Package APK
       run: |
@@ -133,7 +133,6 @@ jobs:
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128/apps"
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps"
         mkdir -p "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
-        mkdir -p "$APK_STAGING/APKBUILD"
 
         cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
         strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
