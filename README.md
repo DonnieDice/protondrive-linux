@@ -6,8 +6,6 @@ An unofficial desktop app for Proton Drive on Linux.
 
 ## Download
 
-**v1.3.0**
-
 Download the latest release from the
 [Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
 
@@ -22,12 +20,12 @@ Current release artifacts are `x86_64`.
 |--------|-----------------------|
 | AppImage | portable glibc baseline |
 | DEB | Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 |
-| RPM | Fedora 43, Fedora 44, RHEL/CentOS/Alma/Rocky 10 |
+| RPM | Fedora 43, Fedora 44, RHEL/CentOS/Alma/Rocky 10, openSUSE Tumbleweed |
 | AUR | Arch, Manjaro, EndeavourOS, Garuda |
 | Flatpak | GNOME Platform 49, GNOME Platform 50 |
 | Snap | core24, core26 |
 
-Roadmap patch-ready targets are openSUSE Tumbleweed, openSUSE Leap 16, Alpine
+Roadmap patch-ready targets are openSUSE Leap 16, Alpine
 3.22, and Alpine 3.23. They are not release artifacts yet. See
 [`docs/packaging.md`](docs/packaging.md).
 
@@ -67,14 +65,14 @@ Choose the RPM that matches your system:
 | `proton-drive-*~fedora43.x86_64.rpm` | Fedora 43 |
 | `proton-drive-*~fedora44.x86_64.rpm` | Fedora 44 |
 | `proton-drive-*~el10.x86_64.rpm` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 |
+| `proton-drive-*-opensuse-tumbleweed.x86_64.rpm` | openSUSE Tumbleweed |
 
 ```bash
 sudo dnf install ./proton-drive-*.rpm
 ```
 
-openSUSE RPMs are roadmap targets, not current release artifacts. Use the
-AppImage on openSUSE until the zypper-based RPM workflows and smoke tests are
-added.
+openSUSE Leap 16 RPM is a roadmap target. Use the
+AppImage on Leap 16 until the RPM workflow and smoke test are added.
 
 ### Arch / Manjaro / EndeavourOS / Garuda
 
