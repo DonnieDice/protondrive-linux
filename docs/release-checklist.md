@@ -37,13 +37,25 @@ Use this checklist before every release deployment.
   - [ ] Snap workflows are passing.
 - [ ] AUR workflow is passing.
 - [ ] APK Alpine 3.20 workflow is passing.
+- [ ] APK Alpine 3.22 workflow is passing.
 - [ ] Release workflow is passing.
 
-- [ ] Merge `dev` to `main` directly.
-  - [ ] Confirm `dev` contains only commits intended for the release.
-  - [ ] Merge `dev` into `main` directly.
-  - [ ] Never open a pull request for the release merge.
-  - [ ] Push `main` after the direct merge.
+- [ ] Merge `dev` to `main` for release.
+- [ ] Confirm `dev` CI is green after all feature PR merges.
+- [ ] Merge `dev` into `main` directly.
+- [ ] Never open a pull request for the release merge.
+- [ ] Push `main` after the direct merge.
+
+## Feature Branch Checklist
+
+New package targets use feature branches:
+
+- [ ] Create feature branch `feat/<target>` from `dev`.
+- [ ] Do all patch, workflow, build script, doc, and compatibility map work on the feature branch.
+- [ ] Push feature branch and open PR against `dev`.
+- [ ] Qodo review bot checks the PR. Fix issues and push until reviews pass.
+- [ ] Merge PR into `dev`.
+- [ ] Verify CI is green on `dev` after merge.
 
 ## Final Release Gate
 

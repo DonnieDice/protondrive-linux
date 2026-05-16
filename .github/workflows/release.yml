@@ -77,8 +77,9 @@ jobs:
           'Build RPM Fedora 44',
           'Build RPM EL10',
           'Build RPM openSUSE Tumbleweed',
-          'Build APK Alpine 3.20',
-        ];
+  'Build APK Alpine 3.20',
+  'Build APK Alpine 3.22',
+];
             await new Promise(resolve => setTimeout(resolve, 30000));
             const maxAttempts = 75;
             for (let i = 0; i < maxAttempts; i++) {
@@ -251,15 +252,25 @@ jobs:
         workflow_conclusion: success
         if_no_artifact_found: fail
 
-    - name: Download APK Alpine 3.20 artifact
-      uses: dawidd6/action-download-artifact@v6
-      with:
-        workflow: build-apk.alpine.3.20.yml
-        name: apk-package-alpine320
-        path: artifacts/apk-alpine320
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
-        if_no_artifact_found: fail
+- name: Download APK Alpine 3.20 artifact
+  uses: dawidd6/action-download-artifact@v6
+  with:
+    workflow: build-apk.alpine.3.20.yml
+    name: apk-package-alpine320
+    path: artifacts/apk-alpine320
+    commit: ${{ github.sha }}
+    workflow_conclusion: success
+    if_no_artifact_found: fail
+
+- name: Download APK Alpine 3.22 artifact
+  uses: dawidd6/action-download-artifact@v6
+  with:
+    workflow: build-apk.alpine.3.22.yml
+    name: apk-package-alpine322
+    path: artifacts/apk-alpine322
+    commit: ${{ github.sha }}
+    workflow_conclusion: success
+    if_no_artifact_found: fail
 
       - name: Prepare release files
         run: |
@@ -280,9 +291,12 @@ jobs:
           rpm-opensuse-tumbleweed/*)
             dest="release/${name%.rpm}-opensuse-tumbleweed.rpm"
             ;;
-          apk-alpine320/*)
-            dest="release/${name}"
-            ;;
+    apk-alpine320/*)
+      dest="release/${name}"
+      ;;
+    apk-alpine322/*)
+      dest="release/${name}"
+      ;;
           *)
                 dest="release/${name}"
                 ;;
@@ -326,6 +340,7 @@ jobs:
           | RPM (EL10) | \`proton-drive-*-el10.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
 | RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |
 | APK (Alpine 3.20) | \`proton-drive_*_alpine320_amd64.apk.tar.gz\` | Alpine 3.20 (musl) |
+| APK (Alpine 3.22) | \`proton-drive_*_alpine322_amd64.apk.tar.gz\` | Alpine 3.22 (musl) |
 
           ## Installation
 
@@ -368,6 +383,11 @@ sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm
 ### Alpine 3.20
 \`\`\`bash
 sudo apk add ./proton-drive_*_alpine320_amd64.apk.tar.gz
+\`\`\`
+
+### Alpine 3.22
+\`\`\`bash
+sudo apk add ./proton-drive_*_alpine322_amd64.apk.tar.gz
 \`\`\`
 
           ## Checksums

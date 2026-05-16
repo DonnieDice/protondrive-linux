@@ -90,7 +90,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+| Alpine 3.22 APK | musl pass | pass | `build-apk.alpine.3.22.yml` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | validate musl runtime install and login smoke test |
 | Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 
 ### Roadmap targets (no patch yet)
@@ -229,10 +229,24 @@ asset path fixes, and Webpack SRI disabled for Drive, Account, and Verify.
 Release flow:
 
 ```text
-dev -> active build and workflow fixes
+feat/<target> -> feature branch for new package target work
+dev -> active build and workflow fixes; integration branch for feature PRs
 main -> stable release source
 tags -> release artifacts
 ```
+
+### Feature Branch Workflow
+
+New package targets follow this branch lifecycle:
+
+1. **Create feature branch** from `dev`: `feat/<target>` (e.g., `feat/alpine-3.22-apk`).
+2. **Do all work on the feature branch**: patch, workflow, build script, docs, compatibility map.
+3. **Push feature branch** and open a pull request against `dev`.
+4. **Qodo review bot** checks the PR. Fix any issues and push again until Qodo reviews clean.
+5. **Merge PR into `dev`** once reviews pass.
+6. **Verify CI is green on `dev`** after the merge.
+7. **Merge `dev` into `main`** for release deployment.
+8. **Tag the release** from `main`.
 
 Do not cut a stable release directly from `dev`. Once `dev` is green, merge the
 tested commits into `main`, push `main`, then create or update the release tag
@@ -247,7 +261,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested dev commits intended for release.
 - Release tag points at `main`, not `dev`.
-- GitHub release contains all 14 release-gated artifacts plus `SHA256SUMS`.
+- GitHub release contains all 15 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 

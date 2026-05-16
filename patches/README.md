@@ -75,7 +75,7 @@ are not release-gated yet.
 |-------|--------|----------------------------|
 | `rpm/opensuse.tumbleweed.patch` | openSUSE Tumbleweed | zypper RPM workflow, artifact upload, runtime smoke test |
 | `rpm/opensuse.leap.16.patch` | openSUSE Leap 16 | zypper RPM workflow, artifact upload, runtime smoke test |
-| `apk/alpine.3.22.patch` | Alpine 3.22 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
+| `apk/alpine.3.22.patch` | Alpine 3.22 musl | musl runtime install and login smoke test |
 | `apk/alpine.3.23.patch` | Alpine 3.23 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
 
 No optional desktop-runtime variants or older GNOME Flatpak patches are

@@ -311,21 +311,24 @@ roadmap_patch_ready:
         rustflags = ["-C", "target-feature=-crt-static"]
       supports:
       - alpine-3.20
-    alpine322:
-      status: roadmap-patch-ready
-      gates:
-        glibc: musl-pass
-        webkitgtk: pass
-      workflow: null
-      build_container: alpine:3.22
-      release_label: alpine322
-      artifact_name: apk-package-alpine322
-      patch: alpine.3.22
-      supports:
-      - alpine-3.22
-      before_release_gate:
-      - add APK packaging workflow
-      - validate musl runtime install and login smoke test
+  alpine322:
+    status: roadmap-patch-ready
+    gates:
+      glibc: musl-pass
+      webkitgtk: pass
+    workflow: .github/workflows/build-apk.alpine.3.22.yml
+    build_container: alpine:3.22
+    release_label: alpine322
+    artifact_name: apk-package-alpine322
+    patch: alpine.3.22
+    cargo_config: |
+      [target.x86_64-unknown-linux-musl]
+      linker = "gcc"
+      rustflags = ["-C", "target-feature=-crt-static"]
+    supports:
+    - alpine-3.22
+    before_release_gate:
+    - validate musl runtime install and login smoke test
     alpine323:
       status: roadmap-patch-ready
       gates:

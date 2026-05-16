@@ -133,25 +133,35 @@ repos, and the compatibility map can lag behind reality.
 
 ## Step 7: Push and Validate
 
-- [ ] Commit all changes to `dev`.
-- [ ] Push `dev` to remote.
-- [ ] Confirm the new GitHub Actions workflow triggers and passes.
+- [ ] Push the feature branch to remote.
+- [ ] Open a pull request against `dev`.
+- [ ] Wait for Qodo review bot to check the PR.
+- [ ] Fix any review issues and push again until Qodo reviews pass.
+- [ ] Merge the PR into `dev`.
+- [ ] Confirm the new GitHub Actions workflow triggers and passes on `dev`.
 - [ ] Download the workflow artifact.
 - [ ] Install and test the artifact on the target host (runtime smoke test).
-  - The app must launch and display the Proton Drive login page.
-  - The WebKitGTK webview must render without a white screen or crash.
-  - If the app fails to render, try the WebKitGTK environment workarounds
-    from the README: `WEBKIT_DISABLE_DMABUF_RENDERER=1
-    WEBKIT_DISABLE_COMPOSITING_MODE=1`.
+- The app must launch and display the Proton Drive login page.
+- The WebKitGTK webview must render without a white screen or crash.
+- If the app fails to render, try the WebKitGTK environment workarounds
+from the README: `WEBKIT_DISABLE_DMABUF_RENDERER=1
+WEBKIT_DISABLE_COMPOSITING_MODE=1`.
 
 ## Step 8: Promote to Release-Gated (After Smoke Test Passes)
 
 - [ ] Update `packaging/compatibility-map.yml`: change status to
-  `release-gated`, set `runtime_smoke.status: pass`, add evidence.
+`release-gated`, set `runtime_smoke.status: pass`, add evidence.
 - [ ] Update `docs/packaging.md`: move the target to the release-gated table.
 - [ ] Update `patches/README.md`: move the patch to the release-gated list.
 - [ ] Update `docs/release-checklist.md` if needed.
-- [ ] Commit and push the promotion to `dev`.
+- [ ] Commit and push the promotion to the feature branch (or `dev` if merged).
+
+## Step 9: Release Deployment
+
+- [ ] Confirm `dev` CI is green after all feature PR merges.
+- [ ] Merge `dev` into `main` directly.
+- [ ] Push `main`.
+- [ ] Tag the release from `main`.
 
 ## Notes and Lessons Learned
 
