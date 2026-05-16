@@ -89,6 +89,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
+| Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | no release artifact | Alpine 3.20 musl; glibc artifacts are not compatible | validate musl runtime install and login smoke test |
 | Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 | Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 
@@ -116,7 +117,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Ubuntu 20.04 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | Debian 11 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | EL8 RPM | fail (2.28) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
-| Alpine 3.20 APK | musl pass | fail | Past listed Alpine support; no WebKitGTK 4.1 in 3.20 repos | none |
+| Alpine 3.20 APK | reclassified | pass | Reclassified from not-primary to roadmap-patch-ready on 2026-05-15; WebKitGTK 4.1 (v2.44.1) is available and installed in Alpine 3.20 repos | none (now in roadmap patch-ready) |
 
 ## Architecture Plan
 
@@ -139,8 +140,9 @@ described above. Both must pass for a target to be `release-gated`.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
-- Alpine users need future APK/musl packages. Current glibc DEB/RPM/AppImage
-  artifacts are not Alpine-compatible.
+- Alpine users need APK/musl packages. Alpine 3.20 has WebKitGTK 4.1
+  available in repos. Current glibc DEB/RPM/AppImage artifacts are not
+  Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
 - Nix users will use a future Nix flake that manages both libc and WebKitGTK
@@ -182,7 +184,7 @@ patches/
 |-- common/fix-tauri-worker-protocol.patch
 |-- appimage/linux-baseline.patch
 |-- aur/arch.patch
-|-- aur/arch-native.patch          (roadmap: native AUR build)
+|-- aur/arch-native.patch (roadmap: native AUR build)
 |-- deb/debian.12.patch
 |-- deb/debian.13.patch
 |-- deb/ubuntu.24.04.patch
@@ -192,14 +194,15 @@ patches/
 |-- rpm/el10.patch
 |-- rpm/opensuse.tumbleweed.patch
 |-- rpm/opensuse.leap.16.patch
+|-- apk/alpine.3.20.patch
 |-- apk/alpine.3.22.patch
 |-- apk/alpine.3.23.patch
 |-- flatpak/org.gnome.Platform.49.patch
 |-- flatpak/org.gnome.Platform.50.patch
 |-- snap/core24.patch
 |-- snap/core26.patch
-|-- nix/flake.patch                 (roadmap)
-|-- gentoo/ebuild.patch             (roadmap)
+|-- nix/flake.patch (roadmap)
+|-- gentoo/ebuild.patch (roadmap)
 |-- slackware/slackware.current.patch (roadmap)
 ```
 
@@ -324,8 +327,10 @@ into:
 
 Last checked against upstream release information on 2026-05-15:
 
-- Alpine lists 3.23 and 3.22 as current supported stable branches, with 3.21
-  still supported until 2026-11-01 and 3.20 past listed support.
+- Alpine 3.20 has WebKitGTK 4.1 (v2.44.1) available and installed; reclassified
+  from not-primary to roadmap-patch-ready. Alpine lists 3.23 and 3.22 as
+  current supported stable branches, with 3.21 still supported until
+  2026-11-01 and 3.20 past listed support.
 - Ubuntu 26.04 LTS was released on 2026-04-23 and is supported until 2031.
 - Debian 13 was released on 2025-08-09.
 - openSUSE Leap 16 was released in 2025-10 and has 24 months of maintenance.

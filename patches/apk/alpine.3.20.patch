@@ -1,0 +1,23 @@
+diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
+index 51d68ebd..a3f7c2d4 100644
+--- a/src-tauri/src/main.rs
++++ b/src-tauri/src/main.rs
+@@ -194,9 +194,15 @@ async fn proxy_request(
+ }
+
+ fn main() {
+-    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
+-    // They are distro-specific and belong in patches/<package>/<distro>.patch
+-    // and the package's AppRun/wrapper script. The base binary ships clean.
++    // WebKitGTK environment for Alpine 3.20 APK builds.
++    // Alpine is musl-based, so APK support must be built and tested separately.
++    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
++    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
++    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++    std::env::set_var("JSC_useWasmIPInt", "false");
++    std::env::set_var("GDK_GL", "disable");
++    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
++    std::env::set_var("GSK_RENDERER", "cairo");
+
+     // Create shared client with cookie jar
+     let state = Arc::new(AppState {
