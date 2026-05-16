@@ -35,20 +35,38 @@ StartupNotify=true
 DESKTOP
 
 if [ -d "$ICONS_DIR" ]; then
-  for size in 32x32 128x128 256x256; do
-    case "$size" in
-      32x32) ICON_FILE="${ICONS_DIR}/32x32.png" ;;
-      128x128) ICON_FILE="${ICONS_DIR}/128x128.png" ;;
-      256x256) ICON_FILE="${ICONS_DIR}/128x128@2x.png" ;;
-    esac
-    if [ -f "$ICON_FILE" ]; then
-      cp "$ICON_FILE" "${SRC_DIR}/icon-${size}.png"
-    fi
-  done
-  if [ -f "${ICONS_DIR}/proton-drive.svg" ]; then
-    cp "${ICONS_DIR}/proton-drive.svg" "${SRC_DIR}/proton-drive.svg"
-  fi
+	for size in 32x32 128x128 256x256; do
+		case "$size" in
+			32x32) ICON_FILE="${ICONS_DIR}/32x32.png" ;;
+			128x128) ICON_FILE="${ICONS_DIR}/128x128.png" ;;
+			256x256) ICON_FILE="${ICONS_DIR}/128x128@2x.png" ;;
+		esac
+		if [ -f "$ICON_FILE" ]; then
+			cp "$ICON_FILE" "${SRC_DIR}/icon-${size}.png"
+		fi
+	done
+	if [ -f "${ICONS_DIR}/proton-drive.svg" ]; then
+		cp "${ICONS_DIR}/proton-drive.svg" "${SRC_DIR}/proton-drive.svg"
+	fi
 fi
+
+SOURCE_ENTRIES=("proton-drive" "com.proton.drive.desktop")
+SHA256_ENTRIES=('SKIP' 'SKIP')
+
+for size in 32x32 128x128 256x256; do
+	if [ -f "${SRC_DIR}/icon-${size}.png" ]; then
+		SOURCE_ENTRIES+=("icon-${size}.png")
+		SHA256_ENTRIES+=('SKIP')
+	fi
+done
+
+if [ -f "${SRC_DIR}/proton-drive.svg" ]; then
+	SOURCE_ENTRIES+=("proton-drive.svg")
+	SHA256_ENTRIES+=('SKIP')
+fi
+
+SOURCE_LINE="source=(${SOURCE_ENTRIES[*]})"
+SHA256_LINE="sha256sums=(${SHA256_ENTRIES[*]})"
 
 cat > "${WORK_DIR}/PKGBUILD" <<PKGBUILD
 pkgname=proton-drive
@@ -64,22 +82,22 @@ provides=('proton-drive')
 conflicts=('proton-drive-bin')
 replaces=('proton-drive-bin')
 options=('!strip')
-source=("proton-drive" "com.proton.drive.desktop")
-sha256sums=('SKIP' 'SKIP')
+${SOURCE_LINE}
+${SHA256_LINE}
 
 package() {
-  install -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
-  install -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
+	install -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
+	install -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
 
-  for size in 32x32 128x128 256x256; do
-    if [ -f "\${srcdir}/icon-\${size}.png" ]; then
-      install -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
-    fi
-  done
+	for size in 32x32 128x128 256x256; do
+		if [ -f "\${srcdir}/icon-\${size}.png" ]; then
+			install -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
+		fi
+	done
 
-  if [ -f "\${srcdir}/proton-drive.svg" ]; then
-    install -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-  fi
+	if [ -f "\${srcdir}/proton-drive.svg" ]; then
+		install -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+	fi
 }
 PKGBUILD
 
@@ -109,9 +127,9 @@ su builder -c "makepkg --nodeps --skipinteg --noconfirm -f"
 
 PKG_FILE=$(ls "${OUTPUT_DIR}"/*.pkg.tar.zst 2>/dev/null | head -1)
 if [ -n "$PKG_FILE" ]; then
-  echo "Built: ${PKG_FILE}"
-  ls -la "${PKG_FILE}"
+	echo "Built: ${PKG_FILE}"
+	ls -la "${PKG_FILE}"
 else
-  echo "ERROR: No .pkg.tar.zst found in ${OUTPUT_DIR}"
-  exit 1
+	echo "ERROR: No .pkg.tar.zst found in ${OUTPUT_DIR}"
+	exit 1
 fi

@@ -1,4 +1,4 @@
-name: Build AUR
+name: Build AUR Arch Native
 
 "on":
   push:
