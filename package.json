@@ -1,6 +1,6 @@
 {
   "name": "protondrive-linux",
-  "version": "1.4.0",
+  "version": "1.4.1",
   "description": "Proton Drive desktop client for Linux",
   "repository": {
     "type": "git",
@@ -30,6 +30,6 @@
     "build:appimage": "npm run build:web && tauri build --bundles appimage"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.9.6"
+    "@tauri-apps/cli": "^2.11.2"
   }
 }

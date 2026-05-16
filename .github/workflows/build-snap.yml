@@ -4,7 +4,6 @@ name: Build Snap
   push:
     branches:
     - main
-    - dev
     - alpha
     tags:
     - "v*"

@@ -4,7 +4,6 @@ name: Build AppImage
   push:
     branches:
       - main
-      - dev
       - alpha
     tags:
       - "v*"

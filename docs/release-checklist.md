@@ -39,14 +39,13 @@ Use this checklist before every release deployment.
 - [ ] APK Alpine 3.20 workflow is passing.
 - [ ] Release workflow is passing.
 
-- [ ] Merge `dev` to `main` directly.
-  - [ ] Confirm `dev` contains only commits intended for the release.
-  - [ ] Merge `dev` into `main` directly.
-  - [ ] Never open a pull request for the release merge.
-  - [ ] Push `main` after the direct merge.
+- [ ] Merge approved PRs into `main`.
+  - [ ] Confirm the PRs contain only commits intended for the release.
+  - [ ] Never bypass review by pushing release changes directly.
+  - [ ] Push `main` after the merge.
 
 ## Final Release Gate
 
 Do not tag or publish a release until every checkbox above is complete.
 
-The release tag must point to `main`, not `dev`.
+The release tag must point to `main`.
