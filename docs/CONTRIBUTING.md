@@ -177,7 +177,7 @@ Rules:
 
 - Start with an uppercase letter
 - Be at least 10 characters long (before the PR number)
-- End with the PR number in parentheses, e.g. `(#42)`
+- Put the PR number suffix at the end of the title, e.g. `Title here (#42)`
 
 Examples:
 
@@ -186,8 +186,9 @@ Examples:
 - `Update WebClients clone depth in build script (#38)`
 
 Edit the PR title after GitHub assigns the PR number (it appears in the
-URL and page header immediately after creation). Dependabot PRs will need
-their titles updated before merging if they don't conform.
+URL and page header immediately after creation). Keep the descriptive title
+left-justified and append the PR number suffix at the end. Dependabot PRs will
+need their titles updated before merging if they don't conform.
 
 ### Commit Message and Link Rules
 

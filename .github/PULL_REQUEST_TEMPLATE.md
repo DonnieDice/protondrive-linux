@@ -4,13 +4,15 @@ Your PR title must match: `^[A-Z].{9,}\s\(#\d+\)$`
 
 - [ ] Starts with an uppercase letter
 - [ ] At least 10 characters before the PR number
-- [ ] Ends with the PR number in parentheses, e.g. `(#42)`
+- [ ] Keeps the descriptive title first, with the PR number suffix at the end,
+  e.g. `Title here (#42)`
 
 **Correct:** `Add Alpine 3.20 APK build target (#47)`
 **Incorrect:** `Add Alpine 3.20 APK build target` (missing PR number)
 **Incorrect:** `add alpine 3.20 apk build target (#47)` (lowercase start)
 
-Edit your title after GitHub assigns the PR number.
+Edit your title after GitHub assigns the PR number. Keep the title text left
+aligned, then append the `(#PR_NUMBER)` suffix at the end.
 
 If the change is tracked by an issue, mention it in the PR body with `Refs #123`
 or `Closes #123`. The PR title itself should keep the `(#PR_NUMBER)` suffix so
