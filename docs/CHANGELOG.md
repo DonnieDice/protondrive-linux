@@ -1,5 +1,23 @@
 # Changelog
 
+## 1.4.2 - 2026-05-16
+
+### Added
+
+- Alpine 3.22 APK artifact in the release deployment so release tags now ship
+  both tested Alpine APK builds: 3.20 and 3.22.
+
+### Changed
+
+- Release workflow now waits for and packages the Alpine 3.22 APK build in
+  addition to Alpine 3.20.
+- Version metadata bumped to 1.4.2 for the packaging/deployment release.
+
+### Fixed
+
+- Release deployment previously omitted the Alpine 3.22 APK artifact even
+  though the build was green and the runtime smoke test had passed.
+
 ## 1.4.1 - 2026-05-16
 
 ### Added
