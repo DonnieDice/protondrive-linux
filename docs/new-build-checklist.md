@@ -158,10 +158,51 @@ repos, and the compatibility map can lag behind reality.
 Record anything unexpected discovered during the process:
 
 - **WebKitGTK availability vs installation**: The compatibility map listed
-  Alpine 3.20 as `not-primary` with `webkitgtk: fail`, but WebKitGTK 4.1 was
-  both available in repos and already installed on the host. Always verify on
-  the actual target system — repo metadata and documentation can be stale.
+Alpine 3.20 as `not-primary` with `webkitgtk: fail`, but WebKitGTK 4.1 was
+both available in repos and already installed on the host. Always verify on
+the actual target system — repo metadata and documentation can be stale.
 - **musl vs glibc**: Alpine APK targets do not need a glibc minimum check.
-  The musl gate is separate and always passes for Alpine targets.
+The musl gate is separate and always passes for Alpine targets.
 - **Patch indentation**: Rust source uses 4-space indentation. Diff hunks must
-  match the exact whitespace or `git apply` will reject the patch.
+match the exact whitespace or `git apply` will reject the patch.
+- **Alpine `-dev` packages and transitive deps**: Alpine's `-dev` packages
+don't automatically pull in all transitive dev libraries (unlike Debian's
+`-dev` packages which depend on their transitive deps). You must explicitly
+install `glib-dev`, `harfbuzz-dev`, `cairo-dev`, `pango-dev`, `gdk-pixbuf-dev`,
+`wayland-dev`, `zlib-dev`, `libintl`, and `musl-dev` alongside
+`webkit2gtk-4.1-dev` and `gtk+3.0-dev`.
+- **Alpine package name differences**: Some Alpine packages have different
+names than their Debian/RPM counterparts: `libayatana-appindicator-dev` (not
+`libappindicator-dev`), `vips-dev` (not `libvips-dev`).
+- **Alpine system cargo is too old**: Alpine 3.20's system `cargo` (1.78.0)
+does not support `edition2024` used by the `time-core` dependency. Always
+use rustup to install a current stable Rust toolchain instead of Alpine's
+system packages.
+- **musl self-contained linking (CRITICAL)**: When rustc targets
+`x86_64-unknown-linux-musl`, it defaults to `-crt-static` which produces
+`-static-pie` binaries. This forces the linker to look for `.a` static
+archives only, but GTK/WebKit libraries are only available as `.so` shared
+objects on Alpine. The fix requires a `.cargo/config.toml`:
+  ```toml
+  [target.x86_64-unknown-linux-musl]
+  linker = "gcc"
+  rustflags = ["-C", "target-feature=-crt-static"]
+  ```
+  - `linker = "gcc"`: Makes rustc invoke gcc as the linker wrapper, which
+    properly searches `/usr/lib` for system libraries (the musl `ld` used
+    by rustc's self-contained mode has limited search paths).
+  - `target-feature=-crt-static`: Disables static PIE linking so the binary
+    can dynamically link against shared system libraries (GTK, WebKit, etc.).
+  - Do NOT use `link-self-contained=no` alone — Alpine doesn't provide
+    `libunwind` as a separate package, and the self-contained mode provides
+    CRT/unwind from the rust sysroot. The combination of `linker=gcc` +
+    `-crt-static` preserves the self-contained CRT/unwind bits while
+    allowing dynamic linking for system libraries.
+- **Tauri bundler on Alpine**: `npx tauri build` defaults to `deb`, `rpm`,
+`appimage` bundle targets which require `xdg-open` and other tools not
+available in a minimal Alpine container. For APK targets, use `cargo build
+--release` directly instead of `npx tauri build`, since APK packaging is
+handled in a separate step.
+- **APKBUILD is a file, not a directory**: When creating the APK staging
+directory, do not `mkdir -p "$STAGING/APKBUILD"` — that creates APKBUILD as
+a directory. The APKBUILD should be written as a file with `cat >`.

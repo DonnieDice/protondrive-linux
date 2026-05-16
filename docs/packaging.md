@@ -83,13 +83,13 @@ described above. Both must pass for a target to be `release-gated`.
 | Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
 | Snap core26 | runtime | runtime | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
 | AUR Arch package (AppImage wrapper) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch` | `aur/arch.patch` + `aur/arch.wrapper` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate; plan migration to native build |
+| Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
 
 ### Roadmap patch-ready targets
 
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | no release artifact | Alpine 3.20 musl; glibc artifacts are not compatible | validate musl runtime install and login smoke test |
 | Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 | Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 
@@ -117,7 +117,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Ubuntu 20.04 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | Debian 11 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | EL8 RPM | fail (2.28) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
-| Alpine 3.20 APK | reclassified | pass | Reclassified from not-primary to roadmap-patch-ready on 2026-05-15; WebKitGTK 4.1 (v2.44.1) is available and installed in Alpine 3.20 repos | none (now in roadmap patch-ready) |
+| Alpine 3.20 APK | promoted | pass | Promoted to release-gated on 2026-05-16; CI green, smoke test passed on Alpine 3.20 host | none (now in release-gated) |
 
 ## Architecture Plan
 
@@ -216,7 +216,8 @@ Runtime settings by baseline:
 | Fedora 43 / 44 | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable` |
 | EL10 | same current-WebKitGTK path as Fedora |
 | openSUSE Tumbleweed | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
-| Alpine roadmap | musl package target plus current-WebKitGTK conservative path |
+| Alpine 3.20 APK | musl package target; `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`, `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
+| Alpine 3.22/3.23 roadmap | musl package target plus current-WebKitGTK conservative path |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |
 | AUR (AppImage wrapper) | Arch-family wrapper and patch for current WebKitGTK |
@@ -251,7 +252,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested dev commits intended for release.
 - Release tag points at `main`, not `dev`.
-- GitHub release contains all 13 release-gated artifacts plus `SHA256SUMS`.
+- GitHub release contains all 14 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 
@@ -327,8 +328,9 @@ into:
 
 Last checked against upstream release information on 2026-05-15:
 
-- Alpine 3.20 has WebKitGTK 4.1 (v2.44.1) available and installed; reclassified
-  from not-primary to roadmap-patch-ready. Alpine lists 3.23 and 3.22 as
+- Alpine 3.20 has WebKitGTK 4.1 (v2.44.1) available and installed; promoted
+from not-primary to roadmap-patch-ready to release-gated on 2026-05-16
+after CI green and local smoke test pass. Alpine lists 3.23 and 3.22 as
   current supported stable branches, with 3.21 still supported until
   2026-11-01 and 3.20 past listed support.
 - Ubuntu 26.04 LTS was released on 2026-04-23 and is supported until 2031.
