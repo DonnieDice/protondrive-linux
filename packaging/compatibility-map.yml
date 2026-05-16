@@ -242,21 +242,21 @@ snap:
 
 roadmap_patch_ready:
   rpm:
-    opensuse_tumbleweed:
-      status: roadmap-patch-ready
-      gates:
-        glibc: pass
-        webkitgtk: pass
-      workflow: null
-      build_container: registry.opensuse.org/opensuse/tumbleweed
-      release_label: opensuse-tumbleweed
-      artifact_name: rpm-package-opensuse-tumbleweed
-      patch: opensuse.tumbleweed
-      supports:
-      - opensuse-tumbleweed
-      before_release_gate:
-      - add zypper-based RPM workflow
-      - validate runtime install and login smoke test on Tumbleweed
+  opensuse_tumbleweed:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact install and launch on openSUSE Tumbleweed host
+    workflow: .github/workflows/build-rpm.opensuse.tumbleweed.yml
+    build_container: opensuse/tumbleweed:latest
+    release_label: opensuse-tumbleweed
+    artifact_name: rpm-package-opensuse-tumbleweed
+    patch: opensuse.tumbleweed
+    supports:
+    - opensuse-tumbleweed
     opensuse_leap16:
       status: roadmap-patch-ready
       gates:
