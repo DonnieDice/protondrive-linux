@@ -1,6 +1,6 @@
 # Changelog
 
-## 1.4.0 - 2026-05-16
+## 1.4.1 - 2026-05-16
 
 ### Added
 
@@ -169,7 +169,7 @@
 
 ### CI
 
-- All five required workflows (RPM, DEB, AppImage, AUR, Package Specs) pass green on `dev`.
+- All five required workflows (RPM, DEB, AppImage, AUR, Package Specs) pass green on `main`.
 - RPM, DEB, and AppImage artifact uploads confirmed.
 - Release workflow waits for RPM, DEB, and AppImage builds then downloads and attaches artifacts.
 

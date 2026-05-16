@@ -4,7 +4,6 @@ name: Build Flatpak GNOME 49
   push:
     branches:
       - main
-      - dev
       - alpha
     tags:
       - "v*"
