@@ -2,7 +2,7 @@
 set -euo pipefail
 
 AUR_TARGET="${1:-arch}"
-VERSION="${2:-1.2.0}"
+VERSION="${2:-1.3.2}"
 BINARY_PATH="${3:-src-tauri/target/release/proton-drive}"
 WRAPPER_PATH="${4:-aur/proton-drive.wrapper}"
 ICONS_DIR="${5:-src-tauri/icons}"
