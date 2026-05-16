@@ -90,7 +90,6 @@ described above. Both must pass for a target to be `release-gated`.
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 | Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 
 ### Roadmap targets (no patch yet)
@@ -213,7 +212,7 @@ Runtime settings by baseline:
 | EL10 | same current-WebKitGTK path as Fedora |
 | openSUSE Tumbleweed | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
 | Alpine 3.20 APK | musl package target; `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`, `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
-| Alpine 3.22/3.23 roadmap | musl package target plus current-WebKitGTK conservative path |
+| Alpine 3.23 roadmap | musl package target plus current-WebKitGTK conservative path |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |
 | AUR (native) | sandbox disable, `JSC_useWasmIPInt=false`; hardware rendering kept |
@@ -247,7 +246,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested commits intended for release.
 - Release tag points at `main`.
-- GitHub release contains all 14 release-gated artifacts plus `SHA256SUMS`.
+- GitHub release contains all 16 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 

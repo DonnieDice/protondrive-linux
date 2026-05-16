@@ -37,6 +37,7 @@ Use this checklist before every release deployment.
   - [ ] Snap workflows are passing.
 - [ ] AUR workflow is passing.
 - [ ] APK Alpine 3.20 workflow is passing.
+- [ ] APK Alpine 3.22 workflow is passing.
 - [ ] Release workflow is passing.
 
 - [ ] Merge approved PRs into `main`.
