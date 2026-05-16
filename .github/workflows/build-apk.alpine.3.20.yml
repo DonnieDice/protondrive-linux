@@ -51,6 +51,18 @@ jobs:
           python3 ca-certificates \
           vips-dev libjpeg-turbo-dev giflib-dev
 
+    - name: Debug - list installed .so symlinks
+      run: |
+        echo "=== /usr/lib .so files (no version) ==="
+        find /usr/lib -maxdepth 1 -name '*.so' -type l -o -name '*.so' -type f 2>/dev/null || true
+        echo "=== /usr/lib .so.* count ==="
+        ls /usr/lib/*.so.* 2>/dev/null | wc -l
+        echo "=== key libs ==="
+        for f in libglib-2.0 libcairo libharfbuzz libgio-2.0 libgobject-2.0 libpango-1.0 libgdk_pixbuf-2.0 libfontconfig libfreetype libepoxy; do
+          echo "--- $f ---"
+          ls -la /usr/lib/${f}.so* 2>&1 || true
+        done
+
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -92,6 +104,30 @@ jobs:
         else
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
+
+    - name: Create .so symlinks for musl linking
+      run: |
+        cd /usr/lib
+        for lib in libglib-2.0 libgobject-2.0 libgio-2.0 libgdk_pixbuf-2.0 \
+                   libcairo libcairo-gobject libpango-1.0 libpangocairo-1.0 \
+                   libharfbuzz libatk-1.0 libgdk-3 libwayland-client \
+                   libfontconfig libfreetype libepoxy libXi libX11 libXcomposite \
+                   libXdamage libXfixes libXrandr libatk-bridge-2.0 libdbus-1 \
+                   libatspi libgtk-3 libjavascriptcoregtk-4.1 libwebkit2gtk-4.1; do
+          if [ -L "${lib}.so" ] || [ -e "${lib}.so" ]; then
+            echo "OK: ${lib}.so already exists"
+            continue
+          fi
+          candidate=$(ls -1 ${lib}.so.* 2>/dev/null | head -1)
+          if [ -n "$candidate" ]; then
+            ln -sf "$candidate" "${lib}.so"
+            echo "Linked ${lib}.so -> $candidate"
+          else
+            echo "WARN: no ${lib}.so.* found"
+          fi
+        done
+        echo "--- Verify key symlinks ---"
+        ls -la /usr/lib/libglib-2.0.so /usr/lib/libcairo.so /usr/lib/libharfbuzz.so /usr/lib/libgio-2.0.so /usr/lib/libpango-1.0.so 2>&1 || true
 
     - name: Build APK
       run: |
