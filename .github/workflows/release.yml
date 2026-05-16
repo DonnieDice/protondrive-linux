@@ -62,23 +62,23 @@ jobs:
           script: |
             const sha = context.sha;
             console.log(`Waiting for builds for SHA: ${sha}`);
-        const expectedWorkflows = [
-          'Build AppImage',
-          'Build Flatpak',
-          'Build Flatpak GNOME 49',
-          'Build Snap',
-          'Build Snap Core26',
-          'Build AUR Arch Native',
-          'Build DEB Debian 12',
-          'Build DEB Debian 13',
-          'Build DEB Ubuntu 24.04',
-          'Build DEB Ubuntu 26.04',
-          'Build RPM Fedora 43',
-          'Build RPM Fedora 44',
-          'Build RPM EL10',
-          'Build RPM openSUSE Tumbleweed',
-          'Build APK Alpine 3.20',
-        ];
+            const expectedWorkflows = [
+              'Build AppImage',
+              'Build Flatpak',
+              'Build Flatpak GNOME 49',
+              'Build Snap',
+              'Build Snap Core26',
+              'Build AUR Arch Native',
+              'Build DEB Debian 12',
+              'Build DEB Debian 13',
+              'Build DEB Ubuntu 24.04',
+              'Build DEB Ubuntu 26.04',
+              'Build RPM Fedora 43',
+              'Build RPM Fedora 44',
+              'Build RPM EL10',
+              'Build RPM openSUSE Tumbleweed',
+              'Build APK Alpine 3.20',
+            ];
             await new Promise(resolve => setTimeout(resolve, 30000));
             const maxAttempts = 75;
             for (let i = 0; i < maxAttempts; i++) {
