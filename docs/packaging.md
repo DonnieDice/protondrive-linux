@@ -82,7 +82,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Flatpak GNOME 50 | runtime | runtime | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
 | Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
 | Snap core26 | runtime | runtime | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
-| AUR Arch package (AppImage wrapper) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch` | `aur/arch.patch` + `aur/arch.wrapper` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate; plan migration to native build |
+| AUR Arch package (native build) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
 
 ### Roadmap patch-ready targets
 
@@ -97,7 +97,6 @@ described above. Both must pass for a target to be `release-gated`.
 
 | Package target | glibc gate | WebKitGTK gate | Covered systems / rule | Next action |
 |----------------|-----------|----------------|------------------------|-------------|
-| AUR native Arch build | pass | pass | Arch, Manjaro, EndeavourOS, Garuda; replaces current AppImage-wrapper AUR with a natively compiled package | design native PKGBUILD, add CI workflow, create patch, validate smoke test |
 | Nix flake | n/a (Nix manages libc) | pass (nixpkgs provides) | NixOS and any host with Nix | design flake.nix, add CI workflow, create patch, validate smoke test |
 | Gentoo ebuild | pass | pass | Gentoo | design ebuild, add CI workflow, create patch, validate smoke test |
 | Slackware package | pass | verify | Slackware current; WebKitGTK 4.1 availability must be confirmed for target | verify WebKitGTK 4.1 in Slackware current repos, then design package, workflow, and patch |
@@ -134,9 +133,7 @@ described above. Both must pass for a target to be `release-gated`.
 - Linux Mint, Pop!_OS, Zorin, and similar Ubuntu derivatives use the Ubuntu DEB
   that matches their Ubuntu base.
 - Arch derivatives use the AUR target or AppImage.
-- The current AUR package wraps the AppImage. A future native AUR build will
-  compile against Arch system packages and replace the wrapper. Both targets
-  will coexist until the native build is smoke-tested.
+- The AUR package is a native build that compiles against Arch system packages. It replaced the former AppImage-wrapper package (`proton-drive-bin`) in v1.4.0.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
@@ -183,8 +180,7 @@ Patch tree:
 patches/
 |-- common/fix-tauri-worker-protocol.patch
 |-- appimage/linux-baseline.patch
-|-- aur/arch.patch
-|-- aur/arch-native.patch (roadmap: native AUR build)
+|-- aur/arch-native.patch
 |-- deb/debian.12.patch
 |-- deb/debian.13.patch
 |-- deb/ubuntu.24.04.patch
@@ -219,8 +215,7 @@ Runtime settings by baseline:
 | Alpine roadmap | musl package target plus current-WebKitGTK conservative path |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |
-| AUR (AppImage wrapper) | Arch-family wrapper and patch for current WebKitGTK |
-| AUR (native) roadmap | Arch-family native build against system WebKitGTK; runtime settings TBD after smoke test |
+| AUR (native) | sandbox disable, `JSC_useWasmIPInt=false`; hardware rendering kept |
 | Nix roadmap | nixpkgs-managed WebKitGTK; runtime settings TBD after smoke test |
 | Gentoo roadmap | system WebKitGTK; runtime settings TBD after smoke test |
 | Slackware roadmap | Slackware current WebKitGTK; runtime settings TBD after smoke test |

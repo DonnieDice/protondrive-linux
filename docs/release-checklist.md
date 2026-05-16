@@ -35,9 +35,9 @@ Use this checklist before every release deployment.
   - [ ] RPM workflows are passing.
   - [ ] Flatpak workflows are passing.
   - [ ] Snap workflows are passing.
-  - [ ] AUR workflow is passing.
-  - [ ] APK Alpine 3.20 workflow is passing.
-  - [ ] Release workflow is passing.
+- [ ] AUR workflow is passing.
+- [ ] APK Alpine 3.20 workflow is passing.
+- [ ] Release workflow is passing.
 
 - [ ] Merge `dev` to `main` directly.
   - [ ] Confirm `dev` contains only commits intended for the release.

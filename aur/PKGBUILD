@@ -1,47 +1,52 @@
 # Maintainer: DonnieDice <donniedice@proton.me>
-pkgname=proton-drive-bin
+pkgname=proton-drive
 pkgver=1.3.2
 pkgrel=1
 pkgdesc="Unofficial Linux desktop client for Proton Drive, built with Tauri"
 arch=('x86_64')
 url="https://github.com/DonnieDice/protondrive-linux"
 license=('AGPL-3.0-only')
-depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'openssl' 'libsoup3' 'librsvg')
+makedepends=('cargo' 'rust' 'nodejs' 'npm' 'git' 'pkg-config' 'patch')
+optdepends=('libappindicator-gtk3: system tray support (GNOME)')
 provides=('proton-drive')
-conflicts=('proton-drive')
+conflicts=('proton-drive-bin')
+replaces=('proton-drive-bin')
 options=('!strip')
-source=("${pkgname}-${pkgver}.AppImage::https://github.com/DonnieDice/protondrive-linux/releases/download/v${pkgver}/proton-drive_${pkgver}_amd64.AppImage"
-        "proton-drive.wrapper")
-sha256sums=('SKIP'
-            'SKIP')
+source=("${pkgname}-${pkgver}.tar.gz::https://github.com/DonnieDice/protondrive-linux/archive/refs/tags/v${pkgver}.tar.gz")
+sha256sums=('SKIP')
 
-prepare() {
-    chmod +x "${pkgname}-${pkgver}.AppImage"
-    "./${pkgname}-${pkgver}.AppImage" --appimage-extract
+build() {
+  cd "${srcdir}/${pkgname}-${pkgver}"
+
+  git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+
+  npm install
+
+  scripts/build-webclients.sh
+
+  git apply patches/aur/arch-native.patch
+
+  cd src-tauri
+  cargo build --release
 }
 
 package() {
-    install -dm755 "${pkgdir}/usr/lib/proton-drive"
-    install -Dm755 "${srcdir}/squashfs-root/usr/bin/proton-drive" "${pkgdir}/usr/lib/proton-drive/proton-drive.bin"
+  cd "${srcdir}/${pkgname}-${pkgver}"
 
-    install -Dm755 "${srcdir}/proton-drive.wrapper" "${pkgdir}/usr/bin/proton-drive"
+  install -Dm755 "src-tauri/target/release/proton-drive" "${pkgdir}/usr/bin/proton-drive"
+  install -Dm644 "src-tauri/icons/com.proton.drive.desktop" \
+    "${pkgdir}/usr/share/applications/com.proton.drive.desktop" || true
 
-    install -Dm644 "${srcdir}/squashfs-root/usr/share/applications/com.proton.drive.desktop" \
-        "${pkgdir}/usr/share/applications/com.proton.drive.desktop"
-
-    for size in 32x32 128x128 256x256; do
-        if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png" ]; then
-            install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png" \
-                "${pkgdir}/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png"
-        fi
-    done
-
-    if [ -f "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg" ]; then
-        install -Dm644 "${srcdir}/squashfs-root/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg" \
-            "${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+  for size in 32x32 128x128 256x256; do
+    if [ -f "src-tauri/icons/${size}/apps/com.proton.drive.png" ]; then
+      install -Dm644 "src-tauri/icons/${size}/apps/com.proton.drive.png" \
+        "${pkgdir}/usr/share/icons/hicolor/${size}/apps/com.proton.drive.png"
     fi
+  done
 
-    if [ -d "${srcdir}/squashfs-root/usr/lib" ]; then
-        cp -r "${srcdir}/squashfs-root/usr/lib" "${pkgdir}/usr/"
-    fi
+  if [ -f "src-tauri/icons/scalable/apps/com.proton.drive.svg" ]; then
+    install -Dm644 "src-tauri/icons/scalable/apps/com.proton.drive.svg" \
+      "${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+  fi
 }
