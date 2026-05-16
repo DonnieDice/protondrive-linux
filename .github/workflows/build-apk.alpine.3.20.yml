@@ -43,7 +43,7 @@ jobs:
           bash git curl wget build-base file pkgconfig \
           openssl-dev webkit2gtk-4.1-dev gtk+3.0-dev \
           libsoup3-dev libayatana-appindicator-dev \
-          patchelf nodejs npm cargo rust \
+          patchelf nodejs npm \
           python3 ca-certificates \
           vips-dev cairo-dev pango-dev libjpeg-turbo-dev giflib-dev
 
@@ -52,13 +52,11 @@ jobs:
 
     - name: Install Rust via rustup
       run: |
-        if ! command -v rustc >/dev/null 2>&1; then
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
-          echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
-        else
-          rustc --version
-          cargo --version
-        fi
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        . "$HOME/.cargo/env"
+        rustc --version
+        cargo --version
 
     - name: Cache Cargo
       uses: actions/cache@v4
