@@ -154,16 +154,12 @@ appimage:
 
 aur:
   arch:
-    status: release-gated
+    status: replaced
     gates:
       glibc: pass
       webkitgtk: pass
     packaging_mode: appimage-wrapper
-    runtime_smoke:
-      status: pass
-      evidence: remote artifact pass
-    workflow: .github/workflows/build-aur.yml
-    publish_workflow: .github/workflows/publish-aur.yml
+    workflow: null
     build_container: archlinux:base-devel
     release_label: aur-arch
     artifact_name: aur-arch
@@ -174,7 +170,30 @@ aur:
     - manjaro
     - endeavour
     - garuda
-    migration_note: "Current AUR package wraps the AppImage. A future native AUR build (arch-native) will compile against Arch system packages and replace this wrapper."
+    replaced_by: arch_native
+    replacement_note: "Replaced by native AUR build (proton-drive) in v1.4.0. The appimage-wrapper package proton-drive-bin is superseded."
+  arch_native:
+    status: release-gated
+    gates:
+      glibc: pass
+      webkitgtk: pass
+    packaging_mode: native
+    runtime_smoke:
+      status: pass
+      evidence: remote artifact pass
+    workflow: .github/workflows/build-aur.yml
+    publish_workflow: .github/workflows/publish-aur.yml
+    build_container: archlinux:base-devel
+    release_label: aur-arch-native
+    artifact_name: aur-arch-native
+    metadata_artifact_name: aur-arch-native-srcinfo
+    patch: arch-native
+    replaces: arch
+    supports:
+    - arch
+    - manjaro
+    - endeavour
+    - garuda
 
 flatpak:
   org.gnome.Platform.49:
@@ -324,30 +343,6 @@ roadmap_patch_ready:
       - validate musl runtime install and login smoke test
 
 roadmap:
-  aur:
-    arch_native:
-      status: roadmap
-      gates:
-        glibc: pass
-        webkitgtk: pass
-      packaging_mode: native
-      workflow: null
-      build_container: archlinux:base-devel
-      release_label: aur-arch-native
-      artifact_name: aur-arch-native
-      patch: arch-native
-      supports:
-      - arch
-      - manjaro
-      - endeavour
-      - garuda
-      replaces: arch
-      before_release_gate:
-      - design native PKGBUILD that compiles against system WebKitGTK
-      - add CI workflow for native AUR build
-      - create arch-native patch
-      - validate runtime install and login smoke test on Arch
-      - plan migration from appimage-wrapper to native AUR
   nix:
     nixos:
       status: roadmap

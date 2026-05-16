@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: 'Version to publish (e.g., 1.2.2)'
+        description: 'Version to publish (e.g., 1.4.0)'
         required: true
 
 permissions:
@@ -28,41 +28,44 @@ jobs:
             VERSION="${{ github.event.inputs.version }}"
           else
             VERSION="${{ github.event.release.tag_name }}"
-            VERSION="${VERSION#v}"  # Remove 'v' prefix
+            VERSION="${VERSION#v}"
           fi
           echo "version=${VERSION}" >> $GITHUB_OUTPUT
           echo "Publishing version: ${VERSION}"
 
-      - name: Wait for release assets
+      - name: Wait for source tarball
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/proton-drive_${VERSION}_amd64.AppImage"
+          SOURCE_URL="https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz"
 
-          echo "Waiting for release asset: $ASSET_URL"
+          echo "Waiting for source tarball: $SOURCE_URL"
 
           for i in {1..30}; do
-            if curl -sIf "$ASSET_URL" > /dev/null 2>&1; then
-              echo "Asset available!"
-              break
+            if curl -sIf "$SOURCE_URL" > /dev/null 2>&1; then
+              echo "Source tarball available!"
+              exit 0
             fi
-            echo "Attempt $i/30: Asset not ready, waiting 10s..."
+            echo "Attempt $i/30: Tarball not ready, waiting 10s..."
             sleep 10
           done
+
+          echo "ERROR: Source tarball not available after 5 minutes"
+          exit 1
 
       - name: Calculate SHA256
         id: sha256
         run: |
           VERSION=${{ steps.version.outputs.version }}
-          ASSET_URL="https://github.com/${{ github.repository }}/releases/download/v${VERSION}/proton-drive_${VERSION}_amd64.AppImage"
+          SOURCE_URL="https://github.com/${{ github.repository }}/archive/refs/tags/v${VERSION}.tar.gz"
 
-          echo "Downloading AppImage to calculate checksum..."
-          curl -sL "$ASSET_URL" -o appimage.AppImage
+          echo "Downloading source tarball to calculate checksum..."
+          curl -sL "$SOURCE_URL" -o source.tar.gz
 
-          SHA256=$(sha256sum appimage.AppImage | cut -d' ' -f1)
+          SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
           echo "sha256=${SHA256}" >> $GITHUB_OUTPUT
           echo "SHA256: ${SHA256}"
 
-          rm appimage.AppImage
+          rm source.tar.gz
 
       - name: Update PKGBUILD
         run: |
@@ -71,13 +74,8 @@ jobs:
 
           cd aur
 
-          # Update version
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-
-          # Reset pkgrel to 1 for new version
           sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-
-          # Update SHA256
           sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
 
           echo "Updated PKGBUILD:"
@@ -87,13 +85,8 @@ jobs:
         run: |
           cd aur
 
-          # Install makepkg dependencies
-          sudo apt-get update
-          sudo apt-get install -y pacman-package-manager libarchive-tools
-
-          # Generate .SRCINFO manually since we can't run makepkg on Ubuntu
           cat > .SRCINFO << EOF
-          pkgbase = proton-drive-bin
+          pkgbase = proton-drive
           	pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
           	pkgver = ${{ steps.version.outputs.version }}
           	pkgrel = 1
@@ -103,13 +96,25 @@ jobs:
           	depends = webkit2gtk-4.1
           	depends = gtk3
           	depends = libayatana-appindicator
+          	depends = openssl
+          	depends = libsoup3
+          	depends = librsvg
+          	makedepends = cargo
+          	makedepends = rust
+          	makedepends = nodejs
+          	makedepends = npm
+          	makedepends = git
+          	makedepends = pkg-config
+          	makedepends = patch
+          	makedepends = python
           	provides = proton-drive
-          	conflicts = proton-drive
+          	conflicts = proton-drive-bin
+          	replaces = proton-drive-bin
           	options = !strip
-          	source = proton-drive-bin-${{ steps.version.outputs.version }}.AppImage::https://github.com/DonnieDice/protondrive-linux/releases/download/v${{ steps.version.outputs.version }}/proton-drive_${{ steps.version.outputs.version }}_amd64.AppImage
+          	source = proton-drive-${{ steps.version.outputs.version }}.tar.gz::https://github.com/DonnieDice/protondrive-linux/archive/refs/tags/v${{ steps.version.outputs.version }}.tar.gz
           	sha256sums = ${{ steps.sha256.outputs.sha256 }}
 
-          pkgname = proton-drive-bin
+          	pkgname = proton-drive
           EOF
 
           echo "Generated .SRCINFO:"
@@ -130,9 +135,8 @@ jobs:
 
       - name: Clone AUR package
         run: |
-          git clone ssh://aur@aur.archlinux.org/proton-drive-bin.git aur-repo || \
-          git clone ssh://aur@aur.archlinux.org/proton-drive-bin.git aur-repo 2>&1 | grep -q "does not appear to be a git repository" && \
-          mkdir -p aur-repo && cd aur-repo && git init
+          git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo || \
+            { mkdir -p aur-repo && cd aur-repo && git init && git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git; }
 
           cd aur-repo
           git config user.name "DonnieDice"
