@@ -4,6 +4,32 @@
 
 ### Added
 
+- Alpine 3.22 APK build target: patch (`apk/alpine.3.22.patch`), CI workflow
+  (`build-apk.alpine.3.22.yml`), and local build script
+  (`scripts/ci/build-alpine-322-apk.sh`).
+- Alpine 3.22 APK artifact in the release workflow (`release.yml`) download,
+  prepare, and release notes sections.
+- Alpine 3.22 entry in `packaging/compatibility-map.yml` (release-gated).
+
+### Changed
+
+- Promoted Alpine 3.22 APK from roadmap-patch-ready to release-gated after
+  CI green and local smoke test pass on Alpine 3.22 host.
+
+### Fixed
+
+- YAML indentation in `release.yml`: fixed `expectedWorkflows` array, AUR
+  download step, Snap Core26 download step, Alpine APK download steps, case
+  pattern block in prepare-release-files, and release notes table/install
+  sections. YAML now validates with `pyyaml safe_load`.
+- Alpine APK install command: changed from `apk add` to `tar -C / -xzf` in
+  release notes, since the artifact is a staged filesystem tarball, not a
+  proper Alpine `.apk` package.
+
+## 1.4.0 - 2026-05-16
+
+### Added
+
 - Alpine 3.20 APK build target: patch (`apk/alpine.3.20.patch`), CI workflow
   (`build-apk.alpine.3.20.yml`), and local build script
   (`scripts/ci/build-alpine-320-apk.sh`).
@@ -169,7 +195,7 @@
 
 ### CI
 
-- All five required workflows (RPM, DEB, AppImage, AUR, Package Specs) pass green on `main`.
+- All five required workflows (RPM, DEB, AppImage, AUR, Package Specs) pass green on `dev`.
 - RPM, DEB, and AppImage artifact uploads confirmed.
 - Release workflow waits for RPM, DEB, and AppImage builds then downloads and attaches artifacts.
 

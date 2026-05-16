@@ -59,6 +59,7 @@ These are currently built and published by the release workflow:
 - `rpm/fedora.44.patch`
 - `rpm/opensuse.tumbleweed.patch`
 - `apk/alpine.3.20.patch`
+- `apk/alpine.3.22.patch`
 - `snap/core24.patch`
 - `snap/core26.patch`
 
@@ -75,7 +76,7 @@ are not release-gated yet.
 |-------|--------|----------------------------|
 | `rpm/opensuse.tumbleweed.patch` | openSUSE Tumbleweed | zypper RPM workflow, artifact upload, runtime smoke test |
 | `rpm/opensuse.leap.16.patch` | openSUSE Leap 16 | zypper RPM workflow, artifact upload, runtime smoke test |
-| `apk/alpine.3.22.patch` | Alpine 3.22 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
+| `apk/alpine.3.22.patch` | Alpine 3.22 musl | promoted to release-gated in v1.4.1; no further action needed |
 | `apk/alpine.3.23.patch` | Alpine 3.23 musl | APK packaging workflow, artifact upload, musl runtime smoke test |
 
 No optional desktop-runtime variants or older GNOME Flatpak patches are
