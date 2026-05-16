@@ -145,11 +145,23 @@ Create a branch:
 git checkout -b feature/my-feature
 ```
 
-Commit with a clear message:
+Commit with a clear, linkable title:
 
 ```bash
-git commit -m "Add system tray icon support"
+git commit -m "Add system tray icon support (#123)"
 ```
+
+Use the issue number in the title when the commit is not itself a squash-merge
+PR title. If the work is not tracked yet, open an issue first and use that
+number. Do not leave the commit title without a GitHub reference.
+
+If you also want body traceability, reference the issue in the body or footer:
+
+```bash
+git commit -m "Add system tray icon support" -m "Refs #123"
+```
+
+Use `Closes #123` when the commit fully resolves the issue.
 
 Push and open a pull request:
 
@@ -176,6 +188,16 @@ Examples:
 Edit the PR title after GitHub assigns the PR number (it appears in the
 URL and page header immediately after creation). Dependabot PRs will need
 their titles updated before merging if they don't conform.
+
+### Commit Message and Link Rules
+
+- Use the commit title for a clear imperative summary plus an issue number
+  suffix when the commit is not a squash-merge PR title.
+- Use the commit body or footer for extra traceability if needed
+  (`Refs #123` or `Closes #123`).
+- Use the PR title for the PR number suffix (`... (#123)`).
+- Do not link file diffs or fake PR numbers in commit titles.
+- If there is no issue yet, create one before writing the commit title.
 
 ## Troubleshooting
 
