@@ -129,12 +129,30 @@ jobs:
         echo "--- Verify key symlinks ---"
         ls -la /usr/lib/libglib-2.0.so /usr/lib/libcairo.so /usr/lib/libharfbuzz.so /usr/lib/libgio-2.0.so /usr/lib/libpango-1.0.so 2>&1 || true
 
+    - name: Debug - show linker search paths
+      run: |
+        ld_path=/usr/lib/gcc/x86_64-alpine-linux-musl/*/ld
+        if [ -x "$ld_path" ]; then
+          $ld_path -m elf_x86_64 --verbose 2>&1 | grep SEARCH_DIR || true
+        else
+          echo "ld not found at $ld_path"
+          find /usr -name 'ld' -o -name 'ld.bfd' -o -name 'ld.lld' 2>/dev/null
+        fi
+        echo "=== gcc -print-search-dirs ==="
+        gcc -print-search-dirs 2>/dev/null || true
+        echo "=== pkg-config checks ==="
+        pkg-config --libs glib-2.0 gio-2.0 cairo harfbuzz pango 2>/dev/null || true
+        echo "=== verify linker can find libs ==="
+        echo 'int main(){return 0;}' | gcc -x c - -lglib-2.0 -o /dev/null 2>&1 || echo "FAILED: gcc -lglib-2.0"
+
     - name: Build APK
       run: |
         if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
         export PKG_CONFIG_ALLOW_CROSS=1
         export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
         export LIBRARY_PATH="/usr/lib:${LIBRARY_PATH:-}"
+        export RUSTFLAGS="-C link-arg=-L/usr/lib -C link-arg=-Wl,--as-needed"
+        echo "RUSTFLAGS=$RUSTFLAGS"
         scripts/build-webclients.sh
         VERSION=$(node -p "require('./package.json').version")
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
