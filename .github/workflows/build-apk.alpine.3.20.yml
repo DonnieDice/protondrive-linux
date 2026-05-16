@@ -114,7 +114,7 @@ jobs:
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
         sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
         npm install
-        npx tauri build --verbose --bundles none
+        cd src-tauri && cargo build --release --verbose
 
     - name: Package APK
       run: |
