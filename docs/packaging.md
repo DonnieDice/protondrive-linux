@@ -77,6 +77,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Fedora 43 RPM | pass (2.42) | pass | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
 | Fedora 44 RPM | pass (2.42) | pass | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
 | EL10 / RHEL-family RPM | pass (2.39) | pass | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | remote artifact pass | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | keep in release gate |
+| openSUSE Tumbleweed RPM | pass | pass | `build-rpm.opensuse.tumbleweed.yml` / `rpm-package-opensuse-tumbleweed` | `rpm/opensuse.tumbleweed.patch` | remote artifact pass | openSUSE Tumbleweed | keep in release gate |
 | Flatpak GNOME 49 | runtime | runtime | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
 | Flatpak GNOME 50 | runtime | runtime | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
 | Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
@@ -87,7 +88,6 @@ described above. Both must pass for a target to be `release-gated`.
 
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
-| openSUSE Tumbleweed RPM | pass | pass | none yet / `rpm-package-opensuse-tumbleweed` planned | `rpm/opensuse.tumbleweed.patch` | no release artifact | openSUSE Tumbleweed | add zypper workflow, release artifact, and runtime smoke |
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
 | Alpine 3.22 APK | musl pass | pass | none yet / `apk-package-alpine322` planned | `apk/alpine.3.22.patch` | no release artifact | Alpine 3.22 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
 | Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
@@ -138,8 +138,7 @@ described above. Both must pass for a target to be `release-gated`.
   will coexist until the native build is smoke-tested.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
-- openSUSE users should use AppImage until openSUSE RPM workflows and smoke
-  tests are added.
+- openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
 - Alpine users need future APK/musl packages. Current glibc DEB/RPM/AppImage
   artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
@@ -213,7 +212,7 @@ Runtime settings by baseline:
 | Ubuntu 24.04 / 26.04 | Debian 13 settings plus `JSC_useWasmIPInt=false` |
 | Fedora 43 / 44 | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable` |
 | EL10 | same current-WebKitGTK path as Fedora |
-| openSUSE roadmap | same current-WebKitGTK conservative path until target smoke tests prove otherwise |
+| openSUSE Tumbleweed | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
 | Alpine roadmap | musl package target plus current-WebKitGTK conservative path |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |

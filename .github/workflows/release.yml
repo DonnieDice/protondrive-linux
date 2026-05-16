@@ -73,9 +73,10 @@ jobs:
               'Build DEB Debian 13',
               'Build DEB Ubuntu 24.04',
               'Build DEB Ubuntu 26.04',
-              'Build RPM Fedora 43',
-              'Build RPM Fedora 44',
-              'Build RPM EL10',
+          'Build RPM Fedora 43',
+          'Build RPM Fedora 44',
+          'Build RPM EL10',
+          'Build RPM openSUSE Tumbleweed',
             ];
             await new Promise(resolve => setTimeout(resolve, 30000));
             const maxAttempts = 75;
@@ -229,6 +230,16 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
+      - name: Download RPM openSUSE Tumbleweed artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-rpm.opensuse.tumbleweed.yml
+          name: rpm-package-opensuse-tumbleweed
+          path: artifacts/rpm-opensuse-tumbleweed
+          commit: ${{ github.sha }}
+          workflow_conclusion: success
+          if_no_artifact_found: fail
+
       - name: Download Snap Core26 artifact
         uses: dawidd6/action-download-artifact@v6
         with:
@@ -252,10 +263,13 @@ jobs:
               rpm-fedora44/*)
                 dest="release/${name%.rpm}-fedora44.rpm"
                 ;;
-              rpm-el10/*)
-                dest="release/${name%.rpm}-el10.rpm"
-                ;;
-              *)
+      rpm-el10/*)
+        dest="release/${name%.rpm}-el10.rpm"
+        ;;
+      rpm-opensuse-tumbleweed/*)
+        dest="release/${name%.rpm}-opensuse-tumbleweed.rpm"
+        ;;
+      *)
                 dest="release/${name}"
                 ;;
             esac
@@ -296,6 +310,7 @@ jobs:
           | RPM (Fedora 43) | \`proton-drive-*-fedora43.rpm\` | Fedora 43+ |
           | RPM (Fedora 44) | \`proton-drive-*-fedora44.rpm\` | Fedora 44+ |
           | RPM (EL10) | \`proton-drive-*-el10.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
+| RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |
 
           ## Installation
 
@@ -325,10 +340,15 @@ jobs:
           sudo apt install ./proton-drive_*.deb
           \`\`\`
 
-          ### Fedora/RHEL
-          \`\`\`bash
-          sudo dnf install ./proton-drive-*.rpm
-          \`\`\`
+### Fedora/RHEL
+\`\`\`bash
+sudo dnf install ./proton-drive-*.rpm
+\`\`\`
+
+### openSUSE Tumbleweed
+\`\`\`bash
+sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm
+\`\`\`
 
           ## Checksums
 
