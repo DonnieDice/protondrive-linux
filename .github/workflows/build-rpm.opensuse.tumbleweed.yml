@@ -4,7 +4,6 @@ name: Build RPM openSUSE Tumbleweed
   push:
     branches:
       - main
-      - dev
       - alpha
     tags:
       - "v*"

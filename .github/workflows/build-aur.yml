@@ -4,7 +4,6 @@ name: Build AUR Arch Native
   push:
     branches:
     - main
-    - dev
     - alpha
     tags:
     - "v*"

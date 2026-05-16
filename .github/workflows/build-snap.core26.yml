@@ -4,7 +4,6 @@ name: Build Snap Core26
   push:
     branches:
       - main
-      - dev
       - alpha
     tags:
       - "v*"

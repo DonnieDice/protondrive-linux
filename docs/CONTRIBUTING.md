@@ -157,6 +157,26 @@ Push and open a pull request:
 git push origin feature/my-feature
 ```
 
+### PR Title Format
+
+All PR titles must match the CommitCheck regex: `^[A-Z].{9,}\s\(#\d+\)$`
+
+Rules:
+
+- Start with an uppercase letter
+- Be at least 10 characters long (before the PR number)
+- End with the PR number in parentheses, e.g. `(#42)`
+
+Examples:
+
+- `Add Alpine 3.20 APK build target (#47)`
+- `Fix linker flags for musl static linking (#51)`
+- `Update WebClients clone depth in build script (#38)`
+
+Edit the PR title after GitHub assigns the PR number (it appears in the
+URL and page header immediately after creation). Dependabot PRs will need
+their titles updated before merging if they don't conform.
+
 ## Troubleshooting
 
 Update Rust and dependencies:
