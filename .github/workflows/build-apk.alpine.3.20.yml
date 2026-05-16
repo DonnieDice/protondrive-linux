@@ -42,10 +42,10 @@ jobs:
         apk add \
           bash git curl wget build-base file pkgconfig \
           openssl-dev webkit2gtk-4.1-dev gtk+3.0-dev \
-          libsoup3-dev libappindicator-dev \
+          libsoup3-dev libayatana-appindicator-dev \
           patchelf nodejs npm cargo rust \
           python3 ca-certificates \
-          libvips-dev cairo-dev pango-dev libjpeg-turbo-dev giflib-dev
+          vips-dev cairo-dev pango-dev libjpeg-turbo-dev giflib-dev
 
     - name: Checkout repository
       uses: actions/checkout@v4
