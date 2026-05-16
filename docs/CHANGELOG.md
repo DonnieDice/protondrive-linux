@@ -1,5 +1,60 @@
 # Changelog
 
+## 1.4.0 - 2026-05-16
+
+### Added
+
+- Alpine 3.20 APK build target: patch (`apk/alpine.3.20.patch`), CI workflow
+  (`build-apk.alpine.3.20.yml`), and local build script
+  (`scripts/ci/build-alpine-320-apk.sh`).
+- Alpine 3.20 APK artifact in the release workflow (`release.yml`) download,
+  filename handling, release notes, and install instructions.
+- `.cargo/config.toml` generation in the Alpine CI workflow: `linker = "gcc"`
+  and `target-feature = -crt-static` to allow dynamic linking against shared
+  GTK/WebKit libraries on musl.
+- `docs/new-build-checklist.md`: full step-by-step checklist for adding a new
+  package target, with musl linking lessons learned.
+- Native AUR Arch build: `proton-drive` package compiling against system
+  WebKitGTK, replacing the previous AppImage-wrapper `proton-drive-bin`.
+  Renamed patch from `aur/arch.patch` to `aur/arch-native.patch`, removed
+  `aur/arch.wrapper`. Smoke tested on Manjaro.
+
+### Changed
+
+- Promoted Alpine 3.20 APK from roadmap-patch-ready to release-gated after
+  CI green and runtime smoke test passed (app launched, Proton login API
+  responded on Alpine 3.20 host).
+- Updated `packaging/compatibility-map.yml`: Alpine 3.20 status to
+  `release-gated` with `runtime_smoke: pass` and evidence; AUR entry updated
+  to native build.
+- Updated `docs/packaging.md`: Alpine 3.20 moved to release-gated table
+  (15 release-gated artifacts), not-primary entry updated to `promoted`,
+  Alpine runtime settings documented, AUR entry updated to native build.
+- Updated `patches/README.md`: `apk/alpine.3.20.patch` moved to release-gated
+  list, `aur/arch-native.patch` replaces `aur/arch.patch`.
+- Updated `docs/release-checklist.md`: added APK Alpine 3.20 workflow check,
+  updated AUR workflow name.
+- Updated `release.yml`: AUR artifact name changed to `aur-arch-native`,
+  expected workflow name changed to `Build AUR Arch Native`.
+
+### Fixed
+
+- Alpine CI: replaced `libappindicator-dev` with
+  `libayatana-appindicator-dev` and `libvips-dev` with `vips-dev` (Alpine
+  package name differences).
+- Alpine CI: removed system `cargo`/`rust` packages, always use rustup
+  (Alpine cargo 1.78.0 too old for `edition2024`).
+- Alpine CI: added transitive dev packages (`glib-dev`, `gdk-pixbuf-dev`,
+  `harfbuzz-dev`, `cairo-dev`, `pango-dev`, `wayland-dev`, `zlib-dev`,
+  `libintl`, `musl-dev`) that Alpine `-dev` packages don't auto-pull.
+- Alpine CI: disabled musl `crt-static` default that forced static-only
+  linking incompatible with shared GTK/WebKit libraries.
+- Alpine CI: use `cargo build --release` directly instead of
+  `npx tauri build` (tauri CLI `--bundles` does not accept `none` for APK).
+- Alpine CI: fixed APKBUILD staging (file not directory).
+- AUR CI: fixed version handling, icons in CI package, PKGBUILD srcdir
+  naming, makedepends, and publish timeout handling.
+
 ## 1.3.2 - 2026-05-15
 
 ### Added
