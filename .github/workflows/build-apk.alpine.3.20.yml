@@ -80,7 +80,6 @@ jobs:
         cat > .cargo/config.toml <<'EOF'
         [target.x86_64-unknown-linux-musl]
         linker = "gcc"
-        rustflags = ["-C", "link-self-contained=no"]
         EOF
         echo "Created .cargo/config.toml:"
         cat .cargo/config.toml
