@@ -4,7 +4,6 @@ name: Build DEB Debian 13
   push:
     branches:
       - main
-      - dev
       - alpha
     tags:
       - "v*"

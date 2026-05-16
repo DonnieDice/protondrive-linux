@@ -93,7 +93,7 @@ repos, and the compatibility map can lag behind reality.
   - Normalize the artifact filename with the target label.
   - Upload the artifact with a unique name.
 
-- [ ] Verify the workflow triggers on `push` to `main`, `dev`, `alpha`, tags,
+- [ ] Verify the workflow triggers on `push` to `main`, `alpha`, tags,
   and `workflow_dispatch`.
 
 ## Step 4: Create the Local CI Build Script
@@ -133,8 +133,8 @@ repos, and the compatibility map can lag behind reality.
 
 ## Step 7: Push and Validate
 
-- [ ] Commit all changes to `dev`.
-- [ ] Push `dev` to remote.
+- [ ] Commit all changes on a feature branch.
+- [ ] Push the feature branch to remote.
 - [ ] Confirm the new GitHub Actions workflow triggers and passes.
 - [ ] Download the workflow artifact.
 - [ ] Install and test the artifact on the target host (runtime smoke test).
@@ -151,7 +151,7 @@ repos, and the compatibility map can lag behind reality.
 - [ ] Update `docs/packaging.md`: move the target to the release-gated table.
 - [ ] Update `patches/README.md`: move the patch to the release-gated list.
 - [ ] Update `docs/release-checklist.md` if needed.
-- [ ] Commit and push the promotion to `dev`.
+- [ ] Merge the promotion through a pull request into `main`.
 
 ## Notes and Lessons Learned
 

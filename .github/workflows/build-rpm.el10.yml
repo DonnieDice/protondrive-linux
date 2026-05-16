@@ -4,7 +4,6 @@ name: Build RPM EL10
   push:
     branches:
     - main
-    - dev
     - alpha
     tags:
     - "v*"

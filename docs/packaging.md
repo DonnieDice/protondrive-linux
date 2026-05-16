@@ -229,24 +229,24 @@ asset path fixes, and Webpack SRI disabled for Drive, Account, and Verify.
 Release flow:
 
 ```text
-dev -> active build and workflow fixes
+feature branches -> active build and workflow fixes
 main -> stable release source
 tags -> release artifacts
 ```
 
-Do not cut a stable release directly from `dev`. Once `dev` is green, merge the
-tested commits into `main`, push `main`, then create or update the release tag
-from `main`.
+Do not cut a stable release directly from feature branches. Once the tested
+commits are merged into `main`, push `main`, then create or update the release
+tag from `main`.
 
 Release checklist:
 
-- `dev` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
+- `main` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
 - Roadmap patch-ready targets are intentionally excluded from `release.yml`
   unless they completed the promotion checklist.
 - Runtime smoke records are updated in this file and
   `packaging/compatibility-map.yml`.
-- `main` contains only the tested dev commits intended for release.
-- Release tag points at `main`, not `dev`.
+- `main` contains only the tested commits intended for release.
+- Release tag points at `main`.
 - GitHub release contains all 14 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
