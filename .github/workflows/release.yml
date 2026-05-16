@@ -62,22 +62,23 @@ jobs:
           script: |
             const sha = context.sha;
             console.log(`Waiting for builds for SHA: ${sha}`);
-            const expectedWorkflows = [
-              'Build AppImage',
-              'Build Flatpak',
-              'Build Flatpak GNOME 49',
-              'Build Snap',
-              'Build Snap Core26',
-              'Build AUR',
-              'Build DEB Debian 12',
-              'Build DEB Debian 13',
-              'Build DEB Ubuntu 24.04',
-              'Build DEB Ubuntu 26.04',
+        const expectedWorkflows = [
+          'Build AppImage',
+          'Build Flatpak',
+          'Build Flatpak GNOME 49',
+          'Build Snap',
+          'Build Snap Core26',
+          'Build AUR',
+          'Build DEB Debian 12',
+          'Build DEB Debian 13',
+          'Build DEB Ubuntu 24.04',
+          'Build DEB Ubuntu 26.04',
           'Build RPM Fedora 43',
           'Build RPM Fedora 44',
           'Build RPM EL10',
           'Build RPM openSUSE Tumbleweed',
-            ];
+          'Build APK Alpine 3.20',
+        ];
             await new Promise(resolve => setTimeout(resolve, 30000));
             const maxAttempts = 75;
             for (let i = 0; i < maxAttempts; i++) {
@@ -240,20 +241,30 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
-      - name: Download Snap Core26 artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-snap.core26.yml
-          name: snap-package-core26
-          path: artifacts/snap-core26
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          if_no_artifact_found: fail
+    - name: Download Snap Core26 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-snap.core26.yml
+        name: snap-package-core26
+        path: artifacts/snap-core26
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download APK Alpine 3.20 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: build-apk.alpine.3.20.yml
+        name: apk-package-alpine320
+        path: artifacts/apk-alpine320
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
 
       - name: Prepare release files
         run: |
           mkdir -p release
-          find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \) -print0 | while IFS= read -r -d '' src; do
+          find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" -o -name "*.apk.tar.gz" \) -print0 | while IFS= read -r -d '' src; do
             rel="${src#artifacts/}"
             name="$(basename "$src")"
             case "$rel" in
@@ -266,10 +277,13 @@ jobs:
       rpm-el10/*)
         dest="release/${name%.rpm}-el10.rpm"
         ;;
-      rpm-opensuse-tumbleweed/*)
-        dest="release/${name%.rpm}-opensuse-tumbleweed.rpm"
-        ;;
-      *)
+          rpm-opensuse-tumbleweed/*)
+            dest="release/${name%.rpm}-opensuse-tumbleweed.rpm"
+            ;;
+          apk-alpine320/*)
+            dest="release/${name}"
+            ;;
+          *)
                 dest="release/${name}"
                 ;;
             esac
@@ -311,6 +325,7 @@ jobs:
           | RPM (Fedora 44) | \`proton-drive-*-fedora44.rpm\` | Fedora 44+ |
           | RPM (EL10) | \`proton-drive-*-el10.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |
 | RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |
+| APK (Alpine 3.20) | \`proton-drive_*_alpine320_amd64.apk.tar.gz\` | Alpine 3.20 (musl) |
 
           ## Installation
 
@@ -348,6 +363,11 @@ sudo dnf install ./proton-drive-*.rpm
 ### openSUSE Tumbleweed
 \`\`\`bash
 sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm
+\`\`\`
+
+### Alpine 3.20
+\`\`\`bash
+sudo apk add ./proton-drive_*_alpine320_amd64.apk.tar.gz
 \`\`\`
 
           ## Checksums
