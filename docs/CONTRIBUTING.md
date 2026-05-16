@@ -148,12 +148,12 @@ git checkout -b feature/my-feature
 Commit with a clear, linkable title:
 
 ```bash
-git commit -m "Add system tray icon support (#123)"
+git commit -m "(#123) Add system tray icon support"
 ```
 
-Use the issue number in the title when the commit is not itself a squash-merge
-PR title. If the work is not tracked yet, open an issue first and use that
-number. Do not leave the commit title without a GitHub reference.
+Use the issue number at the front of the title when the commit is not itself
+a squash-merge PR title. If the work is not tracked yet, open an issue first
+and use that number. Do not leave the commit title without a GitHub reference.
 
 If you also want body traceability, reference the issue in the body or footer:
 
@@ -171,32 +171,32 @@ git push origin feature/my-feature
 
 ### PR Title Format
 
-All PR titles must match the CommitCheck regex: `^[A-Z].{9,}\s\(#\d+\)$`
+All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
 - Start with an uppercase letter
-- Be at least 10 characters long (before the PR number)
-- Put the PR number suffix at the end of the title, e.g. `Title here (#42)`
+- Be at least 10 characters long (after the PR number prefix)
+- Put the PR number prefix at the start of the title, e.g. `(#42) Title here`
 
 Examples:
 
-- `Add Alpine 3.20 APK build target (#47)`
-- `Fix linker flags for musl static linking (#51)`
-- `Update WebClients clone depth in build script (#38)`
+- `(#47) Add Alpine 3.20 APK build target`
+- `(#51) Fix linker flags for musl static linking`
+- `(#38) Update WebClients clone depth in build script`
 
 Edit the PR title after GitHub assigns the PR number (it appears in the
-URL and page header immediately after creation). Keep the descriptive title
-left-justified and append the PR number suffix at the end. Dependabot PRs will
-need their titles updated before merging if they don't conform.
+URL and page header immediately after creation). Keep the PR number prefix at
+the start of the title and follow it with the descriptive text. Dependabot PRs
+will need their titles updated before merging if they don't conform.
 
 ### Commit Message and Link Rules
 
 - Use the commit title for a clear imperative summary plus an issue number
-  suffix when the commit is not a squash-merge PR title.
+  prefix when the commit is not a squash-merge PR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the PR number suffix (`... (#123)`).
+- Use the PR title for the PR number prefix (`(#123) ...`).
 - Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
