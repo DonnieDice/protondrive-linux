@@ -39,8 +39,7 @@ patches/
 |   |-- core24.patch
 |   `-- core26.patch
 `-- aur/
-    |-- arch.patch
-    `-- arch.wrapper
+  `-- arch-native.patch
 ```
 
 ## Release-Gated Patches
@@ -48,7 +47,7 @@ patches/
 These are currently built and published by the release workflow:
 
 - `appimage/linux-baseline.patch`
-- `aur/arch.patch`
+- `aur/arch-native.patch`
 - `deb/debian.12.patch`
 - `deb/debian.13.patch`
 - `deb/ubuntu.24.04.patch`

@@ -68,7 +68,7 @@ jobs:
           'Build Flatpak GNOME 49',
           'Build Snap',
           'Build Snap Core26',
-          'Build AUR',
+          'Build AUR Arch Native',
           'Build DEB Debian 12',
           'Build DEB Debian 13',
           'Build DEB Ubuntu 24.04',
@@ -151,15 +151,15 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
-      - name: Download AUR artifact
-        uses: dawidd6/action-download-artifact@v6
-        with:
-          workflow: build-aur.yml
-          name: aur-arch
-          path: artifacts/aur
-          commit: ${{ github.sha }}
-          workflow_conclusion: success
-          if_no_artifact_found: fail
+- name: Download AUR artifact
+  uses: dawidd6/action-download-artifact@v6
+  with:
+    workflow: build-aur.yml
+    name: aur-arch-native
+    path: artifacts/aur
+    commit: ${{ github.sha }}
+    workflow_conclusion: success
+    if_no_artifact_found: fail
 
       - name: Download DEB Debian 12 artifact
         uses: dawidd6/action-download-artifact@v6
