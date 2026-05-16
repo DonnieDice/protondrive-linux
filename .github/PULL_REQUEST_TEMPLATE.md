@@ -12,6 +12,10 @@ Your PR title must match: `^[A-Z].{9,}\s\(#\d+\)$`
 
 Edit your title after GitHub assigns the PR number.
 
+If the change is tracked by an issue, mention it in the PR body with `Refs #123`
+or `Closes #123`. The PR title itself should keep the `(#PR_NUMBER)` suffix so
+it stays linkable.
+
 ## Summary
 
 <!-- Describe your changes -->
