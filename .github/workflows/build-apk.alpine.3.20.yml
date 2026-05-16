@@ -51,18 +51,6 @@ jobs:
           python3 ca-certificates \
           vips-dev libjpeg-turbo-dev giflib-dev
 
-    - name: Debug - list installed .so symlinks
-      run: |
-        echo "=== /usr/lib .so files (no version) ==="
-        find /usr/lib -maxdepth 1 -name '*.so' -type l -o -name '*.so' -type f 2>/dev/null || true
-        echo "=== /usr/lib .so.* count ==="
-        ls /usr/lib/*.so.* 2>/dev/null | wc -l
-        echo "=== key libs ==="
-        for f in libglib-2.0 libcairo libharfbuzz libgio-2.0 libgobject-2.0 libpango-1.0 libgdk_pixbuf-2.0 libfontconfig libfreetype libepoxy; do
-          echo "--- $f ---"
-          ls -la /usr/lib/${f}.so* 2>&1 || true
-        done
-
     - name: Checkout repository
       uses: actions/checkout@v4
 
@@ -86,6 +74,17 @@ jobs:
         key: apk-alpine320-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
         restore-keys: apk-alpine320-cargo-
 
+    - name: Configure cargo for musl linking
+      run: |
+        mkdir -p .cargo
+        cat > .cargo/config.toml <<'EOF'
+        [target.x86_64-unknown-linux-musl]
+        linker = "gcc"
+        rustflags = ["-C", "link-self-contained=no"]
+        EOF
+        echo "Created .cargo/config.toml:"
+        cat .cargo/config.toml
+
     - name: Clone WebClients
       run: |
         git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
@@ -105,54 +104,11 @@ jobs:
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
-    - name: Create .so symlinks for musl linking
-      run: |
-        cd /usr/lib
-        for lib in libglib-2.0 libgobject-2.0 libgio-2.0 libgdk_pixbuf-2.0 \
-                   libcairo libcairo-gobject libpango-1.0 libpangocairo-1.0 \
-                   libharfbuzz libatk-1.0 libgdk-3 libwayland-client \
-                   libfontconfig libfreetype libepoxy libXi libX11 libXcomposite \
-                   libXdamage libXfixes libXrandr libatk-bridge-2.0 libdbus-1 \
-                   libatspi libgtk-3 libjavascriptcoregtk-4.1 libwebkit2gtk-4.1; do
-          if [ -L "${lib}.so" ] || [ -e "${lib}.so" ]; then
-            echo "OK: ${lib}.so already exists"
-            continue
-          fi
-          candidate=$(ls -1 ${lib}.so.* 2>/dev/null | head -1)
-          if [ -n "$candidate" ]; then
-            ln -sf "$candidate" "${lib}.so"
-            echo "Linked ${lib}.so -> $candidate"
-          else
-            echo "WARN: no ${lib}.so.* found"
-          fi
-        done
-        echo "--- Verify key symlinks ---"
-        ls -la /usr/lib/libglib-2.0.so /usr/lib/libcairo.so /usr/lib/libharfbuzz.so /usr/lib/libgio-2.0.so /usr/lib/libpango-1.0.so 2>&1 || true
-
-    - name: Debug - show linker search paths
-      run: |
-        ld_path=/usr/lib/gcc/x86_64-alpine-linux-musl/*/ld
-        if [ -x "$ld_path" ]; then
-          $ld_path -m elf_x86_64 --verbose 2>&1 | grep SEARCH_DIR || true
-        else
-          echo "ld not found at $ld_path"
-          find /usr -name 'ld' -o -name 'ld.bfd' -o -name 'ld.lld' 2>/dev/null
-        fi
-        echo "=== gcc -print-search-dirs ==="
-        gcc -print-search-dirs 2>/dev/null || true
-        echo "=== pkg-config checks ==="
-        pkg-config --libs glib-2.0 gio-2.0 cairo harfbuzz pango 2>/dev/null || true
-        echo "=== verify linker can find libs ==="
-        echo 'int main(){return 0;}' | gcc -x c - -lglib-2.0 -o /dev/null 2>&1 || echo "FAILED: gcc -lglib-2.0"
-
     - name: Build APK
       run: |
         if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
         export PKG_CONFIG_ALLOW_CROSS=1
         export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
-        export LIBRARY_PATH="/usr/lib:${LIBRARY_PATH:-}"
-        export RUSTFLAGS="-C link-arg=-L/usr/lib -C link-arg=-Wl,--as-needed"
-        echo "RUSTFLAGS=$RUSTFLAGS"
         scripts/build-webclients.sh
         VERSION=$(node -p "require('./package.json').version")
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
