@@ -169,6 +169,26 @@ Push and open a pull request:
 git push origin feature/my-feature
 ```
 
+### PR Body Format
+
+Reference the issue at the top, then list each changed file with a GitHub
+permalink so reviewers can jump directly to the source:
+
+```markdown
+Issue: #42
+
+## Changes
+
+### [`README.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/README.md) — description of changes
+- Bullet list of what changed in this file
+
+### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/docs/packaging.md) — description of changes
+- Bullet list of what changed in this file
+```
+
+Replace `<branch>` with your feature branch name. Each changed file gets its
+own `###` heading with a GitHub blob link and a brief summary of what changed.
+
 ### PR Title Format
 
 All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
