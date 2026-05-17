@@ -1,5 +1,6 @@
-<img width="28" src="src-tauri/icons/proton-drive.svg">&nbsp;&nbsp;ProtonDrive Linux
-===============
+<div>
+<h1><img src="src-tauri/icons/proton-drive.svg" height="28"> ProtonDrive Linux</h1>
+</div>
 
 [![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
