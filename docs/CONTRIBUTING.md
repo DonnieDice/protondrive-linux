@@ -151,9 +151,9 @@ Commit with a clear, linkable title:
 git commit -m "(#123) Add system tray icon support"
 ```
 
-Use the issue number at the front of the title when the commit is not itself
-a squash-merge PR title. If the work is not tracked yet, open an issue first
-and use that number. Do not leave the commit title without a GitHub reference.
+The number in the commit title is the **issue** number (e.g., `#123`), not the
+PR number. If the work is not tracked yet, open an issue first and use that
+number. Do not leave the commit title without a GitHub reference.
 
 If you also want body traceability, reference the issue in the body or footer:
 
@@ -175,6 +175,8 @@ All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
+- The number in the PR title is the **PR** number (assigned by GitHub after
+  you open the PR), not the issue number
 - Start with an uppercase letter
 - Be at least 10 characters long (after the PR number prefix)
 - Put the PR number prefix at the start of the title, e.g. `(#42) Title here`
@@ -192,11 +194,11 @@ will need their titles updated before merging if they don't conform.
 
 ### Commit Message and Link Rules
 
-- Use the commit title for a clear imperative summary plus an issue number
+- Use the commit title for a clear imperative summary plus an **issue** number
   prefix when the commit is not a squash-merge PR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the PR number prefix (`(#123) ...`).
+- Use the PR title for the **PR** number prefix (`(#123) ...`).
 - Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
