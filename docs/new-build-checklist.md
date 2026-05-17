@@ -204,5 +204,19 @@ available in a minimal Alpine container. For APK targets, use `cargo build
 --release` directly instead of `npx tauri build`, since APK packaging is
 handled in a separate step.
 - **APKBUILD is a file, not a directory**: When creating the APK staging
-directory, do not `mkdir -p "$STAGING/APKBUILD"` — that creates APKBUILD as
-a directory. The APKBUILD should be written as a file with `cat >`.
+  directory, do not `mkdir -p "$STAGING/APKBUILD"` — that creates APKBUILD as
+  a directory. The APKBUILD should be written as a file with `cat >`.
+- **D-Bus session bus on Alpine (CRITICAL)**: Alpine musl lacks systemd's
+  D-Bus auto-launching. If `DBUS_SESSION_BUS_ADDRESS` points to an
+  inaccessible socket (e.g., owned by lightdm/root), WebKitWebProcess will
+  SIGABRT in `g_dbus_address_get_stream_sync()` due to a GLib bug where the
+  `autolaunch:` fallback path can fail without setting a GError. The patch
+  must auto-launch a user D-Bus session via `dbus-launch --sh-syntax` if the
+  inherited bus is not accessible, set `AT_SPI_BUS_ADDRESS=/dev/null` to
+  prevent the accessibility bus from crashing, and create `XDG_RUNTIME_DIR`
+  if missing. This affects all Alpine APK targets (3.20, 3.22, 3.23).
+- **`AT_SPI_BUS_ADDRESS` on Alpine**: The accessibility bus socket inherited
+  from a display manager (e.g., lightdm) is typically not accessible to the
+  user. Setting `AT_SPI_BUS_ADDRESS=/dev/null` prevents WebKitWebProcess from
+  attempting to connect and crashing. This produces a harmless warning but
+  avoids the SIGABRT.

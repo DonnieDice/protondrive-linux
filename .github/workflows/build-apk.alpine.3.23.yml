@@ -89,10 +89,10 @@ jobs:
         rustflags = ["-C", "target-feature=-crt-static"]
         EOF
         echo "Created .cargo/config.toml:"
-    cat .cargo/config.toml
-    git config --global --add safe.directory "$GITHUB_WORKSPACE"
+        cat .cargo/config.toml
+        git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
-- name: Clone WebClients
+    - name: Clone WebClients
       run: |
         git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
@@ -111,13 +111,13 @@ jobs:
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
-- name: Build APK
-  run: |
-    if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
-    export PKG_CONFIG_ALLOW_CROSS=1
-    export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
-    rm -rf /tmp/apk-artifact
-    scripts/build-webclients.sh
+    - name: Build APK
+      run: |
+        if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+        export PKG_CONFIG_ALLOW_CROSS=1
+        export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
+        rm -rf /tmp/apk-artifact
+        scripts/build-webclients.sh
         VERSION=$(node -p "require('./package.json').version")
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
         sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml

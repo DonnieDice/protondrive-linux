@@ -79,6 +79,7 @@ jobs:
               'Build RPM openSUSE Tumbleweed',
               'Build APK Alpine 3.20',
               'Build APK Alpine 3.22',
+              'Build APK Alpine 3.23',
             ];
             await new Promise(resolve => setTimeout(resolve, 30000));
             const maxAttempts = 75;
@@ -272,6 +273,16 @@ jobs:
           workflow_conclusion: success
           if_no_artifact_found: fail
 
+      - name: Download APK Alpine 3.23 artifact
+        uses: dawidd6/action-download-artifact@v6
+        with:
+          workflow: build-apk.alpine.3.23.yml
+          name: apk-package-alpine323
+          path: artifacts/apk-alpine323
+          commit: ${{ github.sha }}
+          workflow_conclusion: success
+          if_no_artifact_found: fail
+
       - name: Prepare release files
         run: |
           VERSION=$(node -p "require('./package.json').version")
@@ -304,6 +315,9 @@ jobs:
                 dest="release/${name}"
                 ;;
               apk-alpine322/*)
+                dest="release/${name}"
+                ;;
+             apk-alpine323/*)
                 dest="release/${name}"
                 ;;
               *)
@@ -350,6 +364,7 @@ jobs:
           | RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |
           | APK (Alpine 3.20) | \`proton-drive_*_alpine320_amd64.apk.tar.gz\` | Alpine 3.20 (musl) |
           | APK (Alpine 3.22) | \`proton-drive_*_alpine322_amd64.apk.tar.gz\` | Alpine 3.22 (musl) |
+ | APK (Alpine 3.23) | `proton-drive_*_alpine323_amd64.apk.tar.gz` | Alpine 3.23 (musl) |
 
           ## Installation
 
@@ -398,6 +413,11 @@ jobs:
           \`\`\`bash
           sudo apk add ./proton-drive_*_alpine322_amd64.apk.tar.gz
           \`\`\`
+
+### Alpine 3.23
+```bash
+sudo apk add ./proton-drive_*_alpine323_amd64.apk.tar.gz
+```
 
           ## Checksums
 

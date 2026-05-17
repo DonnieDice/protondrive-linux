@@ -85,13 +85,13 @@ described above. Both must pass for a target to be `release-gated`.
 | AUR Arch package (native build) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
 | Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
 | Alpine 3.22 APK | musl pass | pass | `build-apk.alpine.3.22.yml` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
+| Alpine 3.23 APK | musl pass | pass | `build-apk.alpine.3.23.yml` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | local smoke pass | Alpine 3.23 musl; glibc artifacts are not compatible | keep in release gate |
 
 ### Roadmap patch-ready targets
 
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.23 APK | musl pass | pass | `build-apk.alpine.3.23.yml` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add release artifact and runtime smoke |
 
 ### Roadmap targets (no patch yet)
 
@@ -138,10 +138,9 @@ described above. Both must pass for a target to be `release-gated`.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
-- Alpine users need APK/musl packages. Alpine 3.20 and 3.22 have WebKitGTK
-4.1 available in repos and are release-gated. Alpine 3.23 has a CI workflow
-but is not yet release-gated. Current glibc DEB/RPM/AppImage artifacts are not
-Alpine-compatible.
+- Alpine users need APK/musl packages. Alpine 3.20, 3.22, and 3.23 have
+WebKitGTK 4.1 available in repos and are release-gated. Current glibc
+DEB/RPM/AppImage artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
 - Nix users will use a future Nix flake that manages both libc and WebKitGTK
@@ -215,7 +214,8 @@ Runtime settings by baseline:
 | EL10 | same current-WebKitGTK path as Fedora |
 | openSUSE Tumbleweed | sandbox disable, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
 | Alpine 3.20 APK | musl package target; `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`, `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, `JSC_useWasmIPInt=false`, `GDK_GL=disable`, `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo` |
-| Alpine 3.23 roadmap | musl package target plus current-WebKitGTK conservative path |
+| Alpine 3.22 APK | Alpine 3.20 settings plus D-Bus session auto-launch, `AT_SPI_BUS_ADDRESS=/dev/null`, `XDG_RUNTIME_DIR` auto-create |
+| Alpine 3.23 APK | Alpine 3.22 settings (same D-Bus/at-spi/XDG workarounds) |
 | Flatpak GNOME 49/50 | runtime-specific WebKitGTK settings for GNOME Platform targets |
 | Snap core24/core26 | wrapper/manifest WebKit paths plus package patch behavior |
 | AUR (native) | sandbox disable, `JSC_useWasmIPInt=false`; hardware rendering kept |
@@ -249,7 +249,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested commits intended for release.
 - Release tag points at `main`.
-- GitHub release contains all 16 release-gated artifacts plus `SHA256SUMS`.
+- GitHub release contains all 17 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 

@@ -38,7 +38,7 @@ Use this checklist before every release deployment.
 - [ ] AUR workflow is passing.
 - [ ] APK Alpine 3.20 workflow is passing.
 - [ ] APK Alpine 3.22 workflow is passing.
-- [ ] APK Alpine 3.23 workflow is passing (roadmap patch-ready target).
+- [ ] APK Alpine 3.23 workflow is passing.
 - [ ] Release workflow is passing.
 
 - [ ] Merge approved PRs into `main`.

@@ -1,16 +1,48 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..a3f7c2d4 100644
+index 51d68ebd..9fc477ca 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,15 @@ async fn proxy_request(
+@@ -194,9 +194,47 @@ async fn proxy_request(
  }
-
+ 
  fn main() {
 -    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
 -    // They are distro-specific and belong in patches/<package>/<distro>.patch
 -    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Alpine 3.20 APK builds.
-+    // Alpine is musl-based, so APK support must be built and tested separately.
++    // WebKitGTK environment for Alpine 3.20 (musl) APK builds.
++    // Alpine musl lacks systemd D-Bus auto-launching, so we must provide
++    // a working session bus or WebKitWebProcess will SIGABRT in
++    // g_dbus_address_get_stream_sync() when the inherited bus socket
++    // is inaccessible (e.g. owned by lightdm/root).
++    {
++        let bus = std::env::var("DBUS_SESSION_BUS_ADDRESS").unwrap_or_default();
++        let bus_accessible = bus.starts_with("unix:path=")
++            && std::path::Path::new(&bus["unix:path=".len()..]).exists();
++        if !bus_accessible {
++            if let Ok(output) = std::process::Command::new("dbus-launch")
++                .arg("--sh-syntax")
++                .output()
++            {
++                for line in String::from_utf8_lossy(&output.stdout).lines() {
++                    if line.starts_with("DBUS_SESSION_BUS_ADDRESS=") {
++                        let addr = line
++                            .trim_start_matches("DBUS_SESSION_BUS_ADDRESS=")
++                            .trim_matches('\'')
++                            .trim_end_matches(';');
++                        std::env::set_var("DBUS_SESSION_BUS_ADDRESS", addr);
++                    }
++                }
++            }
++        }
++        if std::env::var("XDG_RUNTIME_DIR").is_err() {
++            if let Ok(user) = std::env::var("USER") {
++                let dir = format!("/tmp/runtime-{}", user);
++                let _ = std::fs::create_dir_all(&dir);
++                std::env::set_var("XDG_RUNTIME_DIR", &dir);
++            }
++        }
++    }
++    std::env::set_var("AT_SPI_BUS_ADDRESS", "/dev/null");
 +    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
 +    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
@@ -18,6 +50,6 @@ index 51d68ebd..a3f7c2d4 100644
 +    std::env::set_var("GDK_GL", "disable");
 +    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
 +    std::env::set_var("GSK_RENDERER", "cairo");
-
+ 
      // Create shared client with cookie jar
      let state = Arc::new(AppState {
