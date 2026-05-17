@@ -290,14 +290,14 @@ jobs:
           find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" -o -name "*.apk.tar.gz" \) -print0 | while IFS= read -r -d '' src; do
             rel="${src#artifacts/}"
             name="$(basename "$src")"
-    case "$name" in
-        proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*)
-          ;;
-        *)
-          echo "Skipping stale artifact: $name"
-          continue
-          ;;
-        esac
+            case "$name" in
+              proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*)
+                ;;
+              *)
+                echo "Skipping stale artifact: $name"
+                continue
+                ;;
+            esac
             case "$rel" in
               rpm-fedora43/*)
                 dest="release/${name%.rpm}-fedora43.rpm"
@@ -317,7 +317,7 @@ jobs:
               apk-alpine322/*)
                 dest="release/${name}"
                 ;;
-             apk-alpine323/*)
+              apk-alpine323/*)
                 dest="release/${name}"
                 ;;
               *)
@@ -364,7 +364,7 @@ jobs:
           | RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |
           | APK (Alpine 3.20) | \`proton-drive_*_alpine320_amd64.apk.tar.gz\` | Alpine 3.20 (musl) |
           | APK (Alpine 3.22) | \`proton-drive_*_alpine322_amd64.apk.tar.gz\` | Alpine 3.22 (musl) |
- | APK (Alpine 3.23) | `proton-drive_*_alpine323_amd64.apk.tar.gz` | Alpine 3.23 (musl) |
+          | APK (Alpine 3.23) | \`proton-drive_*_alpine323_amd64.apk.tar.gz\` | Alpine 3.23 (musl) |
 
           ## Installation
 
@@ -414,10 +414,10 @@ jobs:
           sudo apk add ./proton-drive_*_alpine322_amd64.apk.tar.gz
           \`\`\`
 
-### Alpine 3.23
-```bash
-sudo apk add ./proton-drive_*_alpine323_amd64.apk.tar.gz
-```
+          ### Alpine 3.23
+          \`\`\`bash
+          sudo apk add ./proton-drive_*_alpine323_amd64.apk.tar.gz
+          \`\`\`
 
           ## Checksums
 
@@ -434,30 +434,30 @@ sudo apk add ./proton-drive_*_alpine323_amd64.apk.tar.gz
           Report issues at https://github.com/${{ github.repository }}/issues
           EOF
 
-  - name: Delete stale release assets
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
-    run: |
-      TAG="${{ steps.version.outputs.version }}"
-      EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
-      if [ -n "$EXISTING" ]; then
-        echo "Cleaning existing assets before upload..."
-        echo "$EXISTING" | while read -r name; do
-          [ -z "$name" ] && continue
-          echo "  Deleting $name"
-          gh release delete-asset "$TAG" "$name" --yes || true
-        done
-      fi
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Delete stale release assets
+        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        run: |
+          TAG="${{ steps.version.outputs.version }}"
+          EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
+          if [ -n "$EXISTING" ]; then
+            echo "Cleaning existing assets before upload..."
+            echo "$EXISTING" | while read -r name; do
+              [ -z "$name" ] && continue
+              echo "  Deleting $name"
+              gh release delete-asset "$TAG" "$name" --yes || true
+            done
+          fi
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
-  - name: Create GitHub Release
-    uses: softprops/action-gh-release@v1
-    with:
-      tag_name: ${{ steps.version.outputs.version }}
-      body_path: RELEASE_NOTES.md
-      files: release/*
-      draft: false
-      prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
-      generate_release_notes: false
-    env:
-      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          body_path: RELEASE_NOTES.md
+          files: release/*
+          draft: false
+          prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+          generate_release_notes: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
