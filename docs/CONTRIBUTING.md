@@ -151,14 +151,14 @@ Commit with a clear, linkable title:
 git commit -m "(#123) Add system tray icon support"
 ```
 
-Use the issue number at the front of the title when the commit is not itself
-a squash-merge PR title. If the work is not tracked yet, open an issue first
-and use that number. Do not leave the commit title without a GitHub reference.
+The number in the commit title is the **issue** number (e.g., `#123`), not the
+PR number. If the work is not tracked yet, open an issue first and use that
+number. Do not leave the commit title without a GitHub reference.
 
 If you also want body traceability, reference the issue in the body or footer:
 
 ```bash
-git commit -m "Add system tray icon support" -m "Refs #123"
+git commit -m "(#123) Add system tray icon support" -m "Refs #123"
 ```
 
 Use `Closes #123` when the commit fully resolves the issue.
@@ -169,12 +169,46 @@ Push and open a pull request:
 git push origin feature/my-feature
 ```
 
+### PR Body Format
+
+Reference the issue at the top, then list each changed file with a GitHub
+diff anchor so reviewers can jump directly to that file's diff in the PR:
+
+```markdown
+Issue: #42
+
+## Changes
+
+### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
+- Bullet list of what changed in this file
+
+### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
+- Bullet list of what changed in this file
+```
+
+The `#diff-` anchor is the file's SHA from the PR files API. To get the
+real SHAs before editing the PR body:
+
+```bash
+gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
+  --jq '.[] | .filename + " " + .sha'
+```
+
+Do **not** fabricate or guess the diff hashes — always fetch them from the
+API. Each link follows the pattern:
+
+```text
+https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
+```
+
 ### PR Title Format
 
 All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
+- The number in the PR title is the **PR** number (assigned by GitHub after
+  you open the PR), not the issue number
 - Start with an uppercase letter
 - Be at least 10 characters long (after the PR number prefix)
 - Put the PR number prefix at the start of the title, e.g. `(#42) Title here`
@@ -192,11 +226,11 @@ will need their titles updated before merging if they don't conform.
 
 ### Commit Message and Link Rules
 
-- Use the commit title for a clear imperative summary plus an issue number
+- Use the commit title for a clear imperative summary plus an **issue** number
   prefix when the commit is not a squash-merge PR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the PR number prefix (`(#123) ...`).
+- Use the PR title for the **PR** number prefix (`(#123) ...`).
 - Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 

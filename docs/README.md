@@ -12,6 +12,8 @@ Project documentation lives here. The root `README.md` is kept as the GitHub lan
 ## Packaging
 
 - [Packaging, Compatibility, And Release](packaging.md)
+- [Release Checklist](release-checklist.md)
+- [New Build/Package Checklist](new-build-checklist.md)
 
 ## Debugging
 
