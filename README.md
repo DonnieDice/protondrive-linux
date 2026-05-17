@@ -4,7 +4,7 @@
 
 [![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
-[![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](./LICENSE)
+[![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](docs/LICENSE)
 [![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
@@ -31,10 +31,11 @@ ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web
 
 | | |
 |---|---|
-| [Contributing](CONTRIBUTING.md) | Workflow guide |
+| [Contributing](docs/workflow.md) | Workflow guide |
 | [Build & Packaging](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
 | [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
 | [Changelog](docs/CHANGELOG.md) | Release history |
+| [License](docs/LICENSE) | AGPL-3.0 or later |
 | [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
 | [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |
 

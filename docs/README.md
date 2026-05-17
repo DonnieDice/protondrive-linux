@@ -5,9 +5,11 @@ Project documentation lives here. The root `README.md` is kept as the GitHub lan
 ## Project
 
 - [Changelog](CHANGELOG.md)
-- [Contributing](CONTRIBUTING.md)
+- [Contributing Workflow](workflow.md)
+- [Contributing Build & Packaging](CONTRIBUTING.md)
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
+- [License](LICENSE)
 
 ## Packaging
 
