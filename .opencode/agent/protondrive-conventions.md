@@ -30,22 +30,34 @@ mode: primary
 ## PR Body Format
 
 Reference the issue at the top, then list each changed file with a GitHub
-permalink so reviewers can jump directly to the source:
+diff anchor so reviewers can jump directly to that file's diff in the PR:
 
 ```markdown
 Issue: #42
 
 ## Changes
 
-### [`README.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/README.md) — description of changes
+### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
 - Bullet list of what changed in this file
 
-### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/docs/packaging.md) — description of changes
+### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
 - Bullet list of what changed in this file
 ```
 
-Replace `<branch>` with the feature branch name. Each changed file gets its own
-`###` heading with a GitHub blob link and a brief summary.
+The `#diff-` anchor is the file's SHA from the PR files API. To get the
+real SHAs before editing the PR body:
+
+```bash
+gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
+  --jq '.[] | .filename + " " + .sha'
+```
+
+Do **not** fabricate or guess the diff hashes — always fetch them from the
+API. Each link follows the pattern:
+
+```
+https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
+```
 
 ## Branch Naming
 
