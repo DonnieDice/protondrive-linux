@@ -4,11 +4,29 @@
 
 ### Changed
 
+- Moved CONTRIBUTING.md and LICENSE into docs/ directory.
+- Overhauled README.md: centered header with app icon, badges (latest,
+  downloads, license, issues in Proton purple), lean About/Features section,
+  documentation link table, and disclaimer at bottom. Removed verbose Install,
+  Supported Systems, Troubleshooting, Building from Source, and Distribution
+  Storefront Roadmap sections.
 - Updated CONTRIBUTING.md to document commit and PR title conventions that
   match `docs/CONTRIBUTING.md`.
 - Version metadata bumped to 1.4.3.
+- AUR PKGBUILD and CI build script versions synced to 1.4.3.
 
 ### Fixed
+
+- Release workflow now deletes stale release assets before uploading to
+  prevent duplicate artifacts from accumulating across re-runs.
+- Removed stale v1.4.0 and v1.4.1 RPM artifacts from the v1.4.2 release.
+- zypper retry loops in openSUSE Tumbleweed workflow: added `exit 1` after
+  max retries.
+- LICENSE typo: "Licases" to "Licenses" (line 21).
+- Added `text` language tags to bare fenced code blocks in
+  `.opencode/agent/protondrive-conventions.md`, `CONTRIBUTING.md`, and
+  `docs/CONTRIBUTING.md`.
+- Fixed commit example in `docs/CONTRIBUTING.md` to include `(#123)` prefix.
 
 - Workflow triggers: all 17 build/spec workflows now include `feature/**`,
   `fix/**`, and `chore/**` branch push triggers plus `pull_request` on `main`,

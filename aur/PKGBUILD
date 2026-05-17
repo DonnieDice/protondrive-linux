@@ -1,6 +1,6 @@
 # Maintainer: DonnieDice <donniedice@proton.me>
 pkgname=proton-drive
-pkgver=1.4.1
+pkgver=1.4.3
 pkgrel=1
 pkgdesc="Unofficial Linux desktop client for Proton Drive, built with Tauri"
 arch=('x86_64')
