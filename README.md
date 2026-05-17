@@ -1,22 +1,13 @@
 <div align="center">
 
-# ProtonDrive Linux
+<h1><img src="src-tauri/icons/proton-drive.svg" height="28"> ProtonDrive Linux</h1>
+
+[![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
+[![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
+[![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](./LICENSE)
+[![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
-
-[![GitHub release](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=brightgreen)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
-[![Release CI](https://img.shields.io/github/actions/workflow/status/DonnieDice/protondrive-linux/release.yml?branch=main&label=CI)](https://github.com/DonnieDice/protondrive-linux/actions/workflows/release.yml)
-[![AUR](https://img.shields.io/aur/version/proton-drive?color=blue)](https://aur.archlinux.org/packages/proton-drive)
-[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](./LICENSE)
-[![GitHub stars](https://img.shields.io/github/stars/DonnieDice/protondrive-linux?style=social)](https://github.com/DonnieDice/protondrive-linux/stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/DonnieDice/protondrive-linux?style=social)](https://github.com/DonnieDice/protondrive-linux/fork)
-[![Platform](https://img.shields.io/badge/platform-Linux-ffb86c)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
-[![Architecture](https://img.shields.io/badge/arch-x86__64-ff79c6)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
-[![Tauri](https://img.shields.io/badge/built%20with-Tauri-24c8d8)](https://tauri.app/)
-[![Rust](https://img.shields.io/badge/written%20in-Rust-dea584)](https://www.rust-lang.org/)
-
-> **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Proton AG.
-> Proton Drive is a trademark of Proton AG. This is an independent community project.
 
 </div>
 
@@ -36,10 +27,18 @@ ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web
 
 > **Packages are not yet available on Flathub, Snap Store, or system repositories.** For now, download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases/latest).
 
-## Contributing
+## Documentation
 
-Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow guide and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed build, packaging, and development rules.
+| | |
+|---|---|
+| [Contributing](CONTRIBUTING.md) | Workflow guide |
+| [Build & Packaging](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
+| [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
+| [Changelog](docs/CHANGELOG.md) | Release history |
+| [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
+| [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |
 
-## License
+&nbsp;
 
-AGPL-3.0 or later. See [LICENSE](LICENSE).
+> **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Proton AG.
+> Proton Drive is a trademark of Proton AG. This is an independent community project.
