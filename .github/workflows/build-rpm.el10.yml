@@ -91,6 +91,7 @@ jobs:
       - name: Build RPM
         run: |
           . "$HOME/.cargo/env"
+          rm -rf src-tauri/target/release/bundle/rpm
           scripts/build-webclients.sh
           VERSION=$(node -p "require('./package.json').version")
           sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
