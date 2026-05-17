@@ -3,11 +3,16 @@ name: Build APK Alpine 3.22
 "on":
   push:
     branches:
-    - main
-    - dev
-    - alpha
+      - main
+      - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
-    - "v*"
+      - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       distro_patch:
