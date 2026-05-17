@@ -1,64 +1,73 @@
 # ProtonDrive Linux
 
-An unofficial desktop app for Proton Drive on Linux.
+[![Latest Release](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=brightgreen)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
+[![CI](https://img.shields.io/github/actions/workflow/status/DonnieDice/protondrive-linux/release.yml?branch=main&label=release%20CI)](https://github.com/DonnieDice/protondrive-linux/actions/workflows/release.yml)
+[![License](https://img.shields.io/badge/license-AGPL--3.0-blue)](https://github.com/DonnieDice/protondrive-linux)
+[![AUR](https://img.shields.io/aur/version/proton-drive?label=AUR&color=blue)](https://aur.archlinux.org/packages/proton-drive)
 
-> This project is not affiliated with Proton AG.
+An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
 
-## Download
+> **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Proton AG. Proton Drive is a trademark of Proton AG. This is an independent community project that wraps the official Proton Drive web interface in a native Linux desktop window.
 
-Download the latest release from the
-[Releases](https://github.com/DonnieDice/protondrive-linux/releases) page.
+---
 
-Packages are distributed as GitHub release artifacts. There is no apt
-repository, Flathub listing, or Snap Store listing at this time.
+**Packages are not yet available on Flathub, Snap Store, or system repositories.** See the [Distribution Storefront Roadmap](#distribution-storefront-roadmap) for progress. For now, download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases/latest).
 
-## Current Release Support
+---
 
-Current release artifacts are `x86_64`.
+## What You Get
 
-| Format | Release-gated targets |
-|--------|-----------------------|
-| AppImage | portable glibc baseline |
-| DEB | Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 |
-| RPM | Fedora 43, Fedora 44, RHEL/CentOS/Alma/Rocky 10, openSUSE Tumbleweed |
-| AUR | Arch, Manjaro, EndeavourOS, Garuda |
-| Flatpak | GNOME Platform 49, GNOME Platform 50 |
-| Snap | core24, core26 |
-| APK | Alpine 3.20, Alpine 3.22 |
+- Desktop window for Proton Drive with system tray integration
+- Login, CAPTCHA, and two-factor authentication support
+- Proton Drive file browsing and downloads (saved to `~/Downloads`)
+- Native packages for most major Linux distributions
 
-Roadmap patch-ready targets are openSUSE Leap 16 and Alpine 3.23. They are not
-release artifacts yet. See [`docs/packaging.md`](docs/packaging.md).
+## Supported Systems
 
-## Installation
+| Format | Distributions |
+|--------|---------------|
+| **AppImage** | Any Linux with glibc 2.35+ (easiest option for most users) |
+| **DEB** | Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04, Linux Mint 22.x |
+| **RPM** | Fedora 43, Fedora 44, RHEL/CentOS/Alma/Rocky 10, openSUSE Tumbleweed |
+| **AUR** | Arch, Manjaro, EndeavourOS, Garuda |
+| **Flatpak** | GNOME Platform 49, GNOME Platform 50 |
+| **Snap** | core24, core26 |
+| **APK** | Alpine 3.20, Alpine 3.22 (musl) |
+
+All packages are `x86_64`. See [docs/packaging.md](docs/packaging.md) for full compatibility details and roadmap targets (openSUSE Leap 16, Alpine 3.23).
+
+## Install
 
 ### AppImage
 
-The AppImage is the easiest option for most users: download, make executable,
-and run.
+Download, make executable, and run — no installation required:
 
 ```bash
+# Download from https://github.com/DonnieDice/protondrive-linux/releases/latest
 chmod +x proton-drive_*.AppImage
 ./proton-drive_*.AppImage
 ```
 
 ### Debian / Ubuntu / Linux Mint
 
-Choose the DEB that matches your system:
-
-| Package | For |
-|---------|-----|
-| `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu-based derivatives |
-| `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 and matching Ubuntu-based derivatives |
-| `proton-drive_*_debian12_amd64.deb` | Debian 12 |
-| `proton-drive_*_debian13_amd64.deb` | Debian 13 |
-
 ```bash
+# Download the .deb that matches your system from Releases, then:
 sudo apt install ./proton-drive_*.deb
 ```
 
-### Fedora / RHEL / CentOS / Alma / Rocky
+| Package | For |
+|---------|-----|
+| `proton-drive_*_ubuntu24.04_amd64.deb` | Ubuntu 24.04, Linux Mint 22.x, Ubuntu derivatives |
+| `proton-drive_*_ubuntu26.04_amd64.deb` | Ubuntu 26.04 and derivatives |
+| `proton-drive_*_debian12_amd64.deb` | Debian 12 |
+| `proton-drive_*_debian13_amd64.deb` | Debian 13 |
 
-Choose the RPM that matches your system:
+### Fedora / RHEL / openSUSE
+
+```bash
+# Download the .rpm that matches your system from Releases, then:
+sudo dnf install ./proton-drive-*.rpm
+```
 
 | Package | For |
 |---------|-----|
@@ -67,12 +76,7 @@ Choose the RPM that matches your system:
 | `proton-drive-*~el10.x86_64.rpm` | RHEL 10, CentOS Stream 10, Alma 10, Rocky 10 |
 | `proton-drive-*-opensuse-tumbleweed.x86_64.rpm` | openSUSE Tumbleweed |
 
-```bash
-sudo dnf install ./proton-drive-*.rpm
-```
-
-openSUSE Leap 16 RPM is a roadmap target. Use the AppImage on Leap 16 until
-the RPM workflow and smoke test are added.
+openSUSE Leap 16 users: use the AppImage until the Leap 16 RPM is released.
 
 ### Arch / Manjaro / EndeavourOS / Garuda
 
@@ -82,8 +86,7 @@ Install from the AUR:
 yay -S proton-drive
 ```
 
-The AUR package is a native build that compiles against system WebKitGTK. Or
-install a downloaded package directly:
+Or install a downloaded package directly:
 
 ```bash
 sudo pacman -U proton-drive-*.pkg.tar.zst
@@ -92,48 +95,34 @@ sudo pacman -U proton-drive-*.pkg.tar.zst
 ### Flatpak
 
 ```bash
+# Download the .flatpak from Releases, then:
 flatpak install --user proton-drive_*.flatpak
 flatpak run com.proton.drive
 ```
 
-Not currently available on Flathub. Download the `.flatpak` artifact from
-[Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install
-it locally. Flatpak releases target the GNOME Platform runtime because the app
-is GTK/WebKitGTK-based.
+Not yet on Flathub — see the [roadmap](#distribution-storefront-roadmap).
 
 ### Snap
 
 ```bash
+# Download the .snap from Releases, then:
 sudo snap install --dangerous proton-drive_*_core24_amd64.snap
 ```
 
-Not currently available in the Snap Store. Download the `.snap` artifact from
-[Releases](https://github.com/DonnieDice/protondrive-linux/releases) and install
-it locally with `--dangerous`.
+Not yet in the Snap Store — see the [roadmap](#distribution-storefront-roadmap).
 
 ### Alpine
 
-Download the APK artifact for your Alpine version from
-[Releases](https://github.com/DonnieDice/protondrive-linux/releases):
-
 ```bash
+# Download the APK tarball from Releases, then:
 tar -C / -xzf proton-drive_*_alpine3.20_x86_64.tar.gz
 ```
 
-Alpine 3.20 and 3.22 are release-gated. Alpine 3.23 is a roadmap target. Current
-glibc DEB/RPM/AppImage artifacts are not Alpine/musl packages.
-
-## Using The App
-
-Open ProtonDrive Linux from your application launcher, then sign in with your
-Proton account. The app supports login, CAPTCHA, two-factor authentication, and
-normal Proton Drive browsing.
-
-Downloads are saved to `~/Downloads`.
+Alpine 3.20 and 3.22 are release-gated. Alpine 3.23 is a roadmap target. glibc DEB/RPM/AppImage packages are not compatible with Alpine/musl.
 
 ## Troubleshooting
 
-### White Screen Or Startup Crash
+### White Screen or Startup Crash
 
 Try launching with WebKitGTK rendering workarounds:
 
@@ -141,63 +130,46 @@ Try launching with WebKitGTK rendering workarounds:
 WEBKIT_DISABLE_DMABUF_RENDERER=1 WEBKIT_DISABLE_COMPOSITING_MODE=1 ./proton-drive*.AppImage
 ```
 
-This can help on some AMD/Wayland systems affected by WebKitGTK rendering bugs.
+This helps on some AMD/Wayland systems affected by WebKitGTK rendering bugs.
 
-### Login Error, Chunk Loading Error, Or CAPTCHA Freeze
+### Login Error, Chunk Loading Error, or CAPTCHA Freeze
 
-Upgrade to the latest release; these issues are fixed in current builds.
+Upgrade to the latest release — these are fixed in current builds.
 
-### App Stuck On The Loading Screen
+### App Stuck on the Loading Screen
 
-- Check that your internet connection is working.
-- Launch the app from a terminal to see error output.
-- Open a GitHub issue and include the terminal log.
+- Check your internet connection
+- Launch from a terminal to see error output
+- [Open an issue](https://github.com/DonnieDice/protondrive-linux/issues/new) with the terminal log
 
 ## Distribution Storefront Roadmap
 
-Packages are currently distributed as GitHub release artifacts. The goal is to
-publish through native distribution storefronts so users can install and update
-ProtonDrive Linux through their system package manager.
+Packages are currently GitHub release artifacts only. The goal is to publish
+through native distribution storefronts so users can install and update
+ProtonDrive Linux through their system package manager. Track progress in
+[Issue #75](https://github.com/DonnieDice/protondrive-linux/issues/75).
 
-| Storefront | Status | Prerequisites |
+| Storefront | Status | What's needed |
 |------------|--------|---------------|
-| AUR (Arch) | Available | Already published via `publish-aur.yml` |
-| Flathub | Not started | Flathub submission, sandbox review, app ID verification |
-| Snap Store | Not started | Snap Store publisher account, `snapcraft register`, stable channel release |
-| COPR (Fedora) | Not started | COPR project creation, spec file review, Fedora packaging guidelines |
-| PPA (Ubuntu) | Not started | Launchpad PPA creation, GPG key, Debian source package format |
-| OBS (openSUSE) | Not started | openSUSE Build Service project, spec/kiwi file, repository publishing |
+| **AUR** | Published | Already live at [aur.archlinux.org/packages/proton-drive](https://aur.archlinux.org/packages/proton-drive); auto-published via CI |
+| **Flathub** | Not started | Flathub submission, sandbox review, app ID verification |
+| **Snap Store** | Not started | Snap Store publisher account, `snapcraft register`, stable channel release |
+| **COPR** (Fedora) | Not started | COPR project creation, spec file review, Fedora packaging guidelines |
+| **PPA** (Ubuntu) | Not started | Launchpad PPA creation, GPG key, Debian source package format |
+| **OBS** (openSUSE) | Not started | openSUSE Build Service project, spec/kiwi file, repository publishing |
 
-See [`docs/packaging.md`](docs/packaging.md) for detailed compatibility and
-release requirements.
+## Building from Source
 
-## Building From Source
+Most users should [download a release package](https://github.com/DonnieDice/protondrive-linux/releases/latest). Build from source only if you want to test changes or package the app yourself. Full build and packaging details are in [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
-Most users should download a package from
-[Releases](https://github.com/DonnieDice/protondrive-linux/releases). Build from
-source only if you want to test changes or package the app yourself.
+### Quick Build
 
-### Requirements
-
-- Node.js 20+
-- Rust
-- Git
-- WebKitGTK 4.1 and GTK 3 development packages
+Requirements: Node.js 20+, Rust, Git, WebKitGTK 4.1 + GTK 3 dev packages.
 
 ```bash
-# Fedora
+# Install system dependencies (example for Fedora):
 sudo dnf install webkit2gtk4.1-devel gtk3-devel libayatana-appindicator-gtk3-devel openssl-devel
 
-# Debian / Ubuntu
-sudo apt install libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev libssl-dev
-
-# Arch / Manjaro
-sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator
-```
-
-### Build
-
-```bash
 git clone https://github.com/DonnieDice/protondrive-linux.git
 cd protondrive-linux
 git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
@@ -206,23 +178,14 @@ npm run build:web
 npm run build:appimage
 ```
 
-Built packages go to `src-tauri/target/release/bundle/`. Release artifacts are
-produced by the package workflows documented in `docs/`.
-
-## How It Works
-
-ProtonDrive Linux wraps Proton Drive's official web frontend in a Tauri WebView.
-A local Rust layer helps the web app communicate with Proton's servers from the
-desktop environment. Authentication, encryption, and file operations are handled
-by Proton's web app.
+Built packages go to `src-tauri/target/release/bundle/`.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
-workflow guide. Detailed build, packaging, and development rules are in
-[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Technical packaging and
-compatibility notes are in [`docs/`](docs/).
+Contributions are welcome! See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+workflow guide and [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed
+build, packaging, and development rules.
 
 ## License
 
-AGPL-3.0. See [LICENSE](LICENSE).
+AGPL-3.0 or later. See [LICENSE](LICENSE).
