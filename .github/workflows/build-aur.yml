@@ -73,79 +73,79 @@ jobs:
           exit 1
         fi
 
-- name: Build WebClients
-  run: |
-    rm -rf /tmp/aur-output
-    scripts/build-webclients.sh
-
-    - name: Build Tauri binary
+    - name: Build WebClients
       run: |
-        VERSION=$(node -p "require('./package.json').version")
-        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-        sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-        npm install
-        cargo build --manifest-path src-tauri/Cargo.toml --release
+        rm -rf /tmp/aur-output
+        scripts/build-webclients.sh
 
-    - name: Build AUR package
-      run: |
-        VERSION=$(node -p "require('./package.json').version")
-        scripts/ci/build-aur-package.sh \
-          "arch-native" \
-          "$VERSION" \
-          "src-tauri/target/release/proton-drive" \
-          "src-tauri/icons"
+        - name: Build Tauri binary
+          run: |
+            VERSION=$(node -p "require('./package.json').version")
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+            sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+            npm install
+            cargo build --manifest-path src-tauri/Cargo.toml --release
 
-    - name: Generate .SRCINFO
-      run: |
-        cd aur
-        VERSION=$(node -p "require('../package.json').version")
-        sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-        sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-        makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
-        if [ ! -s .SRCINFO ]; then
-          {
-            echo "pkgbase = proton-drive"
-            echo "pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri"
-            echo "pkgver = ${VERSION}"
-            echo "pkgrel = 1"
-            echo "url = https://github.com/DonnieDice/protondrive-linux"
-            echo "arch = x86_64"
-            echo "license = AGPL-3.0-only"
-            echo "depends = webkit2gtk-4.1"
-            echo "depends = gtk3"
-            echo "depends = libayatana-appindicator"
-            echo "depends = openssl"
-            echo "depends = libsoup3"
-            echo "depends = librsvg"
-            echo "makedepends = cargo"
-            echo "makedepends = rust"
-            echo "makedepends = nodejs"
-            echo "makedepends = npm"
-            echo "makedepends = git"
-            echo "makedepends = pkg-config"
-            echo "makedepends = patch"
-            echo "provides = proton-drive"
-            echo "conflicts = proton-drive-bin"
-            echo "replaces = proton-drive-bin"
-            echo "options = !strip"
-            echo "pkgname = proton-drive"
-          } > .SRCINFO
-        fi
-        cat .SRCINFO
+        - name: Build AUR package
+          run: |
+            VERSION=$(node -p "require('./package.json').version")
+            scripts/ci/build-aur-package.sh \
+              "arch-native" \
+              "$VERSION" \
+              "src-tauri/target/release/proton-drive" \
+              "src-tauri/icons"
 
-    - name: Upload AUR package
-      uses: actions/upload-artifact@v4
-      with:
-        name: aur-arch-native
-        path: /tmp/aur-output/*.pkg.tar.zst
-        if-no-files-found: error
-        retention-days: 30
+        - name: Generate .SRCINFO
+          run: |
+            cd aur
+            VERSION=$(node -p "require('../package.json').version")
+            sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+            sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+            makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
+            if [ ! -s .SRCINFO ]; then
+              {
+                echo "pkgbase = proton-drive"
+                echo "pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri"
+                echo "pkgver = ${VERSION}"
+                echo "pkgrel = 1"
+                echo "url = https://github.com/DonnieDice/protondrive-linux"
+                echo "arch = x86_64"
+                echo "license = AGPL-3.0-only"
+                echo "depends = webkit2gtk-4.1"
+                echo "depends = gtk3"
+                echo "depends = libayatana-appindicator"
+                echo "depends = openssl"
+                echo "depends = libsoup3"
+                echo "depends = librsvg"
+                echo "makedepends = cargo"
+                echo "makedepends = rust"
+                echo "makedepends = nodejs"
+                echo "makedepends = npm"
+                echo "makedepends = git"
+                echo "makedepends = pkg-config"
+                echo "makedepends = patch"
+                echo "provides = proton-drive"
+                echo "conflicts = proton-drive-bin"
+                echo "replaces = proton-drive-bin"
+                echo "options = !strip"
+                echo "pkgname = proton-drive"
+              } > .SRCINFO
+            fi
+            cat .SRCINFO
 
-    - name: Upload AUR metadata
-      uses: actions/upload-artifact@v4
-      with:
-        name: aur-arch-native-srcinfo
-        path: aur/.SRCINFO
-        if-no-files-found: warn
-        include-hidden-files: true
-        retention-days: 30
+        - name: Upload AUR package
+          uses: actions/upload-artifact@v4
+          with:
+            name: aur-arch-native
+            path: /tmp/aur-output/*.pkg.tar.zst
+            if-no-files-found: error
+            retention-days: 30
+
+        - name: Upload AUR metadata
+          uses: actions/upload-artifact@v4
+          with:
+            name: aur-arch-native-srcinfo
+            path: aur/.SRCINFO
+            if-no-files-found: warn
+            include-hidden-files: true
+            retention-days: 30
