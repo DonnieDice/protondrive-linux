@@ -1,6 +1,6 @@
 # Contributing to Proton Drive Linux
 
-Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests.
+Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
 
 ## Workflow
 
@@ -22,21 +22,43 @@ Open an issue for every bug, feature request, or task. Issues:
 
 One branch per issue, named to make the connection explicit:
 
-| Prefix    | Use case                         | Example                        |
-|-----------|----------------------------------|--------------------------------|
+| Prefix     | Use case                        | Example                        |
+|------------|---------------------------------|--------------------------------|
 | `feature/` | New functionality               | `feature/42-add-login-page`    |
 | `fix/`     | Bug fixes                       | `fix/87-broken-csv-export`     |
 | `chore/`   | Non-code work (docs, deps, CI)  | `chore/103-update-dependencies`|
 
 **Never work directly on `main`.** Even for a one-line fix, create a branch and open a PR.
 
+## Commit Messages
+
+Use the issue number at the front of the title:
+
+```bash
+git commit -m "(#123) Add system tray icon support"
+```
+
+Rules:
+- Start with an uppercase letter
+- Be at least 10 characters long (after the issue number prefix)
+- Put the issue number prefix at the start: `(#42) Title here`
+- Use `Closes #123` in the body/footer when the commit fully resolves the issue
+
 ## Pull Requests
 
-Open a PR when your branch is ready for review. A PR:
+Open a PR when your branch is ready for review. PR title format:
+
+```
+(#PR-number) Descriptive title starting with uppercase
+```
+
+The PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
+
+Edit the PR title after GitHub assigns the PR number. A PR:
 
 - Triggers CI (all build workflows run automatically)
 - Lets reviewers check the diff
-- Creates a record of *why* code changed (link it back to the issue with `Closes #N`)
+- Creates a record of *why* code changed
 
 ## Testing Builds on Feature Branches
 
