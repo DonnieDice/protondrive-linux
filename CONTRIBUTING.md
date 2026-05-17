@@ -64,6 +64,27 @@ number — it appears in the URL and page header immediately. A PR:
 - Lets reviewers check the diff
 - Creates a record of *why* code changed
 
+### PR Body Format
+
+Reference the issue at the top, then list each changed file with a GitHub
+permalink so reviewers can jump directly to the source. Each changed file gets
+its own line with a link and a brief summary:
+
+```markdown
+Issue: #42
+
+## Changes
+
+### [`README.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/README.md) — description of changes
+- Bullet list of what changed in this file
+
+### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/docs/packaging.md) — description of changes
+- Bullet list of what changed in this file
+```
+
+Replace `<branch>` with your feature branch name. After the PR is merged the
+links will resolve to `main`, but during review they point to the exact branch.
+
 ## Testing Builds on Feature Branches
 
 All build workflows trigger on pushes to `feature/**`, `fix/**`, and `chore/**` branches. To test a build:
