@@ -1,5 +1,27 @@
 # Changelog
 
+## 1.4.3 - 2026-05-17
+
+### Changed
+
+- Updated CONTRIBUTING.md to document commit and PR title conventions that
+  match `docs/CONTRIBUTING.md`.
+- Version metadata bumped to 1.4.3.
+
+### Fixed
+
+- Workflow triggers: all 17 build/spec workflows now include `feature/**`,
+  `fix/**`, and `chore/**` branch push triggers plus `pull_request` on `main`,
+  so CI runs automatically on feature branches.
+- Stale artifact cleanup: added `rm -rf` before build steps in 12 non-RPM
+  workflows (RPM workflows already had this from v1.4.2).
+- Normalized `"on":` quoting across all workflow files for consistent YAML
+  parsing.
+- Removed orphaned `dev` branch trigger from the Alpine 3.22 workflow, replaced
+  by `feature/**` glob pattern.
+- Pinned WebClients ref across all workflows for reproducible builds.
+- Fixed stale artifact filter and deregistered worktree in release workflow.
+
 ## 1.4.2 - 2026-05-16
 
 ### Added

@@ -84,13 +84,14 @@ described above. Both must pass for a target to be `release-gated`.
 | Snap core26 | runtime | runtime | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
 | AUR Arch package (native build) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
 | Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
+| Alpine 3.22 APK | musl pass | pass | `build-apk.alpine.3.22.yml` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
 
 ### Roadmap patch-ready targets
 
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
 | openSUSE Leap 16 RPM | pass | pass | none yet / `rpm-package-opensuse-leap16` planned | `rpm/opensuse.leap.16.patch` | no release artifact | openSUSE Leap 16 | add zypper workflow, release artifact, and runtime smoke |
-| Alpine 3.23 APK | musl pass | pass | none yet / `apk-package-alpine323` planned | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add APK/musl workflow, release artifact, and runtime smoke |
+| Alpine 3.23 APK | musl pass | pass | `build-apk.alpine.3.23.yml` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | no release artifact | Alpine 3.23 musl; glibc artifacts are not compatible | add release artifact and runtime smoke |
 
 ### Roadmap targets (no patch yet)
 
@@ -116,6 +117,7 @@ described above. Both must pass for a target to be `release-gated`.
 | Debian 11 DEB | fail (2.31) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | EL8 RPM | fail (2.28) | fail | Both gates fail; glibc too old and no WebKitGTK 4.1 | none |
 | Alpine 3.20 APK | promoted | pass | Promoted to release-gated on 2026-05-16; CI green, smoke test passed on Alpine 3.20 host | none (now in release-gated) |
+| Alpine 3.22 APK | promoted | pass | Promoted to release-gated on 2026-05-16; CI green, smoke test passed on Alpine 3.22 host | none (now in release-gated) |
 
 ## Architecture Plan
 
@@ -136,9 +138,10 @@ described above. Both must pass for a target to be `release-gated`.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
-- Alpine users need APK/musl packages. Alpine 3.20 has WebKitGTK 4.1
-  available in repos. Current glibc DEB/RPM/AppImage artifacts are not
-  Alpine-compatible.
+- Alpine users need APK/musl packages. Alpine 3.20 and 3.22 have WebKitGTK
+4.1 available in repos and are release-gated. Alpine 3.23 has a CI workflow
+but is not yet release-gated. Current glibc DEB/RPM/AppImage artifacts are not
+Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
 - Nix users will use a future Nix flake that manages both libc and WebKitGTK
