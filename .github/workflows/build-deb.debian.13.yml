@@ -85,40 +85,40 @@ jobs:
       DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'debian.13' }}"
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
-        git apply "$PATCH_FILE"
-        echo "Applied $PATCH_FILE"
+          git apply "$PATCH_FILE"
+          echo "Applied $PATCH_FILE"
       else
-        echo "WARNING: $PATCH_FILE not found, building without distro patch"
+          echo "WARNING: $PATCH_FILE not found, building without distro patch"
       fi
 
-- name: Build DEB
-  run: |
-    . "$HOME/.cargo/env"
-    rm -rf src-tauri/target/release/bundle/deb
-    scripts/build-webclients.sh
-      VERSION=$(node -p "require('./package.json').version")
-      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-      sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-      npm install
-      npx tauri build --bundles deb --verbose
+      - name: Build DEB
+        run: |
+          . "$HOME/.cargo/env"
+          rm -rf src-tauri/target/release/bundle/deb
+          scripts/build-webclients.sh
+          VERSION=$(node -p "require('./package.json').version")
+          sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+          sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+          npm install
+          npx tauri build --bundles deb --verbose
 
-   - name: Normalize DEB filename
-     run: |
-      VERSION=$(node -p "require('./package.json').version")
-      cd src-tauri/target/release/bundle/deb
-      for file in *.deb; do
-       if [ -f "$file" ]; then
-        target="proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
-        if [ "$file" != "$target" ]; then
-         mv "$file" "$target"
-        fi
-       fi
-      done
+       - name: Normalize DEB filename
+         run: |
+          VERSION=$(node -p "require('./package.json').version")
+          cd src-tauri/target/release/bundle/deb
+          for file in *.deb; do
+           if [ -f "$file" ]; then
+            target="proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
+            if [ "$file" != "$target" ]; then
+             mv "$file" "$target"
+            fi
+           fi
+          done
 
-   - name: Upload DEB artifact
-     uses: actions/upload-artifact@v4
-     with:
-      name: deb-package-debian13
-      path: src-tauri/target/release/bundle/deb/proton-drive_*_debian13_amd64.deb
-      if-no-files-found: error
-      retention-days: 30
+       - name: Upload DEB artifact
+         uses: actions/upload-artifact@v4
+         with:
+          name: deb-package-debian13
+          path: src-tauri/target/release/bundle/deb/proton-drive_*_debian13_amd64.deb
+          if-no-files-found: error
+          retention-days: 30

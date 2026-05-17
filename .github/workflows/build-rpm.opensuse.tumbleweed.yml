@@ -43,32 +43,32 @@ jobs:
         shell: /bin/bash -e -o pipefail {0}
 
     steps:
-  - name: Install build dependencies
-    shell: /bin/sh -e {0}
-    run: |
-      refresh_ok=0
-      for i in 1 2 3 4 5; do
-        zypper --non-interactive --gpg-auto-import-keys refresh && refresh_ok=1 && break
-        echo "zypper refresh failed, retrying ($i/5)..."
-        sleep $((i * 10))
-      done
-      [ "$refresh_ok" -eq 1 ] || { echo "zypper refresh failed after 5 attempts"; exit 1; }
+      - name: Install build dependencies
+        shell: /bin/sh -e {0}
+        run: |
+          refresh_ok=0
+          for i in 1 2 3 4 5; do
+            zypper --non-interactive --gpg-auto-import-keys refresh && refresh_ok=1 && break
+            echo "zypper refresh failed, retrying ($i/5)..."
+            sleep $((i * 10))
+          done
+          [ "$refresh_ok" -eq 1 ] || { echo "zypper refresh failed after 5 attempts"; exit 1; }
 
-      install_ok=0
-      for i in 1 2 3; do
-        zypper --non-interactive install \
-          bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
-          libopenssl-devel gtk3-devel \
-          libappindicator3-devel libayatana-appindicator3-devel \
-          librsvg-devel libsoup-devel \
-          webkitgtk3-devel libwebkit2gtk-4_1-0 \
-          patchelf rpm-build nodejs-default npm-default python313 findutils which && install_ok=1 && break
-        echo "zypper install failed, retrying ($i/3)..."
-        sleep $((i * 10))
-      done
-      [ "$install_ok" -eq 1 ] || { echo "zypper install failed after 3 attempts"; exit 1; }
+          install_ok=0
+          for i in 1 2 3; do
+            zypper --non-interactive install \
+              bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
+              libopenssl-devel gtk3-devel \
+              libappindicator3-devel libayatana-appindicator3-devel \
+              librsvg-devel libsoup-devel \
+              webkitgtk3-devel libwebkit2gtk-4_1-0 \
+              patchelf rpm-build nodejs-default npm-default python313 findutils which && install_ok=1 && break
+            echo "zypper install failed, retrying ($i/3)..."
+            sleep $((i * 10))
+          done
+          [ "$install_ok" -eq 1 ] || { echo "zypper install failed after 3 attempts"; exit 1; }
 
-      echo "/usr/local/bin:/usr/bin:/bin" >> "$GITHUB_PATH"
+          echo "/usr/local/bin:/usr/bin:/bin" >> "$GITHUB_PATH"
 
       - name: Checkout repository
         uses: actions/checkout@v4

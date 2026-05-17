@@ -94,51 +94,51 @@ jobs:
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
-- name: Build Snap
-  run: |
-    . "$HOME/.cargo/env"
-    rm -rf src-tauri/target/release/bundle/snap
-    scripts/build-webclients.sh
-        VERSION=$(node -p "require('./package.json').version")
-        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
-        sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-        npm install
-        cd src-tauri && cargo build --release && cd ..
-        if [ ! -f "src-tauri/target/release/proton-drive" ]; then
-          echo "Binary not found!"
-          exit 1
-        fi
-        BUILD_CONTEXT="$(mktemp -d)"
-        mkdir -p "$BUILD_CONTEXT/packaging/snap"
-        mkdir -p "$BUILD_CONTEXT/src-tauri/target/release"
-        mkdir -p "$BUILD_CONTEXT/src-tauri/icons"
-        cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
-        cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
-        cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
-        cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
-        cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
-        cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
-        sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
-        SNAPCRAFT_STATUS=0
-        (
-          cd "$BUILD_CONTEXT"
-          snapcraft pack --destructive-mode --output "$GITHUB_WORKSPACE"
-        ) || SNAPCRAFT_STATUS=$?
-        if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
-          exit "$SNAPCRAFT_STATUS"
-        fi
-        SNAP_FILE="$(find . "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
-        if [ -z "$SNAP_FILE" ]; then
-          echo "No Snap package found!"
-          exit 1
-        fi
-        mv "$SNAP_FILE" "proton-drive_${VERSION}_core24_amd64.snap"
-        rm -rf "$BUILD_CONTEXT"
+    - name: Build Snap
+      run: |
+        . "$HOME/.cargo/env"
+        rm -rf src-tauri/target/release/bundle/snap
+        scripts/build-webclients.sh
+            VERSION=$(node -p "require('./package.json').version")
+            sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+            sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+            npm install
+            cd src-tauri && cargo build --release && cd ..
+            if [ ! -f "src-tauri/target/release/proton-drive" ]; then
+              echo "Binary not found!"
+              exit 1
+            fi
+            BUILD_CONTEXT="$(mktemp -d)"
+            mkdir -p "$BUILD_CONTEXT/packaging/snap"
+            mkdir -p "$BUILD_CONTEXT/src-tauri/target/release"
+            mkdir -p "$BUILD_CONTEXT/src-tauri/icons"
+            cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+            cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+            cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+            cp src-tauri/icons/32x32.png "$BUILD_CONTEXT/src-tauri/icons/"
+            cp src-tauri/icons/128x128.png "$BUILD_CONTEXT/src-tauri/icons/"
+            cp src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
+            sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
+            SNAPCRAFT_STATUS=0
+            (
+              cd "$BUILD_CONTEXT"
+              snapcraft pack --destructive-mode --output "$GITHUB_WORKSPACE"
+            ) || SNAPCRAFT_STATUS=$?
+            if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
+              exit "$SNAPCRAFT_STATUS"
+            fi
+            SNAP_FILE="$(find . "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
+            if [ -z "$SNAP_FILE" ]; then
+              echo "No Snap package found!"
+              exit 1
+            fi
+            mv "$SNAP_FILE" "proton-drive_${VERSION}_core24_amd64.snap"
+            rm -rf "$BUILD_CONTEXT"
 
-    - name: Upload Snap artifact
-      uses: actions/upload-artifact@v4
-      with:
-        name: snap-package
-        path: "proton-drive_*_core24_amd64.snap"
-        if-no-files-found: error
-        retention-days: 30
+        - name: Upload Snap artifact
+          uses: actions/upload-artifact@v4
+          with:
+            name: snap-package
+            path: "proton-drive_*_core24_amd64.snap"
+            if-no-files-found: error
+            retention-days: 30
