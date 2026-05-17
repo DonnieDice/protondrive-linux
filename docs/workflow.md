@@ -1,6 +1,6 @@
 # Contributing to Proton Drive Linux
 
-Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md).
+Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Workflow
 

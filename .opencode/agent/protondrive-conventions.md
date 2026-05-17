@@ -90,7 +90,7 @@ When merging meaningful changes, bump the version in ALL THREE files:
 
 ## Key Docs
 
-- `CONTRIBUTING.md` — root workflow guide (branches, commits, PRs)
+- `docs/workflow.md` — workflow guide (branches, commits, PRs)
 - `docs/CONTRIBUTING.md` — detailed build, packaging, development rules
 - `docs/packaging.md` — canonical human-readable packaging policy
 - `packaging/compatibility-map.yml` — machine-readable target metadata
