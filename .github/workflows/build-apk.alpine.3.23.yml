@@ -1,0 +1,179 @@
+name: Build APK Alpine 3.23
+
+"on":
+  push:
+    branches:
+    - main
+    - dev
+    - alpha
+    tags:
+    - "v*"
+  workflow_dispatch:
+    inputs:
+      distro_patch:
+        description: "Distro patch name (e.g. alpine.3.23)"
+        required: false
+        default: "alpine.3.23"
+
+permissions:
+  contents: read
+
+env:
+  RUST_VERSION: stable
+  DISTRO_TYPE: apk
+  DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.23' }}
+  DISTRO_SUFFIX: alpine323
+  WEBCLIENTS_REF: main
+
+jobs:
+  build-apk:
+    name: Alpine 3.23 APK
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.23
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: /bin/sh -e {0}
+
+    steps:
+    - name: Install build dependencies
+      run: |
+        apk update
+        apk add \
+          bash git curl wget build-base file pkgconfig \
+          openssl-dev openssl-libs-static \
+          webkit2gtk-4.1-dev gtk+3.0-dev \
+          glib-dev gdk-pixbuf-dev harfbuzz-dev \
+          pango-dev cairo-dev \
+          wayland-dev zlib-dev libintl musl-dev \
+          libsoup3-dev libayatana-appindicator-dev \
+          patchelf nodejs npm \
+          python3 ca-certificates \
+          vips-dev libjpeg-turbo-dev giflib-dev
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust via rustup
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        . "$HOME/.cargo/env"
+        rustc --version
+        cargo --version
+
+    - name: Cache Cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          src-tauri/target/
+        key: apk-alpine323-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+        restore-keys: apk-alpine323-cargo-
+
+    - name: Configure cargo for musl linking
+      run: |
+        mkdir -p .cargo
+        cat > .cargo/config.toml <<'EOF'
+        [target.x86_64-unknown-linux-musl]
+        linker = "gcc"
+        rustflags = ["-C", "target-feature=-crt-static"]
+        EOF
+        echo "Created .cargo/config.toml:"
+        cat .cargo/config.toml
+
+- name: Clone WebClients
+  run: |
+    git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+
+    - name: Apply distro patch
+      run: |
+        PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
+        if [ -f "$PATCH_FILE" ]; then
+          if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+            echo "Patch already applied: $PATCH_FILE"
+          else
+            git apply --check "$PATCH_FILE"
+            git apply "$PATCH_FILE"
+            echo "Applied $PATCH_FILE"
+          fi
+        else
+          echo "WARNING: $PATCH_FILE not found, building without distro patch"
+        fi
+
+- name: Build APK
+  run: |
+    if [ -f "$HOME/.cargo/env" ]; then . "$HOME/.cargo/env"; fi
+    export PKG_CONFIG_ALLOW_CROSS=1
+    export PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    rm -rf /tmp/apk-artifact
+    scripts/build-webclients.sh
+        VERSION=$(node -p "require('./package.json').version")
+        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+        sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+        npm install
+        cd src-tauri && cargo build --release --verbose
+
+    - name: Package APK
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        ARCH=x86_64
+        BINARY=src-tauri/target/release/proton-drive
+        if [ ! -f "$BINARY" ]; then
+          echo "ERROR: binary not found at $BINARY"
+          exit 1
+        fi
+        APK_STAGING="/tmp/proton-drive-apk"
+        rm -rf "$APK_STAGING"
+        mkdir -p "$APK_STAGING/usr/bin"
+        mkdir -p "$APK_STAGING/usr/share/applications"
+        mkdir -p "$APK_STAGING/usr/share/icons/hicolor/32x32/apps"
+        mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128/apps"
+        mkdir -p "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps"
+        mkdir -p "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
+
+        cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
+        strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
+        cp src-tauri/linux/proton-drive.desktop "$APK_STAGING/usr/share/applications/"
+        cp src-tauri/icons/32x32.png "$APK_STAGING/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
+        cp src-tauri/icons/128x128.png "$APK_STAGING/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
+        cp src-tauri/icons/128x128@2x.png "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png"
+        cp src-tauri/icons/proton-drive.svg "$APK_STAGING/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+
+        cat > "$APK_STAGING/APKBUILD" <<EOF
+        pkgname=proton-drive
+        pkgver=${VERSION}
+        pkgrel=0
+        pkgdesc="Proton Drive desktop client"
+        url="https://github.com/DonnieDice/protondrive-linux"
+        arch="x86_64"
+        license="AGPL-3.0"
+        depends="webkit2gtk-4.1 gtk+3.0"
+        options="!check"
+        package() {
+          install -Dm755 usr/bin/proton-drive "$pkgdir"/usr/bin/proton-drive
+          install -Dm644 usr/share/applications/proton-drive.desktop "$pkgdir"/usr/share/applications/proton-drive.desktop
+          install -Dm644 usr/share/icons/hicolor/32x32/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/32x32/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/128x128/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/128x128/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/128x128@2/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/scalable/apps/proton-drive.svg "$pkgdir"/usr/share/icons/hicolor/scalable/apps/proton-drive.svg
+        }
+        EOF
+
+        ARTIFACT_DIR="/tmp/apk-artifact"
+        rm -rf "$ARTIFACT_DIR"
+        mkdir -p "$ARTIFACT_DIR"
+        tar -C "$APK_STAGING" -czf "$ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
+        echo "Packaged: $ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz"
+
+    - name: Upload APK artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: apk-package-alpine323
+        path: /tmp/apk-artifact/proton-drive_*_alpine323_amd64.apk.tar.gz
+        if-no-files-found: error
+        retention-days: 30
