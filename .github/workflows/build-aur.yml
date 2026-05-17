@@ -72,8 +72,10 @@ jobs:
           exit 1
         fi
 
-    - name: Build WebClients
-      run: scripts/build-webclients.sh
+- name: Build WebClients
+  run: |
+    rm -rf /tmp/aur-output
+    scripts/build-webclients.sh
 
     - name: Build Tauri binary
       run: |
