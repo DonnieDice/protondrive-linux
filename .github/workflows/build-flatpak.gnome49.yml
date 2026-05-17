@@ -88,10 +88,11 @@ jobs:
           echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
-    - name: Build Flatpak
-      run: |
-        . "$HOME/.cargo/env"
-        scripts/build-webclients.sh
+- name: Build Flatpak
+  run: |
+    . "$HOME/.cargo/env"
+    rm -rf src-tauri/target/release/bundle/flatpak
+    scripts/build-webclients.sh
         VERSION=$(node -p "require('./package.json').version")
         sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
         sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
