@@ -5,8 +5,14 @@ name: Build Snap Core26
     branches:
       - main
       - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       distro_patch:

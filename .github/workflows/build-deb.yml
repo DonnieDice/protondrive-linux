@@ -1,12 +1,18 @@
 name: Build DEB Debian 12
 
-on:
+"on":
   push:
     branches:
-    - main
-    - alpha
+      - main
+      - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
-    - "v*"
+      - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       distro_patch:
