@@ -1,12 +1,18 @@
 name: Generate Package Specs
 
-on:
+"on":
   push:
     branches:
       - main
       - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
 
 permissions:

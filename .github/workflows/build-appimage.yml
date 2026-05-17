@@ -5,8 +5,14 @@ name: Build AppImage
     branches:
       - main
       - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
       - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       appimage_target:
