@@ -331,19 +331,24 @@ roadmap_patch_ready:
     supports:
     - alpine-3.22
   alpine323:
-    status: roadmap-patch-ready
+    status: release-gated
     gates:
       glibc: musl-pass
       webkitgtk: pass
+    runtime_smoke:
+      status: pass
+      evidence: CI artifact installed and launched on Alpine 3.23 host, Proton login API responded, D-Bus session auto-launch and AT_SPI_BUS_ADDRESS=/dev/null workaround applied
     workflow: .github/workflows/build-apk.alpine.3.23.yml
     build_container: alpine:3.23
     release_label: alpine323
     artifact_name: apk-package-alpine323
     patch: alpine.3.23
+    cargo_config: |
+      [target.x86_64-unknown-linux-musl]
+      linker = "gcc"
+      rustflags = ["-C", "target-feature=-crt-static"]
     supports:
-    - alpine-3.23
-    before_release_gate:
-    - validate musl runtime install and login smoke test
+      - alpine-3.23
 
 roadmap:
   nix:
