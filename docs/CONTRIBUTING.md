@@ -158,7 +158,7 @@ number. Do not leave the commit title without a GitHub reference.
 If you also want body traceability, reference the issue in the body or footer:
 
 ```bash
-git commit -m "Add system tray icon support" -m "Refs #123"
+git commit -m "(#123) Add system tray icon support" -m "Refs #123"
 ```
 
 Use `Closes #123` when the commit fully resolves the issue.
@@ -197,7 +197,7 @@ gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
 Do **not** fabricate or guess the diff hashes — always fetch them from the
 API. Each link follows the pattern:
 
-```
+```text
 https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
 ```
 

@@ -55,7 +55,7 @@ gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
 Do **not** fabricate or guess the diff hashes — always fetch them from the
 API. Each link follows the pattern:
 
-```
+```text
 https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
 ```
 
