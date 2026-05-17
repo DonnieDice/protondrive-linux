@@ -39,6 +39,8 @@ git commit -m "(#123) Add system tray icon support"
 ```
 
 Rules:
+- The number in the commit title is the **issue** number (e.g., `#123`), not
+  the PR number
 - Start with an uppercase letter
 - Be at least 10 characters long (after the issue number prefix)
 - Put the issue number prefix at the start: `(#42) Title here`
@@ -54,7 +56,9 @@ Open a PR when your branch is ready for review. PR title format:
 
 The PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-Edit the PR title after GitHub assigns the PR number. A PR:
+The number in the PR title is the **PR** number (assigned by GitHub after you
+open the PR), not the issue number. Edit the title after GitHub assigns the PR
+number — it appears in the URL and page header immediately. A PR:
 
 - Triggers CI (all build workflows run automatically)
 - Lets reviewers check the diff
