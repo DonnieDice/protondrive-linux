@@ -24,10 +24,10 @@ Current release artifacts are `x86_64`.
 | AUR | Arch, Manjaro, EndeavourOS, Garuda |
 | Flatpak | GNOME Platform 49, GNOME Platform 50 |
 | Snap | core24, core26 |
+| APK | Alpine 3.20, Alpine 3.22 |
 
-Roadmap patch-ready targets are openSUSE Leap 16, Alpine
-3.22, and Alpine 3.23. They are not release artifacts yet. See
-[`docs/packaging.md`](docs/packaging.md).
+Roadmap patch-ready targets are openSUSE Leap 16 and Alpine 3.23. They are not
+release artifacts yet. See [`docs/packaging.md`](docs/packaging.md).
 
 ## Installation
 
@@ -71,21 +71,22 @@ Choose the RPM that matches your system:
 sudo dnf install ./proton-drive-*.rpm
 ```
 
-openSUSE Leap 16 RPM is a roadmap target. Use the
-AppImage on Leap 16 until the RPM workflow and smoke test are added.
+openSUSE Leap 16 RPM is a roadmap target. Use the AppImage on Leap 16 until
+the RPM workflow and smoke test are added.
 
 ### Arch / Manjaro / EndeavourOS / Garuda
 
 Install from the AUR:
 
 ```bash
-yay -S proton-drive-bin
+yay -S proton-drive
 ```
 
-Or install a downloaded package directly:
+The AUR package is a native build that compiles against system WebKitGTK. Or
+install a downloaded package directly:
 
 ```bash
-sudo pacman -U proton-drive-bin-*.pkg.tar.zst
+sudo pacman -U proton-drive-*.pkg.tar.zst
 ```
 
 ### Flatpak
@@ -112,8 +113,15 @@ it locally with `--dangerous`.
 
 ### Alpine
 
-Alpine APK packages are roadmap targets. Current glibc DEB/RPM/AppImage
-artifacts are not Alpine/musl packages.
+Download the APK artifact for your Alpine version from
+[Releases](https://github.com/DonnieDice/protondrive-linux/releases):
+
+```bash
+tar -C / -xzf proton-drive_*_alpine3.20_x86_64.tar.gz
+```
+
+Alpine 3.20 and 3.22 are release-gated. Alpine 3.23 is a roadmap target. Current
+glibc DEB/RPM/AppImage artifacts are not Alpine/musl packages.
 
 ## Using The App
 
@@ -144,6 +152,24 @@ Upgrade to the latest release; these issues are fixed in current builds.
 - Check that your internet connection is working.
 - Launch the app from a terminal to see error output.
 - Open a GitHub issue and include the terminal log.
+
+## Distribution Storefront Roadmap
+
+Packages are currently distributed as GitHub release artifacts. The goal is to
+publish through native distribution storefronts so users can install and update
+ProtonDrive Linux through their system package manager.
+
+| Storefront | Status | Prerequisites |
+|------------|--------|---------------|
+| AUR (Arch) | Available | Already published via `publish-aur.yml` |
+| Flathub | Not started | Flathub submission, sandbox review, app ID verification |
+| Snap Store | Not started | Snap Store publisher account, `snapcraft register`, stable channel release |
+| COPR (Fedora) | Not started | COPR project creation, spec file review, Fedora packaging guidelines |
+| PPA (Ubuntu) | Not started | Launchpad PPA creation, GPG key, Debian source package format |
+| OBS (openSUSE) | Not started | openSUSE Build Service project, spec/kiwi file, repository publishing |
+
+See [`docs/packaging.md`](docs/packaging.md) for detailed compatibility and
+release requirements.
 
 ## Building From Source
 
@@ -192,8 +218,10 @@ by Proton's web app.
 
 ## Contributing
 
-Contributions are welcome. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for
-guidelines. Technical packaging and compatibility notes are in [`docs/`](docs/).
+Contributions are welcome. See [CONTRIBUTING.md](CONTRIBUTING.md) for the
+workflow guide. Detailed build, packaging, and development rules are in
+[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md). Technical packaging and
+compatibility notes are in [`docs/`](docs/).
 
 ## License
 
