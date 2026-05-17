@@ -67,23 +67,34 @@ number — it appears in the URL and page header immediately. A PR:
 ### PR Body Format
 
 Reference the issue at the top, then list each changed file with a GitHub
-permalink so reviewers can jump directly to the source. Each changed file gets
-its own line with a link and a brief summary:
+diff anchor so reviewers can jump directly to that file's diff in the PR:
 
 ```markdown
 Issue: #42
 
 ## Changes
 
-### [`README.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/README.md) — description of changes
+### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
 - Bullet list of what changed in this file
 
-### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/blob/<branch>/docs/packaging.md) — description of changes
+### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
 - Bullet list of what changed in this file
 ```
 
-Replace `<branch>` with your feature branch name. After the PR is merged the
-links will resolve to `main`, but during review they point to the exact branch.
+The `#diff-` anchor is the file's SHA from the PR files API. To get the
+real SHAs before editing the PR body:
+
+```bash
+gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
+  --jq '.[] | .filename + " " + .sha'
+```
+
+Do **not** fabricate or guess the diff hashes — always fetch them from the
+API. Each link follows the pattern:
+
+```
+https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
+```
 
 ## Testing Builds on Feature Branches
 
