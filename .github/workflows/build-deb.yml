@@ -28,6 +28,7 @@ env:
   DISTRO_TYPE: deb
   DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'debian.12' }}
   DISTRO_SUFFIX: debian12
+  WEBCLIENTS_REF: main
 
 jobs:
   build-deb:
@@ -78,7 +79,7 @@ jobs:
 
     - name: Clone WebClients
       run: |
-        git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+        git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
     - name: Apply distro patch
       run: |

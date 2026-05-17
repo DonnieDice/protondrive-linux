@@ -27,6 +27,7 @@ env:
   RUST_VERSION: stable
   DISTRO_TYPE: rpm
   DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'fedora.43' }}
+  WEBCLIENTS_REF: main
 
 jobs:
   build-rpm:
@@ -73,7 +74,7 @@ jobs:
 
     - name: Clone WebClients
       run: |
-        git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+        git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
     - name: Apply distro patch
       run: |
