@@ -330,21 +330,20 @@ roadmap_patch_ready:
       rustflags = ["-C", "target-feature=-crt-static"]
     supports:
     - alpine-3.22
-    alpine323:
-      status: roadmap-patch-ready
-      gates:
-        glibc: musl-pass
-        webkitgtk: pass
-      workflow: null
-      build_container: alpine:3.23
-      release_label: alpine323
-      artifact_name: apk-package-alpine323
-      patch: alpine.3.23
-      supports:
-      - alpine-3.23
-      before_release_gate:
-      - add APK packaging workflow
-      - validate musl runtime install and login smoke test
+  alpine323:
+    status: roadmap-patch-ready
+    gates:
+      glibc: musl-pass
+      webkitgtk: pass
+    workflow: .github/workflows/build-apk.alpine.3.23.yml
+    build_container: alpine:3.23
+    release_label: alpine323
+    artifact_name: apk-package-alpine323
+    patch: alpine.3.23
+    supports:
+    - alpine-3.23
+    before_release_gate:
+    - validate musl runtime install and login smoke test
 
 roadmap:
   nix:
