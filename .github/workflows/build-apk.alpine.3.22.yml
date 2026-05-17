@@ -28,6 +28,7 @@ env:
   DISTRO_TYPE: apk
   DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.22' }}
   DISTRO_SUFFIX: alpine322
+  WEBCLIENTS_REF: main
 
 jobs:
   build-apk:
@@ -92,7 +93,7 @@ jobs:
 
     - name: Clone WebClients
       run: |
-        git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+        git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
     - name: Apply distro patch
       run: |

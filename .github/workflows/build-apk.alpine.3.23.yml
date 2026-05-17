@@ -75,16 +75,17 @@ jobs:
         key: apk-alpine323-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
         restore-keys: apk-alpine323-cargo-
 
-    - name: Configure cargo for musl linking
-      run: |
-        mkdir -p .cargo
-        cat > .cargo/config.toml <<'EOF'
-        [target.x86_64-unknown-linux-musl]
-        linker = "gcc"
-        rustflags = ["-C", "target-feature=-crt-static"]
-        EOF
-        echo "Created .cargo/config.toml:"
-        cat .cargo/config.toml
+- name: Configure cargo for musl linking
+  run: |
+    mkdir -p .cargo
+    cat > .cargo/config.toml <<'EOF'
+    [target.x86_64-unknown-linux-musl]
+    linker = "gcc"
+    rustflags = ["-C", "target-feature=-crt-static"]
+    EOF
+    echo "Created .cargo/config.toml:"
+    cat .cargo/config.toml
+    git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
 - name: Clone WebClients
   run: |

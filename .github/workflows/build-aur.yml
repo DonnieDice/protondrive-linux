@@ -20,6 +20,7 @@ permissions:
 
 env:
   RUST_VERSION: stable
+  WEBCLIENTS_REF: main
 
 jobs:
   build-aur:
@@ -59,7 +60,7 @@ jobs:
         restore-keys: aur-arch-native-cargo-
 
     - name: Clone WebClients
-      run: git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+      run: git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
     - name: Apply distro patch
       run: |

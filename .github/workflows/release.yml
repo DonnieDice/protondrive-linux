@@ -279,14 +279,14 @@ jobs:
           find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" -o -name "*.apk.tar.gz" \) -print0 | while IFS= read -r -d '' src; do
             rel="${src#artifacts/}"
             name="$(basename "$src")"
-            case "$name" in
-              *"${VERSION}"*)
-                ;;
-              *)
-                echo "Skipping stale artifact: $name"
-                continue
-                ;;
-            esac
+    case "$name" in
+        proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*)
+          ;;
+        *)
+          echo "Skipping stale artifact: $name"
+          continue
+          ;;
+        esac
             case "$rel" in
               rpm-fedora43/*)
                 dest="release/${name%.rpm}-fedora43.rpm"
