@@ -1,6 +1,4 @@
-<div align="center">
-
-<h1><img src="src-tauri/icons/proton-drive.svg" height="28"> ProtonDrive Linux</h1>
+<h1><img src="src-tauri/icons/proton-drive.svg" height="28" align="top"> ProtonDrive Linux</h1>
 
 [![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
@@ -8,8 +6,6 @@
 [![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
-
-</div>
 
 ---
 
