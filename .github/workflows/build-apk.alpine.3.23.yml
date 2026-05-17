@@ -3,11 +3,16 @@ name: Build APK Alpine 3.23
 "on":
   push:
     branches:
-    - main
-    - dev
-    - alpha
+      - main
+      - alpha
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
     tags:
-    - "v*"
+      - "v*"
+  pull_request:
+    branches:
+      - main
   workflow_dispatch:
     inputs:
       distro_patch:
@@ -75,21 +80,21 @@ jobs:
         key: apk-alpine323-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
         restore-keys: apk-alpine323-cargo-
 
-- name: Configure cargo for musl linking
-  run: |
-    mkdir -p .cargo
-    cat > .cargo/config.toml <<'EOF'
-    [target.x86_64-unknown-linux-musl]
-    linker = "gcc"
-    rustflags = ["-C", "target-feature=-crt-static"]
-    EOF
-    echo "Created .cargo/config.toml:"
+    - name: Configure cargo for musl linking
+      run: |
+        mkdir -p .cargo
+        cat > .cargo/config.toml <<'EOF'
+        [target.x86_64-unknown-linux-musl]
+        linker = "gcc"
+        rustflags = ["-C", "target-feature=-crt-static"]
+        EOF
+        echo "Created .cargo/config.toml:"
     cat .cargo/config.toml
     git config --global --add safe.directory "$GITHUB_WORKSPACE"
 
 - name: Clone WebClients
-  run: |
-    git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+      run: |
+        git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
 
     - name: Apply distro patch
       run: |
@@ -156,12 +161,12 @@ jobs:
         depends="webkit2gtk-4.1 gtk+3.0"
         options="!check"
         package() {
-          install -Dm755 usr/bin/proton-drive "$pkgdir"/usr/bin/proton-drive
-          install -Dm644 usr/share/applications/proton-drive.desktop "$pkgdir"/usr/share/applications/proton-drive.desktop
-          install -Dm644 usr/share/icons/hicolor/32x32/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/32x32/apps/proton-drive.png
-          install -Dm644 usr/share/icons/hicolor/128x128/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/128x128/apps/proton-drive.png
-          install -Dm644 usr/share/icons/hicolor/128x128@2/apps/proton-drive.png "$pkgdir"/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png
-          install -Dm644 usr/share/icons/hicolor/scalable/apps/proton-drive.svg "$pkgdir"/usr/share/icons/hicolor/scalable/apps/proton-drive.svg
+          install -Dm755 usr/bin/proton-drive "\$pkgdir"/usr/bin/proton-drive
+          install -Dm644 usr/share/applications/proton-drive.desktop "\$pkgdir"/usr/share/applications/proton-drive.desktop
+          install -Dm644 usr/share/icons/hicolor/32x32/apps/proton-drive.png "\$pkgdir"/usr/share/icons/hicolor/32x32/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/128x128/apps/proton-drive.png "\$pkgdir"/usr/share/icons/hicolor/128x128/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/128x128@2/apps/proton-drive.png "\$pkgdir"/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png
+          install -Dm644 usr/share/icons/hicolor/scalable/apps/proton-drive.svg "\$pkgdir"/usr/share/icons/hicolor/scalable/apps/proton-drive.svg
         }
         EOF
 
