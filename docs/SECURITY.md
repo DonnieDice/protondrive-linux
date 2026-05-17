@@ -34,3 +34,11 @@ If you use this process, we commit to:
 -   Publicly acknowledging your responsible disclosure (if you wish).
 
 Thank you for helping keep ProtonDrive Linux and its users safe.
+
+## Known Upstream Alert
+
+We currently track a Dependabot alert on the Linux desktop dependency stack for `glib` through the Tauri / gtk-rs / WebKitGTK chain.
+
+This alert is being monitored as an upstream blocker. A local lockfile refresh does not close it because the affected versions are still the latest published crates in the current runtime line.
+
+We will revisit the alert when the upstream stack publishes a patched dependency path that Cargo can resolve without changing the application architecture.
