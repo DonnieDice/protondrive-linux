@@ -379,10 +379,10 @@ jobs:
           flatpak install proton-drive_*.flatpak
           \`\`\`
 
-          ### Snap
-          \`\`\`bash
-          sudo snap install proton-drive_*.snap --dangerous
-          \`\`\`
+### Snap
+\`\`\`bash
+sudo snap install proton-drive
+\`\`\`
 
           ### Arch Linux (AUR)
           \`\`\`bash

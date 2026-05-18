@@ -143,6 +143,13 @@ WebKitGTK 4.1 available in repos and are release-gated. Current glibc
 DEB/RPM/AppImage artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based.
+- Snap packages are published to the Snap Store at
+  https://snapcraft.io/proton-drive. Both core24 and core26 bases use
+  `confinement: strict`. The `home` plug covers downloads to `~/Downloads`
+  and the `removable-media` plug covers USB/mounted drives. No classic
+  confinement is needed for the current download-only feature set. When
+  2-way sync with arbitrary directories is added, `system-files` or a
+  classic confinement request may be required.
 - Nix users will use a future Nix flake that manages both libc and WebKitGTK
   through nixpkgs. Until then, use the AppImage or Flatpak.
 - Gentoo users will use a future ebuild that builds against system packages.
