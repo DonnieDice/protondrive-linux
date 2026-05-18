@@ -14,19 +14,20 @@ apps:
     command: usr/bin/proton-drive-wrapper
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
-      - home
-      - network
-      - network-bind
-      - network-status
-      - desktop
-      - desktop-legacy
-      - x11
-      - wayland
-      - opengl
-      - audio-playback
-      - browser-support
-      - password-manager-service
-      - dbus
+    - home
+    - network
+    - network-bind
+    - network-status
+    - desktop
+    - desktop-legacy
+    - x11
+    - wayland
+    - opengl
+    - audio-playback
+    - browser-support
+    - password-manager-service
+    - removable-media
+    - dbus
     environment:
       LIBGL_ALWAYS_SOFTWARE: "1"
       __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
