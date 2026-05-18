@@ -12,6 +12,9 @@ on:
 permissions:
   contents: read
 
+env:
+  WEBCLIENTS_REF: main
+
 jobs:
   publish-aur:
     runs-on: ubuntu-latest
@@ -67,63 +70,83 @@ jobs:
 
           rm source.tar.gz
 
-      - name: Update PKGBUILD
-        run: |
-          VERSION=${{ steps.version.outputs.version }}
-          SHA256=${{ steps.sha256.outputs.sha256 }}
+  - name: Resolve WebClients commit
+    id: webclients
+    run: |
+      COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/ProtonMail/WebClients/commits/${{ env.WEBCLIENTS_REF }}" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+      echo "commit=${COMMIT_SHA}" >> $GITHUB_OUTPUT
+      echo "WebClients commit: ${COMMIT_SHA}"
 
-          cd aur
+      curl -sL "https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz" -o webclients.tar.gz
+      WEBCCLIENTS_SHA256=$(sha256sum webclients.tar.gz | cut -d' ' -f1)
+      echo "sha256=${WEBCCLIENTS_SHA256}" >> $GITHUB_OUTPUT
+      rm webclients.tar.gz
 
-          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
-          sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
-          sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
+  - name: Update PKGBUILD
+    run: |
+      VERSION=${{ steps.version.outputs.version }}
+      SHA256=${{ steps.sha256.outputs.sha256 }}
+      WEBCCLIENTS_SHA256=${{ steps.webclients.outputs.sha256 }}
+      WEBCCLIENTS_COMMIT=${{ steps.webclients.outputs.commit }}
 
-          echo "Updated PKGBUILD:"
-          cat PKGBUILD
+      cd aur
 
-      - name: Generate .SRCINFO
-        run: |
-          cd aur
+      sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+      sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+      sed -i "s/^_webclients_commit=.*/_webclients_commit=\"${WEBCCLIENTS_COMMIT}\"/" PKGBUILD
+      sed -i "/^sha256sums=/,/)/c\\sha256sums=('${SHA256}'\n            '${WEBCCLIENTS_SHA256}')" PKGBUILD
 
-          cat > .SRCINFO << EOF
-          pkgbase = proton-drive
-          	pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
-          	pkgver = ${{ steps.version.outputs.version }}
-          	pkgrel = 1
-          	url = https://github.com/DonnieDice/protondrive-linux
-          	arch = x86_64
-          	license = AGPL-3.0-only
-          	depends = webkit2gtk-4.1
-          	depends = gtk3
-          	depends = libayatana-appindicator
-          	depends = openssl
-          	depends = libsoup3
-          	depends = librsvg
-          	makedepends = cargo
-          	makedepends = rust
-          	makedepends = nodejs
-          	makedepends = npm
-          	makedepends = git
-          	makedepends = pkg-config
-          	makedepends = patch
-          	makedepends = python
-          	provides = proton-drive
-          	conflicts = proton-drive-bin
-          	replaces = proton-drive-bin
-          	options = !strip
-          	source = proton-drive-${{ steps.version.outputs.version }}.tar.gz::https://github.com/DonnieDice/protondrive-linux/archive/refs/tags/v${{ steps.version.outputs.version }}.tar.gz
-          	sha256sums = ${{ steps.sha256.outputs.sha256 }}
+      echo "Updated PKGBUILD:"
+      cat PKGBUILD
 
-          	pkgname = proton-drive
-          EOF
+  - name: Generate .SRCINFO
+    run: |
+      cd aur
 
-          echo "Generated .SRCINFO:"
-          cat .SRCINFO
+      cat > .SRCINFO << EOF
+      pkgbase = proton-drive
+      pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
+      pkgver = ${{ steps.version.outputs.version }}
+      pkgrel = 1
+      url = https://github.com/DonnieDice/protondrive-linux
+      arch = x86_64
+      license = AGPL-3.0-only
+      depends = webkit2gtk-4.1
+      depends = gtk3
+      depends = libayatana-appindicator
+      depends = openssl
+      depends = libsoup3
+      depends = librsvg
+      makedepends = cargo
+      makedepends = rust
+      makedepends = nodejs
+      makedepends = npm
+      makedepends = git
+      makedepends = pkg-config
+      makedepends = patch
+      makedepends = python
+      optdepends = libappindicator-gtk3: system tray support (GNOME)
+      conflicts = proton-drive-bin
+      replaces = proton-drive-bin
+      install = proton-drive.install
+      options = !strip
+      source = proton-drive-${{ steps.version.outputs.version }}.tar.gz::https://github.com/DonnieDice/protondrive-linux/archive/refs/tags/v${{ steps.version.outputs.version }}.tar.gz
+      source = WebClients-${{ steps.webclients.outputs.commit }}.tar.gz::https://github.com/ProtonMail/WebClients/archive/${{ steps.webclients.outputs.commit }}.tar.gz
+      sha256sums = ${{ steps.sha256.outputs.sha256 }}
+      sha256sums = ${{ steps.webclients.outputs.sha256 }}
+
+      pkgname = proton-drive
+      EOF
+
+      echo "Generated .SRCINFO:"
+      cat .SRCINFO
 
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
 
           cat >> ~/.ssh/config << EOF
@@ -142,15 +165,16 @@ jobs:
           git config user.name "DonnieDice"
           git config user.email "donniedice@proton.me"
 
-      - name: Update AUR package
-        run: |
-          cp aur/PKGBUILD aur-repo/
-          cp aur/.SRCINFO aur-repo/
+  - name: Update AUR package
+    run: |
+      cp aur/PKGBUILD aur-repo/
+      cp aur/.SRCINFO aur-repo/
+      cp aur/proton-drive.install aur-repo/
 
-          cd aur-repo
-          git add PKGBUILD .SRCINFO
-          git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
-          git push origin master || git push origin main || echo "Push may have failed - check AUR manually"
+      cd aur-repo
+      git add PKGBUILD .SRCINFO proton-drive.install
+      git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
+      git push origin master
 
       - name: Cleanup
         if: always()
