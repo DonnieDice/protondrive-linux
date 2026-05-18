@@ -1,0 +1,28 @@
+app-id: com.proton.drive
+runtime: org.gnome.Platform
+runtime-version: '47'
+sdk: org.gnome.Sdk
+command: proton-drive
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=home
+  - --filesystem=xdg-download
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+  - --system-talk-name=org.freedesktop.NetworkManager
+modules:
+  - name: proton-drive
+    buildsystem: simple
+    sources:
+      - type: dir
+        path: .
+    build-commands:
+      # This is a placeholder for the Flathub build process.
+      # Flathub requires building from source or using extra-data for binaries.
+      # For the submission PR, we will start with a source-based approach.
+      - echo "Build commands will be finalized during Flathub review"
