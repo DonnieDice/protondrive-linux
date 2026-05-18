@@ -24,7 +24,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>The main file management interface</caption>
-      <image>https://raw.githubusercontent.com/DonnieDice/protondrive-linux/main/src-tauri/icons/icon.png</image>
+      <image>https://raw.githubusercontent.com/DonnieDice/protondrive-linux/main/screenshots/main.png</image>
     </screenshot>
   </screenshots>
 
@@ -36,7 +36,16 @@
   </provides>
 
   <releases>
-    <release version="1.4.3" date="2026-05-18" />
+    <release version="1.4.3" date="2026-05-18">
+      <description>
+        <p>Proton Drive Linux v1.4.3 release:</p>
+        <ul>
+          <li>Stable release of the unofficial Linux client.</li>
+          <li>Optimized build pipeline for multiple Linux distributions.</li>
+          <li>Full support for end-to-end encrypted file management.</li>
+        </ul>
+      </description>
+    </release>
   </releases>
 
   <content_rating type="oars-1.1" />

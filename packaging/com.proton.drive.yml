@@ -1,7 +1,10 @@
 app-id: com.proton.drive
 runtime: org.gnome.Platform
-runtime-version: "47"
+runtime-version: "50"
 sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
+  - org.freedesktop.Sdk.Extension.rust-stable
 command: proton-drive
 finish-args:
   - --share=network
@@ -10,18 +13,24 @@ finish-args:
   - --socket=wayland
   - --socket=pulseaudio
   - --device=dri
-  - --filesystem=home
   - --filesystem=xdg-download
+  - --filesystem=xdg-documents
   - --talk-name=org.freedesktop.secrets
   - --talk-name=org.freedesktop.Notifications
-  - --system-talk-name=org.freedesktop.NetworkManager
 modules:
   - name: proton-drive
     buildsystem: simple
     sources:
-      - type: dir
-        path: .. # Assuming building from the root of the repo
+      - type: git
+        url: https://github.com/DonnieDice/protondrive-linux.git
+        commit: 469793bf6038ebecf2b7c23d6236d450b8a6a5c4
+      - type: file
+        path: packaging/com.proton.drive.metainfo.xml
     build-commands:
+      # Enable SDK extensions
+      - . /usr/lib/sdk/node22/enable.sh
+      - . /usr/lib/sdk/rust-stable/enable.sh
+
       # Build the application
       - ./scripts/build-webclients.sh
       - npm install
@@ -39,7 +48,6 @@ modules:
 
       # Install desktop file
       - install -Dm644 src-tauri/linux/proton-drive.desktop /app/share/applications/com.proton.drive.desktop
-      - sed -i 's/Exec=proton-drive/Exec=proton-drive/' /app/share/applications/com.proton.drive.desktop
       - sed -i 's/Icon=proton-drive/Icon=com.proton.drive/' /app/share/applications/com.proton.drive.desktop
 
       # Install AppStream metadata
