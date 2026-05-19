@@ -159,10 +159,11 @@ jobs:
         IdentitiesOnly yes
         EOF
 
-        echo "Key fingerprint:"
-        ssh-keygen -lf ~/.ssh/aur
+        echo "Key file info:"
+        file ~/.ssh/aur
+        ssh-keygen -lf ~/.ssh/aur 2>&1
         echo "Testing AUR SSH connection..."
-        ssh -vT aur@aur.archlinux.org 2>&1 || true
+        ssh -vT aur@aur.archlinux.org 2>&1 | grep -E "Offering|Will attempt|Permission|Welcome|authenticated" || true
 
     - name: Clone or initialize AUR package
       run: |
