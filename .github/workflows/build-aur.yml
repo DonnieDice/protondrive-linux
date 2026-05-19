@@ -58,9 +58,10 @@ jobs:
             ~/.cargo/git/db/
             src-tauri/target/
           key: aur-arch-native-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
-          restore-keys: aur-arch-native-cargo-
+          restore-keys: |
+            aur-arch-native-cargo-
 
-  - name: Clone WebClients
+      - name: Clone WebClients
     run: git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients && cd WebClients && git checkout "${WEBCLIENTS_COMMIT}"
 
       - name: Apply distro patch
