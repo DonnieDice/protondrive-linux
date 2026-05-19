@@ -21,6 +21,7 @@ permissions:
 env:
   RUST_VERSION: stable
   WEBCLIENTS_REF: main
+  WEBCLIENTS_COMMIT: bbad1a0a482227b93a2e963a232463aede9b8abf
 
 jobs:
   build-aur:
@@ -59,8 +60,8 @@ jobs:
           key: aur-arch-native-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
           restore-keys: aur-arch-native-cargo-
 
-      - name: Clone WebClients
-        run: git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+  - name: Clone WebClients
+    run: git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients && cd WebClients && git checkout "${WEBCLIENTS_COMMIT}"
 
       - name: Apply distro patch
         run: |
@@ -123,11 +124,13 @@ jobs:
                   echo "makedepends = npm"
                   echo "makedepends = git"
                   echo "makedepends = pkg-config"
-                  echo "makedepends = patch"
-                  echo "provides = proton-drive"
-                  echo "conflicts = proton-drive-bin"
-                  echo "replaces = proton-drive-bin"
-                  echo "options = !strip"
+        echo "makedepends = patch"
+        echo "makedepends = python"
+        echo "optdepends = libappindicator-gtk3: system tray support (GNOME)"
+        echo "conflicts = proton-drive-bin"
+        echo "replaces = proton-drive-bin"
+        echo "install = proton-drive.install"
+        echo "options = !strip"
                   echo "pkgname = proton-drive"
                 } > .SRCINFO
               fi
