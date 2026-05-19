@@ -1,5 +1,6 @@
 name: Publish to AUR
 
+# Triggered on release publication or manual dispatch
 on:
   release:
     types: [published]

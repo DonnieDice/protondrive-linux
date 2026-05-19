@@ -79,6 +79,17 @@ jobs:
             exit 1
           fi
 
+          # Extract version from filename and verify it matches expected version
+          FILENAME="$(basename "$SNAP_FILE")"
+          FILE_VERSION="$(echo "$FILENAME" | sed 's/proton-drive_\([^_]*\)_.*/\1/')"
+          if [ "$FILE_VERSION" != "$VERSION" ]; then
+            echo "ERROR: Snap file version mismatch"
+            echo "  Expected: ${VERSION}"
+            echo "  Found:    ${FILE_VERSION}"
+            exit 1
+          fi
+          echo "Version verified: ${FILE_VERSION}"
+
           echo "snap_file=${SNAP_FILE}" >> "$GITHUB_OUTPUT"
           echo "Found Snap file: ${SNAP_FILE}"
           ls -lah "${SNAP_FILE}"
