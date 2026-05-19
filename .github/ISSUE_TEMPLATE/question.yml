@@ -1,0 +1,32 @@
+name: Question
+description: Ask a question or request help
+title: "[Question]: "
+labels: ["question"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Ask your question below. Check existing issues first to avoid duplicates.
+
+  - type: textarea
+    id: question
+    attributes:
+      label: Your Question
+      description: What would you like to know?
+    validations:
+      required: true
+
+  - type: dropdown
+    id: topic
+    attributes:
+      label: Topic
+      description: What is your question about?
+      options:
+        - Installation / Setup
+        - Login / Authentication
+        - Packaging (DEB, RPM, Flatpak, Snap, AUR, APK)
+        - Building from source
+        - CI / Workflows
+        - Other
+    validations:
+      required: false

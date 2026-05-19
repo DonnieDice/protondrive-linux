@@ -1,0 +1,79 @@
+name: Bug Report
+description: Report a bug or unexpected behavior
+title: "[Bug]: "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to fill out this bug report.
+
+  - type: dropdown
+    id: distro
+    attributes:
+      label: Linux Distribution
+      description: Which distribution are you using?
+      options:
+        - Ubuntu
+        - Debian
+        - Fedora
+        - openSUSE
+        - Alpine
+        - Arch / AUR
+        - Other (specify below)
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: ProtonDrive Version
+      description: What version of the app are you running?
+      placeholder: e.g. 1.4.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: package-format
+    attributes:
+      label: Package Format
+      description: How did you install the app?
+      options:
+        - AppImage
+        - DEB
+        - RPM
+        - Flatpak
+        - Snap
+        - APK (Alpine)
+        - AUR
+        - Built from source
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: Describe the bug and what you expected to happen.
+      placeholder: Tell us what you see.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to Reproduce
+      description: How can we reproduce this issue?
+      placeholder: |
+        1. Go to '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant log output
+      description: Please copy and paste any relevant log output.
+      render: shell
