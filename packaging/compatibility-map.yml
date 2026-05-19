@@ -20,6 +20,7 @@ ci_workflows:
   release: .github/workflows/release.yml
   publish_aur: .github/workflows/publish-aur.yml
   publish_snap: .github/workflows/publish-snap.yml
+  publish_flatpak: .github/workflows/publish-flatpak.yml
 
 rpm:
   fedora43:
@@ -206,10 +207,12 @@ flatpak:
       status: pass
       evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.gnome49.yml
+    publish_workflow: .github/workflows/publish-flatpak.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome49
     artifact_name: flatpak-package-gnome49
     patch: org.gnome.Platform.49
+    flathub_app_id: com.proton.drive
     supports:
     - org.gnome.Platform//49
   org.gnome.Platform.50:
@@ -221,10 +224,12 @@ flatpak:
       status: pass
       evidence: remote artifact pass
     workflow: .github/workflows/build-flatpak.yml
+    publish_workflow: .github/workflows/publish-flatpak.yml
     build_container: ubuntu-24.04
     release_label: flatpak-gnome50
     artifact_name: flatpak-package
     patch: org.gnome.Platform.50
+    flathub_app_id: com.proton.drive
     supports:
     - org.gnome.Platform//50
 
