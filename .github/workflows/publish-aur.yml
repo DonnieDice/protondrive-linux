@@ -146,7 +146,7 @@ jobs:
     - name: Setup SSH
       run: |
         mkdir -p ~/.ssh
-        printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+        printf '%s\n' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/aur
         chmod 600 ~/.ssh/aur
 
         ssh-keyscan -t rsa aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
