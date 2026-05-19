@@ -107,27 +107,25 @@ jobs:
           flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
           flatpak install --user -y flathub org.gnome.Platform//50 org.gnome.Sdk//50 || true
 
-cat > proton-drive-wrapper.sh << 'EOF'
-#!/bin/bash
-export WEBKIT_DISABLE_DMABUF_RENDERER=1
-export WEBKIT_DISABLE_COMPOSITING_MODE=1
-export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-export GDK_GL=disable
-export GSK_RENDERER=cairo
-exec /app/bin/proton-drive-bin "$@"
-EOF
+          printf '%s\n' '#!/bin/bash' \
+            'export WEBKIT_DISABLE_DMABUF_RENDERER=1' \
+            'export WEBKIT_DISABLE_COMPOSITING_MODE=1' \
+            'export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1' \
+            'export GDK_GL=disable' \
+            'export GSK_RENDERER=cairo' \
+            'exec /app/bin/proton-drive-bin "$@"' \
+            > proton-drive-wrapper.sh
           chmod +x proton-drive-wrapper.sh
 
-          cat > com.proton.drive.desktop << 'EOF'
-          [Desktop Entry]
-          Version=1.0
-          Type=Application
-          Name=Proton Drive
-          Comment=Secure cloud storage
-          Exec=proton-drive
-          Icon=com.proton.drive
-          Categories=Network;FileTransfer;
-          EOF
+          printf '%s\n' '[Desktop Entry]' \
+            'Version=1.0' \
+            'Type=Application' \
+            'Name=Proton Drive' \
+            'Comment=Secure cloud storage' \
+            'Exec=proton-drive' \
+            'Icon=com.proton.drive' \
+            'Categories=Network;FileTransfer;' \
+            > com.proton.drive.desktop
 
           rm -rf flatpak-staging
           mkdir -p flatpak-staging/icons
@@ -138,42 +136,42 @@ EOF
           cp src-tauri/icons/128x128@2x.png flatpak-staging/icons/
           cp src-tauri/icons/proton-drive.svg flatpak-staging/icons/
           cp com.proton.drive.desktop flatpak-staging/
-cp packaging/com.proton.drive.metainfo.xml flatpak-staging/
+          cp packaging/com.proton.drive.metainfo.xml flatpak-staging/
 
-          cat > com.proton.drive.yml << YAMLEOF
-          app-id: com.proton.drive
-          runtime: org.gnome.Platform
-          runtime-version: '50'
-          sdk: org.gnome.Sdk
-          command: proton-drive
-      finish-args:
-      - --share=network
-      - --share=ipc
-      - --socket=fallback-x11
-      - --socket=wayland
-      - --socket=pulseaudio
-      - --device=dri
-      - --filesystem=xdg-download
-      - --filesystem=xdg-documents
-      - --talk-name=org.freedesktop.secrets
-      - --talk-name=org.freedesktop.Notifications
-          modules:
-            - name: proton-drive
-              buildsystem: simple
-              sources:
-                - type: dir
-                  path: flatpak-staging
-              build-commands:
-                - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin
-                - install -Dm755 proton-drive /app/bin/proton-drive
-                - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
-                - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
-                - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
-      - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
-      - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
-      - install -Dm644 com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
-          YAMLEOF
-          sed -i 's/^          //' com.proton.drive.yml
+          printf '%s\n' \
+            'app-id: com.proton.drive' \
+            'runtime: org.gnome.Platform' \
+            "runtime-version: '50'" \
+            'sdk: org.gnome.Sdk' \
+            'command: proton-drive' \
+            'finish-args:' \
+            '  - --share=network' \
+            '  - --share=ipc' \
+            '  - --socket=fallback-x11' \
+            '  - --socket=wayland' \
+          '- --socket=wayland' \
+          '- --socket=pulseaudio' \
+          '- --device=dri' \
+          '- --filesystem=xdg-download' \
+          '- --filesystem=xdg-documents' \
+          '- --talk-name=org.freedesktop.secrets' \
+          '- --talk-name=org.freedesktop.Notifications' \
+          'modules:' \
+          '- name: proton-drive' \
+          '  buildsystem: simple' \
+          '  sources:' \
+          '  - type: dir' \
+          '    path: flatpak-staging' \
+          '  build-commands:' \
+          '  - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin' \
+          '  - install -Dm755 proton-drive /app/bin/proton-drive' \
+          '  - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png' \
+          '  - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png' \
+          '  - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png' \
+          '  - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg' \
+          '  - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop' \
+          '  - install -Dm644 com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml' \
+          > com.proton.drive.yml
 
           rm -rf build-dir repo
           flatpak-builder --user --force-clean --repo=repo build-dir com.proton.drive.yml
