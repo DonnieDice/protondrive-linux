@@ -224,6 +224,29 @@ URL and page header immediately after creation). Keep the PR number prefix at
 the start of the title and follow it with the descriptive text. Dependabot PRs
 will need their titles updated before merging if they don't conform.
 
+### Review Bot Feedback
+
+Before merging **any** PR, all automated review bot findings must be addressed:
+
+- Check CodeRabbit, Qodo, and any other review bot comments on the PR
+- Every actionable comment must be either **fixed** or explicitly **dismissed with justification**
+- Do not merge with unresolved bot review items — even if CI passes
+- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
+- Re-request review after pushing fixes to ensure bots re-evaluate
+
+### PR Body Links
+
+- All file links in PR bodies **must** use real diff SHAs fetched from the GitHub API
+- Never fabricate, guess, or copy diff hashes from other PRs
+- Fetch SHAs immediately before editing the PR body:
+
+```bash
+gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
+  --jq '.[] | .filename + " " + .sha'
+```
+
+- If a file was added or removed and has no diff SHA, link to the PR files page without an anchor
+
 ### Commit Message and Link Rules
 
 - Use the commit title for a clear imperative summary plus an **issue** number
