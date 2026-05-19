@@ -19,6 +19,7 @@ ci_workflows:
   generate_package_specs: .github/workflows/generate-package-specs.yml
   release: .github/workflows/release.yml
   publish_aur: .github/workflows/publish-aur.yml
+  publish_snap: .github/workflows/publish-snap.yml
 
 rpm:
   fedora43:
@@ -227,37 +228,43 @@ flatpak:
     supports:
     - org.gnome.Platform//50
 
-snap:
-  core24:
-    status: release-gated
-    gates:
-      glibc: runtime
-      webkitgtk: runtime
-    runtime_smoke:
-      status: pass
-      evidence: remote artifact pass
-    workflow: .github/workflows/build-snap.yml
-    build_container: ubuntu-24.04
-    release_label: snap-core24
-    artifact_name: snap-package
-    patch: core24
-    supports:
-    - core24
-  core26:
-    status: release-gated
-    gates:
-      glibc: runtime
-      webkitgtk: runtime
-    runtime_smoke:
-      status: pass
-      evidence: remote artifact pass
-    workflow: .github/workflows/build-snap.core26.yml
-    build_container: ubuntu-24.04
-    release_label: snap-core26
-    artifact_name: snap-package-core26
-    patch: core26
-    supports:
-    - core26
+  snap:
+    core24:
+      status: release-gated
+      gates:
+        glibc: runtime
+        webkitgtk: runtime
+      runtime_smoke:
+        status: pass
+        evidence: remote artifact pass
+      workflow: .github/workflows/build-snap.yml
+      publish_workflow: .github/workflows/publish-snap.yml
+      build_container: ubuntu-24.04
+      release_label: snap-core24
+      artifact_name: snap-package
+      patch: core24
+      confinement: strict
+      snap_store_name: proton-drive
+      supports:
+      - core24
+    core26:
+      status: release-gated
+      gates:
+        glibc: runtime
+        webkitgtk: runtime
+      runtime_smoke:
+        status: pass
+        evidence: remote artifact pass
+      workflow: .github/workflows/build-snap.core26.yml
+      publish_workflow: .github/workflows/publish-snap.yml
+      build_container: ubuntu-24.04
+      release_label: snap-core26
+      artifact_name: snap-package-core26
+      patch: core26
+      confinement: strict
+      snap_store_name: proton-drive
+      supports:
+      - core26
 
 roadmap_patch_ready:
   rpm:
