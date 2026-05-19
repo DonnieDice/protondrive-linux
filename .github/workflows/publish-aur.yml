@@ -159,6 +159,8 @@ jobs:
         IdentitiesOnly yes
         EOF
 
+        echo "Key fingerprint:"
+        ssh-keygen -lf ~/.ssh/aur
         echo "Testing AUR SSH connection..."
         ssh -vT aur@aur.archlinux.org 2>&1 || true
 
