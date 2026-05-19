@@ -27,7 +27,6 @@ apps:
     - browser-support
     - password-manager-service
     - removable-media
-    - dbus
     environment:
       LIBGL_ALWAYS_SOFTWARE: "1"
       __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
@@ -41,12 +40,6 @@ apps:
       WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
       GDK_GL: software
       GSK_RENDERER: cairo
-
-plugs:
-  dbus:
-    interface: dbus
-    bus: session
-    name: com.proton.drive
 
 layout:
   /usr/lib/x86_64-linux-gnu/webkit2gtk-4.1:
