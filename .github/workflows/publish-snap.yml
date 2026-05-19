@@ -88,7 +88,15 @@ jobs:
           sudo snap install snapcraft --classic
 
       - name: Register snap name
-        run: snapcraft register proton-drive || echo "Snap name already registered"
+        run: |
+          echo "Attempting to register snap name 'proton-drive'..."
+          if snapcraft register proton-drive 2>&1; then
+            echo "Snap name registered successfully"
+          else
+            echo "Registration failed or name already taken — checking if we own it..."
+            snapcraft list-registered || true
+            echo "Attempting upload anyway..."
+          fi
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
