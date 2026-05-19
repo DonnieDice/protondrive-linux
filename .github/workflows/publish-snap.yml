@@ -87,6 +87,11 @@ jobs:
         run: |
           sudo snap install snapcraft --classic
 
+      - name: Register snap name
+        run: snapcraft register proton-drive || echo "Snap name already registered"
+        env:
+          SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+
       - name: Upload to Snap Store
         run: |
           SNAP_FILE="${{ steps.snap_file.outputs.snap_file }}"

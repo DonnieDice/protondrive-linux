@@ -156,25 +156,33 @@ jobs:
             StrictHostKeyChecking no
           EOF
 
-      - name: Clone AUR package
-        run: |
-          git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo || \
-            { mkdir -p aur-repo && cd aur-repo && git init && git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git; }
-
+    - name: Clone or initialize AUR package
+      run: |
+        if git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo 2>/dev/null; then
+          echo "Cloned existing AUR package"
+        else
+          echo "AUR package does not exist yet — initializing for first push"
+          mkdir -p aur-repo
           cd aur-repo
-          git config user.name "DonnieDice"
-          git config user.email "donniedice@proton.me"
+          git init
+          git checkout -b master
+          git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git
+        fi
 
-  - name: Update AUR package
-    run: |
-      cp aur/PKGBUILD aur-repo/
-      cp aur/.SRCINFO aur-repo/
-      cp aur/proton-drive.install aur-repo/
+        cd aur-repo
+        git config user.name "DonnieDice"
+        git config user.email "donniedice@proton.me"
 
-      cd aur-repo
-      git add PKGBUILD .SRCINFO proton-drive.install
-      git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
-      git push origin master
+    - name: Update AUR package
+      run: |
+        cp aur/PKGBUILD aur-repo/
+        cp aur/.SRCINFO aur-repo/
+        cp aur/proton-drive.install aur-repo/
+
+        cd aur-repo
+        git add PKGBUILD .SRCINFO proton-drive.install
+        git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
+        git push -u origin master --force
 
       - name: Cleanup
         if: always()
