@@ -134,7 +134,11 @@ described above. Both must pass for a target to be `release-gated`.
 - Linux Mint, Pop!_OS, Zorin, and similar Ubuntu derivatives use the Ubuntu DEB
   that matches their Ubuntu base.
 - Arch derivatives use the AUR target or AppImage.
-- The AUR package is a native build that compiles against Arch system packages. It replaced the former AppImage-wrapper package (`proton-drive-bin`) in v1.4.0.
+- The AUR package is a native build that compiles against Arch system
+  packages. It replaced the former AppImage-wrapper package
+  (`proton-drive-bin`) in v1.4.0. The AUR package is published via
+  `publish-aur.yml`, which pushes PKGBUILD and .SRCINFO to
+  `aur.archlinux.org/proton-drive` on release.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
 - openSUSE Tumbleweed users use the Tumbleweed RPM. Leap 16 users should use AppImage until a Leap 16 RPM workflow and smoke test are added.
@@ -142,9 +146,14 @@ described above. Both must pass for a target to be `release-gated`.
 WebKitGTK 4.1 available in repos and are release-gated. Current glibc
 DEB/RPM/AppImage artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
-  GTK/WebKitGTK-based.
+  GTK/WebKitGTK-based. Flatpak packages are published to Flathub at
+  https://flathub.org/apps/com.proton.drive via the `publish-flatpak.yml`
+  workflow. An initial Flathub submission PR to `flathub/flathub` is required
+  before the publish workflow can push updates. The reference source-build
+  manifest is at `packaging/com.proton.drive.yml`.
 - Snap packages are published to the Snap Store at
-  https://snapcraft.io/proton-drive. Both core24 and core26 bases use
+  https://snapcraft.io/proton-drive via the `publish-snap.yml`
+  workflow. Both core24 and core26 bases use
   `confinement: strict`. The `home` plug covers downloads to `~/Downloads`
   and the `removable-media` plug covers USB/mounted drives. No classic
   confinement is needed for the current download-only feature set. When
@@ -250,6 +259,8 @@ tag from `main`.
 Release checklist:
 
 - `main` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
+- Publish workflows (`publish-aur.yml`, `publish-snap.yml`,
+  `publish-flatpak.yml`) have their required secrets configured.
 - Roadmap patch-ready targets are intentionally excluded from `release.yml`
   unless they completed the promotion checklist.
 - Runtime smoke records are updated in this file and
@@ -327,6 +338,21 @@ into:
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
 - `aur/PKGBUILD`
+
+## Publishing Workflows
+
+Three publish workflows push packages to their respective stores on release:
+
+| Store | Workflow | Secret required | Target |
+|-------|----------|-----------------|--------|
+| AUR | `publish-aur.yml` | `AUR_SSH_PRIVATE_KEY` | `aur.archlinux.org/proton-drive` |
+| Snap Store | `publish-snap.yml` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/proton-drive` |
+| Flathub | `publish-flatpak.yml` | `FLATHUB_SSH_PRIVATE_KEY` | `flathub/com.proton.drive` |
+
+All three workflows trigger on release publication or manual workflow dispatch.
+The Flathub workflow requires an initial submission PR to `flathub/flathub`
+before it can push updates (see
+https://docs.flathub.org/docs/for-app-authors/submission).
 
 ## Upstream Baseline Check
 

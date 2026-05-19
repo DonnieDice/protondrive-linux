@@ -349,8 +349,8 @@ jobs:
           | Format | File | Description |
           |--------|------|-------------|
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
-          | Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50) |
-          | Flatpak (GNOME 49) | \`proton-drive_*_gnome49.flatpak\` | Flatpak sandbox (org.gnome.Platform//49) |
+| Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50), also on Flathub |
+| Flatpak (GNOME 49) | \`proton-drive_*_gnome49.flatpak\` | Flatpak sandbox (org.gnome.Platform//49), also on Flathub |
           | Snap (core24) | \`proton-drive_*_core24_amd64.snap\` | Snap package (core24 runtime) |
           | Snap (core26) | \`proton-drive_*_core26_amd64.snap\` | Snap package (core26 runtime) |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
@@ -374,10 +374,15 @@ jobs:
           ./proton-drive_*.AppImage
           \`\`\`
 
-          ### Flatpak
-          \`\`\`bash
-          flatpak install proton-drive_*.flatpak
-          \`\`\`
+### Flatpak
+\`\`\`bash
+flatpak install flathub com.proton.drive
+\`\`\`
+
+Or install the standalone bundle:
+\`\`\`bash
+flatpak install proton-drive_*.flatpak
+\`\`\`
 
 ### Snap
 \`\`\`bash

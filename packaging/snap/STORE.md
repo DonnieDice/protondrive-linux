@@ -3,9 +3,9 @@
 ## Setup Steps
 
 1. ~~Register the `proton-drive` snap name at https://snapcraft.io/register-snap~~ **Done**
-2. Export Snap Store credentials: `snapcraft export-login --`
-3. Add `SNAPCRAFT_STORE_CREDENTIALS` as a GitHub Actions secret
-4. Add `publish-snap.yml` workflow to upload snaps on release
+2. ~~Export Snap Store credentials: `snapcraft export-login -`~~ **Done**
+3. ~~Add `SNAPCRAFT_STORE_CREDENTIALS` as a GitHub Actions secret~~ **Done**
+4. ~~Add `publish-snap.yml` workflow to upload snaps on release~~ **Done**
 5. Test end-to-end: tag push → build → upload → `snap install proton-drive`
 
 ## Confinement
@@ -58,4 +58,7 @@ respectively. No patch changes are needed for Snap Store publishing.
 - `packaging/snap/snapcraft.yaml` uses `confinement: strict` with
   `removable-media` plug
 - Snap name `proton-drive` registered on the Snap Store
-- No Snap Store publishing pipeline exists yet
+- Snap Store publishing pipeline: `publish-snap.yml` uploads snaps on
+  release using `SNAPCRAFT_STORE_CREDENTIALS` secret
+- End-to-end test (tag push -> build -> upload -> `snap install
+  proton-drive`) is tracked in issue #83
