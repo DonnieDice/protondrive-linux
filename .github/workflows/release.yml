@@ -351,8 +351,8 @@ jobs:
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
 | Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50), also on Flathub |
 | Flatpak (GNOME 49) | \`proton-drive_*_gnome49.flatpak\` | Flatpak sandbox (org.gnome.Platform//49), also on Flathub |
-| Snap (core24) | \`protondrive-linux_*_core24_amd64.snap\` | Snap package (core24 runtime) |
-| Snap (core26) | \`protondrive-linux_*_core26_amd64.snap\` | Snap package (core26 runtime) |
+| Snap (core24) | \`protondrive-linux_*_core24_amd64.snap\` | Snap package (core24 runtime) — **not on Snap Store yet, see #83** |
+| Snap (core26) | \`protondrive-linux_*_core26_amd64.snap\` | Snap package (core26 runtime) — **not on Snap Store yet, see #83** |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
           | DEB (Ubuntu 24.04) | \`proton-drive_*_ubuntu24.04_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |
           | DEB (Ubuntu 26.04) | \`proton-drive_*_ubuntu26.04_amd64.deb\` | Ubuntu 26.04 LTS |
@@ -385,8 +385,9 @@ flatpak install proton-drive_*.flatpak
 \`\`\`
 
 ### Snap
+**Not available on the Snap Store yet** — see issue #83. Install the standalone snap:
 \`\`\`bash
-sudo snap install protondrive-linux
+sudo snap install --dangerous protondrive-linux_*.snap
 \`\`\`
 
           ### Arch Linux (AUR)

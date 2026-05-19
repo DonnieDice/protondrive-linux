@@ -158,7 +158,12 @@ DEB/RPM/AppImage artifacts are not Alpine-compatible.
   and the `removable-media` plug covers USB/mounted drives. No classic
   confinement is needed for the current download-only feature set. When
   2-way sync with arbitrary directories is added, `system-files` or a
-  classic confinement request may be required.
+  classic confinement request may be required. **Note: Snap Store
+  publishing is currently blocked — `snapcraft register` and
+  `snapcraft upload` return `resource-not-found` despite the name being
+  registered. The `snapcraft names` command also shows no registered
+  snaps even after successful registration. This appears to be a
+  snapcraft CLI / Snap Store API issue. See issue #83 and #19.**
 - Nix users will use a future Nix flake that manages both libc and WebKitGTK
   through nixpkgs. Until then, use the AppImage or Flatpak.
 - Gentoo users will use a future ebuild that builds against system packages.
