@@ -149,12 +149,17 @@ jobs:
         echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
         chmod 600 ~/.ssh/aur
 
+        ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+
         cat >> ~/.ssh/config << EOF
         Host aur.archlinux.org
         IdentityFile ~/.ssh/aur
         User aur
         StrictHostKeyChecking no
+        IdentitiesOnly yes
         EOF
+
+        ssh -T aur@aur.archlinux.org || true
 
     - name: Clone or initialize AUR package
       run: |
