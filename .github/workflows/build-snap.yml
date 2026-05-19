@@ -132,13 +132,13 @@ jobs:
                 echo "No Snap package found!"
                 exit 1
               fi
-              mv "$SNAP_FILE" "proton-drive_${VERSION}_core24_amd64.snap"
+              mv "$SNAP_FILE" "protondrive-linux_${VERSION}_core24_amd64.snap"
               rm -rf "$BUILD_CONTEXT"
 
       - name: Upload Snap artifact
         uses: actions/upload-artifact@v4
         with:
           name: snap-package
-          path: "proton-drive_*_core24_amd64.snap"
+          path: "protondrive-linux_*_core24_amd64.snap"
           if-no-files-found: error
           retention-days: 30
