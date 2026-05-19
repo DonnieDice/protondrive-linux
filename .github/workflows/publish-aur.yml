@@ -167,6 +167,7 @@ jobs:
           git init
           git checkout -b master
           git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git
+          cd ..
         fi
 
         cd aur-repo
