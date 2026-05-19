@@ -1,0 +1,62 @@
+name: Auto-Label Issues
+on:
+  issues:
+    types: [opened]
+
+permissions:
+  issues: write
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Apply labels based on content
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+        run: |
+          TITLE_LOWER=$(echo "$ISSUE_TITLE" | tr '[:upper:]' '[:lower:]')
+          BODY_LOWER=$(echo "$ISSUE_BODY" | tr '[:upper:]' '[:lower:]')
+          COMBINED="$TITLE_LOWER $BODY_LOWER"
+
+          LABELS=()
+
+          # Bug keywords
+          if echo "$COMBINED" | grep -qiE '\b(bug|crash|crashes|crashed|error|fail|fails|failed|freez|freeze|freezes|broken|not working|does not work|cant start|cannot start|not found|404|checksum mismatch|out of memory|glibc|segmentation fault|segfault|undefined|panic)\b'; then
+            LABELS+=("bug")
+          fi
+
+          # Enhancement keywords
+          if echo "$COMBINED" | grep -qiE '\b(feature|request|enhancement|add|support|implement|suggestion|idea|improve|would be nice|wishlist|roadmap)\b'; then
+            LABELS+=("enhancement")
+          fi
+
+          # Question keywords
+          if echo "$COMBINED" | grep -qiE '\b(question|how to|how do|how does|why|what is|can i|can we|is it|does it|help|unclear|confused|wondering|not sure)\b'; then
+            LABELS+=("question")
+          fi
+
+          # Documentation keywords
+          if echo "$COMBINED" | grep -qiE '\b(doc|docs|readme|typo|spelling|grammar|unclear instructions|missing documentation|update docs)\b'; then
+            LABELS+=("documentation")
+          fi
+
+          # Packaging keywords
+          if echo "$COMBINED" | grep -qiE '\b(flatpak|snap|appimage|deb|rpm|apk|aur|package|install|distribution|store|flathub|snapcraft|nix)\b'; then
+            LABELS+=("packaging")
+          fi
+
+          # Duplicate detection
+          if echo "$COMBINED" | grep -qiE '\b(duplicate|same as|already reported|already filed|see #)\b'; then
+            LABELS+=("duplicate")
+          fi
+
+          if [ ${#LABELS[@]} -gt 0 ]; then
+            LABEL_LIST=$(IFS=,; echo "${LABELS[*]}")
+            gh issue edit "$ISSUE_NUMBER" --add-label "$LABEL_LIST"
+            echo "Applied labels: $LABEL_LIST"
+          else
+            echo "No matching labels found for issue content."
+          fi
