@@ -41,10 +41,10 @@ Use this checklist before every release deployment.
 - [ ] APK Alpine 3.23 workflow is passing.
 - [ ] Release workflow is passing.
 - [ ] Publish workflow secrets are configured.
-- [ ] `AUR_SSH_PRIVATE_KEY` secret is set for AUR publishing.
-- [ ] `SNAPCRAFT_STORE_CREDENTIALS` secret is set for Snap Store publishing.
-- [ ] `FLATHUB_SSH_PRIVATE_KEY` secret is set for Flathub publishing.
-- [ ] Flathub initial submission PR has been merged (required before `publish-flatpak.yml` can push updates).
+  - [ ] `AUR_SSH_PRIVATE_KEY` secret is set for AUR publishing.
+  - [ ] `SNAPCRAFT_STORE_CREDENTIALS` secret is set for Snap Store publishing. **BLOCKED: snapcraft CLI / Snap Store API inconsistency — publishing on hold. See issues #83 and #19.**
+  - [ ] `FLATHUB_SSH_PRIVATE_KEY` secret is set for Flathub publishing.
+  - [ ] Flathub initial submission PR has been merged (required before `publish-flatpak.yml` can push updates).
 
 - [ ] Merge approved PRs into `main`.
   - [ ] Confirm the PRs contain only commits intended for the release.
