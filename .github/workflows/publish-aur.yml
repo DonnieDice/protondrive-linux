@@ -150,7 +150,8 @@ EOF
         run: |
           mkdir -p ~/.ssh
           printf '%s
-' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" | tr -d '
+' > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
 
           ssh-keyscan -t rsa aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
