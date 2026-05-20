@@ -149,10 +149,11 @@ EOF
       - name: Setup SSH
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
+          printf '%s
+' "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
 
-          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+          ssh-keyscan -t rsa aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
 
           cat >> ~/.ssh/config << EOF
           Host aur.archlinux.org
@@ -162,7 +163,8 @@ EOF
             IdentitiesOnly yes
           EOF
 
-          ssh -T aur@aur.archlinux.org || true
+          echo "Testing AUR SSH connection..."
+          ssh -vT aur@aur.archlinux.org 2>&1 || true
 
       - name: Clone or initialize AUR package
         run: |
