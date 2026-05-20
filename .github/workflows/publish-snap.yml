@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish (e.g., 1.4.0)"
+        description: "Version to publish (e.g. 1.4.0)"
         required: true
       snap_base:
         description: "Snap base to publish (core24 or core26)"

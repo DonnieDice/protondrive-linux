@@ -59,5 +59,15 @@ respectively. No patch changes are needed for Snap Store publishing.
 - Snap name `proton-drive` registered on the Snap Store
 - Snap Store publishing pipeline: `publish-snap.yml` uploads snaps on
   release using `SNAPCRAFT_STORE_CREDENTIALS` secret
+<<<<<<< HEAD
 - End-to-end test (tag push -> build -> upload -> `snap install
   proton-drive`) is tracked in issue #83
+=======
+- **BLOCKED**: `snapcraft upload` returns `resource-not-found: Snap not
+  found for name=proton-drive` despite the name being registered.
+  `snapcraft register` also fails with `reserved_name`. `snapcraft names`
+  shows no registered snaps even after successful registration. This
+  appears to be a snapcraft CLI / Snap Store API inconsistency — the
+  name reservation does not propagate to the upload endpoint. Publishing
+  is on hold until this is resolved. See issues #83 and #19.
+>>>>>>> 2b4513fbee12f24786e774b4232ce1f7b8579bc0
