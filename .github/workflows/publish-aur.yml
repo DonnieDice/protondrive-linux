@@ -152,19 +152,24 @@ EOF
           echo "${{ secrets.AUR_SSH_PRIVATE_KEY }}" > ~/.ssh/aur
           chmod 600 ~/.ssh/aur
 
+          ssh-keyscan aur.archlinux.org >> ~/.ssh/known_hosts 2>/dev/null
+
           cat >> ~/.ssh/config << EOF
           Host aur.archlinux.org
             IdentityFile ~/.ssh/aur
             User aur
             StrictHostKeyChecking no
+            IdentitiesOnly yes
           EOF
+
+          ssh -T aur@aur.archlinux.org || true
 
       - name: Clone or initialize AUR package
         run: |
           if git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo 2>/dev/null; then
             echo "Cloned existing AUR package"
           else
-            echo "AUR package does not exist yet — initializing for first push"
+            echo "AUR package does not exist yet - initializing for first push"
             mkdir -p aur-repo
             cd aur-repo
             git init
