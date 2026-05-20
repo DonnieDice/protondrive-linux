@@ -70,7 +70,7 @@ jobs:
         run: |
           VERSION="${{ steps.version.outputs.version }}"
           SNAP_BASE="${{ steps.snap_base.outputs.snap_base }}"
-          SNAP_FILE="$(find artifacts/snap -name "protondrive-linux_*_${SNAP_BASE}_amd64.snap" -type f | head -1)"
+          SNAP_FILE="$(find artifacts/snap -name "proton-drive_*_${SNAP_BASE}_amd64.snap" -type f | head -1)"
 
           if [ -z "$SNAP_FILE" ]; then
             echo "ERROR: No Snap file found for ${SNAP_BASE} at version ${VERSION}"
@@ -100,10 +100,10 @@ jobs:
 
       - name: Register snap name
         run: |
-          echo "Attempting to register snap name 'protondrive-linux'..."
-          snapcraft register --yes protondrive-linux && echo "Registered!" || {
+          echo "Attempting to register snap name 'proton-drive'..."
+          snapcraft register --yes proton-drive && echo "Registered!" || {
             echo "Register command returned non-zero — name may already be registered or require manual review"
-            snapcraft names 2>&1 || true
+            snapcraft list-registered 2>&1 || true
           }
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
@@ -131,10 +131,10 @@ jobs:
 
       - name: Verify upload
         run: |
-        VERSION="${{ steps.version.outputs.version }}"
-        echo "Snap Store publish completed for protondrive-linux v${VERSION}"
-        echo ""
-        echo "Users can install with:"
-        echo " sudo snap install protondrive-linux"
-        echo ""
-        echo "Verify at: https://snapcraft.io/protondrive-linux"
+          VERSION="${{ steps.version.outputs.version }}"
+          echo "Snap Store publish completed for proton-drive v${VERSION}"
+          echo ""
+          echo "Users can install with:"
+          echo "  sudo snap install proton-drive"
+          echo ""
+          echo "Verify at: https://snapcraft.io/proton-drive"
