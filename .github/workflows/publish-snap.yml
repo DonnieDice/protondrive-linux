@@ -1,8 +1,6 @@
-name: Publish to Snap Store
+name: Publish to Snap Store (BLOCKED)
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       version:
@@ -22,6 +20,7 @@ permissions:
 
 jobs:
   publish-snap:
+    if: false
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
