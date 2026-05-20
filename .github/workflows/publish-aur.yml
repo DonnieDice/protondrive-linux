@@ -166,7 +166,7 @@ EOF
           echo "Key fingerprint:"
           ssh-keygen -lf ~/.ssh/aur
           echo "Testing AUR SSH connection..."
-          ssh -vT aur@aur.archlinux.org 2>&1 || true
+          ssh -vT aur@aur.archlinux.org 2>&1 | grep -E "Offering|Will attempt|Permission|Welcome|authenticated" || true
 
       - name: Clone or initialize AUR package
         run: |
