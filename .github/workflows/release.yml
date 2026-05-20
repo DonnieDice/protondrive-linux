@@ -291,7 +291,7 @@ jobs:
             rel="${src#artifacts/}"
             name="$(basename "$src")"
             case "$name" in
-              proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*)
+              proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*|protondrive-linux*_${VERSION}_*|protondrive-linux*_${VERSION}.*|protondrive-linux*-${VERSION}-*)
                 ;;
               *)
                 echo "Skipping stale artifact: $name"
@@ -351,8 +351,8 @@ jobs:
           | AppImage | \`proton-drive_*.AppImage\` | Universal Linux (portable, glibc 2.35+) |
 | Flatpak (GNOME 50) | \`proton-drive_*_gnome50.flatpak\` | Flatpak sandbox (org.gnome.Platform//50), also on Flathub |
 | Flatpak (GNOME 49) | \`proton-drive_*_gnome49.flatpak\` | Flatpak sandbox (org.gnome.Platform//49), also on Flathub |
-          | Snap (core24) | \`proton-drive_*_core24_amd64.snap\` | Snap package (core24 runtime) |
-          | Snap (core26) | \`proton-drive_*_core26_amd64.snap\` | Snap package (core26 runtime) |
+| Snap (core24) | \`protondrive-linux_*_core24_amd64.snap\` | Snap package (core24 runtime) |
+| Snap (core26) | \`protondrive-linux_*_core26_amd64.snap\` | Snap package (core26 runtime) |
           | AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |
           | DEB (Ubuntu 24.04) | \`proton-drive_*_ubuntu24.04_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |
           | DEB (Ubuntu 26.04) | \`proton-drive_*_ubuntu26.04_amd64.deb\` | Ubuntu 26.04 LTS |
@@ -386,7 +386,7 @@ flatpak install proton-drive_*.flatpak
 
 ### Snap
 \`\`\`bash
-sudo snap install proton-drive
+sudo snap install protondrive-linux
 \`\`\`
 
           ### Arch Linux (AUR)

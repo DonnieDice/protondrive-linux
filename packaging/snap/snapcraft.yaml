@@ -14,19 +14,19 @@ apps:
     command: usr/bin/proton-drive-wrapper
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
-    - home
-    - network
-    - network-bind
-    - network-status
-    - desktop
-    - desktop-legacy
-    - x11
-    - wayland
-    - opengl
-    - audio-playback
-    - browser-support
-    - password-manager-service
-    - removable-media
+      - home
+      - network
+      - network-bind
+      - network-status
+      - desktop
+      - desktop-legacy
+      - x11
+      - wayland
+      - opengl
+      - audio-playback
+      - browser-support
+      - password-manager-service
+      - removable-media
     environment:
       LIBGL_ALWAYS_SOFTWARE: "1"
       __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
@@ -60,26 +60,26 @@ parts:
       cp src-tauri/icons/128x128.png "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
       cp src-tauri/icons/proton-drive.svg "$SNAPCRAFT_PART_INSTALL/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
     stage-packages:
-    - libssl3
-    - libwebkit2gtk-4.1-0
-    - libgtk-3-0
-    - libayatana-appindicator3-1
-    - librsvg2-2
-    - libsoup-3.0-0
+      - libssl3
+      - libwebkit2gtk-4.1-0
+      - libgtk-3-0
+      - libayatana-appindicator3-1
+      - librsvg2-2
+      - libsoup-3.0-0
     prime:
-    # glibc and the dynamic loader must come from the Snap base. Staging them
-    # into the app snap can mix GLIBC_PRIVATE symbols with the base runtime.
-    - -usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
-    - -usr/lib64/ld-linux-x86-64.so.2
-    - -usr/lib/x86_64-linux-gnu/libc.so.6
-    - -usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0
-    - -usr/lib/x86_64-linux-gnu/libdl.so.2
-    - -usr/lib/x86_64-linux-gnu/libm.so.6
-    - -usr/lib/x86_64-linux-gnu/libmvec.so.1
-    - -usr/lib/x86_64-linux-gnu/libpthread.so.0
-    - -usr/lib/x86_64-linux-gnu/libresolv.so.2
-    - -usr/lib/x86_64-linux-gnu/librt.so.1
-    - -usr/lib/x86_64-linux-gnu/libnss_compat.so.2
-    - -usr/lib/x86_64-linux-gnu/libnss_dns.so.2
-    - -usr/lib/x86_64-linux-gnu/libnss_files.so.2
-    - -usr/lib/x86_64-linux-gnu/libnss_hesiod.so.2
+      # glibc and the dynamic loader must come from the Snap base. Staging them
+      # into the app snap can mix GLIBC_PRIVATE symbols with the base runtime.
+      - -usr/lib/x86_64-linux-gnu/ld-linux-x86-64.so.2
+      - -usr/lib64/ld-linux-x86-64.so.2
+      - -usr/lib/x86_64-linux-gnu/libc.so.6
+      - -usr/lib/x86_64-linux-gnu/libc_malloc_debug.so.0
+      - -usr/lib/x86_64-linux-gnu/libdl.so.2
+      - -usr/lib/x86_64-linux-gnu/libm.so.6
+      - -usr/lib/x86_64-linux-gnu/libmvec.so.1
+      - -usr/lib/x86_64-linux-gnu/libpthread.so.0
+      - -usr/lib/x86_64-linux-gnu/libresolv.so.2
+      - -usr/lib/x86_64-linux-gnu/librt.so.1
+      - -usr/lib/x86_64-linux-gnu/libnss_compat.so.2
+      - -usr/lib/x86_64-linux-gnu/libnss_dns.so.2
+      - -usr/lib/x86_64-linux-gnu/libnss_files.so.2
+      - -usr/lib/x86_64-linux-gnu/libnss_hesiod.so.2
