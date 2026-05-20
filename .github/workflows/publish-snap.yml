@@ -101,13 +101,10 @@ jobs:
       - name: Register snap name
         run: |
           echo "Attempting to register snap name 'proton-drive'..."
-          if snapcraft register proton-drive 2>&1; then
-            echo "Snap name registered successfully"
-          else
-            echo "Registration failed or name already taken — checking if we own it..."
-            snapcraft list-registered || true
-            echo "Attempting upload anyway..."
-          fi
+          snapcraft register --yes proton-drive && echo "Registered!" || {
+            echo "Register command returned non-zero — name may already be registered or require manual review"
+            snapcraft list-registered 2>&1 || true
+          }
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
@@ -118,7 +115,17 @@ jobs:
 
           echo "Uploading ${SNAP_FILE} to ${CHANNEL} channel..."
 
-          snapcraft upload "${SNAP_FILE}" --release="${CHANNEL}"
+          for i in 1 2 3; do
+            if snapcraft upload "${SNAP_FILE}" --release="${CHANNEL}"; then
+              echo "Upload succeeded on attempt $i"
+              exit 0
+            fi
+            echo "Attempt $i failed, waiting 30s before retry..."
+            sleep 30
+          done
+
+          echo "ERROR: Upload failed after 3 attempts"
+          exit 1
         env:
           SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 
