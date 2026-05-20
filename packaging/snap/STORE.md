@@ -57,4 +57,7 @@ respectively. No patch changes are needed for Snap Store publishing.
 - `packaging/snap/snapcraft.yaml` uses `confinement: strict` with
   `removable-media` plug
 - Snap name `proton-drive` registered on the Snap Store
-- No Snap Store publishing pipeline exists yet
+- Snap Store publishing pipeline: `publish-snap.yml` uploads snaps on
+  release using `SNAPCRAFT_STORE_CREDENTIALS` secret
+- End-to-end test (tag push -> build -> upload -> `snap install
+  proton-drive`) is tracked in issue #83
