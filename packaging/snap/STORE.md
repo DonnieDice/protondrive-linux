@@ -2,11 +2,11 @@
 
 ## Setup Steps
 
-1. ~~Register the `protondrive-linux` snap name at https://snapcraft.io/register-snap~~ **Done**
-2. ~~Export Snap Store credentials: `snapcraft export-login -`~~ **Done**
-3. ~~Add `SNAPCRAFT_STORE_CREDENTIALS` as a GitHub Actions secret~~ **Done**
-4. ~~Add `publish-snap.yml` workflow to upload snaps on release~~ **Done**
-5. Test end-to-end: tag push → build → upload → `snap install protondrive-linux`
+1. ~~Register the `proton-drive` snap name at https://snapcraft.io/register-snap~~ **Done**
+2. Export Snap Store credentials: `snapcraft export-login -`
+3. Add `SNAPCRAFT_STORE_CREDENTIALS` as a GitHub Actions secret
+4. Add `publish-snap.yml` workflow to upload snaps on release
+5. Test end-to-end: tag push → build → upload → `snap install proton-drive`
 
 ## Confinement
 
@@ -28,7 +28,6 @@ Snap plugs and what they cover:
 | `opengl` | GPU | Software rendering fallback (Mesa) |
 | `browser-support` | WebKit subprocess | WebKitWebProcess, WebKitNetworkProcess |
 | `password-manager-service` | Secret service | Proton credential storage |
-| `dbus` (session) | `com.proton.drive` | D-Bus session bus |
 
 When a file picker is added later (via `tauri-plugin-dialog`, which is already
 registered in `main.rs`), it will use Tauri's dialog API. On Linux with
@@ -57,11 +56,11 @@ respectively. No patch changes are needed for Snap Store publishing.
 - Snap builds exist for core24 and core26 (both release-gated)
 - `packaging/snap/snapcraft.yaml` uses `confinement: strict` with
   `removable-media` plug
-- Snap name `protondrive-linux` registered on the Snap Store
+- Snap name `proton-drive` registered on the Snap Store
 - Snap Store publishing pipeline: `publish-snap.yml` uploads snaps on
   release using `SNAPCRAFT_STORE_CREDENTIALS` secret
 - **BLOCKED**: `snapcraft upload` returns `resource-not-found: Snap not
-  found for name=protondrive-linux` despite the name being registered.
+  found for name=proton-drive` despite the name being registered.
   `snapcraft register` also fails with `reserved_name`. `snapcraft names`
   shows no registered snaps even after successful registration. This
   appears to be a snapcraft CLI / Snap Store API inconsistency — the
