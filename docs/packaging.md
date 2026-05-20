@@ -152,7 +152,7 @@ DEB/RPM/AppImage artifacts are not Alpine-compatible.
   before the publish workflow can push updates. The reference source-build
   manifest is at `packaging/com.proton.drive.yml`.
 - Snap packages are published to the Snap Store at
-  https://snapcraft.io/proton-drive via the `publish-snap.yml`
+  https://snapcraft.io/protondrive-linux via the `publish-snap.yml`
   workflow. Both core24 and core26 bases use
   `confinement: strict`. The `home` plug covers downloads to `~/Downloads`
   and the `removable-media` plug covers USB/mounted drives. No classic
@@ -346,7 +346,7 @@ Three publish workflows push packages to their respective stores on release:
 | Store | Workflow | Secret required | Target |
 |-------|----------|-----------------|--------|
 | AUR | `publish-aur.yml` | `AUR_SSH_PRIVATE_KEY` | `aur.archlinux.org/proton-drive` |
-| Snap Store | `publish-snap.yml` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/proton-drive` |
+| Snap Store | `publish-snap.yml` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/protondrive-linux` |
 | Flathub | `publish-flatpak.yml` | `FLATHUB_SSH_PRIVATE_KEY` | `flathub/com.proton.drive` |
 
 All three workflows trigger on release publication or manual workflow dispatch.

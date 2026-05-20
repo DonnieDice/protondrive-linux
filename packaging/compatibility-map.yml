@@ -249,7 +249,7 @@ flatpak:
       artifact_name: snap-package
       patch: core24
       confinement: strict
-      snap_store_name: proton-drive
+      snap_store_name: protondrive-linux
       supports:
       - core24
     core26:
@@ -267,7 +267,7 @@ flatpak:
       artifact_name: snap-package-core26
       patch: core26
       confinement: strict
-      snap_store_name: proton-drive
+      snap_store_name: protondrive-linux
       supports:
       - core26
 
