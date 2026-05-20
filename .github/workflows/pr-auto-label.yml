@@ -45,7 +45,7 @@ jobs:
 
           # CI/Workflow keywords
           if echo "$COMBINED" | grep -qiE '\b(ci|cd|workflow|workflow|github actions|build|pipeline|deploy|release|automate)\b'; then
-            LABELS+=("packaging")
+            LABELS+=("ci")
           fi
 
           # Release keywords
