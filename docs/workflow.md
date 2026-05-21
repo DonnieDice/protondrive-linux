@@ -57,12 +57,13 @@ Open a PR when your branch is ready for review. A PR:
 ### PR Title Format
 
 ```
-(#PR-number) Descriptive title starting with uppercase
+(#ISSUE-number) Descriptive title starting with uppercase
 ```
 
 The PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-The number in the PR title is the **PR** number (assigned by GitHub after you open the PR), not the issue number. Edit the title after GitHub assigns the PR number — it appears in the URL and page header immediately.
+The number in the PR title is the tracked **issue** number, not the PR number.
+Open an issue first when work does not already have one.
 
 ### Commit Message Format
 
@@ -83,39 +84,37 @@ Rules:
 
 ### PR Body Format
 
-Reference the issue at the top, then list each changed file with a GitHub diff anchor so reviewers can jump directly to that file's diff in the PR:
+Reference the tracked issue at the top. Use `Closes #N` when the PR fully
+resolves the issue, or `Refs #N` for partial work:
 
 ```markdown
-Issue: #42
+Closes #42
 
-## Changes
+## Summary
 
-### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
-- Bullet list of what changed in this file
+- Describe the main behavior or packaging change
+- Mention important files or workflow areas with plain paths
 
-### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
-- Bullet list of what changed in this file
+## Changed Areas
+
+- `.github/workflows/package-workflows.yml`
+- `.github/workflows/deb/debian-12/action.yml`
+- `docs/packaging.md`
+
+## Testing
+
+- List local commands or GitHub Actions runs used to verify the change
 ```
 
-The `#diff-` anchor is the file's SHA from the PR files API. To get the real SHAs before editing the PR body:
-
-```bash
-gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
-  --jq '.[] | .filename + " " + .sha'
-```
-
-Do **not** fabricate or guess the diff hashes — always fetch them from the API. Each link follows the pattern:
-
-```text
-https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
-```
+Do not add handcrafted GitHub `#diff-` anchors to PR bodies. Plain repository
+paths are stable, and reviewers can use the Files changed tab for exact diffs.
 
 ## Step 4: The PR Refinement Loop
 
 Before any merge, enforce a strict code review and metadata loop:
 
-1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`
-2. **File Links:** Include direct diff links to each changed file using real SHAs from the GitHub API
+1. **Edit Title:** Set PR title to `(#ISSUE-number) Descriptive title`
+2. **Issue Link:** Confirm the PR body includes `Closes #N` or `Refs #N`
 3. **Context:** Provide a detailed summary answering **WHY** the changes were made
 4. **CR Feedback:** If a code review requires changes, iterate within the same branch
 

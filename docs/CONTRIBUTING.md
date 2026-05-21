@@ -171,35 +171,31 @@ git push origin feature/my-feature
 
 ### PR Body Format
 
-Reference the issue at the top, then list each changed file with a GitHub
-diff anchor so reviewers can jump directly to that file's diff in the PR:
+Reference the tracked issue at the top. Use `Closes #123` when the PR fully
+resolves the issue, or `Refs #123` for partial work:
 
 ```markdown
-Issue: #42
+Closes #42
 
-## Changes
+## Summary
 
-### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
-- Bullet list of what changed in this file
+- Describe the main behavior or packaging change
+- Mention important files or workflow areas with plain paths
 
-### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
-- Bullet list of what changed in this file
+## Changed Areas
+
+- `.github/workflows/package-workflows.yml`
+- `.github/workflows/deb/debian-12/action.yml`
+- `docs/packaging.md`
+
+## Testing
+
+- List the local commands or GitHub Actions runs used to verify the change
 ```
 
-The `#diff-` anchor is the file's SHA from the PR files API. To get the
-real SHAs before editing the PR body:
-
-```bash
-gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
-  --jq '.[] | .filename + " " + .sha'
-```
-
-Do **not** fabricate or guess the diff hashes — always fetch them from the
-API. Each link follows the pattern:
-
-```text
-https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
-```
+Do not add handcrafted GitHub `#diff-` anchors to PR bodies. They are easy to
+break when files move or the PR is rebased. Plain repository paths are stable,
+and reviewers can use the Files changed tab for exact diffs.
 
 ### PR Title Format
 
@@ -207,11 +203,10 @@ All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
-- The number in the PR title is the **PR** number (assigned by GitHub after
-  you open the PR), not the issue number
-- Start with an uppercase letter
-- Be at least 10 characters long (after the PR number prefix)
-- Put the PR number prefix at the start of the title, e.g. `(#42) Title here`
+- The number in the PR title is the tracked **issue** number, not the PR number
+- Start with an uppercase letter after the issue prefix
+- Be at least 10 characters long after the issue prefix
+- Put the issue prefix at the start of the title, e.g. `(#42) Title here`
 
 Examples:
 
@@ -219,10 +214,8 @@ Examples:
 - `(#51) Fix linker flags for musl static linking`
 - `(#38) Update WebClients clone depth in build script`
 
-Edit the PR title after GitHub assigns the PR number (it appears in the
-URL and page header immediately after creation). Keep the PR number prefix at
-the start of the title and follow it with the descriptive text. Dependabot PRs
-will need their titles updated before merging if they don't conform.
+Open an issue before opening a PR when there is no tracked issue yet. This keeps
+commits, PR titles, and closing links aligned from the first push.
 
 ### Review Bot Feedback
 
@@ -234,26 +227,13 @@ Before merging **any** PR, all automated review bot findings must be addressed:
 - If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
 - Re-request review after pushing fixes to ensure bots re-evaluate
 
-### PR Body Links
-
-- All file links in PR bodies **must** use real diff SHAs fetched from the GitHub API
-- Never fabricate, guess, or copy diff hashes from other PRs
-- Fetch SHAs immediately before editing the PR body:
-
-```bash
-gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
-  --jq '.[] | .filename + " " + .sha'
-```
-
-- If a file was added or removed and has no diff SHA, link to the PR files page without an anchor
-
 ### Commit Message and Link Rules
 
 - Use the commit title for a clear imperative summary plus an **issue** number
   prefix when the commit is not a squash-merge PR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the **PR** number prefix (`(#123) ...`).
+- Use the PR title for the same **issue** number prefix (`(#123) ...`).
 - Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
