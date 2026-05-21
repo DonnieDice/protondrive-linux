@@ -1,0 +1,139 @@
+name: publish-snap
+description: Publish the Snap package.
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get version
+      shell: bash
+      id: version
+      run: |
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+        fi
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        echo "Publishing version: ${VERSION}"
+
+    - name: Determine snap base
+      shell: bash
+      id: snap_base
+      run: |
+        SNAP_BASE="${{ github.event.inputs.snap_base || 'core24' }}"
+        echo "snap_base=${SNAP_BASE}" >> "$GITHUB_OUTPUT"
+        echo "Snap base: ${SNAP_BASE}"
+
+    - name: Determine channel
+      shell: bash
+      id: channel
+      run: |
+        CHANNEL="${{ github.event.inputs.channel || 'stable' }}"
+        echo "channel=${CHANNEL}" >> "$GITHUB_OUTPUT"
+        echo "Channel: ${CHANNEL}"
+
+    - name: Download Snap artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: ${{ steps.snap_base.outputs.snap_base == 'core26' && 'snap-package-core26' || 'snap-package' }}
+        path: artifacts/snap
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+        search_artifacts: true
+
+    - name: Verify Snap file
+      shell: bash
+      id: snap_file
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        SNAP_BASE="${{ steps.snap_base.outputs.snap_base }}"
+        SNAP_FILE="$(find artifacts/snap -name "proton-drive_*_${SNAP_BASE}_amd64.snap" -type f | head -1)"
+
+        if [ -z "$SNAP_FILE" ]; then
+          echo "ERROR: No Snap file found for ${SNAP_BASE} at version ${VERSION}"
+          echo "Available files:"
+          find artifacts/snap -type f || echo "  (none)"
+          exit 1
+        fi
+
+        FILENAME="$(basename "$SNAP_FILE")"
+        FILE_VERSION="$(echo "$FILENAME" | sed 's/proton-drive_\([^_]*\)_.*/\1/')"
+        if [ "$FILE_VERSION" != "$VERSION" ]; then
+          echo "ERROR: Snap file version mismatch"
+          echo "  Expected: ${VERSION}"
+          echo "  Found:    ${FILE_VERSION}"
+          exit 1
+        fi
+        echo "Version verified: ${FILE_VERSION}"
+
+        echo "snap_file=${SNAP_FILE}" >> "$GITHUB_OUTPUT"
+        echo "Found Snap file: ${SNAP_FILE}"
+        ls -lah "${SNAP_FILE}"
+
+    - name: Register snap name
+      shell: bash
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
+      run: |
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
+        echo "Attempting to register snap name 'proton-drive'..."
+        docker run --rm \
+          --entrypoint "" \
+          -e SNAPCRAFT_STORE_CREDENTIALS \
+          -v "$PWD":/project \
+          -w /project \
+          "$SNAPCRAFT_IMAGE" \
+          snapcraft register --yes proton-drive && echo "Registered!" || {
+            echo "Register command returned non-zero - name may already be registered or require manual review"
+            docker run --rm \
+              --entrypoint "" \
+              -e SNAPCRAFT_STORE_CREDENTIALS \
+              -v "$PWD":/project \
+              -w /project \
+              "$SNAPCRAFT_IMAGE" \
+              snapcraft list-registered 2>&1 || true
+          }
+
+    - name: Upload to Snap Store
+      shell: bash
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
+      run: |
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
+        SNAP_FILE="${{ steps.snap_file.outputs.snap_file }}"
+        CHANNEL="${{ steps.channel.outputs.channel }}"
+
+        echo "Uploading ${SNAP_FILE} to ${CHANNEL} channel..."
+
+        for i in 1 2 3; do
+          if docker run --rm \
+            --entrypoint "" \
+            -e SNAPCRAFT_STORE_CREDENTIALS \
+            -v "$PWD":/project \
+            -w /project \
+            "$SNAPCRAFT_IMAGE" \
+            snapcraft upload "${SNAP_FILE}" --release="${CHANNEL}"; then
+            echo "Upload succeeded on attempt $i"
+            exit 0
+          fi
+          echo "Attempt $i failed, waiting 30s before retry..."
+          sleep 30
+        done
+
+        echo "ERROR: Upload failed after 3 attempts"
+        exit 1
+
+    - name: Verify upload
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        echo "Snap Store publish completed for proton-drive v${VERSION}"
+        echo ""
+        echo "Users can install with:"
+        echo "  sudo snap install proton-drive"
+        echo ""
+        echo "Verify at: https://snapcraft.io/proton-drive"

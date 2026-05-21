@@ -13,7 +13,7 @@ An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linu
 
 ## About
 
-ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web interface in a native Linux desktop window using [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/). Authentication, encryption, and file operations are handled by Proton's web app — this project provides the native shell, system tray integration, and cross-distro packaging.
+ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web interface in a native Linux desktop window using [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/). Authentication, encryption, and file operations are handled by Proton's web app - this project provides the native shell, system tray integration, and cross-distro packaging.
 
 **Features:**
 
@@ -28,13 +28,13 @@ ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web
 
 ## 2-Way Live Sync (Experimental)
 
-The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** — the web frontend must call the Tauri commands to use it.
+The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** - the web frontend must call the Tauri commands to use it.
 
 ### How it works
 
-1. **Choose a sync folder** — the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
-2. **Local changes are detected** — a recursive file watcher monitors the folder for creates, modifies, and deletes. Events are emitted as `live-sync://local-change` to the frontend.
-3. **Remote changes are applied** — the frontend calls `handle_remote_update(change)` to write or delete files in the sync folder. Relative paths are validated against the sync root — symlink traversal and path traversal (`../`) are blocked.
+1. **Choose a sync folder** - the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
+2. **Local changes are detected** - a recursive file watcher monitors the folder for creates, modifies, and deletes. Events are emitted as `live-sync://local-change` to the frontend.
+3. **Remote changes are applied** - the frontend calls `handle_remote_update(change)` to write or delete files in the sync folder. Relative paths are validated against the sync root - symlink traversal and path traversal (`../`) are blocked.
 
 ### Tauri commands
 
@@ -51,16 +51,15 @@ The native sync layer lets the Proton Drive web app watch a local folder and app
 - Symlinks anywhere in the target path are rejected.
 - Path components like `..` or root-dir references in `relativePath` are rejected.
 - A suppression cache (4096 entries, 30 s TTL) prevents watcher ping-pong when remote writes land.
-- Commands are only accepted from the `tauri://localhost` origin.
+- Commands are only accepted from `tauri://localhost` or `tauri://tauri.localhost`.
 
 ## Documentation
 
 | | |
 |---|---|
-| [Contributing](docs/workflow.md) | Workflow guide |
-| [Build & Packaging](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
+| [Workflow](docs/workflow.md) | Branch, PR, review, and merge guide |
+| [Contributing](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
 | [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
-| [Changelog](docs/CHANGELOG.md) | Release history |
 | [License](docs/LICENSE) | AGPL-3.0 or later |
 | [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
 | [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |

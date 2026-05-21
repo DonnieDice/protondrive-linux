@@ -1,23 +1,21 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..b6a3f4c1 100644
+index 246078bb..6eeefe1c 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,15 @@ async fn proxy_request(
+@@ -320,11 +320,14 @@ fn sanitize_url_for_log(url: &str) -> String {
  }
  
  fn main() {
--    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
--    // They are distro-specific and belong in patches/<package>/<distro>.patch
--    // and the package's AppRun/wrapper script. The base binary ships clean.
+-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
 +    // WebKitGTK environment for openSUSE Tumbleweed rolling RPM builds.
-+    // Treat as a current WebKitGTK baseline: sandbox and IPInt fixes enabled.
-+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
++    // Treat as a current WebKitGTK baseline with sandbox and IPInt fixes.
+     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 +    std::env::set_var("JSC_useWasmIPInt", "false");
-+    std::env::set_var("GDK_GL", "disable");
+     std::env::set_var("GDK_GL", "disable");
 +    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-+    std::env::set_var("GSK_RENDERER", "cairo");
+     std::env::set_var("GSK_RENDERER", "cairo");
  
      // Create shared client with cookie jar
-     let state = Arc::new(AppState {

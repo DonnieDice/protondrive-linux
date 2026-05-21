@@ -1,26 +1,31 @@
+## Linked Issue
+
+Closes #
+
+<!--
+Use the tracked issue number here, for example `Closes #98`.
+If this PR is partial work, use `Refs #98` instead.
+-->
+
 ## PR Title Checklist
 
 Your PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-- [ ] Starts with the PR number prefix
-- [ ] At least 10 characters after the prefix
-- [ ] Keeps the PR number prefix first, with the descriptive title after it,
-  e.g. `(#42) Title here`
+- [ ] Starts with the tracked issue number, not the PR number
+- [ ] Uses an uppercase first letter after the issue prefix
+- [ ] Has a descriptive title, e.g. `(#98) Fix BOM encoding corruption`
 
-**Correct:** `(#47) Add Alpine 3.20 APK build target`
-**Incorrect:** `Add Alpine 3.20 APK build target` (missing PR number)
-**Incorrect:** `(#47) add alpine 3.20 apk build target` (lowercase start)
-
-Edit your title after GitHub assigns the PR number. Keep the `(#PR_NUMBER)`
-prefix at the front, then append the title text.
-
-If the change is tracked by an issue, mention it in the PR body with `Refs #123`
-or `Closes #123`. The PR title itself should keep the `(#PR_NUMBER)` prefix so
-it stays linkable.
+**Correct:** `(#98) Fix BOM encoding corruption`
+**Incorrect:** `Fix BOM encoding corruption` (missing issue number)
+**Incorrect:** `(#98) fix BOM encoding corruption` (lowercase start)
 
 ## Summary
 
 <!-- Describe your changes -->
+
+## Changed Areas
+
+<!-- List the main files, packages, workflows, or docs changed. Use plain paths. -->
 
 ## Testing
 
