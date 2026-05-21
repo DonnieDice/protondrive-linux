@@ -441,6 +441,8 @@ jobs:
     name: Snap core26
     runs-on: ubuntu-24.04
     timeout-minutes: 120
+    # Canonical does not currently publish a Snapcraft rock for core26.
+    continue-on-error: true
     defaults:
       run:
         shell: bash

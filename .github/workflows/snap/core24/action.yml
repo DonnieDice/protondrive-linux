@@ -100,7 +100,7 @@ runs:
           exit 1
         fi
         mv "$SNAP_FILE" "proton-drive_${VERSION}_core24_amd64.snap"
-        rm -rf "$BUILD_CONTEXT"
+        sudo rm -rf "$BUILD_CONTEXT"
 
     - name: Upload Snap artifact
       uses: actions/upload-artifact@v4

@@ -22,7 +22,7 @@ index 246078bb..03a5d889 100644
 +                    if line.starts_with("DBUS_SESSION_BUS_ADDRESS=") {
 +                        let addr = line
 +                            .trim_start_matches("DBUS_SESSION_BUS_ADDRESS=")
-+                            .trim_matches(''')
++                            .trim_matches('\'')
 +                            .trim_end_matches(';');
 +                        std::env::set_var("DBUS_SESSION_BUS_ADDRESS", addr);
 +                    }

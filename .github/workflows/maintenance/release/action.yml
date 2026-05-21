@@ -173,6 +173,7 @@ runs:
         if_no_artifact_found: fail
 
     - name: Download Snap Core26 artifact
+      continue-on-error: true
       uses: dawidd6/action-download-artifact@v6
       with:
         workflow: package-workflows.yml
@@ -180,7 +181,7 @@ runs:
         path: artifacts/snap-core26
         commit: ${{ github.sha }}
         workflow_conclusion: success
-        if_no_artifact_found: fail
+        if_no_artifact_found: warn
 
     - name: Download APK Alpine 3.20 artifact
       uses: dawidd6/action-download-artifact@v6

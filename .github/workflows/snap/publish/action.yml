@@ -79,7 +79,7 @@ runs:
       env:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
       run: |
-        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:9_core26"
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
         echo "Attempting to register snap name 'proton-drive'..."
         docker run --rm \
           --entrypoint "" \
@@ -103,7 +103,7 @@ runs:
       env:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
       run: |
-        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:9_core26"
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
         SNAP_FILE="${{ steps.snap_file.outputs.snap_file }}"
         CHANNEL="${{ steps.channel.outputs.channel }}"
 
