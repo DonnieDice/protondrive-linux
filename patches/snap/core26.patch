@@ -1,35 +1,18 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..cf9dc506 100644
+index 246078bb..5135fdc7 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -214,9 +214,9 @@ fn main() {
-     .setup(|app| {
-         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
-         let worker_init = match option_env!("DISTRO_TYPE") {
--            Some("rpm") => {
-+            Some("rpm") | Some("snap") => {
-                 r#"
--        console.log('[INIT] RPM build - main-thread crypto active via source patch');
-+        console.log('[INIT] Snap/System package build - main-thread crypto active via source patch');
-         "#
-             }
-             _ => {
-diff --git a/packaging/snap/snapcraft.yaml b/packaging/snap/snapcraft.yaml
-index 3766be73..444f0427 100644
---- a/packaging/snap/snapcraft.yaml
-+++ b/packaging/snap/snapcraft.yaml
-@@ -30,13 +30,13 @@ apps:
-     environment:
-       LIBGL_ALWAYS_SOFTWARE: "1"
-       __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
-       WEBKIT_DISABLE_DMABUF_RENDERER: "1"
-       WEBKIT_DISABLE_COMPOSITING_MODE: "1"
-       WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS: "1"
-       JSC_useWasmIPInt: "false"
-       WEBKIT_NETWORK_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitNetworkProcess
-       WEBKIT_WEB_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitWebProcess
-       WEBKIT_GPU_PROCESS_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/WebKitGPUProcess
-       WEBKIT_INJECTED_BUNDLE_PATH: $SNAP/usr/lib/x86_64-linux-gnu/webkit2gtk-4.1/injected-bundle
--      GDK_GL: software
-+      GDK_GL: disable
-       GSK_RENDERER: cairo
+@@ -322,7 +322,10 @@ fn main() {
+ fn main() {
+-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
++    // WebKitGTK environment for Snap core26.
++    // Snap carries runtime libraries, but still needs sandbox and worker fixes.
+     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++    std::env::set_var("JSC_useWasmIPInt", "false");
+     std::env::set_var("GDK_GL", "disable");
++    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+     std::env::set_var("GSK_RENDERER", "cairo");
+     // Create shared client with cookie jar

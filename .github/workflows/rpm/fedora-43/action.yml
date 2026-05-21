@@ -1,0 +1,87 @@
+name: build-rpm-fedora-43
+description: Build the Fedora 43 RPM package.
+runs:
+  using: composite
+  steps:
+    - name: Install build dependencies
+      shell: bash
+      run: |
+        dnf --disablerepo='fedora-cisco-openh264' install -y \
+          bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
+          openssl-devel webkit2gtk4.1-devel gtk3-devel \
+          libappindicator-gtk3-devel librsvg2-devel libsoup3-devel \
+          patchelf rpm-build nodejs npm python3 findutils which
+
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install Rust
+      shell: bash
+      run: |
+        curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain "${RUST_VERSION}"
+        echo "$HOME/.cargo/bin" >> "$GITHUB_PATH"
+        . "$HOME/.cargo/env"
+        rustc --version
+        cargo --version
+
+    - name: Cache Cargo
+      uses: actions/cache@v4
+      with:
+        path: |
+          ~/.cargo/bin/
+          ~/.cargo/registry/index/
+          ~/.cargo/registry/cache/
+          ~/.cargo/git/db/
+          src-tauri/target/
+        key: rpm43-cargo-${{ hashFiles('src-tauri/Cargo.lock') }}
+        restore-keys: rpm43-cargo-
+
+    - name: Clone WebClients
+      shell: bash
+      run: |
+        git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+
+    - name: Apply distro patch
+      shell: bash
+      run: |
+        PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
+        if [ -f "$PATCH_FILE" ]; then
+          if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+            echo "Patch already applied: $PATCH_FILE"
+          else
+            git apply --check "$PATCH_FILE"
+            git apply "$PATCH_FILE"
+            echo "Applied $PATCH_FILE"
+          fi
+        else
+          echo "WARNING: $PATCH_FILE not found, building without distro patch"
+        fi
+
+    - name: Build RPM
+      shell: bash
+      run: |
+        . "$HOME/.cargo/env"
+        rm -rf src-tauri/target/release/bundle/rpm
+        scripts/build-webclients.sh
+        VERSION=$(node -p "require('./package.json').version")
+        sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+        sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+        npm install
+        npx tauri build --bundles rpm --verbose
+
+    - name: Normalize RPM filename
+      shell: bash
+      run: |
+        cd src-tauri/target/release/bundle/rpm
+        shopt -s nullglob
+        for file in Proton\ Drive*.rpm; do
+          mv "$file" "${file/Proton Drive/proton-drive}"
+        done
+
+    - name: Upload RPM artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpm-package-fedora43
+        path: src-tauri/target/release/bundle/rpm/*.rpm
+        if-no-files-found: error
+        retention-days: 30

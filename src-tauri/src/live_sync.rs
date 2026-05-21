@@ -1,4 +1,4 @@
-﻿use base64::Engine as _;
+use base64::Engine as _;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;

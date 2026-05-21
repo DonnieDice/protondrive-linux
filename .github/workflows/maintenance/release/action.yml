@@ -1,0 +1,402 @@
+name: release
+description: Create a GitHub release after package builds complete.
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Get version
+      shell: bash
+      id: version
+      run: |
+        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+          TAG="${{ github.event.inputs.tag }}"
+        elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          TAG="${GITHUB_REF#refs/tags/}"
+        else
+          TAG="v$(node -p "require('./package.json').version")"
+        fi
+        echo "prerelease=false" >> "$GITHUB_OUTPUT"
+        echo "version=${TAG}" >> "$GITHUB_OUTPUT"
+        echo "Version: ${TAG}"
+
+    - name: Create and push tag if needed
+      shell: bash
+      run: |
+        TAG="${{ steps.version.outputs.version }}"
+        if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
+          echo "Tag ${TAG} already exists on remote, skipping creation"
+        else
+          echo "Creating tag ${TAG}..."
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git tag -a "${TAG}" -m "Release ${TAG}"
+          git push origin "${TAG}"
+          echo "Tag ${TAG} created and pushed"
+        fi
+
+    - name: Wait for all builds to complete
+      shell: bash
+      run: echo "Build jobs are coordinated by package-workflows.yml"
+
+    - name: Download AppImage artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: appimage-linux-baseline
+        path: artifacts/appimage
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download Flatpak artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: flatpak-package
+        path: artifacts/flatpak
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download Flatpak GNOME 49 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: flatpak-package-gnome49
+        path: artifacts/flatpak-gnome49
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download Snap artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: snap-package
+        path: artifacts/snap
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download AUR artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: aur-arch-native
+        path: artifacts/aur
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Debian 12 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: deb-package-debian12
+        path: artifacts/deb-debian12
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM Fedora 43 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: rpm-package-fedora43
+        path: artifacts/rpm-fedora43
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM Fedora 44 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: rpm-package-fedora44
+        path: artifacts/rpm-fedora44
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Debian 13 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: deb-package-debian13
+        path: artifacts/deb-debian13
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Ubuntu 24.04 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: deb-package-ubuntu2404
+        path: artifacts/deb-ubuntu2404
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download DEB Ubuntu 26.04 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: deb-package-ubuntu2604
+        path: artifacts/deb-ubuntu2604
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM EL10 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: rpm-package-el10
+        path: artifacts/rpm-el10
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download RPM openSUSE Tumbleweed artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: rpm-package-opensuse-tumbleweed
+        path: artifacts/rpm-opensuse-tumbleweed
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download Snap Core26 artifact
+      continue-on-error: true
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: snap-package-core26
+        path: artifacts/snap-core26
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: warn
+
+    - name: Download APK Alpine 3.20 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: apk-package-alpine320
+        path: artifacts/apk-alpine320
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download APK Alpine 3.22 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: apk-package-alpine322
+        path: artifacts/apk-alpine322
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Download APK Alpine 3.23 artifact
+      uses: dawidd6/action-download-artifact@v6
+      with:
+        workflow: package-workflows.yml
+        name: apk-package-alpine323
+        path: artifacts/apk-alpine323
+        commit: ${{ github.sha }}
+        workflow_conclusion: success
+        if_no_artifact_found: fail
+
+    - name: Prepare release files
+      shell: bash
+      run: |
+        VERSION=$(node -p "require('./package.json').version")
+        mkdir -p release
+        find artifacts/ -type f \( -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" -o -name "*.apk.tar.gz" \) -print0 | while IFS= read -r -d '' src; do
+          rel="${src#artifacts/}"
+          name="$(basename "$src")"
+          case "$name" in
+            proton-drive*_${VERSION}_*|proton-drive*_${VERSION}.*|proton-drive*-${VERSION}-*|protondrive-linux*_${VERSION}_*|protondrive-linux*_${VERSION}.*|protondrive-linux*-${VERSION}-*)
+              ;;
+            *)
+              echo "Skipping stale artifact: $name"
+              continue
+              ;;
+          esac
+          case "$rel" in
+            rpm-fedora43/*)
+              dest="release/${name%.rpm}-fedora43.rpm"
+              ;;
+            rpm-fedora44/*)
+              dest="release/${name%.rpm}-fedora44.rpm"
+              ;;
+            rpm-el10/*)
+              dest="release/${name%.rpm}-el10.rpm"
+              ;;
+            rpm-opensuse-tumbleweed/*)
+              dest="release/${name%.rpm}-opensuse-tumbleweed.rpm"
+              ;;
+            apk-alpine320/*)
+              dest="release/${name}"
+              ;;
+            apk-alpine322/*)
+              dest="release/${name}"
+              ;;
+            apk-alpine323/*)
+              dest="release/${name}"
+              ;;
+            *)
+              dest="release/${name}"
+              ;;
+          esac
+          cp "$src" "$dest"
+        done
+        cd release
+        sha256sum * > SHA256SUMS
+        echo "Release artifacts:"
+        ls -lah
+        cd ..
+
+    - name: Create release notes
+      shell: bash
+      run: |
+        RELEASE_DATE=$(date -u +'%Y-%m-%d')
+        VERSION=${{ steps.version.outputs.version }}
+
+        {
+          echo "# Proton Drive Linux ${VERSION}"
+          echo ""
+          echo "**Release Date:** ${RELEASE_DATE}"
+          echo ""
+          echo "An unofficial Linux desktop client for Proton Drive, built with Tauri."
+          echo ""
+          echo "## Downloads"
+          echo ""
+          echo "| Format | File | Description |"
+          echo "|--------|------|-------------|"
+          echo "| AppImage | proton-drive_*.AppImage | Universal Linux (portable, glibc 2.35+) |"
+          echo "| Flatpak (GNOME 50) | proton-drive_*_gnome50.flatpak | Flatpak sandbox (org.gnome.Platform//50), also on Flathub |"
+          echo "| Flatpak (GNOME 49) | proton-drive_*_gnome49.flatpak | Flatpak sandbox (org.gnome.Platform//49), also on Flathub |"
+          echo "| Snap (core24) | \`protondrive-linux_*_core24_amd64.snap\` | Snap package (core24 runtime) — **not on Snap Store yet, see #83** |"
+          echo "| Snap (core26) | \`protondrive-linux_*_core26_amd64.snap\` | Snap package (core26 runtime) — **not on Snap Store yet, see #83** |"
+          echo "| AUR | \`proton-drive-*.pkg.tar.zst\` | Arch Linux / Manjaro / EndeavourOS / Garuda |"
+          echo "| DEB (Ubuntu 24.04) | \`proton-drive_*_ubuntu24.04_amd64.deb\` | Ubuntu 24.04 LTS (Noble) |"
+          echo "| DEB (Ubuntu 26.04) | \`proton-drive_*_ubuntu26.04_amd64.deb\` | Ubuntu 26.04 LTS |"
+          echo "| DEB (Debian 12) | \`proton-drive_*_debian12_amd64.deb\` | Debian 12 (Bookworm) |"
+          echo "| DEB (Debian 13) | \`proton-drive_*_debian13_amd64.deb\` | Debian 13 (Trixie) |"
+          echo "| RPM (Fedora 43) | \`proton-drive-*-fedora43.rpm\` | Fedora 43+ |"
+          echo "| RPM (Fedora 44) | \`proton-drive-*-fedora44.rpm\` | Fedora 44+ |"
+          echo "| RPM (EL10) | \`proton-drive-*-el10.rpm\` | RHEL 10 / Alma 10 / CentOS Stream 10 |"
+          echo "| RPM (openSUSE Tumbleweed) | \`proton-drive-*-opensuse-tumbleweed.rpm\` | openSUSE Tumbleweed (rolling) |"
+          echo "| APK (Alpine 3.20) | \`proton-drive_*_alpine320_amd64.apk.tar.gz\` | Alpine 3.20 (musl) |"
+          echo "| APK (Alpine 3.22) | \`proton-drive_*_alpine322_amd64.apk.tar.gz\` | Alpine 3.22 (musl) |"
+          echo "| APK (Alpine 3.23) | \`proton-drive_*_alpine323_amd64.apk.tar.gz\` | Alpine 3.23 (musl) |"
+          echo ""
+          echo "## Installation"
+          echo ""
+          echo "### AppImage (Portable)"
+          echo "\`\`\`bash"
+          echo "chmod +x proton-drive_*.AppImage"
+          echo "./proton-drive_*.AppImage"
+          echo "\`\`\`"
+          echo ""
+          echo "### Flatpak"
+          echo "\`\`\`bash"
+          echo "flatpak install flathub com.proton.drive"
+          echo "\`\`\`"
+          echo ""
+          echo "Or install the standalone bundle:"
+          echo "\`\`\`bash"
+          echo "flatpak install proton-drive_*.flatpak"
+          echo "\`\`\`"
+          echo ""
+          echo "### Snap"
+          echo "**Not available on the Snap Store yet** — see issue #83. Install the standalone snap:"
+          echo "\`\`\`bash"
+          echo "sudo snap install --dangerous protondrive-linux_*.snap"
+          echo "\`\`\`"
+          echo ""
+          echo "### Arch Linux (AUR)"
+          echo "\`\`\`bash"
+          echo "sudo pacman -U proton-drive-*.pkg.tar.zst"
+          echo "\`\`\`"
+          echo ""
+          echo "### Debian/Ubuntu"
+          echo "\`\`\`bash"
+          echo "sudo apt install ./proton-drive_*.deb"
+          echo "\`\`\`"
+          echo ""
+          echo "### Fedora/RHEL"
+          echo "\`\`\`bash"
+          echo "sudo dnf install ./proton-drive-*.rpm"
+          echo "\`\`\`"
+          echo ""
+          echo "### openSUSE Tumbleweed"
+          echo "\`\`\`bash"
+          echo "sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm"
+          echo "\`\`\`"
+          echo ""
+          echo "### Alpine 3.20"
+          echo "\`\`\`bash"
+          echo "sudo apk add ./proton-drive_*_alpine320_amd64.apk.tar.gz"
+          echo "\`\`\`"
+          echo ""
+          echo "### Alpine 3.22"
+          echo "\`\`\`bash"
+          echo "sudo apk add ./proton-drive_*_alpine322_amd64.apk.tar.gz"
+          echo "\`\`\`"
+          echo ""
+          echo "### Alpine 3.23"
+          echo "\`\`\`bash"
+          echo "sudo apk add ./proton-drive_*_alpine323_amd64.apk.tar.gz"
+          echo "\`\`\`"
+          echo ""
+          echo "## Checksums"
+          echo ""
+          echo "All files have SHA256 checksums available in \`SHA256SUMS\`."
+          echo ""
+          echo "## System Requirements"
+          echo ""
+          echo "- Linux x86_64"
+          echo "- GTK 3.0+ and WebKitGTK"
+          echo "- ~200MB disk space"
+          echo ""
+          echo "## Issues"
+          echo ""
+          echo "Report issues at https://github.com/${{ github.repository }}/issues"
+        } > RELEASE_NOTES.md
+
+    - name: Delete stale release assets
+      shell: bash
+      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      run: |
+        TAG="${{ steps.version.outputs.version }}"
+        EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
+        if [ -n "$EXISTING" ]; then
+          echo "Cleaning existing assets before upload..."
+          echo "$EXISTING" | while read -r name; do
+            [ -z "$name" ] && continue
+            echo "  Deleting $name"
+            gh release delete-asset "$TAG" "$name" --yes || true
+          done
+        fi
+                env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Create GitHub Release
+      uses: softprops/action-gh-release@v1
+      with:
+        tag_name: ${{ steps.version.outputs.version }}
+        body_path: RELEASE_NOTES.md
+        files: release/*
+        draft: false
+        prerelease: ${{ steps.version.outputs.prerelease == 'true' }}
+        generate_release_notes: false
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}

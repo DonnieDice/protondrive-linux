@@ -1,0 +1,121 @@
+name: generate-package-specs-generate-rpm-spec
+description: Extracted implementation for generate-package-specs.yml (generate-rpm-spec)
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get version
+      shell: bash
+      id: tag
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION=$(node -p "require('./package.json').version")
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: Create .copr/Makefile
+      shell: bash
+      run: |
+        mkdir -p .copr
+        cat > .copr/Makefile << 'EOF'
+        .PHONY: srpm
+        srpm:
+          fedpkg --release f40 srpm
+        EOF
+
+    - name: Create spec file
+      shell: bash
+      run: |
+        cat > proton-drive.spec << 'EOF'
+        Name:           proton-drive
+        Version:        ${{ steps.tag.outputs.version }}
+        Release:        1%{?dist}
+        Summary:        Proton Drive Linux Desktop Client
+        License:        AGPL-3.0
+
+        URL:            https://github.com/${{ github.repository }}
+        Source0:        https://github.com/${{ github.repository }}/archive/refs/tags/v%{version}.tar.gz
+
+        BuildRequires:  rustc
+        BuildRequires:  cargo
+        BuildRequires:  gcc
+        BuildRequires:  make
+        BuildRequires:  pkgconfig(gtk+-3.0)
+        BuildRequires:  webkit2gtk4.1-devel
+        BuildRequires:  libayatana-appindicator-devel
+        BuildRequires:  openssl-devel
+        BuildRequires:  nodejs
+        BuildRequires:  npm
+        BuildRequires:  python3
+
+        Requires:       gtk3
+        Requires:       webkit2gtk4.1
+        Requires:       libayatana-appindicator
+        Requires:       openssl-libs
+
+        %description
+        Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+        Built with Tauri and Rust for a native-performance experience.
+
+        %prep
+        %autosetup -n protondrive-linux-%{version}
+
+        %build
+        # Clone and build WebClients
+        git clone --depth=1 --single-branch --branch main \
+          https://github.com/ProtonMail/WebClients.git WebClients
+
+        scripts/build-webclients.sh
+
+        npm install
+        cd src-tauri && cargo build --release && cd ..
+
+        %install
+        install -Dm755 src-tauri/target/release/proton-drive \
+          %{buildroot}%{_bindir}/proton-drive
+
+        install -Dm644 src-tauri/icons/32x32.png \
+          %{buildroot}%{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+        install -Dm644 src-tauri/icons/128x128.png \
+          %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+        install -Dm644 src-tauri/icons/128x128@2x.png \
+          %{buildroot}%{_datadir}/icons/hicolor/256x256/apps/com.proton.drive.png
+        install -Dm644 src-tauri/icons/proton-drive.svg \
+          %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+
+        install -Dm644 <(cat << 'DESKTOP'
+        [Desktop Entry]
+        Version=1.0
+        Type=Application
+        Name=Proton Drive
+        Comment=Encrypted cloud storage
+        Exec=proton-drive
+        Icon=com.proton.drive
+        Categories=Utility;Network;
+        DESKTOP
+        ) %{buildroot}%{_datadir}/applications/com.proton.drive.desktop
+
+        %files
+        %license LICENSE
+        %{_bindir}/proton-drive
+        %{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+        %{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+        %{_datadir}/icons/hicolor/256x256/apps/com.proton.drive.png
+        %{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+        %{_datadir}/applications/com.proton.drive.desktop
+
+        %changelog
+        * $(date +%a\ %b\ %d\ %Y) Build System <build@proton.drive> - %{version}-1
+        - Build from ${{ github.ref }}
+        EOF
+
+    - name: Upload spec file artifact
+      uses: actions/upload-artifact@v4
+      with:
+        name: rpm-spec
+        path: proton-drive.spec
+        retention-days: 90

@@ -71,18 +71,21 @@ repos, and the compatibility map can lag behind reality.
     reclassify it: update the status, gates, and reason fields, and add it to
     the appropriate section (`roadmap_patch_ready` or the release-gated
     section).
-  - Set `workflow` to the workflow path (or `null` if no workflow yet).
+  - Set `workflow` to the package implementation path under
+    `.github/workflows/<package>/<target>` (or `null` if no implementation
+    exists yet).
   - Set `build_container` to the correct container image.
   - Set `release_label`, `artifact_name`, and `patch` to match the naming
     convention.
   - List supported distro versions under `supports`.
   - List remaining requirements under `before_release_gate`.
 
-## Step 3: Create the GitHub Actions Workflow
+## Step 3: Create the GitHub Actions Implementation
 
-- [ ] Create `.github/workflows/build-<package>.<target>.yml`.
-  - Use an existing workflow as a template (e.g., `build-deb.yml`,
-    `build-rpm.opensuse.tumbleweed.yml`).
+- [ ] Create `.github/workflows/<package>/<target>/action.yml`.
+  - Use an existing implementation as a template (e.g.,
+    `.github/workflows/deb/debian-12/action.yml`,
+    `.github/workflows/rpm/opensuse-tumbleweed/action.yml`).
   - Set the container image to match the target distro.
   - Install all build dependencies in the container (compiler, WebKitGTK dev
     packages, GTK dev packages, Node.js, etc.).
@@ -93,8 +96,14 @@ repos, and the compatibility map can lag behind reality.
   - Normalize the artifact filename with the target label.
   - Upload the artifact with a unique name.
 
-- [ ] Verify the workflow triggers on `push` to `main`, `alpha`, tags,
-  and `workflow_dispatch`.
+- [ ] Add a matching job to `.github/workflows/package-workflows.yml`.
+  - Set the job `name` to the exact target, not a generic package family.
+  - Set the job `uses` path to the new implementation folder.
+  - Set any target env values, container image, secrets, and dependencies in
+    the entrypoint job.
+
+- [ ] Verify the entrypoint triggers the job on `push` to `main`, `alpha`,
+  package branches, tags, pull requests, and `workflow_dispatch`.
 
 ## Step 4: Create the Local CI Build Script
 
@@ -105,10 +114,10 @@ repos, and the compatibility map can lag behind reality.
     copy the artifact to an output directory.
   - Make it executable: `chmod +x scripts/ci/build-<target>-<package>.sh`.
 
-## Step 5: Integrate with the Release Workflow
+## Step 5: Integrate with Release
 
-- [ ] Add the new workflow name to `expectedWorkflows` in
-  `.github/workflows/release.yml`.
+- [ ] Add the new job to the release gate in
+  `.github/workflows/package-workflows.yml`.
 - [ ] Add an artifact download step for the new target.
 - [ ] Add the new file extension to the `find` command in "Prepare release
   files".
@@ -129,13 +138,13 @@ repos, and the compatibility map can lag behind reality.
   - Add the patch to the roadmap patch-ready table (or move it to
     release-gated if fully promoted).
 - [ ] Update `docs/release-checklist.md`:
-  - Add the new workflow to the "All builds are green" checklist.
+  - Add the new package target to the "All builds are green" checklist.
 
 ## Step 7: Push and Validate
 
 - [ ] Commit all changes on a feature branch.
 - [ ] Push the feature branch to remote.
-- [ ] Confirm the new GitHub Actions workflow triggers and passes.
+- [ ] Confirm the new GitHub Actions job triggers and passes.
 - [ ] Download the workflow artifact.
 - [ ] Install and test the artifact on the target host (runtime smoke test).
   - The app must launch and display the Proton Drive login page.

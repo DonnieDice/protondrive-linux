@@ -1,16 +1,18 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..cf9dc506 100644
+index 246078bb..68f0fc87 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -214,9 +214,9 @@ fn main() {
-     .setup(|app| {
-         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
-         let worker_init = match option_env!("DISTRO_TYPE") {
--            Some("rpm") => {
-+            Some("rpm") | Some("snap") => {
-                 r#"
--        console.log('[INIT] RPM build - main-thread crypto active via source patch');
-+        console.log('[INIT] Snap/System package build - main-thread crypto active via source patch');
-         "#
-             }
-             _ => {
+@@ -322,7 +322,10 @@ fn main() {
+ fn main() {
+-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
++    // WebKitGTK environment for Snap core24.
++    // Snap carries runtime libraries, but still needs sandbox and worker fixes.
+     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
++    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
++    std::env::set_var("JSC_useWasmIPInt", "false");
+     std::env::set_var("GDK_GL", "disable");
++    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
+     std::env::set_var("GSK_RENDERER", "cairo");
+     // Create shared client with cookie jar

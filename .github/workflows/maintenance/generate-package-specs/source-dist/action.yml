@@ -1,0 +1,42 @@
+name: generate-package-specs-create-source-dist
+description: Extracted implementation for generate-package-specs.yml (create-source-dist)
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get version
+      shell: bash
+      id: tag
+      run: |
+        if [[ "$GITHUB_REF" == refs/tags/* ]]; then
+          VERSION=${GITHUB_REF#refs/tags/v}
+        else
+          VERSION=$(node -p "require('./package.json').version")
+        fi
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: Create source tarball
+      shell: bash
+      run: |
+        # Create tarball from git archive (cleaner and avoids copy issues)
+        git archive --format=tar.gz \
+          --prefix=proton-drive-${{ steps.tag.outputs.version }}/ \
+          -o proton-drive-${{ steps.tag.outputs.version }}.tar.gz \
+          HEAD
+
+    - name: Generate checksums
+      shell: bash
+      run: |
+        sha256sum proton-drive-${{ steps.tag.outputs.version }}.tar.gz > \
+          proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
+
+    - name: Upload source distribution
+      uses: actions/upload-artifact@v4
+      with:
+        name: source-distribution
+        path: |
+          proton-drive-${{ steps.tag.outputs.version }}.tar.gz
+          proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
+        retention-days: 90

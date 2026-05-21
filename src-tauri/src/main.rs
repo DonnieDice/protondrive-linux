@@ -1,4 +1,4 @@
-﻿#![cfg_attr(
+#![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
@@ -347,9 +347,9 @@ fn main() {
             // Use DISTRO_TYPE env var at build time to determine Worker handling
             //
             // Distro Support Matrix:
-            // - appimage: Bundled WebKitGTK ΓåÆ Workers work ΓåÆ Use native
-            // - rpm/deb:  System WebKitGTK ΓåÆ "operation is insecure" ΓåÆ Override
-            // - flatpak/snap: Sandboxed ΓåÆ Override as safe default
+            // - appimage: Bundled WebKitGTK → Workers work → Use native
+            // - rpm/deb:  System WebKitGTK → "operation is insecure" → Override
+            // - flatpak/snap: Sandboxed → Override as safe default
 
             let worker_init = match option_env!("DISTRO_TYPE") {
                 Some("appimage") | Some("aur") => {

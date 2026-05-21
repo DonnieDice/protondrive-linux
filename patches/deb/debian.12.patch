@@ -1,34 +1,20 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 51d68ebd..971660dc 100644
+index 246078bb..0afdf5a1 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -194,9 +194,14 @@ async fn proxy_request(
+@@ -320,11 +320,13 @@ fn sanitize_url_for_log(url: &str) -> String {
  }
  
  fn main() {
--    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
--    // They are distro-specific and belong in patches/<package>/<distro>.patch
--    // and the package's AppRun/wrapper script. The base binary ships clean.
-+    // WebKitGTK environment for Debian — full software fallback.
-+    // Debian 12 ships WebKitGTK 2.40 with older Mesa; GDK_GL=disable is safe here.
-+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
++    // WebKitGTK environment for Debian 12: full software fallback.
++    // Debian 12 ships older WebKitGTK and Mesa; GDK_GL=disable is safe here.
+     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+     std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
 +    std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
-+    std::env::set_var("GDK_GL", "disable");
+     std::env::set_var("GDK_GL", "disable");
 +    std::env::set_var("LIBGL_ALWAYS_SOFTWARE", "1");
-+    std::env::set_var("GSK_RENDERER", "cairo");
+     std::env::set_var("GSK_RENDERER", "cairo");
  
      // Create shared client with cookie jar
-     let state = Arc::new(AppState {
-@@ -214,9 +219,9 @@ fn main() {
-     .setup(|app| {
-         // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
-         let worker_init = match option_env!("DISTRO_TYPE") {
--            Some("rpm") => {
-+            Some("deb") => {
-                 r#"
--        console.log('[INIT] RPM build - main-thread crypto active via source patch');
-+        console.log('[INIT] DEB build - main-thread crypto active via source patch');
-         "#
-             }
-             _ => {
