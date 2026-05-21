@@ -1,0 +1,594 @@
+name: Package Workflows
+
+on:
+  push:
+    branches:
+      - "main"
+      - "alpha"
+      - "feature/**"
+      - "fix/**"
+      - "chore/**"
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+  pull_request_target:
+    types: [opened]
+  issues:
+    types: [opened]
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      workflow:
+        description: Workflow implementation to run, or all
+        required: false
+        default: all
+      distro_patch:
+        description: Optional distro patch override
+        required: false
+      appimage_target:
+        description: AppImage target
+        required: false
+        default: linux-baseline
+      tag:
+        description: Release tag, for release workflow
+        required: false
+      version:
+        description: Version to publish
+        required: false
+      snap_base:
+        description: Snap base to publish
+        required: false
+        default: core24
+      channel:
+        description: Store channel
+        required: false
+        default: stable
+
+permissions:
+  contents: write
+  packages: write
+  issues: write
+  pull-requests: write
+
+jobs:
+  build_apk_alpine_3_20:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-20'))
+    name: Alpine 3.20 APK
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.20
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: /bin/sh -e {0}
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: apk
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.20' }}
+      DISTRO_SUFFIX: alpine320
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/apk/alpine-3.20
+
+  build_apk_alpine_3_22:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-22'))
+    name: Alpine 3.22 APK
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.22
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: /bin/sh -e {0}
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: apk
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.22' }}
+      DISTRO_SUFFIX: alpine322
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/apk/alpine-3.22
+
+  build_apk_alpine_3_23:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-23'))
+    name: Alpine 3.23 APK
+    runs-on: ubuntu-latest
+    container:
+      image: alpine:3.23
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: /bin/sh -e {0}
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: apk
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.23' }}
+      DISTRO_SUFFIX: alpine323
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/apk/alpine-3.23
+
+  build_appimage:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-appimage'))
+    name: AppImage ${{ github.event.inputs.appimage_target || 'linux-baseline' }}
+    runs-on: ubuntu-latest
+    container:
+      image: debian:12
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: appimage
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/appimage/linux-baseline
+
+  build_aur:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-aur'))
+    name: AUR Arch Native
+    runs-on: ubuntu-latest
+    container:
+      image: archlinux:base-devel
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      WEBCLIENTS_REF: main
+      WEBCLIENTS_COMMIT: bbad1a0a482227b93a2e963a232463aede9b8abf
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/aur/arch-native
+
+  build_deb_debian_12:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-12'))
+    name: Debian 12 DEB
+    runs-on: ubuntu-latest
+    container:
+      image: debian:12
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: deb
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'debian.12' }}
+      DISTRO_SUFFIX: debian12
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/deb/debian-12
+
+  build_deb_debian_13:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-13'))
+    name: Debian 13 DEB
+    runs-on: ubuntu-latest
+    container:
+      image: debian:13
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: deb
+      DISTRO_SUFFIX: debian13
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/deb/debian-13
+
+  build_deb_ubuntu_24_04:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-24-04'))
+    name: Ubuntu 24.04 DEB
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: deb
+      DISTRO_SUFFIX: ubuntu24.04
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/deb/ubuntu-24.04
+
+  build_deb_ubuntu_26_04:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-26-04'))
+    name: Ubuntu 26.04 DEB
+    runs-on: ubuntu-latest
+    container:
+      image: ubuntu:26.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: deb
+      DISTRO_SUFFIX: ubuntu26.04
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/deb/ubuntu-26.04
+
+  build_flatpak_gnome_50:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-50'))
+    name: Flatpak GNOME 50
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: flatpak
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/flatpak/gnome-50
+
+  build_flatpak_gnome_49:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-49'))
+    name: Flatpak GNOME 49 Package
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: flatpak
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/flatpak/gnome-49
+
+  build_rpm_el10:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-el10'))
+    name: EL10 RPM
+    runs-on: ubuntu-latest
+    container:
+      image: quay.io/centos/centos:stream10
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: rpm
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/rpm/el10
+
+  build_rpm_fedora_43:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-43'))
+    name: Fedora 43 RPM
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:43
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: rpm
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'fedora.43' }}
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/rpm/fedora-43
+
+  build_rpm_fedora_44:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-44'))
+    name: Fedora 44 RPM
+    runs-on: ubuntu-latest
+    container:
+      image: fedora:44
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: rpm
+      DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'fedora.44' }}
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/rpm/fedora-44
+
+  build_rpm_opensuse_tumbleweed:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-opensuse-tumbleweed'))
+    name: openSUSE Tumbleweed RPM
+    runs-on: ubuntu-latest
+    container:
+      image: opensuse/tumbleweed:latest
+      options: --user root
+      env:
+        PATH: /usr/local/bin:/usr/bin:/bin
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: /bin/bash -e -o pipefail {0}
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: rpm
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/rpm/opensuse-tumbleweed
+
+  build_snap_core24:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core24'))
+    name: Snap core24
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: snap
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/snap/core24
+
+  build_snap_core26:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core26'))
+    name: Snap core26
+    runs-on: ubuntu-24.04
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+
+    env:
+      RUST_VERSION: stable
+      DISTRO_TYPE: snap
+      WEBCLIENTS_REF: main
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/snap/core26
+
+  generate_package_specs_generate_aur_pkgbuild:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/generate-package-specs/aur-pkgbuild
+
+  generate_package_specs_generate_rpm_spec:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-rpm-spec'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/generate-package-specs/rpm-spec
+
+  generate_package_specs_create_source_dist:
+    if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-create-source-dist'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/generate-package-specs/source-dist
+
+  issue_auto_label:
+    if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label'))
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/issue-auto-label
+
+  pr_auto_label:
+    if: github.event_name == 'pull_request_target' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label'))
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/pr-auto-label
+
+  publish_aur:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'publish-aur'))
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+  
+    env:
+      AUR_SSH_PRIVATE_KEY: ${{ secrets.AUR_SSH_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/aur/publish
+
+  publish_flatpak:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'publish-flatpak'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+    env:
+      FLATHUB_SSH_PRIVATE_KEY: ${{ secrets.FLATHUB_SSH_PRIVATE_KEY }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/flatpak/publish
+
+  publish_snap:
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'publish-snap'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+
+  
+    env:
+      SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/snap/publish
+
+  release:
+    needs:
+      - build_appimage
+      - build_flatpak_gnome_50
+      - build_flatpak_gnome_49
+      - build_snap_core24
+      - build_snap_core26
+      - build_aur
+      - build_deb_debian_12
+      - build_deb_debian_13
+      - build_deb_ubuntu_24_04
+      - build_deb_ubuntu_26_04
+      - build_rpm_fedora_43
+      - build_rpm_fedora_44
+      - build_rpm_el10
+      - build_rpm_opensuse_tumbleweed
+      - build_apk_alpine_3_20
+      - build_apk_alpine_3_22
+      - build_apk_alpine_3_23
+    if: always() && ((github.event_name == 'push' && (github.ref == 'refs/heads/main' || startsWith(github.ref, 'refs/tags/v'))) || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release')))
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+  
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Run workflow implementation
+        uses: ./.github/workflows/maintenance/release

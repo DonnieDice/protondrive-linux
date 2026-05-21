@@ -1,0 +1,192 @@
+name: publish-flatpak
+description: Publish the Flatpak package to Flathub.
+runs:
+  using: composite
+  steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Get version
+      shell: bash
+      id: version
+      run: |
+        if [ -n "${{ github.event.inputs.version }}" ]; then
+          VERSION="${{ github.event.inputs.version }}"
+        else
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"
+        fi
+        echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+        echo "Publishing version: ${VERSION}"
+
+    - name: Determine runtime
+      shell: bash
+      id: runtime
+      run: |
+        RUNTIME="${{ github.event.inputs.runtime || '50' }}"
+        echo "runtime=${RUNTIME}" >> "$GITHUB_OUTPUT"
+        echo "GNOME runtime: ${RUNTIME}"
+
+    - name: Resolve WebClients commit
+      shell: bash
+      id: webclients
+      run: |
+        WEBCLIENTS_REF="main"
+        COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+          "https://api.github.com/repos/ProtonMail/WebClients/commits/${WEBCLIENTS_REF}" \
+          | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+        echo "commit=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+        echo "WebClients commit: ${COMMIT_SHA}"
+
+    - name: Get source commit SHA
+      shell: bash
+      id: source
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        COMMIT_SHA=$(git ls-remote https://github.com/${{ github.repository }}.git "refs/tags/v${VERSION}" | cut -f1)
+        if [ -z "$COMMIT_SHA" ]; then
+          echo "ERROR: Tag v${VERSION} not found in remote"
+          exit 1
+        fi
+        echo "commit=${COMMIT_SHA}" >> "$GITHUB_OUTPUT"
+        echo "Source commit: ${COMMIT_SHA}"
+
+    - name: Calculate WebClients tarball checksum
+      shell: bash
+      id: webclients_sha
+      run: |
+        WEBCCLIENTS_COMMIT="${{ steps.webclients.outputs.commit }}"
+        curl -sL "https://github.com/ProtonMail/WebClients/archive/${WEBCCLIENTS_COMMIT}.tar.gz" -o webclients.tar.gz
+        WEBCCLIENTS_SHA256=$(sha256sum webclients.tar.gz | cut -d' ' -f1)
+        echo "sha256=${WEBCCLIENTS_SHA256}" >> "$GITHUB_OUTPUT"
+        echo "WebClients SHA256: ${WEBCCLIENTS_SHA256}"
+        rm webclients.tar.gz
+
+    - name: Setup SSH Keys for Flathub
+      uses: webfactory/ssh-agent@v0.9.0
+      with:
+        ssh-private-key: ${{ env.FLATHUB_SSH_PRIVATE_KEY }}
+
+    - name: Setup Known Hosts
+      shell: bash
+      run: |
+        mkdir -p ~/.ssh
+        ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+    - name: Clone Flathub repo
+      shell: bash
+      run: |
+        git clone git@github.com:flathub/com.proton.drive.git flathub-repo || \
+          { echo "ERROR: Flathub repo flathub/com.proton.drive not found."; \
+            echo "Initial Flathub submission is required first via PR to flathub/flathub."; \
+            echo "See https://docs.flathub.org/docs/for-app-authors/submission"; \
+            exit 1; }
+
+        cd flathub-repo
+        git config user.name "DonnieDice"
+        git config user.email "donniedice@proton.me"
+
+    - name: Update Flathub manifest
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        RUNTIME="${{ steps.runtime.outputs.runtime }}"
+        SOURCE_COMMIT="${{ steps.source.outputs.commit }}"
+        WEBCCLIENTS_SHA256="${{ steps.webclients_sha.outputs.sha256 }}"
+        WEBCCLIENTS_COMMIT="${{ steps.webclients.outputs.commit }}"
+
+        cd flathub-repo
+
+        cat > com.proton.drive.yml << YAMLEOF
+          app-id: com.proton.drive
+          runtime: org.gnome.Platform
+          runtime-version: "${RUNTIME}"
+          sdk: org.gnome.Sdk
+          sdk-extensions:
+            - org.freedesktop.Sdk.Extension.node22
+            - org.freedesktop.Sdk.Extension.rust-stable
+          command: proton-drive
+          finish-args:
+            - --share=network
+            - --share=ipc
+            - --socket=fallback-x11
+            - --socket=wayland
+            - --socket=pulseaudio
+            - --device=dri
+            - --filesystem=xdg-download
+            - --filesystem=xdg-documents
+            - --talk-name=org.freedesktop.secrets
+            - --talk-name=org.freedesktop.Notifications
+          modules:
+            - name: proton-drive
+              buildsystem: simple
+              sources:
+                - type: git
+                  url: https://github.com/DonnieDice/protondrive-linux.git
+                  tag: v${VERSION}
+                  commit: ${SOURCE_COMMIT}
+                - type: archive
+                  url: https://github.com/ProtonMail/WebClients/archive/${WEBCCLIENTS_COMMIT}.tar.gz
+                  sha256: ${WEBCCLIENTS_SHA256}
+                  dest: WebClients
+              build-commands:
+                - . /usr/lib/sdk/node22/enable.sh
+                - . /usr/lib/sdk/rust-stable/enable.sh
+                - rm -rf WebClients && ln -sf "WebClients-${WEBCCLIENTS_COMMIT}" WebClients
+                - ./scripts/build-webclients.sh
+                - npm install
+                - cd src-tauri && cargo build --release && cd ..
+                - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
+                - |
+                  cat > /app/bin/proton-drive << 'WEOF'
+                  #!/bin/bash
+                  export WEBKIT_DISABLE_DMABUF_RENDERER=1
+                  export WEBKIT_DISABLE_COMPOSITING_MODE=1
+                  export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+                  export GDK_GL=disable
+                  exec /app/bin/proton-drive-bin "\$@"
+                  WEOF
+                  chmod +x /app/bin/proton-drive
+                - install -Dm644 src-tauri/linux/proton-drive.desktop /app/share/applications/com.proton.drive.desktop
+                - sed -i 's/Icon=proton-drive/Icon=com.proton.drive/' /app/share/applications/com.proton.drive.desktop
+                - install -Dm644 packaging/com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+                - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+                - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+        YAMLEOF
+
+        echo "Updated manifest:"
+        cat com.proton.drive.yml
+
+    - name: Update metainfo release
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        RELEASE_DATE=$(date -u +'%Y-%m-%d')
+
+        cd flathub-repo
+
+        if [ -f com.proton.drive.metainfo.xml ]; then
+          if grep -q "version=\"${VERSION}\"" com.proton.drive.metainfo.xml; then
+            echo "Release ${VERSION} already in metainfo, skipping"
+          else
+            sed -i "/<releases>/a\\  <release version=\"${VERSION}\" date=\"${RELEASE_DATE}\" />" com.proton.drive.metainfo.xml
+          fi
+        else
+          cp ../packaging/com.proton.drive.metainfo.xml .
+        fi
+
+    - name: Commit and push to Flathub
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        cd flathub-repo
+        git add -A
+        git commit -m "Update to v${VERSION}" || echo "No changes to commit"
+        git push origin master
+
+    - name: Cleanup
+      shell: bash
+      if: always()
+      run: rm -rf ~/.ssh/flathub flathub-repo

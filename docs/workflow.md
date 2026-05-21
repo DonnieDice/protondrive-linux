@@ -147,7 +147,13 @@ Evaluate the automated status checks and tests.
 
 ## Testing Builds on Feature Branches
 
-All build workflows trigger on pushes to `feature/**`, `fix/**`, and `chore/**` branches. To test a build:
+The visible GitHub Actions entrypoint is
+`.github/workflows/package-workflows.yml`. It calls package-specific
+implementations from subfolders such as `.github/workflows/deb/debian-12/` and
+`.github/workflows/rpm/fedora-43/`.
+
+Package jobs trigger on pushes to `feature/**`, `fix/**`, and `chore/**`
+branches. To test a build:
 
 1. Push your branch
 2. Go to the **Actions** tab on GitHub
@@ -158,12 +164,12 @@ Artifacts are retained for 30 days and include the branch name for easy identifi
 
 ## CI Workflows
 
-| Workflow | Triggers on |
-|----------|-------------|
-| Build workflows (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main` |
-| Generate Package Specs | Same as build workflows |
-| Release | Push to `main` + tags only |
-| Publish AUR | Release events only |
+| Job group | Triggers on |
+|-----------|-------------|
+| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main` |
+| Generate package specs | Same as package builds |
+| Release | Release publication and release-tag flow through `package-workflows.yml` |
+| Publish AUR, Snap, Flatpak | Release events and manual dispatch through `package-workflows.yml` |
 
 ## Branch Protection
 

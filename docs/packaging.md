@@ -16,7 +16,7 @@ targets are built, released, and smoke-tested.
 
 | State | Meaning |
 |-------|---------|
-| release-gated | CI builds it, `release.yml` waits for it, GitHub releases publish it |
+| release-gated | CI builds it, the release job in `package-workflows.yml` waits for it, GitHub releases publish it |
 | roadmap patch-ready | patch exists, but workflow, artifact, release integration, or runtime smoke is missing |
 | roadmap | planned target, no patch yet; needs packaging design, workflow, and smoke test |
 | legacy candidate | one compatibility gate passes but the other is unverified or failing |
@@ -69,23 +69,23 @@ described above. Both must pass for a target to be `release-gated`.
 
 | Package target | glibc gate | WebKitGTK gate | Workflow / artifact | Patch | Runtime smoke | Covered systems / rule | Next action |
 |----------------|-----------|----------------|---------------------|-------|---------------|------------------------|-------------|
-| AppImage glibc baseline | bundled (2.35) | host must provide | `build-appimage.yml` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
-| Debian 12 DEB | pass (2.36) | pass | `build-deb.yml` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
-| Debian 13 DEB | pass (2.38) | pass | `build-deb.debian.13.yml` / `deb-package-debian13` | `deb/debian.13.patch` | remote artifact pass | Debian 13 | keep in release gate |
-| Ubuntu 24.04 DEB | pass (2.39) | pass | `build-deb.ubuntu.24.04.yml` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
-| Ubuntu 26.04 DEB | pass (2.41) | pass | `build-deb.ubuntu.26.04.yml` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
-| Fedora 43 RPM | pass (2.42) | pass | `build-rpm.fedora.43.yml` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
-| Fedora 44 RPM | pass (2.42) | pass | `build-rpm.fedora.44.yml` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
-| EL10 / RHEL-family RPM | pass (2.39) | pass | `build-rpm.el10.yml` / `rpm-package-el10` | `rpm/el10.patch` | remote artifact pass | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | keep in release gate |
-| openSUSE Tumbleweed RPM | pass | pass | `build-rpm.opensuse.tumbleweed.yml` / `rpm-package-opensuse-tumbleweed` | `rpm/opensuse.tumbleweed.patch` | remote artifact pass | openSUSE Tumbleweed | keep in release gate |
-| Flatpak GNOME 49 | runtime | runtime | `build-flatpak.gnome49.yml` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
-| Flatpak GNOME 50 | runtime | runtime | `build-flatpak.yml` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
-| Snap core24 | runtime | runtime | `build-snap.yml` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
-| Snap core26 | runtime | runtime | `build-snap.core26.yml` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
-| AUR Arch package (native build) | pass (glibc 2.39) | pass | `build-aur.yml` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
-| Alpine 3.20 APK | musl pass | pass | `build-apk.alpine.3.20.yml` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
-| Alpine 3.22 APK | musl pass | pass | `build-apk.alpine.3.22.yml` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
-| Alpine 3.23 APK | musl pass | pass | `build-apk.alpine.3.23.yml` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | local smoke pass | Alpine 3.23 musl; glibc artifacts are not compatible | keep in release gate |
+| AppImage glibc baseline | bundled (2.35) | host must provide | `appimage/linux-baseline` / `appimage-linux-baseline` | `appimage/linux-baseline.patch` | remote artifact pass | Portable glibc baseline; not Alpine/musl | keep in release gate |
+| Debian 12 DEB | pass (2.36) | pass | `deb/debian-12` / `deb-package-debian12` | `deb/debian.12.patch` | remote artifact pass | Debian 12 | keep in release gate |
+| Debian 13 DEB | pass (2.38) | pass | `deb/debian-13` / `deb-package-debian13` | `deb/debian.13.patch` | remote artifact pass | Debian 13 | keep in release gate |
+| Ubuntu 24.04 DEB | pass (2.39) | pass | `deb/ubuntu-24.04` / `deb-package-ubuntu2404` | `deb/ubuntu.24.04.patch` | remote artifact pass | Ubuntu 24.04, Linux Mint 22.x, matching Ubuntu 24.04 derivatives | keep in release gate |
+| Ubuntu 26.04 DEB | pass (2.41) | pass | `deb/ubuntu-26.04` / `deb-package-ubuntu2604` | `deb/ubuntu.26.04.patch` | remote artifact pass | Ubuntu 26.04 and matching Ubuntu 26.04 derivatives | keep in release gate |
+| Fedora 43 RPM | pass (2.42) | pass | `rpm/fedora-43` / `rpm-package-fedora43` | `rpm/fedora.43.patch` | remote artifact pass | Fedora 43 | keep in release gate |
+| Fedora 44 RPM | pass (2.42) | pass | `rpm/fedora-44` / `rpm-package-fedora44` | `rpm/fedora.44.patch` | remote artifact pass | Fedora 44 | keep in release gate |
+| EL10 / RHEL-family RPM | pass (2.39) | pass | `rpm/el10` / `rpm-package-el10` | `rpm/el10.patch` | remote artifact pass | RHEL 10, CentOS Stream 10, AlmaLinux 10, Rocky Linux 10 | keep in release gate |
+| openSUSE Tumbleweed RPM | pass | pass | `rpm/opensuse-tumbleweed` / `rpm-package-opensuse-tumbleweed` | `rpm/opensuse.tumbleweed.patch` | remote artifact pass | openSUSE Tumbleweed | keep in release gate |
+| Flatpak GNOME 49 | runtime | runtime | `flatpak/gnome-49` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
+| Flatpak GNOME 50 | runtime | runtime | `flatpak/gnome-50` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
+| Snap core24 | runtime | runtime | `snap/core24` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
+| Snap core26 | runtime | runtime | `snap/core26` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
+| AUR Arch package (native build) | pass (glibc 2.39) | pass | `aur/arch-native` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
+| Alpine 3.20 APK | musl pass | pass | `apk/alpine-3.20` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
+| Alpine 3.22 APK | musl pass | pass | `apk/alpine-3.22` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
+| Alpine 3.23 APK | musl pass | pass | `apk/alpine-3.23` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | local smoke pass | Alpine 3.23 musl; glibc artifacts are not compatible | keep in release gate |
 
 ### Roadmap patch-ready targets
 
@@ -137,7 +137,7 @@ described above. Both must pass for a target to be `release-gated`.
 - The AUR package is a native build that compiles against Arch system
   packages. It replaced the former AppImage-wrapper package
   (`proton-drive-bin`) in v1.4.0. The AUR package is published via
-  `publish-aur.yml`, which pushes PKGBUILD and .SRCINFO to
+  the AUR publish implementation, which pushes PKGBUILD and .SRCINFO to
   `aur.archlinux.org/proton-drive` on release.
 - RHEL 10, CentOS Stream 10, AlmaLinux 10, and Rocky Linux 10 share the EL10 RPM
   line.
@@ -147,13 +147,13 @@ WebKitGTK 4.1 available in repos and are release-gated. Current glibc
 DEB/RPM/AppImage artifacts are not Alpine-compatible.
 - Flatpak releases target GNOME Platform runtimes because the app is
   GTK/WebKitGTK-based. Flatpak packages are published to Flathub at
-  https://flathub.org/apps/com.proton.drive via the `publish-flatpak.yml`
-  workflow. An initial Flathub submission PR to `flathub/flathub` is required
+  https://flathub.org/apps/com.proton.drive via the Flatpak publish
+  implementation. An initial Flathub submission PR to `flathub/flathub` is required
   before the publish workflow can push updates. The reference source-build
   manifest is at `packaging/com.proton.drive.yml`.
 - Snap packages are published to the Snap Store at
-  https://snapcraft.io/protondrive-linux via the `publish-snap.yml`
-  workflow. Both core24 and core26 bases use
+  https://snapcraft.io/protondrive-linux via the Snap publish implementation.
+  Both core24 and core26 bases use
   `confinement: strict`. The `home` plug covers downloads to `~/Downloads`
   and the `removable-media` plug covers USB/mounted drives. No classic
   confinement is needed for the current download-only feature set. When
@@ -179,8 +179,9 @@ DEB/RPM/AppImage artifacts are not Alpine-compatible.
 ## Patch Policy
 
 A patch file is not a supported package target. A target becomes release-gated
-only after it has a workflow, artifact upload, `release.yml` integration, and a
-recorded runtime smoke result.
+only after it has a package implementation, artifact upload,
+`package-workflows.yml` release integration, and a recorded runtime smoke
+result.
 
 Base Rust source must not hard-code distro WebKitGTK environment values.
 Target-specific runtime settings belong in `patches/<package>/<target>.patch`
@@ -247,6 +248,35 @@ Runtime settings by baseline:
 All package families also require WebKitGTK 4.1, GTK 3, Account/Verify nested
 asset path fixes, and Webpack SRI disabled for Drive, Account, and Verify.
 
+## GitHub Actions Layout
+
+GitHub only discovers workflow files directly under `.github/workflows/`.
+This repository keeps one visible entrypoint there:
+`.github/workflows/package-workflows.yml`.
+
+Package and maintenance implementations live as local composite actions under
+package-type folders:
+
+```text
+.github/workflows/
+|-- package-workflows.yml
+|-- apk/<target>/action.yml
+|-- appimage/<target>/action.yml
+|-- aur/<target>/action.yml
+|-- deb/<target>/action.yml
+|-- flatpak/<target>/action.yml
+|-- rpm/<target>/action.yml
+|-- snap/<target>/action.yml
+|-- maintenance/<task>/action.yml
+```
+
+The entrypoint owns triggers, permissions, secrets, containers, and release
+gating. The nested `action.yml` files own the package-specific build or publish
+steps. When adding a target, add a new target folder under the package family
+and add a matching job in `package-workflows.yml`; do not add another root
+workflow file unless GitHub Actions needs to discover a separate top-level
+trigger.
+
 ## Release Process
 
 Release flow:
@@ -264,10 +294,10 @@ tag from `main`.
 Release checklist:
 
 - `main` has passing RPM, DEB, AppImage, Flatpak, Snap, and AUR workflows.
-- Publish workflows (`publish-aur.yml`, `publish-snap.yml`,
-  `publish-flatpak.yml`) have their required secrets configured.
-- Roadmap patch-ready targets are intentionally excluded from `release.yml`
-  unless they completed the promotion checklist.
+- Publish implementations (`aur/publish`, `snap/publish`, and
+  `flatpak/publish`) have their required secrets configured.
+- Roadmap patch-ready targets are intentionally excluded from the release job
+  in `package-workflows.yml` unless they completed the promotion checklist.
 - Runtime smoke records are updated in this file and
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested commits intended for release.
@@ -276,12 +306,12 @@ Release checklist:
 
 Promotion checklist for roadmap targets:
 
-1. Add a package workflow under `.github/workflows/`.
+1. Add a package implementation under `.github/workflows/<package>/<target>/`.
 2. Build inside the target container or a defensible ABI-equivalent container.
 3. Apply the target patch.
 4. Normalize the output filename with the target label.
 5. Upload a uniquely named artifact.
-6. Add the workflow and artifact download to `release.yml`.
+6. Add the job and artifact download to `package-workflows.yml`.
 7. Update this file and `packaging/compatibility-map.yml`.
 8. Run and record a runtime smoke test on the target runtime or distro.
 
@@ -350,12 +380,13 @@ Three publish workflows push packages to their respective stores on release:
 
 | Store | Workflow | Secret required | Target |
 |-------|----------|-----------------|--------|
-| AUR | `publish-aur.yml` | `AUR_SSH_PRIVATE_KEY` | `aur.archlinux.org/proton-drive` |
-| Snap Store | `publish-snap.yml` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/protondrive-linux` |
-| Flathub | `publish-flatpak.yml` | `FLATHUB_SSH_PRIVATE_KEY` | `flathub/com.proton.drive` |
+| AUR | `aur/publish` | `AUR_SSH_PRIVATE_KEY` | `aur.archlinux.org/proton-drive` |
+| Snap Store | `snap/publish` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/protondrive-linux` |
+| Flathub | `flatpak/publish` | `FLATHUB_SSH_PRIVATE_KEY` | `flathub/com.proton.drive` |
 
-All three workflows trigger on release publication or manual workflow dispatch.
-The Flathub workflow requires an initial submission PR to `flathub/flathub`
+All three publish implementations are called from `package-workflows.yml` on
+release publication or manual workflow dispatch. The Flathub workflow requires
+an initial submission PR to `flathub/flathub`
 before it can push updates (see
 https://docs.flathub.org/docs/for-app-authors/submission).
 

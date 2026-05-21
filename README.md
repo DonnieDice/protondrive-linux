@@ -60,7 +60,6 @@ The native sync layer lets the Proton Drive web app watch a local folder and app
 | [Contributing](docs/workflow.md) | Workflow guide |
 | [Build & Packaging](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
 | [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
-| [Changelog](docs/CHANGELOG.md) | Release history |
 | [License](docs/LICENSE) | AGPL-3.0 or later |
 | [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
 | [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |
