@@ -36,6 +36,15 @@
   </provides>
 
   <releases>
+    <release version="1.4.4" date="2026-05-21">
+      <description>
+        <p>Proton Drive Linux v1.4.4 release:</p>
+        <ul>
+          <li>Stable release of the unofficial Linux client.</li>
+          <li>Release pipeline updates to keep GitHub releases unblocked by Snap Store publishing.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.4.3" date="2026-05-18">
       <description>
         <p>Proton Drive Linux v1.4.3 release:</p>

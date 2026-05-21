@@ -45,172 +45,139 @@ runs:
     - name: Download AppImage artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: appimage-linux-baseline
         path: artifacts/appimage
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download Flatpak artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: flatpak-package
         path: artifacts/flatpak
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download Flatpak GNOME 49 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: flatpak-package-gnome49
         path: artifacts/flatpak-gnome49
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download Snap artifact
+      continue-on-error: true
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: snap-package
         path: artifacts/snap
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
-        if_no_artifact_found: fail
+        if_no_artifact_found: warn
 
     - name: Download AUR artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: aur-arch-native
         path: artifacts/aur
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download DEB Debian 12 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: deb-package-debian12
         path: artifacts/deb-debian12
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download RPM Fedora 43 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: rpm-package-fedora43
         path: artifacts/rpm-fedora43
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download RPM Fedora 44 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: rpm-package-fedora44
         path: artifacts/rpm-fedora44
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download DEB Debian 13 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: deb-package-debian13
         path: artifacts/deb-debian13
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download DEB Ubuntu 24.04 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: deb-package-ubuntu2404
         path: artifacts/deb-ubuntu2404
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download DEB Ubuntu 26.04 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: deb-package-ubuntu2604
         path: artifacts/deb-ubuntu2604
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download RPM EL10 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: rpm-package-el10
         path: artifacts/rpm-el10
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download RPM openSUSE Tumbleweed artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: rpm-package-opensuse-tumbleweed
         path: artifacts/rpm-opensuse-tumbleweed
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download Snap Core26 artifact
       continue-on-error: true
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: snap-package-core26
         path: artifacts/snap-core26
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: warn
 
     - name: Download APK Alpine 3.20 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: apk-package-alpine320
         path: artifacts/apk-alpine320
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download APK Alpine 3.22 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: apk-package-alpine322
         path: artifacts/apk-alpine322
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Download APK Alpine 3.23 artifact
       uses: dawidd6/action-download-artifact@v6
       with:
-        workflow: package-workflows.yml
+        run_id: ${{ github.run_id }}
         name: apk-package-alpine323
         path: artifacts/apk-alpine323
-        commit: ${{ github.sha }}
-        workflow_conclusion: success
         if_no_artifact_found: fail
 
     - name: Prepare release files
@@ -386,7 +353,7 @@ runs:
             gh release delete-asset "$TAG" "$name" --yes || true
           done
         fi
-                env:
+      env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
     - name: Create GitHub Release
