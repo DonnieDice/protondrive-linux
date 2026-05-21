@@ -47,6 +47,11 @@ Do not use guessed GitHub `#diff-...` anchors. Use plain repository file paths
 for changed files, and link to the PR or Actions run when the whole PR/run is
 the thing being referenced.
 
+Do not add a `Tracking issue` line inside the issue that is already being
+tracked. For example, issue `#98` must not contain `Tracking issue: #98` or a
+link to itself as its own tracking issue. That wording is only useful from a PR,
+another issue, or external documentation.
+
 ## Agent Issue Body Format
 
 This is for agent-created or agent-edited issues. User-facing issue forms under
@@ -64,6 +69,8 @@ Use this shape for technical issues:
 - Include real related links, for example:
   - https://github.com/DonnieDice/protondrive-linux/pull/99
   - https://github.com/DonnieDice/protondrive-linux/issues/98
+
+Do not include the current issue's own URL as a `Tracking issue` reference.
 
 ## Affected Files
 

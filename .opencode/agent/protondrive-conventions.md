@@ -20,6 +20,8 @@ mode: primary
 - Issue titles are plain text. Do **not** add `(#N)` syntax to issue titles.
 - Agent-created issue bodies must be valid multi-line Markdown, not one collapsed paragraph.
 - Agent-created issue bodies must include real issue/PR numbers and links when known.
+- Do **not** add a `Tracking issue` link inside the issue being tracked. An
+  issue page already identifies itself; self-links are redundant and confusing.
 
 ### Step 2: Create Branch
 
@@ -69,6 +71,8 @@ Enforce a strict code review and metadata loop before any merge:
 - The number in the PR title is the tracked **issue** number, not the PR number.
 - If there is no issue, create or verify a tracking issue before opening the PR.
 - Same regex as commits: `^\(#\d+\)\s[A-Z].{9,}$`.
+- Use tracking issue wording in PR bodies or external docs only, never as a
+  self-reference inside the tracked issue body.
 
 ## Agent Issue Body Format
 
@@ -105,6 +109,10 @@ Explain the likely cause. Keep links real and clickable.
 
 Use bare GitHub issue/PR URLs when a full link is clearer. Use `#98` only when
 the repository context is obvious.
+
+When editing issue `#98`, do not add `Tracking issue: #98` or a link to issue
+`#98` as a tracking reference. Link only to other relevant issues, PRs, Actions
+runs, and external references.
 
 ## PR Body Format
 
