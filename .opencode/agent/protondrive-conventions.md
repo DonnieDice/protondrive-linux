@@ -10,6 +10,42 @@ mode: primary
 - Repo: `donniedice/protondrive-linux`
 - Default branch: `main`
 - **Never push directly to `main`** — always use Issue → Branch → PR → Merge
+- No intermediate branches (no `alpha`) — feature branches merge directly to `main`
+
+## Workflow Execution Protocol
+
+### Step 1: Create Issue
+- Prompt or verify the creation of a tracking issue
+- Issue title must be descriptive
+- **Do NOT** add `(#N)` syntax to issue titles — they are plain text
+
+### Step 2: Create Branch
+- Create a tracking branch from the issue
+- Branch naming must be explicit so team members instantly understand its purpose
+- All development work stays strictly isolated within this branch
+
+| Prefix | Use case | Example |
+|--------|----------|---------|
+| `feature/` | New functionality | `feature/42-add-login-page` |
+| `fix/` | Bug fixes | `fix/87-broken-csv-export` |
+| `chore/` | Non-code work (docs, deps, CI) | `chore/103-update-dependencies` |
+
+### Step 3: Create Pull Request
+- Initialize the PR from the working branch
+- Explicitly link the PR to the original issue
+- Apply appropriate tracking tags/labels to the PR
+
+### Step 4: The PR Refinement Loop
+Enforce a strict code review and metadata loop before any merge:
+
+1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title` (PR number, not issue number)
+2. **File Links:** Include direct diff links to each changed file using real SHAs from the GitHub API
+3. **Context:** Provide a detailed summary answering **WHY** the changes were made
+4. **CR Feedback:** If review requires changes, iterate within the same branch
+
+### Step 5: Conditional Verification and Closure
+- **IF ALL CHECKERS PASS:** Confirm status, close the original issue, merge the PR into `main`
+- **IF ANY CHECKER FAILS:** Reject progression, loop back to Step 4
 
 ## Commit Messages
 
@@ -59,16 +95,6 @@ API. Each link follows the pattern:
 https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
 ```
 
-## Branch Naming
-
-| Prefix | Use case | Example |
-|--------|----------|---------|
-| `feature/` | New functionality | `feature/42-add-login-page` |
-| `fix/` | Bug fixes | `fix/87-broken-csv-export` |
-| `chore/` | Non-code work (docs, deps, CI) | `chore/103-update-dependencies` |
-
-Always clean up remote branches after merge.
-
 ## Version Bumps
 
 When merging meaningful changes, bump the version in ALL THREE files:
@@ -78,7 +104,7 @@ When merging meaningful changes, bump the version in ALL THREE files:
 
 ## CI Workflows
 
-- 17 build/spec workflows trigger on `push` to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main`
+- 17 build/spec workflows trigger on `push` to `main`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main`
 - `release.yml` and `publish-aur.yml` are main/tags-only — do NOT add feature branch triggers
 - CommitCheck false positives can be ignored when the message follows `(#N) Description` correctly
 
@@ -111,9 +137,14 @@ gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
 
 - If a file was added or removed and has no diff SHA, link to the PR files page without an anchor
 
+## Branch Cleanup
+
+- Always delete remote branches after merge
+- Always delete local branches after merge
+
 ## Key Docs
 
-- `docs/workflow.md` — workflow guide (branches, commits, PRs)
+- `docs/workflow.md` — full workflow guide with step-by-step protocol
 - `docs/CONTRIBUTING.md` — detailed build, packaging, development rules
 - `docs/packaging.md` — canonical human-readable packaging policy
 - `packaging/compatibility-map.yml` — machine-readable target metadata
