@@ -6,7 +6,7 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Version to publish (e.g., 1.4.0)"
+        description: "Version to publish (e.g. 1.4.0)"
         required: true
       runtime:
         description: "GNOME runtime version (49 or 50)"
@@ -76,18 +76,15 @@ jobs:
           echo "WebClients SHA256: ${WEBCCLIENTS_SHA256}"
           rm webclients.tar.gz
 
-      - name: Setup SSH for Flathub
+      - name: Setup SSH Keys for Flathub
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.FLATHUB_SSH_PRIVATE_KEY }}
+
+      - name: Setup Known Hosts
         run: |
           mkdir -p ~/.ssh
-          echo "${{ secrets.FLATHUB_SSH_PRIVATE_KEY }}" > ~/.ssh/flathub
-          chmod 600 ~/.ssh/flathub
-
-          cat >> ~/.ssh/config << EOF
-          Host github.com
-            IdentityFile ~/.ssh/flathub
-            User git
-            StrictHostKeyChecking no
-          EOF
+          ssh-keyscan github.com >> ~/.ssh/known_hosts
 
       - name: Clone Flathub repo
         run: |
@@ -112,65 +109,63 @@ jobs:
           cd flathub-repo
 
           cat > com.proton.drive.yml << YAMLEOF
-          app-id: com.proton.drive
-          runtime: org.gnome.Platform
-          runtime-version: "${RUNTIME}"
-          sdk: org.gnome.Sdk
-          sdk-extensions:
-            - org.freedesktop.Sdk.Extension.node22
-            - org.freedesktop.Sdk.Extension.rust-stable
-          command: proton-drive
-          finish-args:
-            - --share=network
-            - --share=ipc
-            - --socket=fallback-x11
-            - --socket=wayland
-            - --socket=pulseaudio
-            - --device=dri
-            - --filesystem=xdg-download
-            - --filesystem=xdg-documents
-            - --talk-name=org.freedesktop.secrets
-            - --talk-name=org.freedesktop.Notifications
-          modules:
-            - name: proton-drive
-              buildsystem: simple
-              sources:
-                - type: git
-                  url: https://github.com/DonnieDice/protondrive-linux.git
-                  tag: v${VERSION}
-                  commit: ${SOURCE_COMMIT}
-                - type: archive
-                  url: https://github.com/ProtonMail/WebClients/archive/${WEBCCLIENTS_COMMIT}.tar.gz
-                  sha256: ${WEBCCLIENTS_SHA256}
-                  dest: WebClients
-              build-commands:
-                - . /usr/lib/sdk/node22/enable.sh
-                - . /usr/lib/sdk/rust-stable/enable.sh
-                - rm -rf WebClients && ln -sf "WebClients-${WEBCCLIENTS_COMMIT}" WebClients
-                - ./scripts/build-webclients.sh
-                - npm install
-                - cd src-tauri && cargo build --release && cd ..
-                - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
-                - |
-                  cat > /app/bin/proton-drive << 'WEOF'
-                  #!/bin/bash
-                  export WEBKIT_DISABLE_DMABUF_RENDERER=1
-                  export WEBKIT_DISABLE_COMPOSITING_MODE=1
-                  export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
-                  export GDK_GL=disable
-                  exec /app/bin/proton-drive-bin "\$@"
-                  WEOF
-                  chmod +x /app/bin/proton-drive
-                - install -Dm644 src-tauri/linux/proton-drive.desktop /app/share/applications/com.proton.drive.desktop
-                - sed -i 's/Icon=proton-drive/Icon=com.proton.drive/' /app/share/applications/com.proton.drive.desktop
-                - install -Dm644 packaging/com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
-                - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
-                - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
-          YAMLEOF
-
-          sed -i 's/^          //' com.proton.drive.yml
+app-id: com.proton.drive
+runtime: org.gnome.Platform
+runtime-version: "${RUNTIME}"
+sdk: org.gnome.Sdk
+sdk-extensions:
+  - org.freedesktop.Sdk.Extension.node22
+  - org.freedesktop.Sdk.Extension.rust-stable
+command: proton-drive
+finish-args:
+  - --share=network
+  - --share=ipc
+  - --socket=fallback-x11
+  - --socket=wayland
+  - --socket=pulseaudio
+  - --device=dri
+  - --filesystem=xdg-download
+  - --filesystem=xdg-documents
+  - --talk-name=org.freedesktop.secrets
+  - --talk-name=org.freedesktop.Notifications
+modules:
+  - name: proton-drive
+    buildsystem: simple
+    sources:
+      - type: git
+        url: https://github.com/DonnieDice/protondrive-linux.git
+        tag: v${VERSION}
+        commit: ${SOURCE_COMMIT}
+      - type: archive
+        url: https://github.com/ProtonMail/WebClients/archive/${WEBCCLIENTS_COMMIT}.tar.gz
+        sha256: ${WEBCCLIENTS_SHA256}
+        dest: WebClients
+    build-commands:
+      - . /usr/lib/sdk/node22/enable.sh
+      - . /usr/lib/sdk/rust-stable/enable.sh
+      - rm -rf WebClients && ln -sf "WebClients-${WEBCCLIENTS_COMMIT}" WebClients
+      - ./scripts/build-webclients.sh
+      - npm install
+      - cd src-tauri && cargo build --release && cd ..
+      - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
+      - |
+        cat > /app/bin/proton-drive << 'WEOF'
+        #!/bin/bash
+        export WEBKIT_DISABLE_DMABUF_RENDERER=1
+        export WEBKIT_DISABLE_COMPOSITING_MODE=1
+        export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+        export GDK_GL=disable
+        exec /app/bin/proton-drive-bin "\$@"
+        WEOF
+        chmod +x /app/bin/proton-drive
+      - install -Dm644 src-tauri/linux/proton-drive.desktop /app/share/applications/com.proton.drive.desktop
+      - sed -i 's/Icon=proton-drive/Icon=com.proton.drive/' /app/share/applications/com.proton.drive.desktop
+      - install -Dm644 packaging/com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+      - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+      - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+      - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+      - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+YAMLEOF
 
           echo "Updated manifest:"
           cat com.proton.drive.yml
