@@ -99,6 +99,8 @@ runs:
           }
 
     - name: Upload to Snap Store
+      id: upload
+      continue-on-error: true
       shell: bash
       env:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
@@ -128,6 +130,7 @@ runs:
         exit 1
 
     - name: Verify upload
+      if: steps.upload.outcome == 'success'
       shell: bash
       run: |
         VERSION="${{ steps.version.outputs.version }}"
@@ -137,3 +140,11 @@ runs:
         echo "  sudo snap install proton-drive"
         echo ""
         echo "Verify at: https://snapcraft.io/proton-drive"
+
+    - name: Record Snap Store publish failure
+      if: steps.upload.outcome != 'success'
+      shell: bash
+      run: |
+        VERSION="${{ steps.version.outputs.version }}"
+        echo "Snap Store publish did not complete for proton-drive v${VERSION}."
+        echo "The GitHub release remains valid; Snap Store publishing is on hold."
