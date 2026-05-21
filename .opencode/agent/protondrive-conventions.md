@@ -45,7 +45,7 @@ mode: primary
 
 Enforce a strict code review and metadata loop before any merge:
 
-1. **Edit Title:** Set PR title to `(#ISSUE-number) Descriptive title`.
+1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`.
 2. **Links:** Include useful related links in a `## Links` section using
    compact icon bullets.
 3. **Changed Areas:** Use plain repository file paths for changed files.
@@ -68,9 +68,11 @@ Enforce a strict code review and metadata loop before any merge:
 
 ## PR Titles
 
-- Format: `(#ISSUE-number) Descriptive title starting with uppercase`.
-- The number in the PR title is the tracked **issue** number, not the PR number.
-- If there is no issue, create or verify a tracking issue before opening the PR.
+- Format: `(#PR-number) Descriptive title starting with uppercase`.
+- The number in the PR title is the **PR** number, not the tracked issue number.
+- If the PR number is not known yet, create the PR first, then edit the title
+  once GitHub assigns the PR number.
+- Keep the tracked issue in the PR body with `Closes #N` or `Refs #N`.
 - Same regex as commits: `^\(#\d+\)\s[A-Z].{9,}$`.
 - Use tracking issue wording in PR bodies or external docs only, never as a
   self-reference inside the tracked issue body.
