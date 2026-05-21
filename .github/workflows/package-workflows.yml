@@ -554,8 +554,9 @@ jobs:
     if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'publish-snap'))
     runs-on: ubuntu-24.04
     timeout-minutes: 30
+    # Keep the release flow moving even if the Snap Store is unavailable.
+    continue-on-error: true
 
-  
     env:
       SNAPCRAFT_STORE_CREDENTIALS: ${{ secrets.SNAPCRAFT_STORE_CREDENTIALS }}
 

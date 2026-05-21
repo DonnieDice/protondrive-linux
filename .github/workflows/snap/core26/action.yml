@@ -15,20 +15,6 @@ runs:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
         sudo apt-get install -y nodejs
-        sudo systemctl start snapd || true
-        sudo snap wait system seed.loaded
-        retry_snap_install() {
-          for attempt in 1 2 3 4 5; do
-            if sudo snap install "$@"; then
-              return 0
-            fi
-            sleep $((attempt * 20))
-          done
-          return 1
-        }
-        retry_snap_install snapcraft --classic
-        retry_snap_install core26 --channel=latest/stable
-        snap list core26
 
     - name: Checkout repository
       uses: actions/checkout@v4
@@ -105,15 +91,12 @@ runs:
           sed -e "s/base: core24/base: core26/" \
             -e "s/grade: stable/grade: devel/" \
             -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
-        SNAPCRAFT_STATUS=0
-        (
-          cd "$BUILD_CONTEXT"
-          snapcraft pack --destructive-mode --output "$GITHUB_WORKSPACE"
-        ) || SNAPCRAFT_STATUS=$?
-        if [ "$SNAPCRAFT_STATUS" -ne 0 ] && [ "$SNAPCRAFT_STATUS" -ne 2 ]; then
-          find "$HOME/.local/state/snapcraft/log" -maxdepth 1 -type f -name 'snapcraft-*.log' -print -exec tail -n 200 {} \; || true
-          exit "$SNAPCRAFT_STATUS"
-        fi
+        docker run --rm \
+          --entrypoint "" \
+          -v "$BUILD_CONTEXT":/project \
+          -w /project \
+          ghcr.io/canonical/snapcraft:9_core26 \
+          snapcraft pack --destructive-mode --output /project
         SNAP_FILE="$(find . "$BUILD_CONTEXT" -maxdepth 1 -type f \( -name '*.snap' -o -name 'protondrive-linux-repo' \) | head -1)"
         if [ -z "$SNAP_FILE" ]; then
           echo "No Snap package found!"

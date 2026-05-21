@@ -60,7 +60,6 @@ runs:
           exit 1
         fi
 
-        # Extract version from filename and verify it matches expected version
         FILENAME="$(basename "$SNAP_FILE")"
         FILE_VERSION="$(echo "$FILENAME" | sed 's/proton-drive_\([^_]*\)_.*/\1/')"
         if [ "$FILE_VERSION" != "$VERSION" ]; then
@@ -75,32 +74,49 @@ runs:
         echo "Found Snap file: ${SNAP_FILE}"
         ls -lah "${SNAP_FILE}"
 
-    - name: Install snapcraft
-      shell: bash
-      run: |
-        sudo snap install snapcraft --classic
-
     - name: Register snap name
       shell: bash
-      run: |
-        echo "Attempting to register snap name 'proton-drive'..."
-        snapcraft register --yes proton-drive && echo "Registered!" || {
-          echo "Register command returned non-zero — name may already be registered or require manual review"
-          snapcraft list-registered 2>&1 || true
-        }
-                env:
+      env:
         SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
+      run: |
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:9_core26"
+        echo "Attempting to register snap name 'proton-drive'..."
+        docker run --rm \
+          --entrypoint "" \
+          -e SNAPCRAFT_STORE_CREDENTIALS \
+          -v "$PWD":/project \
+          -w /project \
+          "$SNAPCRAFT_IMAGE" \
+          snapcraft register --yes proton-drive && echo "Registered!" || {
+            echo "Register command returned non-zero - name may already be registered or require manual review"
+            docker run --rm \
+              --entrypoint "" \
+              -e SNAPCRAFT_STORE_CREDENTIALS \
+              -v "$PWD":/project \
+              -w /project \
+              "$SNAPCRAFT_IMAGE" \
+              snapcraft list-registered 2>&1 || true
+          }
 
     - name: Upload to Snap Store
       shell: bash
+      env:
+        SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
       run: |
+        SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:9_core26"
         SNAP_FILE="${{ steps.snap_file.outputs.snap_file }}"
         CHANNEL="${{ steps.channel.outputs.channel }}"
 
         echo "Uploading ${SNAP_FILE} to ${CHANNEL} channel..."
 
         for i in 1 2 3; do
-          if snapcraft upload "${SNAP_FILE}" --release="${CHANNEL}"; then
+          if docker run --rm \
+            --entrypoint "" \
+            -e SNAPCRAFT_STORE_CREDENTIALS \
+            -v "$PWD":/project \
+            -w /project \
+            "$SNAPCRAFT_IMAGE" \
+            snapcraft upload "${SNAP_FILE}" --release="${CHANNEL}"; then
             echo "Upload succeeded on attempt $i"
             exit 0
           fi
@@ -110,8 +126,6 @@ runs:
 
         echo "ERROR: Upload failed after 3 attempts"
         exit 1
-                env:
-        SNAPCRAFT_STORE_CREDENTIALS: ${{ env.SNAPCRAFT_STORE_CREDENTIALS }}
 
     - name: Verify upload
       shell: bash
