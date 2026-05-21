@@ -149,13 +149,12 @@ jobs:
             '  - --share=ipc' \
             '  - --socket=fallback-x11' \
             '  - --socket=wayland' \
-          '- --socket=wayland' \
-          '- --socket=pulseaudio' \
-          '- --device=dri' \
-          '- --filesystem=xdg-download' \
-          '- --filesystem=xdg-documents' \
-          '- --talk-name=org.freedesktop.secrets' \
-          '- --talk-name=org.freedesktop.Notifications' \
+            '  - --socket=pulseaudio' \
+            '  - --device=dri' \
+            '  - --filesystem=xdg-download' \
+            '  - --filesystem=xdg-documents' \
+            '  - --talk-name=org.freedesktop.secrets' \
+            '  - --talk-name=org.freedesktop.Notifications' \
           'modules:' \
           '- name: proton-drive' \
           '  buildsystem: simple' \
