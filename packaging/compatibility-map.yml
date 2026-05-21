@@ -37,7 +37,7 @@ rpm:
     artifact_name: rpm-package-fedora43
     patch: fedora.43
     supports:
-    - fedora-43
+      - fedora-43
   fedora44:
     status: release-gated
     gates:
@@ -52,7 +52,7 @@ rpm:
     artifact_name: rpm-package-fedora44
     patch: fedora.44
     supports:
-    - fedora-44
+      - fedora-44
   el10:
     status: release-gated
     gates:
@@ -67,10 +67,10 @@ rpm:
     artifact_name: rpm-package-el10
     patch: el10
     supports:
-    - rhel-10
-    - centos-stream-10
-    - almalinux-10
-    - rockylinux-10
+      - rhel-10
+      - centos-stream-10
+      - almalinux-10
+      - rockylinux-10
 
 deb:
   debian12:
@@ -87,7 +87,7 @@ deb:
     artifact_name: deb-package-debian12
     patch: debian.12
     supports:
-    - debian-12
+      - debian-12
   debian13:
     status: release-gated
     gates:
@@ -102,7 +102,7 @@ deb:
     artifact_name: deb-package-debian13
     patch: debian.13
     supports:
-    - debian-13
+      - debian-13
   ubuntu24.04:
     status: release-gated
     gates:
@@ -117,9 +117,9 @@ deb:
     artifact_name: deb-package-ubuntu2404
     patch: ubuntu.24.04
     supports:
-    - ubuntu-24.04
-    - linuxmint-22
-    - ubuntu-24.04-derivatives
+      - ubuntu-24.04
+      - linuxmint-22
+      - ubuntu-24.04-derivatives
   ubuntu26.04:
     status: release-gated
     gates:
@@ -134,8 +134,8 @@ deb:
     artifact_name: deb-package-ubuntu2604
     patch: ubuntu.26.04
     supports:
-    - ubuntu-26.04
-    - ubuntu-26.04-derivatives
+      - ubuntu-26.04
+      - ubuntu-26.04-derivatives
 
 appimage:
   linux-baseline:
@@ -152,7 +152,7 @@ appimage:
     artifact_name: appimage-linux-baseline
     patch: linux-baseline
     supports:
-    - any-linux-glibc-2.35+
+      - any-linux-glibc-2.35+
 
 aur:
   arch:
@@ -168,10 +168,10 @@ aur:
     metadata_artifact_name: aur-arch-srcinfo
     patch: arch
     supports:
-    - arch
-    - manjaro
-    - endeavour
-    - garuda
+      - arch
+      - manjaro
+      - endeavour
+      - garuda
     replaced_by: arch_native
     replacement_note: "Replaced by native AUR build (proton-drive) in v1.4.0. The appimage-wrapper package proton-drive-bin is superseded."
   arch_native:
@@ -192,10 +192,10 @@ aur:
     patch: arch-native
     replaces: arch
     supports:
-    - arch
-    - manjaro
-    - endeavour
-    - garuda
+      - arch
+      - manjaro
+      - endeavour
+      - garuda
 
 flatpak:
   org.gnome.Platform.49:
@@ -214,7 +214,7 @@ flatpak:
     patch: org.gnome.Platform.49
     flathub_app_id: com.proton.drive
     supports:
-    - org.gnome.Platform//49
+      - org.gnome.Platform//49
   org.gnome.Platform.50:
     status: release-gated
     gates:
@@ -231,7 +231,7 @@ flatpak:
     patch: org.gnome.Platform.50
     flathub_app_id: com.proton.drive
     supports:
-    - org.gnome.Platform//50
+      - org.gnome.Platform//50
 
   snap:
   core24:
@@ -249,10 +249,9 @@ flatpak:
     artifact_name: snap-package
     patch: core24
     confinement: strict
-    snap_store_name: protondrive-linux
-    blocked_reason: "snapcraft CLI / Snap Store API inconsistency: register returns reserved_name, upload returns resource-not-found, snapcraft names shows no registered snaps despite successful registration. On hold. See issues #83 and #19."
+    snap_store_name: proton-drive
     supports:
-    - core24
+      - core24
   core26:
     status: blocked
     gates:
@@ -268,10 +267,9 @@ flatpak:
     artifact_name: snap-package-core26
     patch: core26
     confinement: strict
-    snap_store_name: protondrive-linux
-    blocked_reason: "snapcraft CLI / Snap Store API inconsistency: register returns reserved_name, upload returns resource-not-found, snapcraft names shows no registered snaps despite successful registration. On hold. See issues #83 and #19."
+    snap_store_name: proton-drive
     supports:
-    - core26
+      - core26
 
 roadmap_patch_ready:
   rpm:
@@ -289,7 +287,7 @@ roadmap_patch_ready:
     artifact_name: rpm-package-opensuse-tumbleweed
     patch: opensuse.tumbleweed
     supports:
-    - opensuse-tumbleweed
+      - opensuse-tumbleweed
     opensuse_leap16:
       status: roadmap-patch-ready
       gates:
@@ -301,10 +299,10 @@ roadmap_patch_ready:
       artifact_name: rpm-package-opensuse-leap16
       patch: opensuse.leap.16
       supports:
-      - opensuse-leap-16
+        - opensuse-leap-16
       before_release_gate:
-      - add zypper-based RPM workflow
-      - validate runtime install and login smoke test on Leap 16
+        - add zypper-based RPM workflow
+        - validate runtime install and login smoke test on Leap 16
   apk:
     alpine320:
       status: release-gated
@@ -324,7 +322,7 @@ roadmap_patch_ready:
         linker = "gcc"
         rustflags = ["-C", "target-feature=-crt-static"]
       supports:
-      - alpine-3.20
+        - alpine-3.20
   alpine322:
     status: release-gated
     gates:
@@ -343,7 +341,7 @@ roadmap_patch_ready:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
     supports:
-    - alpine-3.22
+      - alpine-3.22
   alpine323:
     status: release-gated
     gates:
@@ -377,12 +375,12 @@ roadmap:
       artifact_name: nix-flake
       patch: nix/flake
       supports:
-      - nixos
-      - any-host-with-nix
+        - nixos
+        - any-host-with-nix
       before_release_gate:
-      - design flake.nix and associated nix expressions
-      - add CI workflow using nix build
-      - validate runtime install and login smoke test on NixOS
+        - design flake.nix and associated nix expressions
+        - add CI workflow using nix build
+        - validate runtime install and login smoke test on NixOS
   gentoo:
     current:
       status: roadmap
@@ -395,11 +393,11 @@ roadmap:
       artifact_name: gentoo-ebuild
       patch: gentoo/ebuild
       supports:
-      - gentoo-current
+        - gentoo-current
       before_release_gate:
-      - design ebuild
-      - add CI workflow using gentoo stage3 container
-      - validate runtime install and login smoke test on Gentoo
+        - design ebuild
+        - add CI workflow using gentoo stage3 container
+        - validate runtime install and login smoke test on Gentoo
   slackware:
     current:
       status: roadmap
@@ -412,12 +410,12 @@ roadmap:
       artifact_name: slackware-package
       patch: slackware/slackware.current
       supports:
-      - slackware-current
+        - slackware-current
       before_release_gate:
-      - verify WebKitGTK 4.1 availability in Slackware current repos
-      - design Slackware package format and build script
-      - add CI workflow
-      - validate runtime install and login smoke test on Slackware
+        - verify WebKitGTK 4.1 availability in Slackware current repos
+        - design Slackware package format and build script
+        - add CI workflow
+        - validate runtime install and login smoke test on Slackware
 
 legacy_candidates:
   deb:
@@ -479,14 +477,14 @@ not_primary:
 
 architectures:
   release_gate:
-  - x86_64
+    - x86_64
   planned:
-  - aarch64
+    - aarch64
   legacy:
-  - armv7
-  - x86
+    - armv7
+    - x86
   experimental:
-  - riscv64
+    - riscv64
 
 architecture_details:
   x86_64:

@@ -1,4 +1,4 @@
-name: protondrive-linux
+name: proton-drive
 version: "PLACEHOLDER"
 summary: Proton Drive Linux Desktop Client
 description: |
@@ -14,7 +14,6 @@ apps:
     command: usr/bin/proton-drive-wrapper
     desktop: usr/share/applications/com.proton.drive.desktop
     plugs:
-<<<<<<< HEAD
       - home
       - network
       - network-bind
@@ -28,21 +27,6 @@ apps:
       - browser-support
       - password-manager-service
       - removable-media
-=======
-    - home
-    - network
-    - network-bind
-    - network-status
-    - desktop
-    - desktop-legacy
-    - x11
-    - wayland
-    - opengl
-    - audio-playback
-    - browser-support
-    - password-manager-service
-    - removable-media
->>>>>>> 2b4513fbee12f24786e774b4232ce1f7b8579bc0
     environment:
       LIBGL_ALWAYS_SOFTWARE: "1"
       __EGL_VENDOR_LIBRARY_FILENAMES: $SNAP/usr/share/glvnd/egl_vendor.d/50_mesa.json
