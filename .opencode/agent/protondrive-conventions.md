@@ -1,5 +1,5 @@
 ---
-description: Project conventions for protondrive-linux — commit messages, PR titles, PR body format, branching, and version bumps. Load before every task.
+description: Project conventions for protondrive-linux - commit messages, PR titles, issue/PR body format, branching, and version bumps. Load before every task.
 mode: primary
 ---
 
@@ -7,147 +7,176 @@ mode: primary
 
 ## Repository
 
-- Repo: `donniedice/protondrive-linux`
+- Repo: `DonnieDice/protondrive-linux`
 - Default branch: `main`
-- **Never push directly to `main`** — always use Issue → Branch → PR → Merge
-- No intermediate branches (no `alpha`) — feature branches merge directly to `main`
+- **Never push directly to `main`** - always use Issue -> Branch -> PR -> Merge.
+- No intermediate branches. Feature branches merge directly to `main`.
 
 ## Workflow Execution Protocol
 
 ### Step 1: Create Issue
-- Prompt or verify the creation of a tracking issue
-- Issue title must be descriptive
-- **Do NOT** add `(#N)` syntax to issue titles — they are plain text
+
+- Prompt or verify the creation of a tracking issue.
+- Issue titles are plain text. Do **not** add `(#N)` syntax to issue titles.
+- Agent-created issue bodies must be valid multi-line Markdown, not one collapsed paragraph.
+- Agent-created issue bodies must include real issue/PR numbers and links when known.
 
 ### Step 2: Create Branch
-- Create a tracking branch from the issue
-- Branch naming must be explicit so team members instantly understand its purpose
-- All development work stays strictly isolated within this branch
+
+- Create a tracking branch from the issue.
+- Branch naming must be explicit so team members instantly understand its purpose.
+- All development work stays strictly isolated within this branch.
 
 | Prefix | Use case | Example |
 |--------|----------|---------|
 | `feature/` | New functionality | `feature/42-add-login-page` |
 | `fix/` | Bug fixes | `fix/87-broken-csv-export` |
-| `chore/` | Non-code work (docs, deps, CI) | `chore/103-update-dependencies` |
+| `chore/` | Non-code work, docs, deps, CI | `chore/103-update-dependencies` |
 
 ### Step 3: Create Pull Request
-- Initialize the PR from the working branch
-- Explicitly link the PR to the original issue
-- Apply appropriate tracking tags/labels to the PR
+
+- Initialize the PR from the working branch.
+- Explicitly link the PR to the original issue.
+- Apply appropriate tracking tags and labels to the PR.
 
 ### Step 4: The PR Refinement Loop
+
 Enforce a strict code review and metadata loop before any merge:
 
-1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title` (PR number, not issue number)
-2. **File Links:** Include direct diff links to each changed file using real SHAs from the GitHub API
-3. **Context:** Provide a detailed summary answering **WHY** the changes were made
-4. **CR Feedback:** If review requires changes, iterate within the same branch
+1. **Edit Title:** Set PR title to `(#ISSUE-number) Descriptive title`.
+2. **Links:** Include the original issue number/link and the PR link.
+3. **Changed Areas:** Use plain repository file paths for changed files.
+4. **Context:** Provide a detailed summary answering why the changes were made.
+5. **CR Feedback:** If review requires changes, iterate within the same branch.
 
 ### Step 5: Conditional Verification and Closure
-- **IF ALL CHECKERS PASS:** Confirm status, close the original issue, merge the PR into `main`
-- **IF ANY CHECKER FAILS:** Reject progression, loop back to Step 4
+
+- **IF ALL CHECKERS PASS:** Confirm status, close the original issue, merge the PR into `main`.
+- **IF ANY CHECKER FAILS:** Reject progression, loop back to Step 4.
 
 ## Commit Messages
 
-- Format: `(#N) Description` where N is the **issue** number
-- Start with uppercase letter
-- At least 10 characters after the issue prefix
-- Regex: `^\(#\d+\)\s[A-Z].{9,}$`
-- Use `Closes #N` or `Refs #N` in commit body/footer for traceability
-- The number in the commit title is the **issue** number, not the PR number
+- Format: `(#N) Description` where N is the **issue** number.
+- Start with uppercase letter.
+- At least 10 characters after the issue prefix.
+- Regex: `^\(#\d+\)\s[A-Z].{9,}$`.
+- Use `Closes #N` or `Refs #N` in commit body/footer for traceability.
+- The number in the commit title is the **issue** number, not the PR number.
 
 ## PR Titles
 
-- Format: `(#PR-number) Descriptive title starting with uppercase`
-- The number in the PR title is the **PR** number (assigned by GitHub after creation)
-- Edit the title after GitHub assigns the PR number
-- Same regex as commits: `^\(#\d+\)\s[A-Z].{9,}$`
+- Format: `(#ISSUE-number) Descriptive title starting with uppercase`.
+- The number in the PR title is the tracked **issue** number, not the PR number.
+- If there is no issue, create or verify a tracking issue before opening the PR.
+- Same regex as commits: `^\(#\d+\)\s[A-Z].{9,}$`.
+
+## Agent Issue Body Format
+
+This is for agent-created or agent-edited GitHub issues. It is separate from the
+user-facing `.github/ISSUE_TEMPLATE/*.yml` forms.
+
+Always write issue bodies as multi-line Markdown. Never submit a body as one
+long line. Never escape file paths with backslashes like `\src-tauri/main.rs\`.
+
+Use this shape when filing technical issues:
+
+```markdown
+## Problem
+
+Describe the broken behavior, including real issue/PR links when relevant:
+
+- Related PR: https://github.com/DonnieDice/protondrive-linux/pull/97
+- Related issue: https://github.com/DonnieDice/protondrive-linux/issues/98
+
+## Affected Files
+
+- `src-tauri/src/main.rs`
+- `src-tauri/Cargo.toml`
+
+## Cause
+
+Explain the likely cause. Keep links real and clickable.
+
+## Fix
+
+- Concrete fix item
+- Concrete validation item
+```
+
+Use bare GitHub issue/PR URLs when a full link is clearer. Use `#98` only when
+the repository context is obvious.
 
 ## PR Body Format
 
-Reference the issue at the top, then list each changed file with a GitHub
-diff anchor so reviewers can jump directly to that file's diff in the PR:
+Reference the tracked issue at the top, then list changed areas with plain paths
+and include real issue/PR links. Do not use guessed `#diff-...` anchors.
 
 ```markdown
-Issue: #42
+Closes #42
 
-## Changes
+Issue: https://github.com/DonnieDice/protondrive-linux/issues/42
+PR: https://github.com/DonnieDice/protondrive-linux/pull/47
 
-### [`README.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-abc123) — description of changes
-- Bullet list of what changed in this file
+## Summary
 
-### [`docs/packaging.md`](https://github.com/DonnieDice/protondrive-linux/pull/47/files#diff-def456) — description of changes
-- Bullet list of what changed in this file
+- Describe the main behavior or packaging change.
+- Explain why it was needed.
+
+## Changed Areas
+
+- `README.md`
+- `docs/packaging.md`
+
+## Testing
+
+- `git diff --check`
+- Link to the relevant Actions run when available.
 ```
 
-The `#diff-` anchor is the file's SHA from the PR files API. To get the
-real SHAs before editing the PR body:
-
-```bash
-gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
-  --jq '.[] | .filename + " " + .sha'
-```
-
-Do **not** fabricate or guess the diff hashes — always fetch them from the
-API. Each link follows the pattern:
-
-```text
-https://github.com/DonnieDice/protondrive-linux/pull/NUMBER/files#diff-{SHA}
-```
+Numbers and links are required, but links must be stable and real. Prefer issue
+links, PR links, Actions run links, and plain file paths over fragile file diff
+anchors.
 
 ## Version Bumps
 
-When merging meaningful changes, bump the version in ALL THREE files:
+When merging meaningful changes, bump the version in all three files:
+
 - `package.json`
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
 
 ## CI Workflows
 
-- 17 build/spec workflows trigger on `push` to `main`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main`
-- `release.yml` and `publish-aur.yml` are main/tags-only — do NOT add feature branch triggers
-- CommitCheck false positives can be ignored when the message follows `(#N) Description` correctly
+- The visible workflow entrypoint is `.github/workflows/package-workflows.yml`.
+- Package-specific implementations live under `.github/workflows/<package>/<target>/action.yml`.
+- Remote GitHub Actions builds run on Linux runners.
+- CommitCheck false positives can be ignored when the message follows `(#N) Description` correctly.
 
 ## Packaging State
 
-- Alpine 3.23 has a workflow (`build-apk.alpine.3.23.yml`) but is still `roadmap-patch-ready` — not release-gated yet
-- `compatibility-map.yml` must stay in sync with actual workflows and `docs/packaging.md`
-- AUR package is `proton-drive` (native build), not `proton-drive-bin` (old wrapper, replaced in v1.4.0)
+- `compatibility-map.yml` must stay in sync with actual workflows and `docs/packaging.md`.
+- AUR package is `proton-drive` (native build), not `proton-drive-bin`.
 
 ## Review Bot Feedback
 
 Before merging **any** PR, all automated review bot findings must be addressed:
 
-- Check CodeRabbit, Qodo, and any other review bot comments on the PR
-- Every actionable comment must be either **fixed** or explicitly **dismissed with justification**
-- Do not merge with unresolved bot review items — even if CI passes
-- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
-- Re-request review after pushing fixes to ensure bots re-evaluate
-
-## PR Body Links
-
-- All file links in PR bodies **must** use real diff SHAs fetched from the GitHub API
-- Never fabricate, guess, or copy diff hashes from other PRs
-- Fetch SHAs immediately before editing the PR body:
-
-```bash
-gh api repos/DonnieDice/protondrive-linux/pulls/NUMBER/files \
-  --jq '.[] | .filename + " " + .sha'
-```
-
-- If a file was added or removed and has no diff SHA, link to the PR files page without an anchor
+- Check CodeRabbit, Qodo, and any other review bot comments on the PR.
+- Every actionable comment must be either fixed or explicitly dismissed with justification.
+- Do not merge with unresolved bot review items, even if CI passes.
+- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented.
+- Re-request review after pushing fixes to ensure bots re-evaluate.
 
 ## Branch Cleanup
 
-- Always delete remote branches after merge
-- Always delete local branches after merge
+- Always delete remote branches after merge.
+- Always delete local branches after merge.
 
 ## Key Docs
 
-- `docs/workflow.md` — full workflow guide with step-by-step protocol
-- `docs/CONTRIBUTING.md` — detailed build, packaging, development rules
-- `docs/packaging.md` — canonical human-readable packaging policy
-- `packaging/compatibility-map.yml` — machine-readable target metadata
-- `docs/CHANGELOG.md` — release history
-- `docs/release-checklist.md` — pre-release checklist
-- `docs/new-build-checklist.md` — adding new package targets
+- `docs/workflow.md` - full workflow guide with step-by-step protocol.
+- `docs/CONTRIBUTING.md` - detailed build, packaging, development rules.
+- `docs/packaging.md` - canonical human-readable packaging policy.
+- `packaging/compatibility-map.yml` - machine-readable target metadata.
+- `docs/release-checklist.md` - pre-release checklist.
+- `docs/new-build-checklist.md` - adding new package targets.
