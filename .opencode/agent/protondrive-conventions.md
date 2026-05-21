@@ -46,7 +46,8 @@ mode: primary
 Enforce a strict code review and metadata loop before any merge:
 
 1. **Edit Title:** Set PR title to `(#ISSUE-number) Descriptive title`.
-2. **Links:** Include the original issue number/link and the PR link.
+2. **Links:** Include useful related links in a `## Links` section using
+   compact icon bullets.
 3. **Changed Areas:** Use plain repository file paths for changed files.
 4. **Context:** Provide a detailed summary answering why the changes were made.
 5. **CR Feedback:** If review requires changes, iterate within the same branch.
@@ -116,14 +117,22 @@ runs, and external references.
 
 ## PR Body Format
 
-Reference the tracked issue at the top, then list changed areas with plain paths
-and include real issue/PR links. Do not use guessed `#diff-...` anchors.
+Reference the tracked issue at the top with `Closes #N`, then list changed
+areas with plain paths and include real issue/PR links. Do not use guessed
+`#diff-...` anchors. Do not use generic labels such as `Issue: #98`,
+`Related PR: #97`, or `PR: #99`.
+
+Use compact icon bullets in `## Links` for useful related context. Do not add a
+link to the current PR inside its own body. Do not repeat the closing issue in a
+separate link line unless the issue needs extra context beyond `Closes #N`.
 
 ```markdown
 Closes #42
 
-Issue: https://github.com/DonnieDice/protondrive-linux/issues/42
-PR: https://github.com/DonnieDice/protondrive-linux/pull/47
+## Links
+
+- 🔗 Related: #41
+- 🧾 Run: https://github.com/DonnieDice/protondrive-linux/actions/runs/123456789
 
 ## Summary
 

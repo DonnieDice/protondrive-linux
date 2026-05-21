@@ -40,7 +40,7 @@ Numbers and links are required, but they must be stable and real.
 |---------|--------------------|---------|
 | Commit message | Issue number | `(#92) Fix workflow YAML indentation` |
 | PR title | Issue number | `(#92) Fix workflow YAML indentation` |
-| PR body | Closing issue link | `Closes #92` |
+| PR body | Closing issue plus icon links | `Closes #92` and `- 🔗 Related: #91` |
 | Issue body | Related issue/PR URLs when known | `https://github.com/DonnieDice/protondrive-linux/pull/99` |
 
 Do not use guessed GitHub `#diff-...` anchors. Use plain repository file paths
@@ -94,8 +94,10 @@ Use this shape:
 ```markdown
 Closes #92
 
-Issue: https://github.com/DonnieDice/protondrive-linux/issues/92
-PR: https://github.com/DonnieDice/protondrive-linux/pull/93
+## Links
+
+- 🔗 Related: #91
+- 🧾 Run: https://github.com/DonnieDice/protondrive-linux/actions/runs/123456789
 
 ## Summary
 
@@ -110,8 +112,12 @@ PR: https://github.com/DonnieDice/protondrive-linux/pull/93
 ## Testing
 
 - `git diff --check`
-- https://github.com/DonnieDice/protondrive-linux/actions/runs/123456789
 ```
+
+Do not use generic PR-body headers like `Issue: #92`, `Related PR: #91`, or
+`PR: #93`. Keep `Closes #N` as the tracked issue reference, do not link the
+current PR inside its own body, and only add related links that provide extra
+context.
 
 ## Build Workflow Patterns
 
