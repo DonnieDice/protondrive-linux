@@ -8,7 +8,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
+use tauri::webview::Cookie;
+use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
 
 mod live_sync;
 
@@ -186,6 +187,7 @@ fn handle_remote_update(
 
 #[tauri::command]
 async fn proxy_request(
+    window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
     request: ProxyRequest,
 ) -> Result<ProxyResponse, String> {
@@ -219,12 +221,22 @@ async fn proxy_request(
 
     println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
 
-    let mut req = state.client.request(method, &url);
+    let target_url = Url::parse(&url).map_err(|e| {
+        eprintln!(
+            "[Proxy] invalid target URL {}: {e}",
+            sanitize_url_for_log(&url)
+        );
+        "Invalid request URL".to_string()
+    })?;
 
-    // Forward headers from frontend (skip cookie - client handles it)
+    let mut req = state.client.request(method, &url);
+    if let Some(cookie_header) = webview_cookie_header(&window, &target_url) {
+        req = req.header(reqwest::header::COOKIE, cookie_header);
+    }
+
+    // Forward headers from frontend. Cookies come from WebKit's native jar.
     for (key, value) in &request.headers {
         let k = key.to_lowercase();
-        // Skip cookie header - reqwest cookie jar handles cookies automatically
         if k != "host" && k != "cookie" {
             req = req.header(key.as_str(), value.as_str());
         }
@@ -243,21 +255,16 @@ async fn proxy_request(
     })?;
     let status = resp.status().as_u16();
 
-    // Forward response headers including set-cookie (needed for WebView session)
+    // Forward response headers, but keep Set-Cookie inside WebKit's native jar.
     let mut resp_headers = HashMap::new();
-    let mut set_cookies: Vec<String> = Vec::new();
     for (name, value) in resp.headers().iter() {
         if let Ok(v) = value.to_str() {
             if name.as_str().eq_ignore_ascii_case("set-cookie") {
-                set_cookies.push(v.to_string());
+                store_webview_cookie(&window, &target_url, v);
             } else {
                 resp_headers.insert(name.to_string(), v.to_string());
             }
         }
-    }
-    // Join multiple set-cookie headers with a delimiter JS can split on
-    if !set_cookies.is_empty() {
-        resp_headers.insert("x-set-cookie".to_string(), set_cookies.join("|||"));
     }
 
     let body = resp.text().await.unwrap_or_default();
@@ -269,6 +276,69 @@ async fn proxy_request(
         headers: resp_headers,
         body,
     })
+}
+
+fn webview_cookie_header(window: &tauri::WebviewWindow, url: &Url) -> Option<String> {
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return None;
+    }
+
+    let cookies = window
+        .cookies_for_url(url.clone())
+        .map_err(|e| {
+            eprintln!(
+                "[Cookie] failed to read WebKit cookies for {}: {e}",
+                sanitize_url_for_log(url.as_str())
+            );
+        })
+        .ok()?;
+
+    let cookie_pairs: Vec<String> = cookies
+        .into_iter()
+        .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
+        .collect();
+
+    if cookie_pairs.is_empty() {
+        None
+    } else {
+        Some(cookie_pairs.join("; "))
+    }
+}
+
+fn store_webview_cookie(window: &tauri::WebviewWindow, url: &Url, set_cookie: &str) {
+    if url.scheme() != "http" && url.scheme() != "https" {
+        return;
+    }
+
+    let mut cookie = match Cookie::parse(set_cookie.to_string()) {
+        Ok(cookie) => cookie.into_owned(),
+        Err(e) => {
+            eprintln!(
+                "[Cookie] failed to parse Set-Cookie from {}: {e}",
+                sanitize_url_for_log(url.as_str())
+            );
+            return;
+        }
+    };
+
+    if cookie.domain().is_none() {
+        if let Some(host) = url.host_str() {
+            cookie.set_domain(host.to_string());
+        }
+    }
+
+    if cookie.path().is_none() {
+        cookie.set_path("/");
+    }
+
+    let cookie_name = cookie.name().to_string();
+    if let Err(e) = window.set_cookie(cookie) {
+        eprintln!(
+            "[Cookie] failed to store {} from {}: {e}",
+            cookie_name,
+            sanitize_url_for_log(url.as_str())
+        );
+    }
 }
 
 fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
@@ -319,6 +389,29 @@ fn sanitize_url_for_log(url: &str) -> String {
     "<unparsed-url>".to_string()
 }
 
+fn is_unsupported_proton_app_host(host: &str) -> bool {
+    matches!(
+        host,
+        "calendar.proton.me"
+            | "contacts.proton.me"
+            | "docs.proton.me"
+            | "mail.proton.me"
+            | "pass.proton.me"
+            | "wallet.proton.me"
+            | "vpn.proton.me"
+    )
+}
+
+fn drive_root_for_user_path(path: &str) -> String {
+    if let Some(rest) = path.strip_prefix("/u/") {
+        let user_id = rest.split('/').next().unwrap_or_default();
+        if !user_id.is_empty() {
+            return format!("/u/{}/", user_id);
+        }
+    }
+    "/".to_string()
+}
+
 fn main() {
     // Fix WebKitGTK EGL/GPU issues on various Linux configurations
     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
@@ -342,6 +435,13 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
+            let webview_data_dir = app.path().app_data_dir()?.join("webview");
+            std::fs::create_dir_all(&webview_data_dir)?;
+            println!(
+                "[Storage] Using persistent WebView data directory: {:?}",
+                webview_data_dir
+            );
+
             // MULTI-DISTRO WORKER COMPATIBILITY
             // Different distros use different WebKitGTK builds with varying Worker support
             // Use DISTRO_TYPE env var at build time to determine Worker handling
@@ -808,21 +908,6 @@ fn main() {
                 try { respHeaders.set(k, v); } catch(e) {}
             }
 
-            // Apply Set-Cookie headers to WebView (needed for session decryption)
-            if (response.headers && response.headers['x-set-cookie']) {
-                const cookies = response.headers['x-set-cookie'].split('|||');
-                for (const cookie of cookies) {
-                    try {
-                        // Extract just the cookie name=value part (before first ;)
-                        const cookiePart = cookie.split(';')[0];
-                        document.cookie = cookiePart + '; path=/; SameSite=Lax';
-                        console.log('[COOKIE] Set:', cookiePart.split('=')[0]);
-                    } catch (e) {
-                        console.warn('[COOKIE] Failed to set:', e);
-                    }
-                }
-            }
-
             // Check for 9001 (captcha required) and navigate to verify page
             if (response.status === 422 && response.body) {
                 try {
@@ -948,6 +1033,7 @@ fn main() {
                 .title("Proton Drive")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
+                .data_directory(webview_data_dir)
                 .initialization_script(init_script)
                 .devtools(true)  // Enable right-click -> Inspect
                 .on_download(|_webview, event| {
@@ -1117,6 +1203,13 @@ fn main() {
                         return true;
                     }
 
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                        && url.scheme() == "about"
+                    {
+                        println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
+                        return true;
+                    }
+
                     // Detect navigation AWAY from captcha to non-captcha page - means captcha flow completed
                     if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst) {
                         // We're leaving the captcha page (not to another captcha/hcaptcha URL)
@@ -1130,6 +1223,28 @@ fn main() {
                             });
                         }
                         return false; // Block whatever navigation triggered this, we'll go to account
+                    }
+
+                    if let Some(host) = url.host_str() {
+                        if is_unsupported_proton_app_host(host)
+                            && !url.path().starts_with("/api/")
+                            && !url.path().starts_with("/captcha/")
+                        {
+                            let local_url =
+                                format!("tauri://localhost{}", drive_root_for_user_path(url.path()));
+                            println!(
+                                "[SSO] Redirecting unsupported Proton app host {} to Drive: {}",
+                                host, local_url
+                            );
+
+                            if let Some(window) = app_handle_nav.get_webview_window("main") {
+                                let url_clone = local_url.clone();
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = window.navigate(url_clone.parse().unwrap());
+                                });
+                            }
+                            return false;
+                        }
                     }
 
                     // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
