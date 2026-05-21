@@ -57,12 +57,14 @@ Open a PR when your branch is ready for review. A PR:
 ### PR Title Format
 
 ```
-(#ISSUE-number) Descriptive title starting with uppercase
+(#PR-number) Descriptive title starting with uppercase
 ```
 
 The PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-The number in the PR title is the tracked **issue** number, not the PR number.
+The number in the PR title is the **PR** number, not the tracked issue number.
+If GitHub has not assigned the PR number yet, create the PR first, then edit the
+title once the number exists.
 Open an issue first when work does not already have one.
 
 ### Commit Message Format
@@ -113,7 +115,7 @@ paths are stable, and reviewers can use the Files changed tab for exact diffs.
 
 Before any merge, enforce a strict code review and metadata loop:
 
-1. **Edit Title:** Set PR title to `(#ISSUE-number) Descriptive title`
+1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`
 2. **Issue Link:** Confirm the PR body includes `Closes #N` or `Refs #N`
 3. **Context:** Provide a detailed summary answering **WHY** the changes were made
 4. **CR Feedback:** If a code review requires changes, iterate within the same branch
