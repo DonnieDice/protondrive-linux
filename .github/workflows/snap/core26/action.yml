@@ -15,8 +15,19 @@ runs:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
         sudo apt-get install -y nodejs
-        sudo snap install snapcraft --classic
-        sudo snap install core26 --channel=latest/stable
+        sudo systemctl start snapd || true
+        sudo snap wait system seed.loaded
+        retry_snap_install() {
+          for attempt in 1 2 3 4 5; do
+            if sudo snap install "$@"; then
+              return 0
+            fi
+            sleep $((attempt * 20))
+          done
+          return 1
+        }
+        retry_snap_install snapcraft --classic
+        retry_snap_install core26 --channel=latest/stable
         snap list core26
 
     - name: Checkout repository
@@ -54,10 +65,15 @@ runs:
         DISTRO_PATCH="${{ github.event.inputs.distro_patch || 'core26' }}"
         PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
         if [ -f "$PATCH_FILE" ]; then
-        git apply "$PATCH_FILE"
-        echo "Applied $PATCH_FILE"
+          if git apply --reverse --check "$PATCH_FILE" 2>/dev/null; then
+            echo "Patch already applied: $PATCH_FILE"
+          else
+            git apply --check "$PATCH_FILE"
+            git apply "$PATCH_FILE"
+            echo "Applied $PATCH_FILE"
+          fi
         else
-        echo "WARNING: $PATCH_FILE not found, building without distro patch"
+          echo "WARNING: $PATCH_FILE not found, building without distro patch"
         fi
 
     - name: Build Snap

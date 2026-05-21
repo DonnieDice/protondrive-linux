@@ -15,7 +15,18 @@ runs:
           libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         curl -fsSL https://deb.nodesource.com/setup_22.x | sudo bash -
         sudo apt-get install -y nodejs
-        sudo snap install snapcraft --classic
+        sudo systemctl start snapd || true
+        sudo snap wait system seed.loaded
+        retry_snap_install() {
+          for attempt in 1 2 3 4 5; do
+            if sudo snap install "$@"; then
+              return 0
+            fi
+            sleep $((attempt * 20))
+          done
+          return 1
+        }
+        retry_snap_install snapcraft --classic
 
     - name: Checkout repository
       uses: actions/checkout@v4

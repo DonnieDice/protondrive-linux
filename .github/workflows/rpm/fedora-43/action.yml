@@ -6,7 +6,7 @@ runs:
     - name: Install build dependencies
       shell: bash
       run: |
-        dnf install -y \
+        dnf --disablerepo='fedora-cisco-openh264' install -y \
           bash git curl wget gcc gcc-c++ make file pkgconf-pkg-config \
           openssl-devel webkit2gtk4.1-devel gtk3-devel \
           libappindicator-gtk3-devel librsvg2-devel libsoup3-devel \
