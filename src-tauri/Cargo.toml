@@ -1,6 +1,6 @@
-[package]
+﻿[package]
 name = "proton-drive"
-version = "1.4.3"
+version = "1.1.2"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"
@@ -12,20 +12,21 @@ name = "proton-drive"
 path = "src/main.rs"
 
 [build-dependencies]
-tauri-build = { version = "2.6", features = [] }
+tauri-build = { version = "2.0", features = [] }
 
 [dependencies]
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
-tauri = { version = "2.11", features = ["protocol-asset"] }
+tauri = { version = "2.0", features = ["protocol-asset"] }
 tauri-plugin-shell = "2.0"
 tauri-plugin-dialog = "2.0"
 tauri-plugin-notification = "2.0"
 tokio = { version = "1", features = ["rt-multi-thread"] }
-reqwest = { version = "0.13", features = ["json", "cookies"] }
+reqwest = { version = "0.12", features = ["json", "cookies"] }
 base64 = "0.22"
-dirs = "6.0"
+dirs = "5.0"
 mime_guess = "2.0"
+notify = "6.1"
 
 [features]
 default = ["custom-protocol"]

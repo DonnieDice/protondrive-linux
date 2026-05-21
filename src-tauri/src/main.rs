@@ -1,19 +1,24 @@
-#![cfg_attr(
+﻿#![cfg_attr(
     all(not(debug_assertions), target_os = "windows"),
     windows_subsystem = "windows"
 )]
 
-use std::collections::HashMap;
-use std::sync::Arc;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::path::PathBuf;
+use std::sync::Arc;
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+mod live_sync;
+
 const PROTON_API_BASE: &str = "https://mail.proton.me";
+const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
 
 // Shared HTTP client with cookie jar
 struct AppState {
     client: Client,
+    sync_manager: live_sync::LiveSyncManager,
 }
 
 #[derive(Debug, Deserialize)]
@@ -43,10 +48,12 @@ static CAPTCHA_RETURN_URL: std::sync::Mutex<Option<String>> = std::sync::Mutex::
 static ON_CAPTCHA_PAGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
 // Store verification token in memory only (zero trust - cleared after use)
-static PENDING_VERIFICATION: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+static PENDING_VERIFICATION: std::sync::Mutex<Option<(String, String)>> =
+    std::sync::Mutex::new(None);
 
 // Store login credentials during captcha flow (zero trust - cleared after use)
-static PENDING_CREDENTIALS: std::sync::Mutex<Option<(String, String)>> = std::sync::Mutex::new(None);
+static PENDING_CREDENTIALS: std::sync::Mutex<Option<(String, String)>> =
+    std::sync::Mutex::new(None);
 
 #[tauri::command]
 fn store_verification_token(token: String, token_type: String) {
@@ -79,17 +86,26 @@ fn get_and_clear_login_credentials() -> Option<(String, String)> {
 }
 
 #[tauri::command]
-async fn navigate_to_captcha(app: tauri::AppHandle, captcha_url: String, return_url: String) -> Result<(), String> {
-    println!("[CAPTCHA] Navigating main window to: {}", captcha_url);
-    println!("[CAPTCHA] Will return to: {}", return_url);
+async fn navigate_to_captcha(
+    app: tauri::AppHandle,
+    captcha_url: String,
+    return_url: String,
+) -> Result<(), String> {
+    println!("[CAPTCHA] Starting verification navigation flow");
 
     // Store return URL
     *CAPTCHA_RETURN_URL.lock().unwrap() = Some(return_url);
 
     // Navigate main window to captcha (local or external)
     if let Some(window) = app.get_webview_window("main") {
-        let url: tauri::Url = captcha_url.parse().map_err(|e| format!("Invalid URL: {}", e))?;
-        window.navigate(url).map_err(|e| format!("Navigation failed: {}", e))?;
+        let url: tauri::Url = captcha_url.parse().map_err(|e| {
+            eprintln!("[CAPTCHA] Invalid captcha URL '{}': {e}", captcha_url);
+            "Unable to open verification page".to_string()
+        })?;
+        window.navigate(url).map_err(|e| {
+            eprintln!("[CAPTCHA] Navigation to captcha failed: {e}");
+            "Unable to open verification page".to_string()
+        })?;
     }
 
     Ok(())
@@ -104,19 +120,68 @@ fn get_captcha_return_url() -> Option<String> {
 async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String> {
     let downloads_dir = dirs::download_dir()
         .or_else(|| dirs::home_dir().map(|h| h.join("Downloads")))
-        .ok_or("Could not find Downloads directory")?;
+        .ok_or("Unable to access download location")?;
 
     // Ensure downloads dir exists
-    std::fs::create_dir_all(&downloads_dir)
-        .map_err(|e| format!("Failed to create Downloads dir: {}", e))?;
+    std::fs::create_dir_all(&downloads_dir).map_err(|e| {
+        eprintln!(
+            "[Download] Failed to create downloads dir {:?}: {e}",
+            downloads_dir
+        );
+        "Unable to save download".to_string()
+    })?;
 
     let file_path = downloads_dir.join(&filename);
-    println!("[Download] Saving to: {:?}", file_path);
+    println!("[Download] Saving file to Downloads folder");
 
-    std::fs::write(&file_path, &data)
-        .map_err(|e| format!("Failed to write file: {}", e))?;
+    std::fs::write(&file_path, &data).map_err(|e| {
+        eprintln!("[Download] Failed to write download {:?}: {e}", file_path);
+        "Unable to save download".to_string()
+    })?;
 
     Ok(file_path.to_string_lossy().to_string())
+}
+
+#[tauri::command]
+fn start_sync(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    ensure_sync_command_allowed(&window)?;
+    let sync_root = validate_sync_root_path(&path)?;
+    state.sync_manager.start(app, sync_root)?;
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn stop_sync(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    ensure_sync_command_allowed(&window)?;
+    state.sync_manager.stop()?;
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn get_sync_status(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    ensure_sync_command_allowed(&window)?;
+    state.sync_manager.status()
+}
+
+#[tauri::command]
+fn handle_remote_update(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+    change: live_sync::RemoteSyncChange,
+) -> Result<String, String> {
+    ensure_sync_command_allowed(&window)?;
+    state.sync_manager.apply_remote_change(change)
 }
 
 #[tauri::command]
@@ -125,9 +190,15 @@ async fn proxy_request(
     request: ProxyRequest,
 ) -> Result<ProxyResponse, String> {
     // Build the target URL - extract path from various URL formats
-    let url = if request.url.starts_with("https://localhost/api/") || request.url.starts_with("http://localhost/api/") {
+    let url = if request.url.starts_with("https://localhost/api/")
+        || request.url.starts_with("http://localhost/api/")
+    {
         // Rewrite localhost API calls to Proton
-        format!("{}{}", PROTON_API_BASE, &request.url[request.url.find("/api").unwrap()..])
+        format!(
+            "{}{}",
+            PROTON_API_BASE,
+            &request.url[request.url.find("/api").unwrap()..]
+        )
     } else if request.url.starts_with("https://") || request.url.starts_with("http://") {
         request.url.clone()
     } else if request.url.starts_with("tauri://") {
@@ -146,7 +217,7 @@ async fn proxy_request(
     let method = reqwest::Method::from_bytes(request.method.to_uppercase().as_bytes())
         .unwrap_or(reqwest::Method::GET);
 
-    println!("[Proxy] {} {}", method, url);
+    println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
 
     let mut req = state.client.request(method, &url);
 
@@ -163,7 +234,13 @@ async fn proxy_request(
         req = req.body(body.clone());
     }
 
-    let resp = req.send().await.map_err(|e| format!("Request failed: {}", e))?;
+    let resp = req.send().await.map_err(|e| {
+        eprintln!(
+            "[Proxy] request failed for {}: {e}",
+            sanitize_url_for_log(&url)
+        );
+        "Request failed".to_string()
+    })?;
     let status = resp.status().as_u16();
 
     // Forward response headers including set-cookie (needed for WebView session)
@@ -185,25 +262,78 @@ async fn proxy_request(
 
     let body = resp.text().await.unwrap_or_default();
 
-    println!("[Proxy] {} <- {}", status, url);
-    if body.len() < 500 {
-        println!("[Proxy] Body: {}", body);
+    println!("[Proxy] {} <- {}", status, sanitize_url_for_log(&url));
+
+    Ok(ProxyResponse {
+        status,
+        headers: resp_headers,
+        body,
+    })
+}
+
+fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let current_url = window.url().map_err(|e| {
+        eprintln!("[Sync] failed to read window URL: {e}");
+        ERR_SYNC_NOT_ALLOWED.to_string()
+    })?;
+
+    let host = current_url.host_str().unwrap_or_default();
+    let is_allowed =
+        current_url.scheme() == "tauri" && (host == "localhost" || host == "tauri.localhost");
+
+    if !is_allowed {
+        eprintln!(
+            "[Sync] rejected command from origin scheme={} host={}",
+            current_url.scheme(),
+            host
+        );
+        return Err(ERR_SYNC_NOT_ALLOWED.to_string());
     }
 
-    Ok(ProxyResponse { status, headers: resp_headers, body })
+    Ok(())
+}
+
+fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
+    let canonical = PathBuf::from(path).canonicalize().map_err(|e| {
+        eprintln!("[Sync] invalid sync root path '{}': {e}", path);
+        "Invalid sync folder".to_string()
+    })?;
+
+    let home = dirs::home_dir().ok_or("Invalid sync folder")?;
+    if !canonical.starts_with(&home) {
+        eprintln!(
+            "[Sync] rejected sync root outside home: path={:?} home={:?}",
+            canonical, home
+        );
+        return Err("Invalid sync folder".to_string());
+    }
+
+    Ok(canonical)
+}
+
+fn sanitize_url_for_log(url: &str) -> String {
+    if let Ok(parsed) = tauri::Url::parse(url) {
+        let host = parsed.host_str().unwrap_or("unknown");
+        return format!("{}://{}{}", parsed.scheme(), host, parsed.path());
+    }
+    "<unparsed-url>".to_string()
 }
 
 fn main() {
-    // NOTE: WebKitGTK env vars (GDK_GL, WEBKIT_DISABLE_*, etc.) are NOT set here.
-    // They are distro-specific and belong in patches/<package>/<distro>.patch
-    // and the package's AppRun/wrapper script. The base binary ships clean.
+    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
+    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
+    std::env::set_var("GDK_GL", "disable");
+    std::env::set_var("GSK_RENDERER", "cairo");
 
     // Create shared client with cookie jar
     let state = Arc::new(AppState {
         client: Client::builder()
-            .cookie_store(true)  // Enable cookie jar
+            .cookie_store(true) // Enable cookie jar
             .build()
             .expect("Failed to create HTTP client"),
+        sync_manager: live_sync::LiveSyncManager::default(),
     });
 
     tauri::Builder::default()
@@ -211,24 +341,96 @@ fn main() {
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-    .setup(|app| {
-        // RPM/Fedora: system WebKitGTK -> "operation is insecure" -> override.
-        let worker_init = match option_env!("DISTRO_TYPE") {
-            Some("rpm") => {
-                r#"
-        console.log('[INIT] RPM build - main-thread crypto active via source patch');
-        "#
-            }
-            _ => {
-                r#"
-        console.log('[INIT] System package build - main-thread crypto active via source patch');
-        "#
-            }
-        };
+        .setup(|app| {
+            // MULTI-DISTRO WORKER COMPATIBILITY
+            // Different distros use different WebKitGTK builds with varying Worker support
+            // Use DISTRO_TYPE env var at build time to determine Worker handling
+            //
+            // Distro Support Matrix:
+            // - appimage: Bundled WebKitGTK ΓåÆ Workers work ΓåÆ Use native
+            // - rpm/deb:  System WebKitGTK ΓåÆ "operation is insecure" ΓåÆ Override
+            // - flatpak/snap: Sandboxed ΓåÆ Override as safe default
 
-        let init_script = format!(r#"
+            let worker_init = match option_env!("DISTRO_TYPE") {
+                Some("appimage") | Some("aur") => {
+                    // Native Workers supported - no override needed
+                    r#"
+    console.log('[INIT] AppImage/AUR build - using native Workers');
+"#
+                }
+                Some("rpm") | Some("deb") | Some("flatpak") | Some("snap") | None => {
+                    // System WebKitGTK or sandboxed - disable Workers to trigger Proton's built-in fallback
+                    r#"
+    // Force Proton WebClients to use non-Worker crypto mode
+    // Proton WebClients check Worker support and automatically fall back to main-thread crypto
+    // Reference: packages/shared/lib/helpers/setupCryptoWorker.ts line 19
+    console.log('[INIT] RPM/deb build - disabling Worker support to use main-thread crypto');
+
+    // Set Worker/SharedWorker to undefined - Proton will detect and use fallback mode
+    window.Worker = undefined;
+    window.SharedWorker = undefined;
+
+    console.log('[INIT] Workers set to undefined - Proton will load crypto API in main thread');
+"#
+                }
+                _ => {
+                    // Unknown distro - use safe default (override)
+                    r#"
+    console.warn('[INIT] Unknown distro - using Worker override as safe default');
+    delete window.Worker;
+    delete window.SharedWorker;
+
+    // Suppress Worker errors globally
+    window.addEventListener('error', function(event) {
+        if (event.error && event.error.message && event.error.message.includes('Worker')) {
+            event.preventDefault();
+            return true;
+        }
+    }, true);
+
+    const OrigWorker = window.Worker;
+    window.Worker = function Worker(url) {
+        console.log('[Worker] Blocked - unknown distro, using safe default');
+        const err = new Error('Worker not supported');
+        err.name = 'SecurityError';
+        throw err;
+    };
+    window.Worker.prototype = OrigWorker ? OrigWorker.prototype : {};
+
+    window.SharedWorker = function SharedWorker(url) {
+        console.log('[SharedWorker] Blocked - returning stub');
+        const port = {
+            postMessage: function() {},
+            start: function() {},
+            close: function() {},
+            addEventListener: function() {},
+            removeEventListener: function() {},
+            onmessage: null,
+            onmessageerror: null
+        };
+        return {
+            port: port,
+            onerror: null
+        };
+    };
+
+    Object.defineProperty(window, 'Worker', {
+        value: window.Worker,
+        writable: false,
+        configurable: false
+    });
+    Object.defineProperty(window, 'SharedWorker', {
+        value: window.SharedWorker,
+        writable: false,
+        configurable: false
+    });
+"#
+                }
+            };
+
+            let init_script = format!(r#"
 (function() {{
-{}
+    {}
 "#, worker_init) + r#"
 
     // Intercept Blob downloads and save to ~/Downloads
@@ -419,26 +621,38 @@ fn main() {
         if (event.data && event.data.type === 'HUMAN_VERIFICATION_SUCCESS' && event.data.payload) {
             const token = event.data.payload.token;
             const tokenType = event.data.payload.type || 'captcha';
-            console.log('[CAPTCHA] Verification successful, returning to account');
+            console.log('[CAPTCHA] Verification successful, storing token and returning');
             captchaPending = false;
 
-            // Pass token via URL params — Tauri IPC (invoke) is unavailable on
-            // external pages (verify.proton.me). Rust nav handler extracts the
-            // params when it intercepts the return navigation.
-            window.location.href = 'tauri://localhost/account/?hv_token='
-                + encodeURIComponent(token)
-                + '&hv_type=' + encodeURIComponent(tokenType);
+            // Store in Rust memory (zero trust - cleared after single use)
+            try {
+                await window.__TAURI__.core.invoke('store_verification_token', {
+                    token: token,
+                    tokenType: tokenType
+                });
+                console.log('[CAPTCHA] Token stored, navigating back');
+                window.location.href = 'tauri://localhost/account/';
+            } catch (e) {
+                console.error('[CAPTCHA] Failed to store token:', e);
+            }
         }
 
         // hCaptcha sends pm_captcha with the token directly
         if (event.data && event.data.type === 'pm_captcha' && event.data.token) {
             const token = event.data.token;
-            console.log('[CAPTCHA] pm_captcha received, returning to account');
+            console.log('[CAPTCHA] pm_captcha received, storing token');
             captchaPending = false;
 
-            window.location.href = 'tauri://localhost/account/?hv_token='
-                + encodeURIComponent(token)
-                + '&hv_type=captcha';
+            try {
+                await window.__TAURI__.core.invoke('store_verification_token', {
+                    token: token,
+                    tokenType: 'captcha'
+                });
+                console.log('[CAPTCHA] Token stored, navigating back');
+                window.location.href = 'tauri://localhost/account/';
+            } catch (e) {
+                console.error('[CAPTCHA] Failed to store token:', e);
+            }
         }
     });
 
@@ -476,9 +690,6 @@ fn main() {
     const origWarn = console.warn;
 
     const sendToRust = (level, args) => {
-        if (!window.location.href.startsWith('tauri://')) {
-            return;
-        }
         try {
             const msg = '[' + level + '] ' + Array.from(args).map(a => {
                 try { return typeof a === 'object' ? JSON.stringify(a) : String(a); }
@@ -892,49 +1103,6 @@ fn main() {
                         }
                     }
 
-                    // Captcha completion returns here from injected JS with the
-                    // verification token in query params. Treat only this explicit
-                    // return as completion; captcha pages also navigate internally
-                    // to about:blank and verify-api URLs while still in progress.
-                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
-                        && url.scheme() == "tauri"
-                        && url.host_str() == Some("localhost")
-                        && url.path().starts_with("/account/")
-                    {
-                        let mut hv_token: Option<String> = None;
-                        let mut hv_type: Option<String> = None;
-                        for (key, value) in url.query_pairs() {
-                            match key.as_ref() {
-                                "hv_token" => hv_token = Some(value.into_owned()),
-                                "hv_type" => hv_type = Some(value.into_owned()),
-                                _ => {}
-                            }
-                        }
-
-                        if let (Some(token), Some(token_type)) = (hv_token, hv_type) {
-                            ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
-                            println!("[CAPTCHA] Storing token from completion URL");
-                            *PENDING_VERIFICATION.lock().unwrap() = Some((token, token_type));
-
-                            if let Some(window) = app_handle_nav.get_webview_window("main") {
-                                tauri::async_runtime::spawn(async move {
-                                    let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
-                                });
-                            }
-                            return false;
-                        }
-
-                        println!("[CAPTCHA] Ignoring account return without verification token: {}", url_str);
-                        return false;
-                    }
-
-                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
-                        && url.scheme() == "about"
-                    {
-                        println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
-                        return true;
-                    }
-
                     // Track captcha page state and allow captcha-related URLs
                     let is_captcha_url = match url.host_str() {
                         Some("mail.proton.me") => url.path().starts_with("/api/core/v4/captcha") || url.path().starts_with("/captcha/"),
@@ -949,14 +1117,23 @@ fn main() {
                         return true;
                     }
 
-                    // Block ALL /api/ navigations including challenge pages.
-                    // Challenge pages (/api/challenge/v4/html) are iframe src navigations — when
-                    // allowed, Tauri serves the account app's index.html for that path, the SPA
-                    // router doesn't recognise /api/challenge/... and navigates to /login, which
-                    // our handler rewrites back to /account/ → infinite reload loop.
-                    // Blocking here is safe: challenge data is collected by the account app's
-                    // fetch interceptor; if Proton requires human verification it returns 9001
-                    // and our captcha flow handles it.
+                    // Detect navigation AWAY from captcha to non-captcha page - means captcha flow completed
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst) {
+                        // We're leaving the captcha page (not to another captcha/hcaptcha URL)
+                        ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
+                        println!("[CAPTCHA] Left captcha page, returning to account app");
+
+                        // Navigate back to account app to retry auth
+                        if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            tauri::async_runtime::spawn(async move {
+                                let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
+                            });
+                        }
+                        return false; // Block whatever navigation triggered this, we'll go to account
+                    }
+
+                    // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
+                    // Blocking /api/ prevents iframes from trying to load API endpoints which breaks the account app
                     if url.path().starts_with("/api/") {
                         println!("[Navigation] Blocking API navigation (should use fetch): {}", url_str);
                         return false;
@@ -971,7 +1148,21 @@ fn main() {
 
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![proxy_request, js_log, navigate_to_captcha, get_captcha_return_url, store_verification_token, get_and_clear_verification_token, store_login_credentials, get_and_clear_login_credentials, save_download])
+        .invoke_handler(tauri::generate_handler![
+            proxy_request,
+            js_log,
+            navigate_to_captcha,
+            get_captcha_return_url,
+            store_verification_token,
+            get_and_clear_verification_token,
+            store_login_credentials,
+            get_and_clear_login_credentials,
+            save_download,
+            start_sync,
+            stop_sync,
+            get_sync_status,
+            handle_remote_update
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }

@@ -76,6 +76,9 @@ CLAUDE.md
 TASKS.md
 *.local.md
 
+# Keep opencode agent files tracked
+!.opencode/agents/
+
 # WebClients
 WebClients/
 
