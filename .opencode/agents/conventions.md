@@ -21,15 +21,17 @@ Commit messages must match CommitCheck regex:
 
 ## PR Titles
 
-PR titles use the tracked issue number at the start:
+PR titles use the PR number at the start:
 
 ```text
-(#ISSUE_NUMBER) Description
+(#PR_NUMBER) Description
 ```
 
-- Example: `(#92) Fix flatpak YAML generation printf indentation`.
+- Example: `(#93) Fix flatpak YAML generation printf indentation`.
 - Must match `^\(#\d+\)\s[A-Z].{9,}$`.
-- The PR title number is the issue number, not the PR number.
+- The PR title number is the PR number, not the tracked issue number.
+- If the PR number is not known yet, create the PR first, then edit the title
+  once GitHub assigns the PR number.
 - If there is no tracking issue, create or verify one before opening the PR.
 
 ## Issue And PR Links
@@ -39,7 +41,7 @@ Numbers and links are required, but they must be stable and real.
 | Context | Required reference | Example |
 |---------|--------------------|---------|
 | Commit message | Issue number | `(#92) Fix workflow YAML indentation` |
-| PR title | Issue number | `(#92) Fix workflow YAML indentation` |
+| PR title | PR number | `(#93) Fix workflow YAML indentation` |
 | PR body | Closing issue plus icon links | `Closes #92` and `- 🔗 Related: #91` |
 | Issue body | Related issue/PR URLs when known | `https://github.com/DonnieDice/protondrive-linux/pull/99` |
 
@@ -141,7 +143,7 @@ No intermediate branches. All feature branches merge directly to `main`.
 1. Fetch the latest base.
 2. Create a feature/fix/chore branch from latest `main`.
 3. Make changes and commit with `(#ISSUE) Description`.
-4. Push branch and create PR with `(#ISSUE) Description`.
+4. Push branch, create PR, then edit the title to `(#PR) Description`.
 5. Edit PR body with issue links, PR link, changed paths, and testing.
 6. Wait for CI and review bot feedback before merging.
 7. After merge, delete both remote and local branches.

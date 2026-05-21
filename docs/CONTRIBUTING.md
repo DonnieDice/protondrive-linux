@@ -203,19 +203,21 @@ All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
-- The number in the PR title is the tracked **issue** number, not the PR number
-- Start with an uppercase letter after the issue prefix
-- Be at least 10 characters long after the issue prefix
-- Put the issue prefix at the start of the title, e.g. `(#42) Title here`
+- The number in the PR title is the **PR** number, not the tracked issue number
+- Start with an uppercase letter after the PR prefix
+- Be at least 10 characters long after the PR prefix
+- Put the PR prefix at the start of the title, e.g. `(#43) Title here`
+- If GitHub has not assigned the PR number yet, create the PR first, then edit
+  the title once the number exists
 
 Examples:
 
-- `(#47) Add Alpine 3.20 APK build target`
-- `(#51) Fix linker flags for musl static linking`
-- `(#38) Update WebClients clone depth in build script`
+- `(#48) Add Alpine 3.20 APK build target`
+- `(#52) Fix linker flags for musl static linking`
+- `(#39) Update WebClients clone depth in build script`
 
 Open an issue before opening a PR when there is no tracked issue yet. This keeps
-commits, PR titles, and closing links aligned from the first push.
+commits and closing links aligned from the first push.
 
 ### Review Bot Feedback
 
@@ -233,7 +235,7 @@ Before merging **any** PR, all automated review bot findings must be addressed:
   prefix when the commit is not a squash-merge PR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the same **issue** number prefix (`(#123) ...`).
+- Use the PR title for the **PR** number prefix (`(#124) ...`).
 - Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 

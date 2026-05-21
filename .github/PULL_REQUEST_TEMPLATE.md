@@ -10,14 +10,15 @@ If this PR is partial work, use `Refs #98` instead.
 ## PR Title Checklist
 
 Your PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
+After GitHub assigns this PR number, edit the title so the prefix matches it.
 
-- [ ] Starts with the tracked issue number, not the PR number
-- [ ] Uses an uppercase first letter after the issue prefix
-- [ ] Has a descriptive title, e.g. `(#98) Fix BOM encoding corruption`
+- [ ] Starts with this PR's number, not the tracked issue number
+- [ ] Uses an uppercase first letter after the PR prefix
+- [ ] Has a descriptive title, e.g. `(#99) Fix BOM encoding corruption`
 
-**Correct:** `(#98) Fix BOM encoding corruption`
-**Incorrect:** `Fix BOM encoding corruption` (missing issue number)
-**Incorrect:** `(#98) fix BOM encoding corruption` (lowercase start)
+**Correct:** `(#99) Fix BOM encoding corruption`
+**Incorrect:** `Fix BOM encoding corruption` (missing PR number)
+**Incorrect:** `(#99) fix BOM encoding corruption` (lowercase start)
 
 ## Summary
 
