@@ -116,19 +116,45 @@ runs:
             fi
             cat .SRCINFO
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=/tmp/aur-output \
+          bash scripts/ci/write-artifact-manifest.sh \
+          aur-arch-native \
+          aur \
+          arch \
+          x86_64 \
+          "/tmp/aur-output/*.pkg.tar.zst"
+
     - name: Upload AUR package
       uses: actions/upload-artifact@v4
       with:
         name: aur-arch-native
-        path: /tmp/aur-output/*.pkg.tar.zst
+        path: |
+          /tmp/aur-output/*.pkg.tar.zst
+          /tmp/aur-output/aur-arch-native.*
         if-no-files-found: error
         retention-days: 30
+
+    - name: Write AUR metadata manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=aur \
+          bash scripts/ci/write-artifact-manifest.sh \
+          aur-arch-native-srcinfo \
+          aur-metadata \
+          arch \
+          x86_64 \
+          "aur/.SRCINFO"
 
     - name: Upload AUR metadata
       uses: actions/upload-artifact@v4
       with:
         name: aur-arch-native-srcinfo
-        path: aur/.SRCINFO
+        path: |
+          aur/.SRCINFO
+          aur/aur-arch-native-srcinfo.*
         if-no-files-found: warn
         include-hidden-files: true
         retention-days: 30
