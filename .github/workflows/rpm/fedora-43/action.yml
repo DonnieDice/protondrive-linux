@@ -78,10 +78,23 @@ runs:
           mv "$file" "${file/Proton Drive/proton-drive}"
         done
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=src-tauri/target/release/bundle/rpm \
+          bash scripts/ci/write-artifact-manifest.sh \
+          rpm-package-fedora43 \
+          rpm \
+          fedora-43 \
+          x86_64 \
+          "src-tauri/target/release/bundle/rpm/*.rpm"
+
     - name: Upload RPM artifact
       uses: actions/upload-artifact@v4
       with:
         name: rpm-package-fedora43
-        path: src-tauri/target/release/bundle/rpm/*.rpm
+        path: |
+          src-tauri/target/release/bundle/rpm/*.rpm
+          src-tauri/target/release/bundle/rpm/rpm-package-fedora43.*
         if-no-files-found: error
         retention-days: 30

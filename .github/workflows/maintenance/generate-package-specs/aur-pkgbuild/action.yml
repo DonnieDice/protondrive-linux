@@ -148,6 +148,18 @@ runs:
         - AUR Package Guidelines: https://wiki.archlinux.org/title/Arch_package_guidelines
         EOF
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=. \
+          bash scripts/ci/write-artifact-manifest.sh \
+          aur-pkgbuild \
+          aur-metadata \
+          arch \
+          x86_64 \
+          "PKGBUILD" \
+          "AUR_SUBMISSION_GUIDE.md"
+
     - name: Upload PKGBUILD artifact
       uses: actions/upload-artifact@v4
       with:
@@ -155,4 +167,5 @@ runs:
         path: |
           PKGBUILD
           AUR_SUBMISSION_GUIDE.md
+          aur-pkgbuild.*
         retention-days: 90

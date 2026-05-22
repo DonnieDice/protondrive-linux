@@ -32,6 +32,17 @@ runs:
         sha256sum proton-drive-${{ steps.tag.outputs.version }}.tar.gz > \
           proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=. \
+          bash scripts/ci/write-artifact-manifest.sh \
+          source-distribution \
+          source \
+          source \
+          all \
+          "proton-drive-${{ steps.tag.outputs.version }}.tar.gz"
+
     - name: Upload source distribution
       uses: actions/upload-artifact@v4
       with:
@@ -39,4 +50,5 @@ runs:
         path: |
           proton-drive-${{ steps.tag.outputs.version }}.tar.gz
           proton-drive-${{ steps.tag.outputs.version }}.tar.gz.sha256
+          source-distribution.*
         retention-days: 90

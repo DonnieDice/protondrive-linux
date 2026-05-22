@@ -71,21 +71,34 @@ runs:
     - name: Normalize DEB filename
       shell: bash
       run: |
-            VERSION=$(node -p "require('./package.json').version")
-            cd src-tauri/target/release/bundle/deb
-            for file in *.deb; do
-              if [ -f "$file" ]; then
-                target="proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
-                if [ "$file" != "$target" ]; then
-                  mv "$file" "$target"
-                fi
-              fi
-            done
+        VERSION=$(node -p "require('./package.json').version")
+        cd src-tauri/target/release/bundle/deb
+        for file in *.deb; do
+          if [ -f "$file" ]; then
+            target="proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb"
+            if [ "$file" != "$target" ]; then
+              mv "$file" "$target"
+            fi
+          fi
+        done
+
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=src-tauri/target/release/bundle/deb \
+          bash scripts/ci/write-artifact-manifest.sh \
+          deb-package-debian12 \
+          deb \
+          debian-12 \
+          x86_64 \
+          "src-tauri/target/release/bundle/deb/proton-drive_*_debian12_amd64.deb"
 
     - name: Upload DEB artifact
       uses: actions/upload-artifact@v4
       with:
         name: deb-package-debian12
-        path: src-tauri/target/release/bundle/deb/proton-drive_*_debian12_amd64.deb
+        path: |
+          src-tauri/target/release/bundle/deb/proton-drive_*_debian12_amd64.deb
+          src-tauri/target/release/bundle/deb/deb-package-debian12.*
         if-no-files-found: error
         retention-days: 30
