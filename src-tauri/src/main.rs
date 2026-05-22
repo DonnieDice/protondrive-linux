@@ -3,6 +3,7 @@
     windows_subsystem = "windows"
 )]
 
+use reqwest::cookie::Jar;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -18,7 +19,7 @@ mod webview_storage;
 
 use proton_navigation::{account_login_complete_redirect_url, unsupported_app_redirect_url};
 use url_log::sanitize_url_for_log;
-use webview_cookies::{store_webview_cookie, webview_cookie_header};
+use webview_cookies::{combined_cookie_header, store_webview_cookie};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
@@ -27,6 +28,7 @@ const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this contex
 // Shared HTTP client with cookie jar
 struct AppState {
     client: Client,
+    cookie_jar: Arc<Jar>,
     sync_manager: live_sync::LiveSyncManager,
 }
 
@@ -238,7 +240,7 @@ async fn proxy_request(
     })?;
 
     let mut req = state.client.request(method, &url);
-    if let Some(cookie_header) = webview_cookie_header(&window, &target_url) {
+    if let Some(cookie_header) = combined_cookie_header(&window, &state.cookie_jar, &target_url) {
         req = req.header(reqwest::header::COOKIE, cookie_header);
     }
 
@@ -335,11 +337,13 @@ fn main() {
     std::env::set_var("GSK_RENDERER", "cairo");
 
     // Create shared client with cookie jar
+    let cookie_jar = Arc::new(Jar::default());
     let state = Arc::new(AppState {
         client: Client::builder()
-            .cookie_store(true) // Enable cookie jar
+            .cookie_provider(cookie_jar.clone())
             .build()
             .expect("Failed to create HTTP client"),
+        cookie_jar,
         sync_manager: live_sync::LiveSyncManager::default(),
     });
 
