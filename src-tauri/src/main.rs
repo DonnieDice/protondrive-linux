@@ -8,10 +8,18 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
 use std::sync::Arc;
-use tauri::webview::Cookie;
-use tauri::{Manager, Url, WebviewUrl, WebviewWindowBuilder};
+use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod live_sync;
+mod proton_navigation;
+mod url_log;
+mod webview_cookies;
+mod webview_storage;
+
+use proton_navigation::unsupported_app_redirect_url;
+use url_log::sanitize_url_for_log;
+use webview_cookies::{store_webview_cookie, webview_cookie_header};
+use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
@@ -221,7 +229,7 @@ async fn proxy_request(
 
     println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
 
-    let target_url = Url::parse(&url).map_err(|e| {
+    let target_url = tauri::Url::parse(&url).map_err(|e| {
         eprintln!(
             "[Proxy] invalid target URL {}: {e}",
             sanitize_url_for_log(&url)
@@ -278,69 +286,6 @@ async fn proxy_request(
     })
 }
 
-fn webview_cookie_header(window: &tauri::WebviewWindow, url: &Url) -> Option<String> {
-    if url.scheme() != "http" && url.scheme() != "https" {
-        return None;
-    }
-
-    let cookies = window
-        .cookies_for_url(url.clone())
-        .map_err(|e| {
-            eprintln!(
-                "[Cookie] failed to read WebKit cookies for {}: {e}",
-                sanitize_url_for_log(url.as_str())
-            );
-        })
-        .ok()?;
-
-    let cookie_pairs: Vec<String> = cookies
-        .into_iter()
-        .map(|cookie| format!("{}={}", cookie.name(), cookie.value()))
-        .collect();
-
-    if cookie_pairs.is_empty() {
-        None
-    } else {
-        Some(cookie_pairs.join("; "))
-    }
-}
-
-fn store_webview_cookie(window: &tauri::WebviewWindow, url: &Url, set_cookie: &str) {
-    if url.scheme() != "http" && url.scheme() != "https" {
-        return;
-    }
-
-    let mut cookie = match Cookie::parse(set_cookie.to_string()) {
-        Ok(cookie) => cookie.into_owned(),
-        Err(e) => {
-            eprintln!(
-                "[Cookie] failed to parse Set-Cookie from {}: {e}",
-                sanitize_url_for_log(url.as_str())
-            );
-            return;
-        }
-    };
-
-    if cookie.domain().is_none() {
-        if let Some(host) = url.host_str() {
-            cookie.set_domain(host.to_string());
-        }
-    }
-
-    if cookie.path().is_none() {
-        cookie.set_path("/");
-    }
-
-    let cookie_name = cookie.name().to_string();
-    if let Err(e) = window.set_cookie(cookie) {
-        eprintln!(
-            "[Cookie] failed to store {} from {}: {e}",
-            cookie_name,
-            sanitize_url_for_log(url.as_str())
-        );
-    }
-}
-
 fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
     let current_url = window.url().map_err(|e| {
         eprintln!("[Sync] failed to read window URL: {e}");
@@ -381,37 +326,6 @@ fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
     Ok(canonical)
 }
 
-fn sanitize_url_for_log(url: &str) -> String {
-    if let Ok(parsed) = tauri::Url::parse(url) {
-        let host = parsed.host_str().unwrap_or("unknown");
-        return format!("{}://{}{}", parsed.scheme(), host, parsed.path());
-    }
-    "<unparsed-url>".to_string()
-}
-
-fn is_unsupported_proton_app_host(host: &str) -> bool {
-    matches!(
-        host,
-        "calendar.proton.me"
-            | "contacts.proton.me"
-            | "docs.proton.me"
-            | "mail.proton.me"
-            | "pass.proton.me"
-            | "wallet.proton.me"
-            | "vpn.proton.me"
-    )
-}
-
-fn drive_root_for_user_path(path: &str) -> String {
-    if let Some(rest) = path.strip_prefix("/u/") {
-        let user_id = rest.split('/').next().unwrap_or_default();
-        if !user_id.is_empty() {
-            return format!("/u/{}/", user_id);
-        }
-    }
-    "/".to_string()
-}
-
 fn main() {
     // Fix WebKitGTK EGL/GPU issues on various Linux configurations
     std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
@@ -435,8 +349,8 @@ fn main() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
         .setup(|app| {
-            let webview_data_dir = app.path().app_data_dir()?.join("webview");
-            std::fs::create_dir_all(&webview_data_dir)?;
+            let webview_data_dir = persistent_webview_data_dir(app.path().app_data_dir()?);
+            ensure_webview_data_dir(&webview_data_dir)?;
             println!(
                 "[Storage] Using persistent WebView data directory: {:?}",
                 webview_data_dir
@@ -1225,26 +1139,20 @@ fn main() {
                         return false; // Block whatever navigation triggered this, we'll go to account
                     }
 
-                    if let Some(host) = url.host_str() {
-                        if is_unsupported_proton_app_host(host)
-                            && !url.path().starts_with("/api/")
-                            && !url.path().starts_with("/captcha/")
-                        {
-                            let local_url =
-                                format!("tauri://localhost{}", drive_root_for_user_path(url.path()));
-                            println!(
-                                "[SSO] Redirecting unsupported Proton app host {} to Drive: {}",
-                                host, local_url
-                            );
+                    if let Some(local_url) = unsupported_app_redirect_url(url) {
+                        println!(
+                            "[SSO] Redirecting unsupported Proton app host {} to Drive: {}",
+                            url.host_str().unwrap_or("unknown"),
+                            local_url
+                        );
 
-                            if let Some(window) = app_handle_nav.get_webview_window("main") {
-                                let url_clone = local_url.clone();
-                                tauri::async_runtime::spawn(async move {
-                                    let _ = window.navigate(url_clone.parse().unwrap());
-                                });
-                            }
-                            return false;
+                        if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            let url_clone = local_url.clone();
+                            tauri::async_runtime::spawn(async move {
+                                let _ = window.navigate(url_clone.parse().unwrap());
+                            });
                         }
+                        return false;
                     }
 
                     // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
