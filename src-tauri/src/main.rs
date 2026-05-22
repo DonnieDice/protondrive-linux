@@ -733,6 +733,9 @@ fn main() {
     };
 
     const originalFetch = window.fetch;
+    const responseBodyForStatus = (status, body) => {
+        return [204, 205, 304].includes(status) ? null : (body ?? '');
+    };
 
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
@@ -861,7 +864,7 @@ fn main() {
                 } catch (e) {}
             }
 
-            return new Response(response.body, {
+            return new Response(responseBodyForStatus(response.status, response.body), {
                 status: response.status,
                 headers: respHeaders
             });
