@@ -169,6 +169,7 @@ jobs:
 
     env:
       RUST_VERSION: stable
+      DISTRO_TYPE: aur
       WEBCLIENTS_REF: main
       WEBCLIENTS_COMMIT: bbad1a0a482227b93a2e963a232463aede9b8abf
   
