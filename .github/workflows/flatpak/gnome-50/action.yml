@@ -146,10 +146,23 @@ runs:
         flatpak-builder --user --force-clean --repo=repo build-dir com.proton.drive.yml
         flatpak build-bundle repo "proton-drive_${VERSION}_gnome50.flatpak" com.proton.drive
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=. \
+          bash scripts/ci/write-artifact-manifest.sh \
+          flatpak-package \
+          flatpak \
+          gnome-50 \
+          x86_64 \
+          "*.flatpak"
+
     - name: Upload Flatpak artifact
       uses: actions/upload-artifact@v4
       with:
         name: flatpak-package
-        path: "*.flatpak"
+        path: |
+          *.flatpak
+          flatpak-package.*
         if-no-files-found: error
         retention-days: 30

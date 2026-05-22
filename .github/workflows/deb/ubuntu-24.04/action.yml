@@ -83,10 +83,23 @@ runs:
           fi
         done
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=src-tauri/target/release/bundle/deb \
+          bash scripts/ci/write-artifact-manifest.sh \
+          deb-package-ubuntu2404 \
+          deb \
+          ubuntu-24.04 \
+          x86_64 \
+          "src-tauri/target/release/bundle/deb/proton-drive_*_ubuntu24.04_amd64.deb"
+
     - name: Upload DEB artifact
       uses: actions/upload-artifact@v4
       with:
         name: deb-package-ubuntu2404
-        path: src-tauri/target/release/bundle/deb/proton-drive_*_ubuntu24.04_amd64.deb
+        path: |
+          src-tauri/target/release/bundle/deb/proton-drive_*_ubuntu24.04_amd64.deb
+          src-tauri/target/release/bundle/deb/deb-package-ubuntu2404.*
         if-no-files-found: error
         retention-days: 30
