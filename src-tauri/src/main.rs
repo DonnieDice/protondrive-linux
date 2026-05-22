@@ -16,7 +16,7 @@ mod url_log;
 mod webview_cookies;
 mod webview_storage;
 
-use proton_navigation::unsupported_app_redirect_url;
+use proton_navigation::{account_login_complete_redirect_url, unsupported_app_redirect_url};
 use url_log::sanitize_url_for_log;
 use webview_cookies::{store_webview_cookie, webview_cookie_header};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
@@ -737,6 +737,103 @@ fn main() {
         return [204, 205, 304].includes(status) ? null : (body ?? '');
     };
 
+    const requestBodyToString = async (body) => {
+        if (body == null) return null;
+        if (typeof body === 'string') return body;
+        if (body instanceof URLSearchParams) return body.toString();
+        if (body instanceof FormData) return new URLSearchParams(body).toString();
+        if (body instanceof Blob) return await body.text();
+        if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
+        if (ArrayBuffer.isView(body)) {
+            return new TextDecoder().decode(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+        }
+        if (body instanceof ReadableStream) {
+            throw new Error('ReadableStream request bodies are not supported by the Tauri API proxy');
+        }
+        return JSON.stringify(body);
+    };
+
+    const collectHeaders = (input, init) => {
+        const headers = {};
+        const mergeHeaders = (source) => {
+            if (!source) return;
+            const sourceHeaders = new Headers(source);
+            sourceHeaders.forEach((value, key) => headers[key] = value);
+        };
+
+        if (input instanceof Request) {
+            mergeHeaders(input.headers);
+        }
+        mergeHeaders(init?.headers);
+
+        return headers;
+    };
+
+    const collectFetchRequest = async (input, init = {}) => {
+        const request = input instanceof Request ? input : null;
+        const method = (init.method || request?.method || 'GET').toUpperCase();
+        const headers = collectHeaders(request || input, init);
+        const hasInitBody = Object.prototype.hasOwnProperty.call(init, 'body') && init.body != null;
+        let body = null;
+
+        if (method !== 'GET' && method !== 'HEAD') {
+            if (hasInitBody) {
+                body = await requestBodyToString(init.body);
+            } else if (request) {
+                try {
+                    body = await request.clone().text();
+                } catch (e) {
+                    console.warn('[Proxy] Unable to read Request body:', e);
+                }
+            }
+        }
+
+        return { method, headers, body };
+    };
+
+    const accountLoginCompleteRedirectUrl = (href = window.location.href) => {
+        let current;
+        try {
+            current = new URL(href);
+        } catch {
+            return null;
+        }
+
+        const path = current.pathname;
+        const accountPath = path.startsWith('/account') ? (path.slice('/account'.length) || '/') : path;
+        const isAccountHost = current.hostname === 'account.proton.me' || current.hostname === 'account.localhost';
+        const isLocalAccountPath = (current.hostname === 'localhost' || current.hostname === 'tauri.localhost')
+            && path.startsWith('/account/u/');
+
+        if (!isAccountHost && !isLocalAccountPath) return null;
+        if (!accountPath.startsWith('/u/') || !accountPath.includes('/drive')) return null;
+
+        const userId = accountPath.slice(3).split('/')[0];
+        return userId ? `tauri://localhost/u/${userId}/` : 'tauri://localhost/';
+    };
+
+    const redirectIfAccountLoginComplete = () => {
+        const driveUrl = accountLoginCompleteRedirectUrl();
+        if (!driveUrl || window.__accountLoginCompleteRedirected === driveUrl) return;
+
+        window.__accountLoginCompleteRedirected = driveUrl;
+        console.log('[SSO] Account login complete in web app, redirecting to:', driveUrl);
+        setTimeout(() => {
+            window.location.href = driveUrl;
+        }, 0);
+    };
+
+    for (const method of ['pushState', 'replaceState']) {
+        const originalHistoryMethod = history[method];
+        history[method] = function(...args) {
+            const result = originalHistoryMethod.apply(this, args);
+            setTimeout(redirectIfAccountLoginComplete, 0);
+            return result;
+        };
+    }
+    window.addEventListener('popstate', () => setTimeout(redirectIfAccountLoginComplete, 0));
+    setTimeout(redirectIfAccountLoginComplete, 0);
+
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
 
@@ -779,28 +876,12 @@ fn main() {
             });
         }
 
-        const method = init.method || 'GET';
-        const headers = {};
-
-        if (init.headers) {
-            if (init.headers instanceof Headers) {
-                init.headers.forEach((v, k) => headers[k] = v);
-            } else if (Array.isArray(init.headers)) {
-                init.headers.forEach(([k, v]) => headers[k] = v);
-            } else {
-                Object.assign(headers, init.headers);
-            }
-        }
-
-        let body = null;
-        if (init.body) {
-            body = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
-        }
-
         try {
+            const proxiedRequest = await collectFetchRequest(input, init);
+
             // Ensure all header values are strings
             const cleanHeaders = {};
-            for (const [k, v] of Object.entries(headers)) {
+            for (const [k, v] of Object.entries(proxiedRequest.headers)) {
                 cleanHeaders[k] = String(v);
             }
 
@@ -815,10 +896,12 @@ fn main() {
                 }
             }
 
-            const cleanBody = body ? String(body) : null;
+            const cleanBody = proxiedRequest.body == null ? null : String(proxiedRequest.body);
+            sendToRust('PROXY_REQ', [proxiedRequest.method, url, 'body=' + (cleanBody ? cleanBody.length : 0)]);
             const response = await window.__TAURI__.core.invoke('proxy_request', {
-                request: { method, url, headers: cleanHeaders, body: cleanBody }
+                request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
             });
+            sendToRust('PROXY_RES', [response.status, url, 'body=' + ((response.body || '').length)]);
 
             const respHeaders = new Headers();
             for (const [k, v] of Object.entries(response.headers || {})) {
@@ -901,18 +984,27 @@ fn main() {
 
             console.log('[XHR Proxy]', method, url);
 
-            window.__TAURI__.core.invoke('proxy_request', {
-                request: { method, url, headers, body: body || null }
-            }).then(response => {
+            requestBodyToString(body).then((serializedBody) => window.__TAURI__.core.invoke('proxy_request', {
+                request: {
+                    method,
+                    url,
+                    headers,
+                    body: serializedBody == null ? null : String(serializedBody)
+                }
+            })).then(response => {
                 Object.defineProperty(xhr, 'status', { value: response.status });
+                Object.defineProperty(xhr, 'statusText', { value: String(response.status) });
                 Object.defineProperty(xhr, 'responseText', { value: response.body });
                 Object.defineProperty(xhr, 'response', { value: response.body });
+                Object.defineProperty(xhr, 'responseURL', { value: url });
                 Object.defineProperty(xhr, 'readyState', { value: 4 });
                 xhr.dispatchEvent(new Event('readystatechange'));
                 xhr.dispatchEvent(new Event('load'));
+                xhr.dispatchEvent(new Event('loadend'));
             }).catch(err => {
                 console.error('[XHR Proxy Error]', err);
                 xhr.dispatchEvent(new Event('error'));
+                xhr.dispatchEvent(new Event('loadend'));
             });
         };
 
@@ -1038,6 +1130,20 @@ fn main() {
                         return false; // Block original navigation
                     }
 
+                    // After successful login/2FA, the account app lands on a user-scoped
+                    // Drive handoff route. Redirect that route back into the local Drive app.
+                    if let Some(drive_url) = account_login_complete_redirect_url(url) {
+                        println!("[SSO] Account login complete, redirecting to: {}", drive_url);
+
+                        if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            tauri::async_runtime::spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                                let _ = window.navigate(drive_url.parse().unwrap());
+                            });
+                        }
+                        return false;
+                    }
+
                     // Rewrite account.proton.me to local /account/ path
                     if url.host_str() == Some("account.proton.me") {
                         let path = url.path();
@@ -1066,32 +1172,6 @@ fn main() {
                             let url_clone = local_url.clone();
                             tauri::async_runtime::spawn(async move {
                                 let _ = window.navigate(url_clone.parse().unwrap());
-                            });
-                        }
-                        return false;
-                    }
-
-                    // After successful login, account app navigates to account.localhost/u/X/drive/...
-                    // Extract the user ID and redirect to Drive with user context
-                    if url.host_str() == Some("account.localhost") {
-                        let path = url.path();
-                        // Extract /u/X/ from path like /u/0/drive/account
-                        let user_path = if path.starts_with("/u/") {
-                            if let Some(end) = path[3..].find('/') {
-                                format!("/u/{}/", &path[3..3+end])
-                            } else {
-                                "/".to_string()
-                            }
-                        } else {
-                            "/".to_string()
-                        };
-                        let drive_url = format!("tauri://localhost{}", user_path);
-                        println!("[SSO] Login complete, redirecting to: {}", drive_url);
-
-                        if let Some(window) = app_handle_nav.get_webview_window("main") {
-                            tauri::async_runtime::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                                let _ = window.navigate(drive_url.parse().unwrap());
                             });
                         }
                         return false;
