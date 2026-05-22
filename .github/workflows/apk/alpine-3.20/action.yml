@@ -137,11 +137,11 @@ runs:
             }
             EOF
 
-        ARTIFACT_DIR="/tmp/apk-artifact"
-        rm -rf "$ARTIFACT_DIR"
-        mkdir -p "$ARTIFACT_DIR"
-        tar -C "$APK_STAGING" -czf "$ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
-        echo "Packaged: $ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz"
+            ARTIFACT_DIR="/tmp/apk-artifact"
+            rm -rf "$ARTIFACT_DIR"
+            mkdir -p "$ARTIFACT_DIR"
+            tar -C "$APK_STAGING" -czf "$ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
+            echo "Packaged: $ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz"
 
     - name: Write artifact manifest
       shell: bash
