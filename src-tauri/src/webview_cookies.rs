@@ -108,14 +108,8 @@ pub fn store_webview_cookie(window: &WebviewWindow, url: &Url, set_cookie: &str)
         }
     };
 
-    if cookie.domain().is_none() {
-        if let Some(host) = url.host_str() {
-            cookie.set_domain(host.to_string());
-        }
-    }
-
     if cookie.path().is_none() {
-        cookie.set_path("/");
+        cookie.set_path(default_cookie_path(url));
     }
 
     let cookie_name = cookie.name().to_string();
@@ -132,6 +126,20 @@ fn supports_cookies(url: &Url) -> bool {
     url.scheme() == "http" || url.scheme() == "https"
 }
 
+/// Computes the RFC-6265 §5.1.4 default-path for a Set-Cookie whose Path
+/// attribute was omitted: the longest prefix of the request URI path ending
+/// in a "/", otherwise "/".
+fn default_cookie_path(url: &Url) -> String {
+    let path = url.path();
+    if !path.starts_with('/') {
+        return "/".to_string();
+    }
+    match path.rfind('/') {
+        Some(0) | None => "/".to_string(),
+        Some(idx) => path[..idx].to_string(),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -143,6 +151,21 @@ mod tests {
                 .as_deref(),
             Some("AUTH=token; UID=new; theme=dark")
         );
+    }
+
+    #[test]
+    fn default_cookie_path_matches_rfc_6265() {
+        let root = Url::parse("https://example.com/").unwrap();
+        assert_eq!(default_cookie_path(&root), "/");
+
+        let single = Url::parse("https://example.com/foo").unwrap();
+        assert_eq!(default_cookie_path(&single), "/");
+
+        let nested = Url::parse("https://example.com/foo/bar").unwrap();
+        assert_eq!(default_cookie_path(&nested), "/foo");
+
+        let trailing = Url::parse("https://example.com/foo/bar/").unwrap();
+        assert_eq!(default_cookie_path(&trailing), "/foo/bar");
     }
 
     #[test]
