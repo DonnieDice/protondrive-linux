@@ -71,6 +71,19 @@ jobs:
       - name: Guard login and 2FA routing invariants
         run: bash scripts/ci/check-login-routing-regressions.sh
 
+  sync_regression_checks:
+    if: github.event_name == 'push' || github.event_name == 'pull_request' || github.event_name == 'workflow_dispatch'
+    name: Sync Regression Checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Guard sync bridge invariants
+        run: bash scripts/ci/check-sync-regressions.sh
+
   build_apk_alpine_3_20:
     if: (github.event_name == 'push' || github.event_name == 'pull_request') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-20'))
     name: Alpine 3.20 APK
