@@ -102,3 +102,48 @@ While testing, monitor:
 ## Current Audit Finding
 
 The current native bridge is present and unit-tested. In this checkout, the only checked-in references to the sync commands are the Tauri command definitions, README documentation, and this document. If sync is working from the app UI, that frontend path must come from the bundled WebClients integration, runtime code, or a branch/patch not represented by a checked-in source reference here. Capture that call path during testing so future regressions can be guarded at the exact integration point.
+
+## Live Test Notes
+
+### 2026-05-23 AUR Test Build
+
+Installed artifact:
+
+- Branch: `fix/90-login-session-routing`
+- Commit: `914f06ef`
+- Binary: `/usr/bin/proton-drive`
+- Binary md5: `abe9b3c315acc659f78a0ae9b29b67f6`
+
+Session persistence:
+
+- `Keep me signed in` was selected during login.
+- Local storage contained `default-persistent`.
+- Local storage contained a `ps-0` session entry.
+- After login, `GET /api/auth/v4/sessions/local/key` returned `200`.
+- Earlier stale-session startup produced expected `401` and `422` responses before re-login; those did not persist after login.
+
+Pictures test target:
+
+- Folder: `~/Pictures`
+- Observed size: about `52G`
+- Observed file count at maxdepth 2: `3697`
+- Smoke folder created: `~/Pictures/protondrive-sync-smoke`
+
+Observed Drive/Photos activity:
+
+- `POST /api/drive/v2/volumes/.../links` returned `200`.
+- `GET /api/drive/v2/shares/photos` returned `200`.
+- `POST /api/drive/photos/volumes/.../links` returned `200`.
+- `GET /api/drive/volumes` returned `200`.
+- `GET /api/drive/devices` returned `200`.
+
+Observed gap:
+
+- No `start_sync`, `get_sync_status`, `handle_remote_update`, `[Sync]`, `[LiveSync]`, or `live-sync://local-change` log entries were observed during the initial Pictures/Photos test window.
+- That means the test confirmed authenticated Drive/Photos API activity, but it did not yet prove that the native recursive watcher bridge was active for `~/Pictures`.
+
+Monitoring files from this test:
+
+- App log: `~/Documents/Development/Apps/protondrive-linux/proton-drive.log`
+- Sync monitor: `/tmp/protondrive-sync-monitor.log`
+- Pictures/filesystem monitor: `/tmp/protondrive-picture-sync-watch.log`
