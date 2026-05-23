@@ -1130,18 +1130,36 @@ fn main() {
                         return false; // Block original navigation
                     }
 
-                    // Hard-block navigation to sub-hosts like account.localhost.
                     // Tauri's IPC custom protocol is only registered for the main
-                    // origin (tauri://localhost), so once the WebView lands on a
-                    // sub-host, invoke() requests with responses (proxy_request)
-                    // freeze: Rust runs but the response can't reach JS. We block
-                    // the navigation and stay on the current page; the WebClient
-                    // SPA continues running with a working IPC bridge.
-                    if url.scheme() == "tauri"
-                        && url.host_str().map_or(false, |h| h != "localhost" && h.ends_with(".localhost"))
-                    {
-                        println!("[SSO] Blocking sub-host navigation (would break IPC): {}", url_str);
-                        return false;
+                    // origin (tauri://localhost). Any full navigation (even same
+                    // origin) breaks the IPC bridge on the destination document.
+                    // For tauri:// sub-hosts the WebClient tries to hand off to
+                    // (account.localhost, drive.localhost), drive the URL change
+                    // via history.pushState + popstate INSIDE the current
+                    // document so React Router routes without a reload. IPC stays
+                    // alive because the document never unloads.
+                    if url.scheme() == "tauri" {
+                        if let Some(host) = url.host_str() {
+                            if host != "localhost" && host.ends_with(".localhost") {
+                                let sub = &host[..host.len() - ".localhost".len()];
+                                let path = url.path();
+                                let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
+                                let frag = url.fragment().map(|f| format!("#{}", f)).unwrap_or_default();
+                                let local_path = format!("/{}{}{}{}", sub, path, query, frag);
+                                println!("[SSO] Rewriting sub-host {} via pushState: {}", host, local_path);
+                                if let Some(window) = app_handle_nav.get_webview_window("main") {
+                                    let escaped = local_path.replace('\\', "\\\\").replace('\'', "\\'");
+                                    let js = format!(
+                                        "try{{history.pushState({{}}, '', '{}');window.dispatchEvent(new PopStateEvent('popstate'));}}catch(e){{console.error('[SSO] pushState failed:',e);}}",
+                                        escaped
+                                    );
+                                    tauri::async_runtime::spawn(async move {
+                                        let _ = window.eval(&js);
+                                    });
+                                }
+                                return false;
+                            }
+                        }
                     }
 
                     // Rewrite account.proton.me to local /account/ path
