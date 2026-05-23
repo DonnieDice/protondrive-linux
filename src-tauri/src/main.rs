@@ -451,50 +451,6 @@ fn main() {
     {}
 "#, worker_init) + r#"
 
-    // Diagnostic: wrap Tauri IPC invoke to log which command is failing
-    (function instrumentIpc() {
-        const wrap = (target, label) => {
-            if (!target || target.__ipcWrapped) return;
-            const orig = target.invoke;
-            if (typeof orig !== 'function') return;
-            target.invoke = function(cmd, args, opts) {
-                const stamp = '[IPC ' + label + '] ' + String(cmd);
-                try { console.log(stamp + ' → invoke'); } catch {}
-                let p;
-                try {
-                    p = orig.call(this, cmd, args, opts);
-                } catch (e) {
-                    console.error(stamp + ' SYNC THROW: ' + (e && e.message || e));
-                    throw e;
-                }
-                return Promise.resolve(p).then(
-                    (v) => { try { console.log(stamp + ' ✓'); } catch {} return v; },
-                    (e) => {
-                        const msg = e && (e.message || JSON.stringify(e)) || String(e);
-                        try { console.error(stamp + ' ✗ ' + msg); } catch {}
-                        throw e;
-                    }
-                );
-            };
-            target.__ipcWrapped = true;
-        };
-        const tryWrap = () => {
-            wrap(window.__TAURI_INTERNALS__, 'internals');
-            wrap(window.__TAURI__ && window.__TAURI__.core, 'core');
-        };
-        tryWrap();
-        // The Tauri runtime may not be ready yet; retry briefly.
-        let tries = 0;
-        const iv = setInterval(() => {
-            tryWrap();
-            if (++tries > 20
-                || ((window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.__ipcWrapped)
-                    && (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.__ipcWrapped))) {
-                clearInterval(iv);
-            }
-        }, 50);
-    })();
-
     // Intercept Blob downloads and save to ~/Downloads
     const origCreateObjectURL = URL.createObjectURL;
     let pendingDownloadName = null;
@@ -856,8 +812,8 @@ fn main() {
         if (!isAccountHost && !isLocalAccountPath) return null;
         if (!accountPath.startsWith('/u/') || !accountPath.includes('/drive')) return null;
 
-        const userId = accountPath.slice(3).split('/')[0];
-        return userId ? `tauri://localhost/u/${userId}/` : 'tauri://localhost/';
+        // Always land on root; deep paths 404 in the asset protocol and break IPC.
+        return 'tauri://localhost/';
     };
 
     const redirectIfAccountLoginComplete = () => {
@@ -1179,8 +1135,12 @@ fn main() {
                     }
 
                     // After successful login/2FA, the account app lands on a user-scoped
-                    // Drive handoff route. Redirect that route back into the local Drive app.
-                    if let Some(drive_url) = account_login_complete_redirect_url(url) {
+                    // Drive handoff route. Redirecting to a deep path like /u/0/ caused
+                    // the Tauri asset protocol to fail (no such file), breaking the
+                    // document load and the IPC bridge. Redirect to root and let the
+                    // Drive SPA's router handle the user-scoped route from auth state.
+                    if account_login_complete_redirect_url(url).is_some() {
+                        let drive_url = "tauri://localhost/";
                         println!("[SSO] Account login complete, redirecting to: {}", drive_url);
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
