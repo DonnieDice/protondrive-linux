@@ -778,7 +778,7 @@ fn main() {
         const method = (init.method || request?.method || 'GET').toUpperCase();
         const headers = collectHeaders(request || input, init);
         const hasInitBody = Object.prototype.hasOwnProperty.call(init, 'body') && init.body != null;
-        we let body = null;
+        let body = null;
 
         if (method !== 'GET' && method !== 'HEAD') {
             if (hasInitBody) {
