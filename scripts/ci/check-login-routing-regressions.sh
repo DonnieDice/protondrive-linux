@@ -10,6 +10,7 @@ required_patterns=(
   "Do not infer completion from \"leaving\" verify.proton.me"
   "caused post-2FA freezes"
   "deep tauri://localhost paths break"
+  "window.location.replace"
 )
 
 for pattern in "${required_patterns[@]}"; do
