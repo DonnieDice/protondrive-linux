@@ -36,6 +36,38 @@ pub fn account_login_complete_redirect_url(url: &tauri::Url) -> Option<String> {
     ))
 }
 
+/// Returns the human-verification token carried by the only supported CAPTCHA
+/// completion handoff.
+///
+/// Do not infer CAPTCHA completion from leaving `verify.proton.me`. WebKitGTK
+/// emits captcha-internal `about:blank`/verify-api navigations while verification
+/// is still in progress; treating those as completion caused post-2FA freezes.
+pub fn captcha_completion_token(url: &tauri::Url) -> Option<(String, String)> {
+    if url.scheme() != "tauri"
+        || !is_local_app_host(url.host_str())
+        || !url.path().starts_with("/account/")
+    {
+        return None;
+    }
+
+    let mut hv_token = None;
+    let mut hv_type = None;
+    for (key, value) in url.query_pairs() {
+        match key.as_ref() {
+            "hv_token" => hv_token = Some(value.into_owned()),
+            "hv_type" => hv_type = Some(value.into_owned()),
+            _ => {}
+        }
+    }
+
+    match (hv_token, hv_type) {
+        (Some(token), Some(token_type)) if !token.is_empty() && !token_type.is_empty() => {
+            Some((token, token_type))
+        }
+        _ => None,
+    }
+}
+
 fn is_unsupported_proton_app_host(host: &str) -> bool {
     matches!(
         host,
@@ -117,5 +149,31 @@ mod tests {
     fn ignores_incomplete_account_routes() {
         let url = tauri::Url::parse("tauri://localhost/account/login").unwrap();
         assert_eq!(account_login_complete_redirect_url(&url), None);
+    }
+
+    #[test]
+    fn accepts_only_explicit_captcha_completion_token_return() {
+        let url =
+            tauri::Url::parse("tauri://localhost/account/?hv_token=token-123&hv_type=captcha")
+                .unwrap();
+        assert_eq!(
+            captcha_completion_token(&url),
+            Some(("token-123".to_string(), "captcha".to_string()))
+        );
+    }
+
+    #[test]
+    fn rejects_account_return_without_captcha_token() {
+        let url = tauri::Url::parse("tauri://localhost/account/").unwrap();
+        assert_eq!(captcha_completion_token(&url), None);
+    }
+
+    #[test]
+    fn rejects_captcha_internal_navigation_as_completion() {
+        let about = tauri::Url::parse("about:blank").unwrap();
+        let verify_api = tauri::Url::parse("https://verify-api.proton.me/core/v4/captcha").unwrap();
+
+        assert_eq!(captcha_completion_token(&about), None);
+        assert_eq!(captcha_completion_token(&verify_api), None);
     }
 }
