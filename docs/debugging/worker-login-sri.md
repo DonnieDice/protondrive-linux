@@ -593,13 +593,14 @@ Checked all 21 forks via GitHub API. Summary:
 - Avoid forwarding console logs from external captcha pages to Rust to prevent Tauri ACL noise.
 - After account login/2FA handoff, redirect to `tauri://localhost/`, not `tauri://localhost/u/<id>/`. Deep `tauri://localhost/u/<id>/` reloads break the WebKitGTK/Tauri asset protocol and kill IPC, freezing the app after 2FA.
 - Force the final account-to-Drive handoff through `about:blank` before loading `tauri://localhost/`. On WebKitGTK, direct same-origin handoffs to `tauri://localhost/` can update the URL while leaving the account document alive, so the Drive document does not reload and the init script/IPC proxy is not reinstalled.
+- On Drive root load, if localStorage contains a persisted `ps-<localID>` session, rewrite the SPA route to `/u/<localID>/` before Proton app code runs. Loading the Tauri document directly at `/u/<localID>/` breaks assets/IPC, but leaving the SPA route at `/` makes Drive treat the restored session as expired and loop back through Account.
 
 **Regression Coverage:**
 - `proton_navigation::tests::accepts_only_explicit_captcha_completion_token_return` verifies the only valid CAPTCHA completion is `tauri://localhost/account/?hv_token=...&hv_type=...`.
 - `proton_navigation::tests::rejects_account_return_without_captcha_token` verifies account returns without the token are not treated as CAPTCHA completion.
 - `proton_navigation::tests::rejects_captcha_internal_navigation_as_completion` verifies `about:blank` and `verify-api` CAPTCHA internals do not complete verification.
 - `proton_navigation::tests::redirects_account_proton_drive_handoff_to_local_drive_root` and `redirects_local_account_drive_handoff_to_local_drive_root` verify post-login account handoff lands on `tauri://localhost/`, not `/u/<id>/`.
-- `scripts/ci/check-login-routing-regressions.sh` is run by the `Login/2FA Routing Regression Checks` workflow job and fails if the broad "left captcha page" completion path, the deep `/u/<id>/` redirect pattern, or removal of the `about:blank` hard handoff is reintroduced.
+- `scripts/ci/check-login-routing-regressions.sh` is run by the `Login/2FA Routing Regression Checks` workflow job and fails if the broad "left captcha page" completion path, the deep `/u/<id>/` redirect pattern, removal of the `about:blank` hard handoff, or removal of the pre-init Drive user route restore is reintroduced.
 
 **Validated Result:**
 - Fedora local release binary launched successfully.
