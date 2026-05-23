@@ -1117,18 +1117,18 @@ fn main() {
                     // user-scoped Drive handoff route. Redirect to Drive root,
                     // not /u/<id>/; deep tauri://localhost paths break the
                     // WebKitGTK asset protocol/IPC bridge and freeze the app.
-                    // Use JS location.replace from the active document rather
-                    // than WebviewWindow::navigate; on WebKitGTK the Rust-side
-                    // navigate updated the URL but left the account document
-                    // running, so the Drive init script never reinstalled IPC.
+                    // Force account to about:blank before loading Drive. Direct
+                    // same-origin handoffs to tauri://localhost/ can update the
+                    // URL while leaving the account document alive on WebKitGTK,
+                    // so the Drive init script never reinstalls IPC.
                     if let Some(drive_url) = account_login_complete_redirect_url(url) {
                         println!("[SSO] Login complete, redirecting to: {}", drive_url);
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
                             tauri::async_runtime::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                                let js = format!("window.location.replace({:?});", drive_url);
-                                let _ = window.eval(&js);
+                                let _ = window.eval("window.location.replace('about:blank');");
+                                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
+                                let _ = window.navigate(drive_url.parse().unwrap());
                             });
                         }
                         return false;
