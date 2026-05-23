@@ -84,6 +84,10 @@ impl LiveSyncManager {
                 eprintln!("[LiveSync] watcher start failed for {:?}: {e}", folder);
                 ERR_SYNC_SETUP_FAILED.to_string()
             })?;
+        println!(
+            "[LiveSync] watcher active root={} mode=recursive",
+            folder.to_string_lossy()
+        );
 
         let known_files = Arc::clone(&self.known_files);
         let app_handle = app.clone();
@@ -111,6 +115,15 @@ impl LiveSyncManager {
 
                             if filtered_paths.is_empty() {
                                 continue;
+                            }
+
+                            println!(
+                                "[LiveSync] local-change kind={} paths={}",
+                                kind,
+                                filtered_paths.len()
+                            );
+                            for path in &filtered_paths {
+                                println!("[LiveSync] local-change path={}", path);
                             }
 
                             // Regression guard: the frontend sync engine depends on this

@@ -32,6 +32,8 @@ require_pattern src-tauri/src/main.rs "handle_remote_update" "handle_remote_upda
 require_pattern src-tauri/src/main.rs "docs/sync.md" "inline sync bridge comment must point maintainers to docs/sync.md"
 
 require_pattern src-tauri/src/live_sync.rs "live-sync://local-change" "frontend local-change event contract must not be renamed silently"
+require_pattern src-tauri/src/live_sync.rs "\\[LiveSync\\] watcher active root=" "sync startup must have positive runtime logging"
+require_pattern src-tauri/src/live_sync.rs "\\[LiveSync\\] local-change kind=" "local filesystem changes must have positive runtime logging"
 require_pattern src-tauri/src/live_sync.rs "relative_path" "remote relative path field must remain implemented"
 require_pattern src-tauri/src/live_sync.rs "content_base64" "remote base64 content field must remain implemented"
 require_pattern src-tauri/src/live_sync.rs "SUPPRESSION_CACHE_MAX" "remote write suppression must stay bounded"
