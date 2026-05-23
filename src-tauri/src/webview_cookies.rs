@@ -108,9 +108,7 @@ pub fn store_webview_cookie(window: &WebviewWindow, url: &Url, set_cookie: &str)
         }
     };
 
-    if cookie.path().is_none() {
-        cookie.set_path(default_cookie_path(url));
-    }
+    apply_default_cookie_scope(&mut cookie, url);
 
     let cookie_name = cookie.name().to_string();
     if let Err(e) = window.set_cookie(cookie) {
@@ -124,6 +122,22 @@ pub fn store_webview_cookie(window: &WebviewWindow, url: &Url, set_cookie: &str)
 
 fn supports_cookies(url: &Url) -> bool {
     url.scheme() == "http" || url.scheme() == "https"
+}
+
+fn apply_default_cookie_scope(cookie: &mut Cookie<'static>, url: &Url) {
+    if cookie.path().is_none() {
+        cookie.set_path(default_cookie_path(url));
+    }
+
+    // Keep-me-signed-in depends on WebKit persisting host-only Proton auth
+    // cookies across app restarts. Tauri's set_cookie API does not receive the
+    // response URL separately, so a Set-Cookie without Domain must be scoped to
+    // the response host here or it is persisted with no usable domain.
+    if cookie.domain().is_none() {
+        if let Some(host) = url.host_str() {
+            cookie.set_domain(host.to_string());
+        }
+    }
 }
 
 /// Computes the RFC-6265 §5.1.4 default-path for a Set-Cookie whose Path
@@ -166,6 +180,32 @@ mod tests {
 
         let trailing = Url::parse("https://example.com/foo/bar/").unwrap();
         assert_eq!(default_cookie_path(&trailing), "/foo/bar");
+    }
+
+    #[test]
+    fn host_only_cookies_are_scoped_to_response_host_for_restart_persistence() {
+        let url = Url::parse("https://mail.proton.me/api/auth/refresh").unwrap();
+        let mut cookie = Cookie::parse("AUTH-uid=token; Path=/api/; Secure; HttpOnly")
+            .unwrap()
+            .into_owned();
+
+        apply_default_cookie_scope(&mut cookie, &url);
+
+        assert_eq!(cookie.domain(), Some("mail.proton.me"));
+        assert_eq!(cookie.path(), Some("/api/"));
+    }
+
+    #[test]
+    fn explicit_cookie_domain_is_preserved() {
+        let url = Url::parse("https://mail.proton.me/api/auth/refresh").unwrap();
+        let mut cookie = Cookie::parse("Session-Id=value; Domain=proton.me; Path=/; Secure")
+            .unwrap()
+            .into_owned();
+
+        apply_default_cookie_scope(&mut cookie, &url);
+
+        assert_eq!(cookie.domain(), Some("proton.me"));
+        assert_eq!(cookie.path(), Some("/"));
     }
 
     #[test]
