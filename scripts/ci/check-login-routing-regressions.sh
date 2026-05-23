@@ -9,6 +9,7 @@ required_patterns=(
   "captcha_completion_token(url)"
   "Do not infer completion from \"leaving\" verify.proton.me"
   "caused post-2FA freezes"
+  "deep tauri://localhost paths break"
 )
 
 for pattern in "${required_patterns[@]}"; do
@@ -21,6 +22,7 @@ done
 forbidden_patterns=(
   "[CAPTCHA] Left captcha page, returning to account app"
   "Detect navigation AWAY from captcha to non-captcha page"
+  "format!(\"tauri://localhost{}\", user_path)"
 )
 
 for pattern in "${forbidden_patterns[@]}"; do
