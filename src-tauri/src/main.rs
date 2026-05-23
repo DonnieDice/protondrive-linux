@@ -1130,13 +1130,18 @@ fn main() {
                         return false; // Block original navigation
                     }
 
-                    // Experiment: don't intercept account.localhost / account.proton.me
-                    // post-2FA navigation. Any full window.navigate() after auth
-                    // breaks the Tauri IPC bridge on the destination page (proxy
-                    // call response lost, then "IPC custom protocol failed" loop).
-                    // Let the WebClient navigate naturally and observe what loads.
-                    if let Some(local_url) = account_login_complete_redirect_url(url) {
-                        println!("[SSO] (observing) account login complete; would redirect to: {} — letting original through", local_url);
+                    // Hard-block navigation to sub-hosts like account.localhost.
+                    // Tauri's IPC custom protocol is only registered for the main
+                    // origin (tauri://localhost), so once the WebView lands on a
+                    // sub-host, invoke() requests with responses (proxy_request)
+                    // freeze: Rust runs but the response can't reach JS. We block
+                    // the navigation and stay on the current page; the WebClient
+                    // SPA continues running with a working IPC bridge.
+                    if url.scheme() == "tauri"
+                        && url.host_str().map_or(false, |h| h != "localhost" && h.ends_with(".localhost"))
+                    {
+                        println!("[SSO] Blocking sub-host navigation (would break IPC): {}", url_str);
+                        return false;
                     }
 
                     // Rewrite account.proton.me to local /account/ path
