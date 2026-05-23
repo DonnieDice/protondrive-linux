@@ -819,12 +819,8 @@ fn main() {
     const redirectIfAccountLoginComplete = () => {
         const driveUrl = accountLoginCompleteRedirectUrl();
         if (!driveUrl || window.__accountLoginCompleteRedirected === driveUrl) return;
-
         window.__accountLoginCompleteRedirected = driveUrl;
-        console.log('[SSO] Account login complete in web app, redirecting to:', driveUrl);
-        setTimeout(() => {
-            window.location.href = driveUrl;
-        }, 0);
+        console.log('[SSO] (observing) account login complete; would redirect to:', driveUrl, '— letting page handle it');
     };
 
     for (const method of ['pushState', 'replaceState']) {
@@ -1134,22 +1130,13 @@ fn main() {
                         return false; // Block original navigation
                     }
 
-                    // After successful login/2FA, the account app lands on a user-scoped
-                    // Drive handoff route. Redirecting to a deep path like /u/0/ caused
-                    // the Tauri asset protocol to fail (no such file), breaking the
-                    // document load and the IPC bridge. Redirect to root and let the
-                    // Drive SPA's router handle the user-scoped route from auth state.
-                    if account_login_complete_redirect_url(url).is_some() {
-                        let drive_url = "tauri://localhost/";
-                        println!("[SSO] Account login complete, redirecting to: {}", drive_url);
-
-                        if let Some(window) = app_handle_nav.get_webview_window("main") {
-                            tauri::async_runtime::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
-                                let _ = window.navigate(drive_url.parse().unwrap());
-                            });
-                        }
-                        return false;
+                    // Experiment: don't intercept account.localhost / account.proton.me
+                    // post-2FA navigation. Any full window.navigate() after auth
+                    // breaks the Tauri IPC bridge on the destination page (proxy
+                    // call response lost, then "IPC custom protocol failed" loop).
+                    // Let the WebClient navigate naturally and observe what loads.
+                    if let Some(local_url) = account_login_complete_redirect_url(url) {
+                        println!("[SSO] (observing) account login complete; would redirect to: {} — letting original through", local_url);
                     }
 
                     // Rewrite account.proton.me to local /account/ path
