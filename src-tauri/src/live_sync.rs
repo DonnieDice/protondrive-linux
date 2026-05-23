@@ -318,7 +318,10 @@ impl LiveSyncManager {
     }
 }
 
-fn should_ignore_known_file(known_files: &Arc<Mutex<HashMap<PathBuf, Instant>>>, path: &Path) -> bool {
+fn should_ignore_known_file(
+    known_files: &Arc<Mutex<HashMap<PathBuf, Instant>>>,
+    path: &Path,
+) -> bool {
     if let Ok(mut cache) = known_files.lock() {
         let now = Instant::now();
         prune_known_files(&mut cache, now);

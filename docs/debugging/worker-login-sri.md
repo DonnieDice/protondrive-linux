@@ -207,6 +207,29 @@ Never reaches:
 GET /assets/version.json  <- Drive app initialization
 ```
 
+### Keep-Me-Signed-In Regression Note
+
+If login succeeds during the current app process but restart shows
+`/api/auth/v4/sessions/local/key -> 401`, `/api/auth/refresh -> 422`, or a
+`session-expired` redirect, inspect host-only auth cookie persistence before
+changing routing again.
+
+Proton auth responses can set cookies without a `Domain` attribute. Because the
+native proxy stores those cookies through Tauri's `set_cookie(cookie)` API
+rather than a browser response URL, the app must assign the response host before
+storing the cookie. Without that fallback, the in-memory reqwest jar keeps the
+current login working, but WebKit persists cookies with no usable domain and the
+next launch cannot refresh the session.
+
+Regression guards:
+
+- `src-tauri/src/webview_cookies.rs` contains the inline comment explaining why
+  host-only Proton auth cookies are scoped to the response host.
+- `host_only_cookies_are_scoped_to_response_host_for_restart_persistence` covers
+  the restart-persistence behavior.
+- `scripts/ci/check-login-routing-regressions.sh` fails if that guard is
+  removed.
+
 ### Worker Error Location
 Worker is created at: `tauri://localhost/account/assets/static/public-index.2ae8d2f5.js:1003:87490`
 
