@@ -451,6 +451,50 @@ fn main() {
     {}
 "#, worker_init) + r#"
 
+    // Diagnostic: wrap Tauri IPC invoke to log which command is failing
+    (function instrumentIpc() {
+        const wrap = (target, label) => {
+            if (!target || target.__ipcWrapped) return;
+            const orig = target.invoke;
+            if (typeof orig !== 'function') return;
+            target.invoke = function(cmd, args, opts) {
+                const stamp = '[IPC ' + label + '] ' + String(cmd);
+                try { console.log(stamp + ' → invoke'); } catch {}
+                let p;
+                try {
+                    p = orig.call(this, cmd, args, opts);
+                } catch (e) {
+                    console.error(stamp + ' SYNC THROW: ' + (e && e.message || e));
+                    throw e;
+                }
+                return Promise.resolve(p).then(
+                    (v) => { try { console.log(stamp + ' ✓'); } catch {} return v; },
+                    (e) => {
+                        const msg = e && (e.message || JSON.stringify(e)) || String(e);
+                        try { console.error(stamp + ' ✗ ' + msg); } catch {}
+                        throw e;
+                    }
+                );
+            };
+            target.__ipcWrapped = true;
+        };
+        const tryWrap = () => {
+            wrap(window.__TAURI_INTERNALS__, 'internals');
+            wrap(window.__TAURI__ && window.__TAURI__.core, 'core');
+        };
+        tryWrap();
+        // The Tauri runtime may not be ready yet; retry briefly.
+        let tries = 0;
+        const iv = setInterval(() => {
+            tryWrap();
+            if (++tries > 20
+                || ((window.__TAURI_INTERNALS__ && window.__TAURI_INTERNALS__.__ipcWrapped)
+                    && (window.__TAURI__ && window.__TAURI__.core && window.__TAURI__.core.__ipcWrapped))) {
+                clearInterval(iv);
+            }
+        }, 50);
+    })();
+
     // Intercept Blob downloads and save to ~/Downloads
     const origCreateObjectURL = URL.createObjectURL;
     let pendingDownloadName = null;
@@ -778,7 +822,7 @@ fn main() {
         const method = (init.method || request?.method || 'GET').toUpperCase();
         const headers = collectHeaders(request || input, init);
         const hasInitBody = Object.prototype.hasOwnProperty.call(init, 'body') && init.body != null;
-        let body = null;
+        we let body = null;
 
         if (method !== 'GET' && method !== 'HEAD') {
             if (hasInitBody) {
