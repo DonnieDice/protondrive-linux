@@ -30,10 +30,11 @@ pub fn account_login_complete_redirect_url(url: &tauri::Url) -> Option<String> {
         return None;
     }
 
-    Some(format!(
-        "tauri://localhost{}",
-        drive_root_for_user_path(account_path)
-    ))
+    // Do not preserve /u/<id>/ here. A full WebView reload to a deep
+    // tauri://localhost/u/<id>/ path breaks the Tauri asset protocol and IPC on
+    // WebKitGTK, freezing the app after 2FA. Land on root and let Drive restore
+    // the user route from persisted auth/session state.
+    Some("tauri://localhost/".to_string())
 }
 
 /// Returns the human-verification token carried by the only supported CAPTCHA
@@ -132,7 +133,7 @@ mod tests {
         let url = tauri::Url::parse("https://account.proton.me/u/7/drive/account").unwrap();
         assert_eq!(
             account_login_complete_redirect_url(&url).as_deref(),
-            Some("tauri://localhost/u/7/")
+            Some("tauri://localhost/")
         );
     }
 
@@ -141,7 +142,7 @@ mod tests {
         let url = tauri::Url::parse("tauri://localhost/account/u/7/drive/account").unwrap();
         assert_eq!(
             account_login_complete_redirect_url(&url).as_deref(),
-            Some("tauri://localhost/u/7/")
+            Some("tauri://localhost/")
         );
     }
 

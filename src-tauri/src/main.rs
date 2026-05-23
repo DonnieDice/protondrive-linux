@@ -17,7 +17,9 @@ mod url_log;
 mod webview_cookies;
 mod webview_storage;
 
-use proton_navigation::{captcha_completion_token, unsupported_app_redirect_url};
+use proton_navigation::{
+    account_login_complete_redirect_url, captcha_completion_token, unsupported_app_redirect_url,
+};
 use url_log::sanitize_url_for_log;
 use webview_cookies::{combined_cookie_header, store_webview_cookie};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
@@ -1111,20 +1113,11 @@ fn main() {
                         return false;
                     }
 
-                    // After successful login, account app navigates to account.localhost/u/X/drive/...
-                    // Extract the user ID and redirect to Drive with user context.
-                    if url.host_str() == Some("account.localhost") {
-                        let path = url.path();
-                        let user_path = if path.starts_with("/u/") {
-                            if let Some(end) = path[3..].find('/') {
-                                format!("/u/{}/", &path[3..3 + end])
-                            } else {
-                                "/".to_string()
-                            }
-                        } else {
-                            "/".to_string()
-                        };
-                        let drive_url = format!("tauri://localhost{}", user_path);
+                    // After successful login/2FA, account.localhost lands on a
+                    // user-scoped Drive handoff route. Redirect to Drive root,
+                    // not /u/<id>/; deep tauri://localhost paths break the
+                    // WebKitGTK asset protocol/IPC bridge and freeze the app.
+                    if let Some(drive_url) = account_login_complete_redirect_url(url) {
                         println!("[SSO] Login complete, redirecting to: {}", drive_url);
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
