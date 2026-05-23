@@ -17,7 +17,7 @@ mod url_log;
 mod webview_cookies;
 mod webview_storage;
 
-use proton_navigation::{account_login_complete_redirect_url, unsupported_app_redirect_url};
+use proton_navigation::unsupported_app_redirect_url;
 use url_log::sanitize_url_for_log;
 use webview_cookies::{combined_cookie_header, store_webview_cookie};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
@@ -795,45 +795,6 @@ fn main() {
         return { method, headers, body };
     };
 
-    const accountLoginCompleteRedirectUrl = (href = window.location.href) => {
-        let current;
-        try {
-            current = new URL(href);
-        } catch {
-            return null;
-        }
-
-        const path = current.pathname;
-        const accountPath = path.startsWith('/account') ? (path.slice('/account'.length) || '/') : path;
-        const isAccountHost = current.hostname === 'account.proton.me' || current.hostname === 'account.localhost';
-        const isLocalAccountPath = (current.hostname === 'localhost' || current.hostname === 'tauri.localhost')
-            && path.startsWith('/account/u/');
-
-        if (!isAccountHost && !isLocalAccountPath) return null;
-        if (!accountPath.startsWith('/u/') || !accountPath.includes('/drive')) return null;
-
-        // Always land on root; deep paths 404 in the asset protocol and break IPC.
-        return 'tauri://localhost/';
-    };
-
-    const redirectIfAccountLoginComplete = () => {
-        const driveUrl = accountLoginCompleteRedirectUrl();
-        if (!driveUrl || window.__accountLoginCompleteRedirected === driveUrl) return;
-        window.__accountLoginCompleteRedirected = driveUrl;
-        console.log('[SSO] (observing) account login complete; would redirect to:', driveUrl, '— letting page handle it');
-    };
-
-    for (const method of ['pushState', 'replaceState']) {
-        const originalHistoryMethod = history[method];
-        history[method] = function(...args) {
-            const result = originalHistoryMethod.apply(this, args);
-            setTimeout(redirectIfAccountLoginComplete, 0);
-            return result;
-        };
-    }
-    window.addEventListener('popstate', () => setTimeout(redirectIfAccountLoginComplete, 0));
-    setTimeout(redirectIfAccountLoginComplete, 0);
-
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
 
@@ -1130,38 +1091,6 @@ fn main() {
                         return false; // Block original navigation
                     }
 
-                    // Tauri's IPC custom protocol is only registered for the main
-                    // origin (tauri://localhost). Any full navigation (even same
-                    // origin) breaks the IPC bridge on the destination document.
-                    // For tauri:// sub-hosts the WebClient tries to hand off to
-                    // (account.localhost, drive.localhost), drive the URL change
-                    // via history.pushState + popstate INSIDE the current
-                    // document so React Router routes without a reload. IPC stays
-                    // alive because the document never unloads.
-                    if url.scheme() == "tauri" {
-                        if let Some(host) = url.host_str() {
-                            if host != "localhost" && host.ends_with(".localhost") {
-                                let sub = &host[..host.len() - ".localhost".len()];
-                                let path = url.path();
-                                let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
-                                let frag = url.fragment().map(|f| format!("#{}", f)).unwrap_or_default();
-                                let local_path = format!("/{}{}{}{}", sub, path, query, frag);
-                                println!("[SSO] Rewriting sub-host {} via pushState: {}", host, local_path);
-                                if let Some(window) = app_handle_nav.get_webview_window("main") {
-                                    let escaped = local_path.replace('\\', "\\\\").replace('\'', "\\'");
-                                    let js = format!(
-                                        "try{{history.pushState({{}}, '', '{}');window.dispatchEvent(new PopStateEvent('popstate'));}}catch(e){{console.error('[SSO] pushState failed:',e);}}",
-                                        escaped
-                                    );
-                                    tauri::async_runtime::spawn(async move {
-                                        let _ = window.eval(&js);
-                                    });
-                                }
-                                return false;
-                            }
-                        }
-                    }
-
                     // Rewrite account.proton.me to local /account/ path
                     if url.host_str() == Some("account.proton.me") {
                         let path = url.path();
@@ -1190,6 +1119,31 @@ fn main() {
                             let url_clone = local_url.clone();
                             tauri::async_runtime::spawn(async move {
                                 let _ = window.navigate(url_clone.parse().unwrap());
+                            });
+                        }
+                        return false;
+                    }
+
+                    // After successful login, account app navigates to account.localhost/u/X/drive/...
+                    // Extract the user ID and redirect to Drive with user context.
+                    if url.host_str() == Some("account.localhost") {
+                        let path = url.path();
+                        let user_path = if path.starts_with("/u/") {
+                            if let Some(end) = path[3..].find('/') {
+                                format!("/u/{}/", &path[3..3 + end])
+                            } else {
+                                "/".to_string()
+                            }
+                        } else {
+                            "/".to_string()
+                        };
+                        let drive_url = format!("tauri://localhost{}", user_path);
+                        println!("[SSO] Login complete, redirecting to: {}", drive_url);
+
+                        if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            tauri::async_runtime::spawn(async move {
+                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                                let _ = window.navigate(drive_url.parse().unwrap());
                             });
                         }
                         return false;
