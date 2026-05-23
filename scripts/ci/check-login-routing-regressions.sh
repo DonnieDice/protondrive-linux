@@ -11,6 +11,7 @@ required_patterns=(
   "caused post-2FA freezes"
   "deep tauri://localhost paths break"
   "window.location.replace('about:blank')"
+  "Restored Drive user route before app init"
 )
 
 for pattern in "${required_patterns[@]}"; do
