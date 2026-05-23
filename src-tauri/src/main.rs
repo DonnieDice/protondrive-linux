@@ -453,6 +453,26 @@ fn main() {
     {}
 "#, worker_init) + r#"
 
+    // Regression guard for post-2FA Drive load:
+    // The Tauri asset protocol must load Drive at tauri://localhost/, but the
+    // Drive SPA needs a /u/<localID>/ route when a persisted ps-<localID>
+    // session exists. If we leave the path at /, Drive treats the session as
+    // expired and loops back through account login. Rewrite the route before
+    // Proton app code runs so React Router starts on the active user route
+    // without a full deep-path WebView reload.
+    try {
+        if (window.location.protocol === 'tauri:' && window.location.hostname === 'localhost' && window.location.pathname === '/') {
+            const sessionKey = Object.keys(localStorage).find((key) => /^ps-\d+$/.test(key));
+            const localId = sessionKey && sessionKey.slice(3);
+            if (localId) {
+                history.replaceState({}, '', `/u/${localId}/`);
+                console.log('[SSO] Restored Drive user route before app init:', `/u/${localId}/`);
+            }
+        }
+    } catch (e) {
+        console.warn('[SSO] Failed to restore Drive user route:', e);
+    }
+
     // Intercept Blob downloads and save to ~/Downloads
     const origCreateObjectURL = URL.createObjectURL;
     let pendingDownloadName = null;
