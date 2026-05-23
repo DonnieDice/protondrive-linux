@@ -78,7 +78,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.20
@@ -103,7 +103,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.22
@@ -128,7 +128,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.23
@@ -151,7 +151,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/appimage/linux-baseline
@@ -174,7 +174,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/aur/arch-native
@@ -199,7 +199,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/debian-12
@@ -223,7 +223,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/debian-13
@@ -247,7 +247,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/ubuntu-24.04
@@ -271,7 +271,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/ubuntu-26.04
@@ -292,7 +292,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/gnome-50
@@ -313,7 +313,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/gnome-49
@@ -336,7 +336,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/el10
@@ -360,7 +360,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/fedora-43
@@ -384,7 +384,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/fedora-44
@@ -410,7 +410,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/opensuse-tumbleweed
@@ -431,7 +431,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/core24
@@ -454,7 +454,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/core26
@@ -466,7 +466,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/aur-pkgbuild
@@ -478,7 +478,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/rpm-spec
@@ -490,7 +490,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/source-dist
@@ -503,7 +503,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/issue-auto-label
@@ -516,7 +516,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/pr-auto-label
@@ -532,7 +532,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/aur/publish
@@ -547,7 +547,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/publish
@@ -564,7 +564,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/publish
@@ -595,7 +595,7 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/release
