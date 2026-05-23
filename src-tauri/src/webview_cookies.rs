@@ -111,10 +111,20 @@ pub fn store_webview_cookie(window: &WebviewWindow, url: &Url, set_cookie: &str)
     apply_default_cookie_scope(&mut cookie, url);
 
     let cookie_name = cookie.name().to_string();
+    let cookie_domain = cookie.domain().unwrap_or("<none>").to_string();
+    let cookie_path = cookie.path().unwrap_or("<none>").to_string();
     if let Err(e) = window.set_cookie(cookie) {
         eprintln!(
             "[Cookie] failed to store {} from {}: {e}",
             cookie_name,
+            sanitize_url_for_log(url.as_str())
+        );
+    } else {
+        println!(
+            "[Cookie] stored name={} domain={} path={} source={}",
+            cookie_name,
+            cookie_domain,
+            cookie_path,
             sanitize_url_for_log(url.as_str())
         );
     }
@@ -133,7 +143,12 @@ fn apply_default_cookie_scope(cookie: &mut Cookie<'static>, url: &Url) {
     // cookies across app restarts. Tauri's set_cookie API does not receive the
     // response URL separately, so a Set-Cookie without Domain must be scoped to
     // the response host here or it is persisted with no usable domain.
-    if cookie.domain().is_none() {
+    if cookie
+        .domain()
+        .map(str::trim)
+        .unwrap_or_default()
+        .is_empty()
+    {
         if let Some(host) = url.host_str() {
             cookie.set_domain(host.to_string());
         }
@@ -186,6 +201,19 @@ mod tests {
     fn host_only_cookies_are_scoped_to_response_host_for_restart_persistence() {
         let url = Url::parse("https://mail.proton.me/api/auth/refresh").unwrap();
         let mut cookie = Cookie::parse("AUTH-uid=token; Path=/api/; Secure; HttpOnly")
+            .unwrap()
+            .into_owned();
+
+        apply_default_cookie_scope(&mut cookie, &url);
+
+        assert_eq!(cookie.domain(), Some("mail.proton.me"));
+        assert_eq!(cookie.path(), Some("/api/"));
+    }
+
+    #[test]
+    fn blank_domain_cookies_are_scoped_to_response_host_for_restart_persistence() {
+        let url = Url::parse("https://mail.proton.me/api/auth/refresh").unwrap();
+        let mut cookie = Cookie::parse("AUTH-uid=token; Domain=; Path=/api/; Secure; HttpOnly")
             .unwrap()
             .into_owned();
 
