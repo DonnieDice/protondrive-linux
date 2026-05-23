@@ -17,7 +17,7 @@ mod url_log;
 mod webview_cookies;
 mod webview_storage;
 
-use proton_navigation::unsupported_app_redirect_url;
+use proton_navigation::{captcha_completion_token, unsupported_app_redirect_url};
 use url_log::sanitize_url_for_log;
 use webview_cookies::{combined_cookie_header, store_webview_cookie};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
@@ -639,38 +639,25 @@ fn main() {
         if (event.data && event.data.type === 'HUMAN_VERIFICATION_SUCCESS' && event.data.payload) {
             const token = event.data.payload.token;
             const tokenType = event.data.payload.type || 'captcha';
-            console.log('[CAPTCHA] Verification successful, storing token and returning');
+            console.log('[CAPTCHA] Verification successful, returning to account');
             captchaPending = false;
 
-            // Store in Rust memory (zero trust - cleared after single use)
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: tokenType
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            // External verify pages cannot use Tauri IPC reliably. Return the
+            // token through a local URL and let Rust store it before auth retry.
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=' + encodeURIComponent(tokenType);
         }
 
         // hCaptcha sends pm_captcha with the token directly
         if (event.data && event.data.type === 'pm_captcha' && event.data.token) {
             const token = event.data.token;
-            console.log('[CAPTCHA] pm_captcha received, storing token');
+            console.log('[CAPTCHA] pm_captcha received, returning to account');
             captchaPending = false;
 
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: 'captcha'
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=captcha';
         }
     });
 
@@ -1158,6 +1145,40 @@ fn main() {
                         }
                     }
 
+                    // Regression guard for login/2FA:
+                    // Captcha completion is ONLY valid when injected JS returns to
+                    // tauri://localhost/account/?hv_token=...&hv_type=...
+                    // Do not infer completion from "leaving" verify.proton.me.
+                    // WebKitGTK emits captcha-internal about:blank/verify-api
+                    // navigations while verification is still active; handling
+                    // those as completion caused post-2FA freezes.
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                    {
+                        if let Some((token, token_type)) = captcha_completion_token(url) {
+                            ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
+                            println!("[CAPTCHA] Storing token from completion URL");
+                            *PENDING_VERIFICATION.lock().unwrap() = Some((token, token_type));
+
+                            if let Some(window) = app_handle_nav.get_webview_window("main") {
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
+                                });
+                            }
+                            return false;
+                        }
+
+                        if url.scheme() == "tauri"
+                            && url.host_str() == Some("localhost")
+                            && url.path().starts_with("/account/")
+                        {
+                            println!(
+                                "[CAPTCHA] Ignoring account return without verification token: {}",
+                                url_str
+                            );
+                            return false;
+                        }
+                    }
+
                     // Track captcha page state and allow captcha-related URLs
                     let is_captcha_url = match url.host_str() {
                         Some("mail.proton.me") => url.path().starts_with("/api/core/v4/captcha") || url.path().starts_with("/captcha/"),
@@ -1177,21 +1198,6 @@ fn main() {
                     {
                         println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
                         return true;
-                    }
-
-                    // Detect navigation AWAY from captcha to non-captcha page - means captcha flow completed
-                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst) {
-                        // We're leaving the captcha page (not to another captcha/hcaptcha URL)
-                        ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
-                        println!("[CAPTCHA] Left captcha page, returning to account app");
-
-                        // Navigate back to account app to retry auth
-                        if let Some(window) = app_handle_nav.get_webview_window("main") {
-                            tauri::async_runtime::spawn(async move {
-                                let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
-                            });
-                        }
-                        return false; // Block whatever navigation triggered this, we'll go to account
                     }
 
                     if let Some(local_url) = unsupported_app_redirect_url(url) {
