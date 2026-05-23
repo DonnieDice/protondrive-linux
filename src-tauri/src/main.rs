@@ -162,10 +162,17 @@ fn start_sync(
     state: tauri::State<'_, Arc<AppState>>,
     path: String,
 ) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] start_sync requested path={}", path);
     ensure_sync_command_allowed(&window)?;
     let sync_root = validate_sync_root_path(&path)?;
     state.sync_manager.start(app, sync_root)?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] start_sync active enabled={} folder={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>")
+    );
+    Ok(status)
 }
 
 #[tauri::command]
@@ -173,9 +180,12 @@ fn stop_sync(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] stop_sync requested");
     ensure_sync_command_allowed(&window)?;
     state.sync_manager.stop()?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!("[Sync] stop_sync complete enabled={}", status.enabled);
+    Ok(status)
 }
 
 #[tauri::command]
@@ -184,7 +194,13 @@ fn get_sync_status(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<live_sync::LiveSyncStatus, String> {
     ensure_sync_command_allowed(&window)?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] get_sync_status enabled={} folder={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>")
+    );
+    Ok(status)
 }
 
 #[tauri::command]
@@ -193,8 +209,14 @@ fn handle_remote_update(
     state: tauri::State<'_, Arc<AppState>>,
     change: live_sync::RemoteSyncChange,
 ) -> Result<String, String> {
+    println!(
+        "[Sync] handle_remote_update action={} path={}",
+        change.action, change.relative_path
+    );
     ensure_sync_command_allowed(&window)?;
-    state.sync_manager.apply_remote_change(change)
+    let target = state.sync_manager.apply_remote_change(change)?;
+    println!("[Sync] handle_remote_update applied target={}", target);
+    Ok(target)
 }
 
 #[tauri::command]
@@ -749,6 +771,14 @@ fn main() {
     const responseBodyForStatus = (status, body) => {
         return [204, 205, 304].includes(status) ? null : (body ?? '');
     };
+    const isStorageBlockUrl = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            return parsed.pathname.includes('/storage/blocks');
+        } catch {
+            return String(url || '').includes('/storage/blocks');
+        }
+    };
 
     const requestBodyToString = async (body) => {
         if (body == null) return null;
@@ -828,6 +858,18 @@ fn main() {
             } else if (typeof input === 'object' && input.url) {
                 fetchInput = new Request(url, input);
             }
+            const method = (init.method || (input instanceof Request ? input.method : 'GET') || 'GET').toUpperCase();
+            const storageBlockUrl = isStorageBlockUrl(url);
+            if (storageBlockUrl) {
+                let bodyLength = 0;
+                try {
+                    const collected = await collectFetchRequest(input, init);
+                    bodyLength = collected.body ? String(collected.body).length : 0;
+                } catch (e) {
+                    console.warn('[StorageBlocks] Unable to inspect request body:', e);
+                }
+                sendToRust('STORAGE_BLOCK_REQ', [method, url, 'body=' + bodyLength]);
+            }
 
             return originalFetch.call(window, fetchInput, init).then(r => {
                 // Skip logging IPC calls to reduce noise
@@ -836,11 +878,18 @@ fn main() {
                     if (r.status !== 200) {
                         sendToRust('NATIVE_STATUS', [r.status, url]);
                     }
+                    if (storageBlockUrl) {
+                        const length = r.headers?.get?.('content-length') || 'unknown';
+                        sendToRust('STORAGE_BLOCK_RES', [method, r.status, url, 'content-length=' + length]);
+                    }
                 }
                 return r;
             }).catch(e => {
                 if (!url.startsWith('ipc://')) {
                     sendToRust('NATIVE_ERR', [url, e.message || e]);
+                    if (storageBlockUrl) {
+                        sendToRust('STORAGE_BLOCK_ERR', [method, url, e.message || e]);
+                    }
                 }
                 throw e;
             });
