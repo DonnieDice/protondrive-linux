@@ -113,6 +113,10 @@ impl LiveSyncManager {
                                 continue;
                             }
 
+                            // Regression guard: the frontend sync engine depends on this
+                            // exact event name and absolute local paths to upload local
+                            // changes. Do not rename or reshape without updating docs,
+                            // tests, and the WebClients integration together.
                             if let Err(e) = app_handle.emit(
                                 "live-sync://local-change",
                                 LiveSyncEvent {
@@ -386,4 +390,103 @@ fn find_existing_ancestor(path: &Path) -> Option<PathBuf> {
         }
     }
     Some(current)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    fn temp_sync_root(name: &str) -> PathBuf {
+        let nonce = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let root = std::env::temp_dir().join(format!("proton-drive-live-sync-{name}-{nonce}"));
+        fs::create_dir_all(&root).unwrap();
+        root
+    }
+
+    #[test]
+    fn remote_change_serde_uses_frontend_camel_case_contract() {
+        let change: RemoteSyncChange = serde_json::from_str(
+            r#"{"relativePath":"Pictures/test.jpg","action":"update","contentBase64":"aGVsbG8="}"#,
+        )
+        .unwrap();
+
+        assert_eq!(change.relative_path, "Pictures/test.jpg");
+        assert_eq!(change.action, "update");
+        assert_eq!(change.content_base64.as_deref(), Some("aGVsbG8="));
+    }
+
+    #[test]
+    fn sync_target_accepts_new_file_under_root() {
+        let root = temp_sync_root("new-file");
+        let target = root.join("Pictures").join("camera").join("image.jpg");
+        let canonical_root = root.canonicalize().unwrap();
+
+        assert!(validate_path_within_root(&canonical_root, &target).is_ok());
+
+        fs::remove_dir_all(root).unwrap();
+    }
+
+    #[test]
+    fn sync_target_rejects_existing_file_outside_root() {
+        let root = temp_sync_root("escape-root");
+        let outside = temp_sync_root("outside-root").join("image.jpg");
+        fs::write(&outside, b"outside").unwrap();
+        let canonical_root = root.canonicalize().unwrap();
+
+        assert!(validate_path_within_root(&canonical_root, &outside).is_err());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn sync_target_rejects_symlink_traversal() {
+        use std::os::unix::fs as unix_fs;
+
+        let root = temp_sync_root("symlink-root");
+        let outside = temp_sync_root("symlink-outside");
+        let link = root.join("Pictures").join("linked");
+        fs::create_dir_all(link.parent().unwrap()).unwrap();
+        unix_fs::symlink(&outside, &link).unwrap();
+        let target = link.join("image.jpg");
+        let canonical_root = root.canonicalize().unwrap();
+
+        assert!(validate_path_within_root(&canonical_root, &target).is_err());
+
+        fs::remove_dir_all(root).unwrap();
+        fs::remove_dir_all(outside).unwrap();
+    }
+
+    #[test]
+    fn suppression_cache_drops_remote_write_marker_once() {
+        let known_files = Arc::new(Mutex::new(HashMap::new()));
+        let path = PathBuf::from("/tmp/proton-drive-live-sync-marker");
+
+        known_files
+            .lock()
+            .unwrap()
+            .insert(path.clone(), Instant::now());
+
+        assert!(should_ignore_known_file(&known_files, &path));
+        assert!(!should_ignore_known_file(&known_files, &path));
+    }
+
+    #[test]
+    fn suppression_cache_is_bounded() {
+        let mut cache = HashMap::new();
+        let now = Instant::now();
+
+        for idx in 0..(SUPPRESSION_CACHE_MAX + 10) {
+            cache.insert(PathBuf::from(format!("/tmp/file-{idx}")), now);
+        }
+
+        prune_known_files(&mut cache, now);
+        assert!(cache.len() <= SUPPRESSION_CACHE_MAX);
+    }
 }

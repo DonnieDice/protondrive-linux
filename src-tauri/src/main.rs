@@ -1260,6 +1260,11 @@ fn main() {
             store_login_credentials,
             get_and_clear_login_credentials,
             save_download,
+            // Sync bridge contract:
+            // start_sync/get_sync_status/stop_sync are the local folder watcher side.
+            // handle_remote_update is the remote-to-local apply side.
+            // The frontend owns Proton Drive upload/download semantics and must keep
+            // these command names in sync with docs/sync.md and CI regression checks.
             start_sync,
             stop_sync,
             get_sync_status,
