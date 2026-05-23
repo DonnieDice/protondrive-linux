@@ -371,12 +371,14 @@ fn main() {
         sync_manager: live_sync::LiveSyncManager::default(),
     });
 
+    let startup_sync_state = Arc::clone(&state);
+
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
+        .setup(move |app| {
             let webview_data_dir = persistent_webview_data_dir(app.path().app_data_dir()?);
             ensure_webview_data_dir(&webview_data_dir)?;
             println!(
@@ -1296,6 +1298,21 @@ fn main() {
                         || url.host_str() == Some("tauri.localhost")
                 })
                 .build()?;
+
+            if let Ok(path) = std::env::var("PROTONDRIVE_AUTO_SYNC_PATH") {
+                println!("[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested path={}", path);
+                match validate_sync_root_path(&path)
+                    .and_then(|sync_root| startup_sync_state.sync_manager.start(app.handle().clone(), sync_root))
+                    .and_then(|_| startup_sync_state.sync_manager.status())
+                {
+                    Ok(status) => println!(
+                        "[Sync] auto-start active enabled={} folder={}",
+                        status.enabled,
+                        status.folder_path.as_deref().unwrap_or("<none>")
+                    ),
+                    Err(error) => eprintln!("[Sync] auto-start failed: {}", error),
+                }
+            }
 
             Ok(())
         })
