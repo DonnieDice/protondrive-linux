@@ -110,6 +110,12 @@ jobs:
         with:
           workspaces: src-tauri
 
+      - name: Prepare Tauri frontendDist fixture
+        run: |
+          mkdir -p WebClients/applications/drive/dist
+          printf '<!doctype html><html><body>rust regression fixture</body></html>\n' \
+            > WebClients/applications/drive/dist/index.html
+
       - name: Run navigation regression tests
         run: cargo test --manifest-path src-tauri/Cargo.toml proton_navigation::tests
 
