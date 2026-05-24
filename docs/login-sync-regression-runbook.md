@@ -78,8 +78,10 @@ PROTONDRIVE_AUTO_SYNC_PATH="$HOME/Pictures/protondrive-sync-smoke" proton-drive
 
 If testing from the UI or frontend command path instead of the environment
 variable, use `set_sync_root("~/Pictures/protondrive-sync-smoke")` and then
-call or observe `get_sync_status()`. Future UI should expose this from a Linux
-entry in the right-side Proton app rail, not from the current folder route.
+call or observe `get_sync_status()`. The Linux entry in the right-side Proton
+app rail opens the Drive quick-settings drawer as the first Proton Drive Linux
+options surface; the dedicated sync UI should live there later, not in the
+current folder route.
 
 1. Confirm the native watcher and poll reconciler are active for the staged folder.
 2. Create `local-create.txt` in the staged folder.

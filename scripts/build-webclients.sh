@@ -21,7 +21,6 @@ calc_cache_key() {
         for path in \
             "$REPO_ROOT/scripts/fix_deps.py" \
             "$REPO_ROOT/scripts/create_stubs.py" \
-            "$REPO_ROOT/patches/common/fix-tauri-worker-protocol.patch" \
             "$WEBCLIENTS_DIR/package.json" \
             "$WEBCLIENTS_DIR/yarn.lock" \
             "$WEBCLIENTS_DIR/.yarnrc.yml"
@@ -30,6 +29,11 @@ calc_cache_key() {
                 sha256sum "$path"
             fi
         done
+        if [ -d "$REPO_ROOT/patches/common" ]; then
+            find "$REPO_ROOT/patches/common" -maxdepth 1 -type f -name "*.patch" -print0 \
+                | sort -z \
+                | xargs -0r sha256sum
+        fi
     } | sha256sum | awk '{print $1}'
 }
 
