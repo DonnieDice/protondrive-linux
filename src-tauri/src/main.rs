@@ -967,10 +967,11 @@ fn main() {
             console.log('[FETCH] Fixed protocol-relative URL to:', url);
         }
 
-        // Skip IPC calls for logging
-        if (!url.startsWith('ipc://')) {
-            sendToRust('FETCH', [init.method || 'GET', url]);
-        }
+        // Note: FETCH-level logging removed from hot path.
+        // Each js_log invoke adds IPC pressure that can break the WebKitGTK
+        // IPC bridge under concurrent load (5 SPA fetches + 5 FETCH logs
+        // + 5 PROXY_REQ logs = 15 concurrent invokes, vs ~5 on main).
+        // Rust already logs [Proxy][N] for proxied requests.
 
         // Only proxy API calls
         if (!url.includes('/api/')) {
@@ -1042,12 +1043,10 @@ fn main() {
             const cleanBody = proxiedRequest.body == null ? null : String(proxiedRequest.body);
             proxyTraceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
             startupDiagnostics.trackRequest(proxyTraceId, proxiedRequest.method, url);
-            sendToRust('PROXY_REQ', [proxyTraceId, proxiedRequest.method, url, 'body=' + (cleanBody ? cleanBody.length : 0)]);
             const response = await window.__TAURI__.core.invoke('proxy_request', {
                 request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
             });
             startupDiagnostics.finishRequest(proxyTraceId);
-            sendToRust('PROXY_RES', [proxyTraceId, response.status, url, 'body=' + ((response.body || '').length)]);
 
             const respHeaders = new Headers();
             for (const [k, v] of Object.entries(response.headers || {})) {
