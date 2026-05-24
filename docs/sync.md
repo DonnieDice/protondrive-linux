@@ -6,13 +6,23 @@ This document records the current sync contract, known weak areas, and the safe 
 
 The repository contains the native Tauri sync bridge from PR #35:
 
+- `set_sync_root(path)` persists a selected sync directory under app data and starts sync.
 - `start_sync(path)` starts a recursive native watcher for an existing folder under `$HOME`.
-- `live-sync://local-change` is emitted for local create, modify, and remove events.
+- `PROTONDRIVE_AUTO_SYNC_PATH` designates the selected sync directory during smoke tests and
+  persists it for later passive startup.
+- On app launch, the persisted selected sync directory auto-starts without UI.
+- `live-sync://local-change` is emitted for local create, modify, and remove events from both
+  the watcher and the poll reconciler.
 - `handle_remote_update(change)` applies remote create, update, and delete events into the watched folder.
 - `get_sync_status()` reports whether a folder is currently being watched.
 - `stop_sync()` stops the watcher and clears suppression state.
 
-The native bridge is not the full sync engine by itself. The frontend integration is responsible for choosing the folder, listening for `live-sync://local-change`, uploading local changes to Proton Drive, receiving remote Proton Drive events, and calling `handle_remote_update`.
+The native bridge is not the full sync engine by itself. The frontend integration is responsible for
+choosing the folder, mapping local root-relative paths to Proton Drive node paths, uploading local
+changes to Proton Drive, receiving remote Proton Drive events, and calling `handle_remote_update`.
+The future UI target is a Linux entry in the right-side Proton app rail where Contacts, Calendar,
+and Referral currently live. That UI should call `set_sync_root`, show `get_sync_status`, and manage
+future remote-root mappings without coupling sync to whichever Drive folder is currently open.
 
 ## Native Contract
 
@@ -21,10 +31,16 @@ The native bridge is not the full sync engine by itself. The frontend integratio
 1. Frontend calls `start_sync(path)`.
 2. Native validates that `path` exists, is a directory, and resolves under `$HOME`.
 3. Native watches the folder recursively with `notify`.
-4. Native emits `live-sync://local-change` with:
+4. Native also polls the selected directory at `DEFAULT_SYNC_POLL_INTERVAL` and reconciles file
+   metadata snapshots. Watchers provide low-latency events; polling catches missed watcher events
+   and drift after suspend/resume or filesystem backend quirks.
+5. Native emits `live-sync://local-change` with:
    - `kind`: `create`, `modify`, or `remove`
    - `paths`: absolute local paths from the watcher event
-5. Frontend maps the absolute paths back to sync-root-relative paths and uploads/deletes in Proton Drive.
+   - `rootPath`: selected local sync root
+   - `relativePaths`: paths relative to `rootPath`
+   - `source`: `watcher` or `poller`
+6. Frontend maps `relativePaths` to the configured Proton Drive remote root and uploads/deletes in Proton Drive.
 
 ### Remote To Local
 
@@ -43,9 +59,11 @@ The native bridge is not the full sync engine by itself. The frontend integratio
 Do not change these without updating tests, docs, and frontend integration together:
 
 - Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`.
+- Passive root command/config: `set_sync_root`, `SYNC_ROOT_CONFIG_FILE`.
 - Event name: `live-sync://local-change`.
-- Event payload shape: `{ kind, paths }`.
+- Event payload shape: `{ kind, paths, rootPath, relativePaths, source }`.
 - Remote update payload shape: `{ relativePath, action, contentBase64 }`.
+- Poll rate: `DEFAULT_SYNC_POLL_INTERVAL`.
 - Sync roots must stay constrained under `$HOME`.
 - Remote relative paths must reject `..`, absolute paths, Windows prefixes, and symlink traversal.
 - Remote-write suppression must stay bounded and short-lived.
@@ -54,15 +72,18 @@ Do not change these without updating tests, docs, and frontend integration toget
 
 These are the areas to watch during real sync testing:
 
-- There is no durable local sync database in the native layer.
+- There is a passive selected-root config, but no durable local sync database in the native layer.
 - There is no native conflict resolver.
 - There is no native retry queue or offline queue.
 - There is no native checksum or mtime comparison.
 - Rename and move are not modeled as first-class operations by the native bridge.
 - Directory delete is not handled by `handle_remote_update`; delete removes files.
 - Remote create/update writes full base64 file contents, so large-file streaming is frontend-owned.
-- Local watcher events expose absolute paths, so frontend mapping to relative paths must be correct.
+- Local events expose absolute and root-relative paths, but frontend mapping to Proton Drive remote
+  roots is still future work.
 - Recursive watching of a large folder can produce high event volume.
+- Poll reconciliation scans the selected root every 30 seconds by default; full `~/Pictures` should
+  not be enabled until staged-folder event volume is acceptable.
 - The suppression cache prevents immediate ping-pong but is not durable across app restarts.
 
 ## `~/Pictures` Test Plan

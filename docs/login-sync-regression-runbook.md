@@ -77,16 +77,17 @@ PROTONDRIVE_AUTO_SYNC_PATH="$HOME/Pictures/protondrive-sync-smoke" proton-drive
 ```
 
 If testing from the UI or frontend command path instead of the environment
-variable, start sync on `~/Pictures/protondrive-sync-smoke` and then call or
-observe `get_sync_status()`.
+variable, use `set_sync_root("~/Pictures/protondrive-sync-smoke")` and then
+call or observe `get_sync_status()`. Future UI should expose this from a Linux
+entry in the right-side Proton app rail, not from the current folder route.
 
-1. Confirm the native watcher is active for the staged folder.
+1. Confirm the native watcher and poll reconciler are active for the staged folder.
 2. Create `local-create.txt` in the staged folder.
-3. Confirm the local create event reaches frontend upload handling.
+3. Confirm the local create event includes `relativePaths` for future remote-root mapping.
 4. Modify `local-create.txt`.
-5. Confirm the modify event reaches frontend upload handling.
+5. Confirm the local modify event includes `source=watcher` or `source=poller`.
 6. Delete `local-create.txt`.
-7. Confirm the remove event reaches frontend delete handling.
+7. Confirm the remove event is emitted.
 8. Repeat create/modify/delete in `nested/`.
 9. Create or update a small remote file under the synced folder.
 10. Confirm frontend calls `handle_remote_update`.
@@ -96,13 +97,16 @@ observe `get_sync_status()`.
 
 Expected positive markers:
 
-- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested path=...` when using env auto-start.
-- `[Sync] auto-start active enabled=true folder=...` or `[Sync] start_sync active enabled=true folder=...`.
+- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested` when using env designation.
+- `[Sync] selected root requested source=env` or `source=persisted`.
+- `[Sync] auto-start active enabled=true folder=... poll_interval_seconds=...`.
+- `[Sync] set_sync_root active enabled=true folder=... poll_interval_seconds=...` when using UI/command designation.
 - `[Sync] get_sync_status enabled=true folder=...`.
 - `[LiveSync] watcher active root=... mode=recursive`.
-- `[LiveSync] local-change kind=create paths=...`.
-- `[LiveSync] local-change kind=modify paths=...`.
-- `[LiveSync] local-change kind=remove paths=...`.
+- `[LiveSync] poller active root=... interval_seconds=...`.
+- `[LiveSync] local-change kind=create paths=... source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=modify paths=... source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=remove paths=... source=watcher` or `source=poller`.
 - `live-sync://local-change` is observed by frontend handling.
 - `[LiveSync][AUDIT] remote action=create result=success path=...` or `remote action=update`.
 - `[LiveSync][AUDIT] remote action=delete result=success path=...`.
