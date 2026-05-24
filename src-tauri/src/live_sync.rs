@@ -1,12 +1,12 @@
 use base64::Engine as _;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fs;
 use std::path::{Component, Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
-use std::time::{Duration, Instant};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 use tauri::{AppHandle, Emitter};
 
 const ERR_SYNC_SETUP_FAILED: &str = "Failed to start live sync";
@@ -18,17 +18,22 @@ const ERR_SYNC_DELETE_FAILED: &str = "Failed to apply remote file deletion";
 const ERR_SYNC_INVALID_TARGET: &str = "Invalid sync target path";
 const SUPPRESSION_TTL: Duration = Duration::from_secs(30);
 const SUPPRESSION_CACHE_MAX: usize = 4096;
+pub const DEFAULT_SYNC_POLL_INTERVAL: Duration = Duration::from_secs(30);
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncEvent {
     pub kind: String,
     pub paths: Vec<String>,
+    pub root_path: String,
+    pub relative_paths: Vec<String>,
+    pub source: String,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncStatus {
     pub enabled: bool,
     pub folder_path: Option<String>,
+    pub poll_interval_seconds: u64,
 }
 
 #[derive(Debug, Clone, Deserialize)]
@@ -44,6 +49,8 @@ pub struct LiveSyncManager {
     folder: Mutex<Option<PathBuf>>,
     root_canonical: Mutex<Option<PathBuf>>,
     worker: Mutex<Option<JoinHandle<()>>>,
+    poller: Mutex<Option<JoinHandle<()>>>,
+    poll_stop: Mutex<Option<mpsc::Sender<()>>>,
     known_files: Arc<Mutex<HashMap<PathBuf, Instant>>>,
 }
 
@@ -54,6 +61,8 @@ impl Default for LiveSyncManager {
             folder: Mutex::new(None),
             root_canonical: Mutex::new(None),
             worker: Mutex::new(None),
+            poller: Mutex::new(None),
+            poll_stop: Mutex::new(None),
             known_files: Arc::new(Mutex::new(HashMap::new())),
         }
     }
@@ -61,6 +70,15 @@ impl Default for LiveSyncManager {
 
 impl LiveSyncManager {
     pub fn start(&self, app: AppHandle, folder: PathBuf) -> Result<(), String> {
+        self.start_with_poll_interval(app, folder, DEFAULT_SYNC_POLL_INTERVAL)
+    }
+
+    pub fn start_with_poll_interval(
+        &self,
+        app: AppHandle,
+        folder: PathBuf,
+        poll_interval: Duration,
+    ) -> Result<(), String> {
         if !folder.exists() || !folder.is_dir() {
             return Err("Sync path must be a directory".into());
         }
@@ -89,8 +107,9 @@ impl LiveSyncManager {
             folder.to_string_lossy()
         );
 
-        let known_files = Arc::clone(&self.known_files);
-        let app_handle = app.clone();
+        let watcher_known_files = Arc::clone(&self.known_files);
+        let watcher_app_handle = app.clone();
+        let watcher_root = folder.clone();
 
         let worker = std::thread::Builder::new()
             .name("live-sync-watcher".to_string())
@@ -107,7 +126,7 @@ impl LiveSyncManager {
 
                             let mut filtered_paths = Vec::new();
                             for path in event.paths {
-                                if should_ignore_known_file(&known_files, &path) {
+                                if should_ignore_known_file(&watcher_known_files, &path) {
                                     continue;
                                 }
                                 filtered_paths.push(path.to_string_lossy().to_string());
@@ -117,28 +136,13 @@ impl LiveSyncManager {
                                 continue;
                             }
 
-                            println!(
-                                "[LiveSync] local-change kind={} paths={}",
+                            emit_local_change(
+                                &watcher_app_handle,
+                                &watcher_root,
                                 kind,
-                                filtered_paths.len()
+                                filtered_paths,
+                                "watcher",
                             );
-                            for path in &filtered_paths {
-                                println!("[LiveSync] local-change path={}", path);
-                            }
-
-                            // Regression guard: the frontend sync engine depends on this
-                            // exact event name and absolute local paths to upload local
-                            // changes. Do not rename or reshape without updating docs,
-                            // tests, and the WebClients integration together.
-                            if let Err(e) = app_handle.emit(
-                                "live-sync://local-change",
-                                LiveSyncEvent {
-                                    kind: kind.to_string(),
-                                    paths: filtered_paths,
-                                },
-                            ) {
-                                eprintln!("[LiveSync] failed to emit local-change event: {e}");
-                            }
                         }
                         Err(_) => eprintln!("[LiveSync] Watcher error occurred"),
                     }
@@ -148,6 +152,60 @@ impl LiveSyncManager {
                 eprintln!("[LiveSync] worker thread spawn failed: {e}");
                 ERR_SYNC_SETUP_FAILED.to_string()
             })?;
+
+        let (poll_stop_tx, poll_stop_rx) = mpsc::channel();
+        let poller_known_files = Arc::clone(&self.known_files);
+        let poller_app_handle = app;
+        let poller_root = folder.clone();
+        let mut snapshot = scan_sync_root(&poller_root).map_err(|e| {
+            eprintln!(
+                "[LiveSync] poller baseline scan failed for {:?}: {e}",
+                poller_root
+            );
+            ERR_SYNC_SETUP_FAILED.to_string()
+        })?;
+
+        let poller = std::thread::Builder::new()
+            .name("live-sync-poller".to_string())
+            .spawn(move || loop {
+                if poll_stop_rx.recv_timeout(poll_interval).is_ok() {
+                    break;
+                }
+
+                match scan_sync_root(&poller_root) {
+                    Ok(next_snapshot) => {
+                        for (kind, paths) in diff_snapshots(&snapshot, &next_snapshot) {
+                            let filtered_paths: Vec<String> = paths
+                                .into_iter()
+                                .filter(|path| !should_ignore_known_file(&poller_known_files, path))
+                                .map(|path| path.to_string_lossy().to_string())
+                                .collect();
+
+                            if !filtered_paths.is_empty() {
+                                emit_local_change(
+                                    &poller_app_handle,
+                                    &poller_root,
+                                    kind,
+                                    filtered_paths,
+                                    "poller",
+                                );
+                            }
+                        }
+                        snapshot = next_snapshot;
+                    }
+                    Err(e) => eprintln!("[LiveSync] poller scan failed: {e}"),
+                }
+            })
+            .map_err(|e| {
+                eprintln!("[LiveSync] poller thread spawn failed: {e}");
+                ERR_SYNC_SETUP_FAILED.to_string()
+            })?;
+
+        println!(
+            "[LiveSync] poller active root={} interval_seconds={}",
+            folder.to_string_lossy(),
+            poll_interval.as_secs()
+        );
 
         *self.watcher.lock().map_err(|e| {
             eprintln!("[LiveSync] watcher state lock failed: {e}");
@@ -165,6 +223,14 @@ impl LiveSyncManager {
             eprintln!("[LiveSync] worker state lock failed: {e}");
             ERR_SYNC_STATE_UNAVAILABLE.to_string()
         })? = Some(worker);
+        *self.poll_stop.lock().map_err(|e| {
+            eprintln!("[LiveSync] poll stop state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(poll_stop_tx);
+        *self.poller.lock().map_err(|e| {
+            eprintln!("[LiveSync] poller state lock failed: {e}");
+            ERR_SYNC_STATE_UNAVAILABLE.to_string()
+        })? = Some(poller);
 
         Ok(())
     }
@@ -177,6 +243,7 @@ impl LiveSyncManager {
         Ok(LiveSyncStatus {
             enabled: folder.is_some(),
             folder_path: folder.as_ref().map(|p| p.to_string_lossy().to_string()),
+            poll_interval_seconds: DEFAULT_SYNC_POLL_INTERVAL.as_secs(),
         })
     }
 
@@ -283,6 +350,18 @@ impl LiveSyncManager {
     }
 
     pub fn stop(&self) -> Result<(), String> {
+        let poll_stop = self
+            .poll_stop
+            .lock()
+            .map_err(|e| {
+                eprintln!("[LiveSync] poll stop state lock failed on stop: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
+            .take();
+        if let Some(poll_stop) = poll_stop {
+            let _ = poll_stop.send(());
+        }
+
         *self.watcher.lock().map_err(|e| {
             eprintln!("[LiveSync] watcher state lock failed on stop: {e}");
             ERR_SYNC_STATE_UNAVAILABLE.to_string()
@@ -306,6 +385,18 @@ impl LiveSyncManager {
             .take();
         if let Some(worker) = worker {
             let _ = worker.join();
+        }
+
+        let poller = self
+            .poller
+            .lock()
+            .map_err(|e| {
+                eprintln!("[LiveSync] poller state lock failed on stop: {e}");
+                ERR_SYNC_STATE_UNAVAILABLE.to_string()
+            })?
+            .take();
+        if let Some(poller) = poller {
+            let _ = poller.join();
         }
 
         self.known_files
@@ -345,6 +436,136 @@ fn should_ignore_known_file(
     } else {
         false
     }
+}
+
+fn emit_local_change(
+    app_handle: &AppHandle,
+    root: &Path,
+    kind: &str,
+    paths: Vec<String>,
+    source: &str,
+) {
+    println!(
+        "[LiveSync] local-change kind={} paths={} source={}",
+        kind,
+        paths.len(),
+        source
+    );
+    for path in &paths {
+        println!("[LiveSync] local-change path={}", path);
+    }
+
+    let relative_paths = paths
+        .iter()
+        .map(|path| relative_sync_path(root, Path::new(path)))
+        .collect();
+
+    // Regression guard: the frontend sync engine depends on this exact event
+    // name. Payloads are intentionally mapping-ready: absolute paths are kept
+    // for compatibility, while rootPath/relativePaths/source let future UI and
+    // path-mapping code consume the native sync stream without route coupling.
+    if let Err(e) = app_handle.emit(
+        "live-sync://local-change",
+        LiveSyncEvent {
+            kind: kind.to_string(),
+            paths,
+            root_path: root.to_string_lossy().to_string(),
+            relative_paths,
+            source: source.to_string(),
+        },
+    ) {
+        eprintln!("[LiveSync] failed to emit local-change event: {e}");
+    }
+}
+
+fn relative_sync_path(root: &Path, path: &Path) -> String {
+    path.strip_prefix(root)
+        .unwrap_or(path)
+        .to_string_lossy()
+        .to_string()
+}
+
+#[derive(Clone, Debug, Eq, PartialEq)]
+struct FileFingerprint {
+    len: u64,
+    modified: Option<u128>,
+}
+
+type SyncSnapshot = HashMap<PathBuf, FileFingerprint>;
+
+fn scan_sync_root(root: &Path) -> std::io::Result<SyncSnapshot> {
+    let mut snapshot = HashMap::new();
+    scan_sync_dir(root, &mut snapshot)?;
+    Ok(snapshot)
+}
+
+fn scan_sync_dir(dir: &Path, snapshot: &mut SyncSnapshot) -> std::io::Result<()> {
+    for entry in fs::read_dir(dir)? {
+        let entry = entry?;
+        let path = entry.path();
+        let meta = fs::symlink_metadata(&path)?;
+
+        if meta.file_type().is_symlink() {
+            continue;
+        }
+
+        if meta.is_dir() {
+            scan_sync_dir(&path, snapshot)?;
+        } else if meta.is_file() {
+            snapshot.insert(
+                path,
+                FileFingerprint {
+                    len: meta.len(),
+                    modified: meta.modified().ok().and_then(system_time_nanos),
+                },
+            );
+        }
+    }
+    Ok(())
+}
+
+fn system_time_nanos(time: SystemTime) -> Option<u128> {
+    time.duration_since(UNIX_EPOCH)
+        .ok()
+        .map(|duration| duration.as_nanos())
+}
+
+fn diff_snapshots(
+    previous: &SyncSnapshot,
+    next: &SyncSnapshot,
+) -> Vec<(&'static str, Vec<PathBuf>)> {
+    let previous_paths: HashSet<&PathBuf> = previous.keys().collect();
+    let next_paths: HashSet<&PathBuf> = next.keys().collect();
+
+    let mut creates = Vec::new();
+    let mut modifies = Vec::new();
+    let mut removes = Vec::new();
+
+    for path in next_paths.difference(&previous_paths) {
+        creates.push((*path).clone());
+    }
+
+    for path in previous_paths.intersection(&next_paths) {
+        if previous.get(*path) != next.get(*path) {
+            modifies.push((*path).clone());
+        }
+    }
+
+    for path in previous_paths.difference(&next_paths) {
+        removes.push((*path).clone());
+    }
+
+    let mut changes = Vec::new();
+    if !creates.is_empty() {
+        changes.push(("create", creates));
+    }
+    if !modifies.is_empty() {
+        changes.push(("modify", modifies));
+    }
+    if !removes.is_empty() {
+        changes.push(("remove", removes));
+    }
+    changes
 }
 
 fn prune_known_files(cache: &mut HashMap<PathBuf, Instant>, now: Instant) {
@@ -504,5 +725,64 @@ mod tests {
 
         prune_known_files(&mut cache, now);
         assert!(cache.len() <= SUPPRESSION_CACHE_MAX);
+    }
+
+    #[test]
+    fn relative_sync_path_is_root_relative_for_mapping() {
+        let root = PathBuf::from("/home/test/Pictures/protondrive-sync-smoke");
+        let file = root.join("nested").join("image.jpg");
+
+        assert_eq!(relative_sync_path(&root, &file), "nested/image.jpg");
+    }
+
+    #[test]
+    fn poll_snapshot_diff_detects_create_modify_and_remove() {
+        let created = PathBuf::from("/tmp/created.txt");
+        let modified = PathBuf::from("/tmp/modified.txt");
+        let removed = PathBuf::from("/tmp/removed.txt");
+
+        let mut previous = HashMap::new();
+        previous.insert(
+            modified.clone(),
+            FileFingerprint {
+                len: 1,
+                modified: Some(1),
+            },
+        );
+        previous.insert(
+            removed.clone(),
+            FileFingerprint {
+                len: 1,
+                modified: Some(1),
+            },
+        );
+
+        let mut next = HashMap::new();
+        next.insert(
+            created.clone(),
+            FileFingerprint {
+                len: 1,
+                modified: Some(1),
+            },
+        );
+        next.insert(
+            modified.clone(),
+            FileFingerprint {
+                len: 2,
+                modified: Some(2),
+            },
+        );
+
+        let changes = diff_snapshots(&previous, &next);
+
+        assert!(changes
+            .iter()
+            .any(|(kind, paths)| kind == &"create" && paths == &vec![created.clone()]));
+        assert!(changes
+            .iter()
+            .any(|(kind, paths)| kind == &"modify" && paths == &vec![modified.clone()]));
+        assert!(changes
+            .iter()
+            .any(|(kind, paths)| kind == &"remove" && paths == &vec![removed.clone()]));
     }
 }
