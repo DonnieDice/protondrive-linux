@@ -1,0 +1,46 @@
+diff --git a/applications/drive/src/app/components/layout/DriveWindow.tsx b/applications/drive/src/app/components/layout/DriveWindow.tsx
+--- a/applications/drive/src/app/components/layout/DriveWindow.tsx
++++ b/applications/drive/src/app/components/layout/DriveWindow.tsx
+@@ -1,12 +1,16 @@
+ import { type ReactNode, useState } from 'react';
+ import { useLocation } from 'react-router-dom-v5-compat';
+ 
++import { c } from 'ttag';
++
+ import { useUser } from '@proton/account/user/hooks';
+ import {
+     CalendarDrawerAppButton,
+     ContactDrawerAppButton,
++    DrawerAppButton,
+     DrawerSidebar,
+     DrawerVisibilityButton,
++    Icon,
+     PrivateAppContainer,
+     PrivateMainArea,
+     QuickSettingsAppButton,
+@@ -39,7 +43,7 @@ const DriveWindow = ({ children }: { children: ReactNode }) => {
+     const [recoveryBannerVisible, setRecoveryBannerVisible] = useState(true);
+     const { isReadOnly } = useIsActiveLinkReadOnly();
+     useOpenDrawerOnLoad();
+-    const { appInView, showDrawerSidebar } = useDrawer();
++    const { appInView, showDrawerSidebar, toggleDrawerApp } = useDrawer();
+ 
+     const [allowedProducts, loadingAllowedProducts] = useAllowedProducts();
+ 
+@@ -67,6 +71,16 @@ const DriveWindow = ({ children }: { children: ReactNode }) => {
+ 
+     const permissions = getDriveDrawerPermissions({ user });
+     const drawerSidebarButtons = [
++        <DrawerAppButton
++            key="toggle-protondrive-linux-drawer-app-button"
++            tooltipText={c('Title').t`Proton Drive Linux`}
++            data-testid="protondrive-linux-drawer-app-button:linux-icon"
++            buttonContent={<Icon name="brand-linux" size={5} />}
++            onClick={() => toggleDrawerApp({ app: DRAWER_NATIVE_APPS.QUICK_SETTINGS })()}
++            alt={c('Action').t`Toggle Proton Drive Linux options`}
++            aria-controls="drawer-app-protondrive-linux"
++            aria-expanded={isAppInView(DRAWER_NATIVE_APPS.QUICK_SETTINGS, appInView)}
++        />,
+         permissions.contacts && (
+             <ContactDrawerAppButton aria-expanded={isAppInView(DRAWER_NATIVE_APPS.CONTACTS, appInView)} />
+         ),

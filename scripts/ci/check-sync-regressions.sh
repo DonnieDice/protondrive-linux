@@ -64,12 +64,19 @@ require_pattern docs/sync.md "~/Pictures" "sync documentation must keep Pictures
 require_pattern docs/sync.md "live-sync://local-change" "sync documentation must record frontend event contract"
 require_pattern docs/sync.md "handle_remote_update" "sync documentation must record remote apply contract"
 require_pattern docs/sync.md "right-side Proton app rail" "future Linux settings UI target must stay documented"
+require_pattern docs/sync.md "Drive quick-settings drawer" "initial Linux drawer target must stay documented"
 require_pattern docs/sync.md "Do not start with the entire" "Pictures safety warning must remain documented"
 require_pattern docs/login-sync-regression-runbook.md "Manual Sync Procedure" "manual sync procedure must stay documented"
 require_pattern docs/login-sync-regression-runbook.md "PROTONDRIVE_AUTO_SYNC_PATH" "manual sync procedure must document env auto-start"
 require_pattern docs/login-sync-regression-runbook.md "\\[LiveSync\\] watcher active root=" "manual sync procedure must document watcher marker"
 require_pattern docs/login-sync-regression-runbook.md "No test may be considered a sync pass from Drive/Photos API traffic alone" "manual sync procedure must reject API-only false positives"
 require_pattern docs/login-sync-regression-runbook.md "silent window where file changes occur but no .*\\[Sync\\].*\\[LiveSync\\]" "manual sync procedure must catch silent no-op sync"
+
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "protondrive-linux-drawer-app-button:linux-icon" "Linux drawer rail entry must stay patched into WebClients"
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "brand-linux" "Linux drawer rail entry must use the Linux icon"
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "Proton Drive Linux" "Linux drawer rail entry must expose a product label"
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "DRAWER_NATIVE_APPS\\.QUICK_SETTINGS" "Linux drawer rail entry must open the native Drive settings drawer until dedicated sync UI exists"
+require_pattern scripts/build-webclients.sh "patches/common.*\\.patch" "WebClients build cache key must include every common patch"
 
 require_absent src-tauri/src/live_sync.rs "emit\\([^\\n]*local-change" "event name must remain explicit, not rebuilt dynamically"
 
