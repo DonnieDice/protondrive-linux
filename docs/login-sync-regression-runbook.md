@@ -22,6 +22,11 @@ The CI checks do not use real Proton credentials. They guard:
 - Drive restores `/u/<localID>/` from persisted `ps-<localID>` localStorage before app init.
 - Host-only Proton auth cookies are scoped to the response host for restart persistence.
 - Startup loading has user-facing diagnostics for WebView state and blocked proxy requests.
+- All `proxy_request` IPC invokes are serialized through `invokeProxyRequest`/`proxyInvokeChain`.
+  WebKitGTK's IPC custom protocol breaks under concurrent invoke load and falls back to
+  postMessage, where JSON object responses never resolve. Direct
+  `await window.__TAURI__.core.invoke('proxy_request', ...)` is forbidden — every API proxy
+  call must go through the serialization queue or the loading screen will freeze.
 - Sync commands stay registered and the native watcher emits `live-sync://local-change`.
 - Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
 

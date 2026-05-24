@@ -35,6 +35,10 @@ required_patterns=(
   "STARTUP_DIAG"
   "No repeated navigation between Account and Drive after 2FA"
   "No repeated post-login"
+  "proxyInvokeChain"
+  "invokeProxyRequest"
+  "protocol can only handle one in-flight invoke at a time"
+  "bridge always sees exactly one"
 )
 
 for pattern in "${required_patterns[@]}"; do
@@ -48,6 +52,7 @@ forbidden_patterns=(
   "[CAPTCHA] Left captcha page, returning to account app"
   "Detect navigation AWAY from captcha to non-captcha page"
   "format!(\"tauri://localhost{}\", user_path)"
+  "await window.__TAURI__.core.invoke('proxy_request'"
 )
 
 for pattern in "${forbidden_patterns[@]}"; do
