@@ -8,7 +8,9 @@ use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::path::PathBuf;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod live_sync;
@@ -26,6 +28,10 @@ use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
+const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+static PROXY_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 // Shared HTTP client with cookie jar
 struct AppState {
@@ -253,17 +259,20 @@ async fn proxy_request(
     let method = reqwest::Method::from_bytes(request.method.to_uppercase().as_bytes())
         .unwrap_or(reqwest::Method::GET);
 
-    println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
+    let request_id = PROXY_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+    let started_at = Instant::now();
+    let sanitized_url = sanitize_url_for_log(&url);
+    println!("[Proxy][{}] {} {} start", request_id, method, sanitized_url);
 
     let target_url = tauri::Url::parse(&url).map_err(|e| {
         eprintln!(
             "[Proxy] invalid target URL {}: {e}",
-            sanitize_url_for_log(&url)
+            sanitized_url
         );
         "Invalid request URL".to_string()
     })?;
 
-    let mut req = state.client.request(method, &url);
+    let mut req = state.client.request(method, &url).timeout(PROXY_REQUEST_TIMEOUT);
     if let Some(cookie_header) = combined_cookie_header(&window, &state.cookie_jar, &target_url) {
         req = req.header(reqwest::header::COOKIE, cookie_header);
     }
@@ -280,13 +289,26 @@ async fn proxy_request(
         req = req.body(body.clone());
     }
 
-    let resp = req.send().await.map_err(|e| {
-        eprintln!(
-            "[Proxy] request failed for {}: {e}",
-            sanitize_url_for_log(&url)
-        );
-        "Request failed".to_string()
-    })?;
+    let resp = match req.send().await {
+        Ok(resp) => resp,
+        Err(e) => {
+            let elapsed_ms = started_at.elapsed().as_millis();
+            let status = if e.is_timeout() { 504 } else { 502 };
+            eprintln!(
+                "[Proxy][{}] {} {} failed status={} elapsed_ms={} error={}",
+                request_id, request.method, sanitized_url, status, elapsed_ms, e
+            );
+            return Ok(ProxyResponse {
+                status,
+                headers: HashMap::new(),
+                body: format!(
+                    "{{\"Error\":\"Native proxy request failed\",\"Status\":{},\"Timeout\":{}}}",
+                    status,
+                    e.is_timeout()
+                ),
+            });
+        }
+    };
     let status = resp.status().as_u16();
 
     // Forward response headers, but keep Set-Cookie inside WebKit's native jar.
@@ -301,9 +323,26 @@ async fn proxy_request(
         }
     }
 
-    let body = resp.text().await.unwrap_or_default();
+    let body = match resp.text().await {
+        Ok(body) => body,
+        Err(e) => {
+            let elapsed_ms = started_at.elapsed().as_millis();
+            eprintln!(
+                "[Proxy][{}] {} {} body_read_failed elapsed_ms={} error={}",
+                request_id, request.method, sanitized_url, elapsed_ms, e
+            );
+            String::new()
+        }
+    };
 
-    println!("[Proxy] {} <- {}", status, sanitize_url_for_log(&url));
+    println!(
+        "[Proxy][{}] {} <- {} elapsed_ms={} body={}",
+        request_id,
+        status,
+        sanitized_url,
+        started_at.elapsed().as_millis(),
+        body.len()
+    );
 
     Ok(ProxyResponse {
         status,
@@ -365,6 +404,8 @@ fn main() {
     let state = Arc::new(AppState {
         client: Client::builder()
             .cookie_provider(cookie_jar.clone())
+            .connect_timeout(PROXY_CONNECT_TIMEOUT)
+            .timeout(PROXY_REQUEST_TIMEOUT)
             .build()
             .expect("Failed to create HTTP client"),
         cookie_jar,
@@ -769,6 +810,86 @@ fn main() {
         sendToRust('UNHANDLED', [msg]);
     };
 
+    // Zero-trust startup diagnostics: the app has repeatedly regressed into
+    // a visible loading spinner with no actionable UI state. Keep this
+    // user-facing so a frozen WebView shows what request/state is blocking.
+    const startupDiagnostics = {
+        startedAt: Date.now(),
+        pendingProxy: new Map(),
+        lastLocation: window.location.href,
+        panel: null,
+        ensurePanel() {
+            if (this.panel || !document.body) return this.panel;
+            const panel = document.createElement('pre');
+            panel.id = 'protondrive-startup-diagnostics';
+            panel.style.cssText = [
+                'position:fixed',
+                'left:12px',
+                'right:12px',
+                'bottom:12px',
+                'z-index:2147483647',
+                'max-height:34vh',
+                'overflow:auto',
+                'white-space:pre-wrap',
+                'font:12px/1.4 monospace',
+                'padding:10px',
+                'border-radius:8px',
+                'border:1px solid rgba(255,255,255,.25)',
+                'background:rgba(0,0,0,.86)',
+                'color:#fff',
+                'box-shadow:0 8px 32px rgba(0,0,0,.35)',
+                'display:none'
+            ].join(';');
+            document.body.appendChild(panel);
+            this.panel = panel;
+            return panel;
+        },
+        snapshot(label, forceVisible = false) {
+            let sessionKeys = [];
+            try { sessionKeys = Object.keys(localStorage).filter(k => k.startsWith('ps-')); } catch {}
+            const pending = Array.from(this.pendingProxy.values()).map(entry => {
+                return `${Math.round((Date.now() - entry.startedAt) / 1000)}s ${entry.method} ${entry.url}`;
+            });
+            const lines = [
+                `[StartupDiag] ${label}`,
+                `url=${window.location.href}`,
+                `ready=${document.readyState} visible=${document.visibilityState}`,
+                `sessions=${sessionKeys.join(',') || 'none'}`,
+                `pendingProxy=${pending.length}`,
+                ...pending.slice(0, 8)
+            ];
+            sendToRust('STARTUP_DIAG', lines);
+            const panel = this.ensurePanel();
+            if (panel) {
+                panel.textContent = lines.join('\n');
+                panel.style.display = (forceVisible || pending.length > 0) ? 'block' : 'none';
+            }
+        },
+        trackRequest(id, method, url) {
+            this.pendingProxy.set(id, { method, url, startedAt: Date.now() });
+            setTimeout(() => {
+                if (this.pendingProxy.has(id)) {
+                    this.snapshot('proxy request still pending after 10s', true);
+                }
+            }, 10000);
+            setTimeout(() => {
+                if (this.pendingProxy.has(id)) {
+                    this.snapshot('proxy request still pending after 30s', true);
+                }
+            }, 30000);
+        },
+        finishRequest(id) {
+            this.pendingProxy.delete(id);
+            if (this.pendingProxy.size === 0) this.snapshot('proxy idle');
+        }
+    };
+    window.__PROTONDRIVE_STARTUP_DIAGNOSTICS__ = startupDiagnostics;
+    document.addEventListener('DOMContentLoaded', () => startupDiagnostics.snapshot('DOMContentLoaded'));
+    window.addEventListener('load', () => startupDiagnostics.snapshot('window load'));
+    window.addEventListener('pageshow', () => startupDiagnostics.snapshot('pageshow'));
+    setTimeout(() => startupDiagnostics.snapshot('startup watchdog 8s', true), 8000);
+    setTimeout(() => startupDiagnostics.snapshot('startup watchdog 30s', true), 30000);
+
     const originalFetch = window.fetch;
     const responseBodyForStatus = (status, body) => {
         return [204, 205, 304].includes(status) ? null : (body ?? '');
@@ -897,6 +1018,7 @@ fn main() {
             });
         }
 
+        let proxyTraceId = null;
         try {
             const proxiedRequest = await collectFetchRequest(input, init);
 
@@ -918,11 +1040,14 @@ fn main() {
             }
 
             const cleanBody = proxiedRequest.body == null ? null : String(proxiedRequest.body);
-            sendToRust('PROXY_REQ', [proxiedRequest.method, url, 'body=' + (cleanBody ? cleanBody.length : 0)]);
+            proxyTraceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+            startupDiagnostics.trackRequest(proxyTraceId, proxiedRequest.method, url);
+            sendToRust('PROXY_REQ', [proxyTraceId, proxiedRequest.method, url, 'body=' + (cleanBody ? cleanBody.length : 0)]);
             const response = await window.__TAURI__.core.invoke('proxy_request', {
                 request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
             });
-            sendToRust('PROXY_RES', [response.status, url, 'body=' + ((response.body || '').length)]);
+            startupDiagnostics.finishRequest(proxyTraceId);
+            sendToRust('PROXY_RES', [proxyTraceId, response.status, url, 'body=' + ((response.body || '').length)]);
 
             const respHeaders = new Headers();
             for (const [k, v] of Object.entries(response.headers || {})) {
@@ -973,6 +1098,7 @@ fn main() {
                 headers: respHeaders
             });
         } catch (err) {
+            if (proxyTraceId) startupDiagnostics.finishRequest(proxyTraceId);
             console.error('[Proxy Error]', url, err);
             throw new TypeError('Network request failed: ' + err);
         }

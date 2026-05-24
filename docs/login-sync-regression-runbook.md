@@ -21,6 +21,7 @@ The CI checks do not use real Proton credentials. They guard:
 - CAPTCHA completion is accepted only from `tauri://localhost/account/?hv_token=...&hv_type=...`.
 - Drive restores `/u/<localID>/` from persisted `ps-<localID>` localStorage before app init.
 - Host-only Proton auth cookies are scoped to the response host for restart persistence.
+- Startup loading has user-facing diagnostics for WebView state and blocked proxy requests.
 - Sync commands stay registered and the native watcher emits `live-sync://local-change`.
 - Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
 
@@ -45,7 +46,9 @@ Expected positive markers:
 - `[STORAGE] pathname: /u/<localID>/ ... sessions: ps-<localID>`
 - `[Cookie] stored name=AUTH-... domain=mail.proton.me path=/api/...`
 - `[Cookie] stored name=REFRESH-... domain=mail.proton.me path=/api/auth/refresh...`
-- `[Proxy] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key`
+- `[Proxy][<id>] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key elapsed_ms=...`
+- `[STARTUP_DIAG] [StartupDiag] startup watchdog 8s` if startup is still loading.
+- A visible `protondrive-startup-diagnostics` panel appears if API proxy calls remain pending.
 
 Expected negative markers:
 
@@ -55,6 +58,8 @@ Expected negative markers:
 - No repeated post-login `/api/auth/v4/sessions/local/key` `401`.
 - No repeated post-login `/api/auth/refresh` `422`.
 - No `session-expired` loop after the restart test.
+- No startup request remains pending past 30 seconds without a visible diagnostics panel.
+- No native proxy request hangs indefinitely; failures must resolve as logged `502` or `504`.
 
 ## Manual Sync Procedure
 
