@@ -1043,14 +1043,9 @@ fn main() {
             proxyTraceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
             startupDiagnostics.trackRequest(proxyTraceId, proxiedRequest.method, url);
             sendToRust('PROXY_REQ', [proxyTraceId, proxiedRequest.method, url, 'body=' + (cleanBody ? cleanBody.length : 0)]);
-            const response = await Promise.race([
-                window.__TAURI__.core.invoke('proxy_request', {
-                    request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
-                }),
-                new Promise((_, reject) =>
-                    setTimeout(() => reject(new Error('IPC invoke timeout after 30s')), 30000)
-                )
-            ]);
+            const response = await window.__TAURI__.core.invoke('proxy_request', {
+                request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
+            });
             startupDiagnostics.finishRequest(proxyTraceId);
             sendToRust('PROXY_RES', [proxyTraceId, response.status, url, 'body=' + ((response.body || '').length)]);
 

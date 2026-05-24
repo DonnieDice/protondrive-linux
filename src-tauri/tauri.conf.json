@@ -49,7 +49,7 @@
   },
   "app": {
     "security": {
-      "csp": null,
+      "csp": "default-src 'self' ipc: asset: https: blob: data:; connect-src ipc: https: blob: data: 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https:; font-src 'self' data: https:; worker-src 'self' blob:; media-src 'self' blob: https:",
       "assetProtocol": {
         "enable": true,
         "scope": ["**"]
