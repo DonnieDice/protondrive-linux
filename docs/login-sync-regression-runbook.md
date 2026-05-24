@@ -1,0 +1,122 @@
+# Login And Sync Regression Runbook
+
+This runbook covers the recurring regressions that cannot be fully proven in
+container CI because they need Proton Account, 2FA, WebKitGTK persistence, and a
+real desktop session. CI must still guard the static contracts and unit tests
+listed here so risky changes are visible before manual acceptance testing.
+
+## CI Guardrails
+
+Run these checks before packaging or manual acceptance:
+
+```bash
+bash scripts/ci/check-login-routing-regressions.sh
+bash scripts/ci/check-sync-regressions.sh
+cd src-tauri && cargo test proton_navigation::tests webview_cookies::tests live_sync::tests
+```
+
+The CI checks do not use real Proton credentials. They guard:
+
+- Post-2FA handoff goes to `tauri://localhost/`, not a deep `/u/<id>/` Tauri URL.
+- CAPTCHA completion is accepted only from `tauri://localhost/account/?hv_token=...&hv_type=...`.
+- Drive restores `/u/<localID>/` from persisted `ps-<localID>` localStorage before app init.
+- Host-only Proton auth cookies are scoped to the response host for restart persistence.
+- Sync commands stay registered and the native watcher emits `live-sync://local-change`.
+- Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
+
+## Manual Login And 2FA Procedure
+
+Use a disposable test account or an account approved for release testing. Select
+`Keep me signed in` during login.
+
+1. Start from a clean app process and capture logs.
+2. Complete username/password login.
+3. Complete 2FA.
+4. Confirm Drive loads without freezing after the account handoff.
+5. Quit the app completely.
+6. Start the app again without re-entering credentials.
+7. Confirm Drive restores the signed-in session and does not loop back to Account.
+
+Expected positive markers:
+
+- `[SSO] Login complete, redirecting to: tauri://localhost/`
+- `window.location.replace('about:blank')` exists in the handoff code path.
+- `[SSO] Restored Drive user route before app init: /u/<localID>/`
+- `[STORAGE] pathname: /u/<localID>/ ... sessions: ps-<localID>`
+- `[Cookie] stored name=AUTH-... domain=mail.proton.me path=/api/...`
+- `[Cookie] stored name=REFRESH-... domain=mail.proton.me path=/api/auth/refresh...`
+- `[Proxy] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key`
+
+Expected negative markers:
+
+- No repeated navigation between Account and Drive after 2FA.
+- No final deep WebView reload to `tauri://localhost/u/<localID>/`.
+- No `[CAPTCHA] Left captcha page, returning to account app`.
+- No repeated post-login `/api/auth/v4/sessions/local/key` `401`.
+- No repeated post-login `/api/auth/refresh` `422`.
+- No `session-expired` loop after the restart test.
+
+## Manual Sync Procedure
+
+Do not start with the full `~/Pictures` tree. Use a disposable staged folder
+first, then expand only after the staged loop passes.
+
+```bash
+mkdir -p "$HOME/Pictures/protondrive-sync-smoke/nested"
+PROTONDRIVE_AUTO_SYNC_PATH="$HOME/Pictures/protondrive-sync-smoke" proton-drive
+```
+
+If testing from the UI or frontend command path instead of the environment
+variable, start sync on `~/Pictures/protondrive-sync-smoke` and then call or
+observe `get_sync_status()`.
+
+1. Confirm the native watcher is active for the staged folder.
+2. Create `local-create.txt` in the staged folder.
+3. Confirm the local create event reaches frontend upload handling.
+4. Modify `local-create.txt`.
+5. Confirm the modify event reaches frontend upload handling.
+6. Delete `local-create.txt`.
+7. Confirm the remove event reaches frontend delete handling.
+8. Repeat create/modify/delete in `nested/`.
+9. Create or update a small remote file under the synced folder.
+10. Confirm frontend calls `handle_remote_update`.
+11. Confirm native writes the local file and suppresses immediate ping-pong.
+12. Delete the remote file.
+13. Confirm native removes the local file.
+
+Expected positive markers:
+
+- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested path=...` when using env auto-start.
+- `[Sync] auto-start active enabled=true folder=...` or `[Sync] start_sync active enabled=true folder=...`.
+- `[Sync] get_sync_status enabled=true folder=...`.
+- `[LiveSync] watcher active root=... mode=recursive`.
+- `[LiveSync] local-change kind=create paths=...`.
+- `[LiveSync] local-change kind=modify paths=...`.
+- `[LiveSync] local-change kind=remove paths=...`.
+- `live-sync://local-change` is observed by frontend handling.
+- `[LiveSync][AUDIT] remote action=create result=success path=...` or `remote action=update`.
+- `[LiveSync][AUDIT] remote action=delete result=success path=...`.
+
+Expected negative markers:
+
+- No test may be considered a sync pass from Drive/Photos API traffic alone.
+- No silent window where file changes occur but no `[Sync]`, `[LiveSync]`, or
+  `live-sync://local-change` markers appear.
+- No `[Sync] auto-start failed`.
+- No `[LiveSync] watcher init failed`.
+- No `[LiveSync] watcher start failed`.
+- No `[LiveSync] failed to emit local-change event`.
+- No `[LiveSync][AUDIT] rejected remote write`.
+- No `[LiveSync][AUDIT] rejected remote delete`.
+
+## Pass Criteria
+
+Login/session acceptance passes only when login, 2FA, app restart, and
+keep-me-signed-in restore all complete with the positive markers above and none
+of the negative loop markers.
+
+Sync acceptance passes only when the staged local-to-remote and remote-to-local
+loops both produce native sync markers. Authenticated Drive/Photos API activity
+without `start_sync`, `get_sync_status`, `[Sync]`, `[LiveSync]`, or
+`live-sync://local-change` is an inconclusive sync test and should be reported as
+a regression-risk gap, not a pass.
