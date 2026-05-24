@@ -957,6 +957,24 @@ fn main() {
         return { method, headers, body };
     };
 
+    // Serialize Tauri IPC invokes for proxy_request. WebKitGTK's IPC custom
+    // protocol can only handle one in-flight invoke at a time on this build;
+    // 5+ concurrent invokes break the bridge and fall back to postMessage,
+    // which has a known Tauri bug where JSON object responses never resolve
+    // — leaving the SPA frozen on the loading screen forever. Queue invokes
+    // through a chained promise so the bridge always sees exactly one
+    // request in flight. The upstream HTTPS calls still parallelize fine on
+    // the Rust side via reqwest's connection pool, so this only serializes
+    // the JS→Rust crossing.
+    let proxyInvokeChain = Promise.resolve();
+    function invokeProxyRequest(payload) {
+        const next = proxyInvokeChain
+            .catch(() => null)
+            .then(() => window.__TAURI__.core.invoke('proxy_request', payload));
+        proxyInvokeChain = next.catch(() => null);
+        return next;
+    }
+
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
 
@@ -1043,7 +1061,7 @@ fn main() {
             const cleanBody = proxiedRequest.body == null ? null : String(proxiedRequest.body);
             proxyTraceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
             startupDiagnostics.trackRequest(proxyTraceId, proxiedRequest.method, url);
-            const response = await window.__TAURI__.core.invoke('proxy_request', {
+            const response = await invokeProxyRequest({
                 request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
             });
             startupDiagnostics.finishRequest(proxyTraceId);
@@ -1130,7 +1148,7 @@ fn main() {
 
             console.log('[XHR Proxy]', method, url);
 
-            requestBodyToString(body).then((serializedBody) => window.__TAURI__.core.invoke('proxy_request', {
+            requestBodyToString(body).then((serializedBody) => invokeProxyRequest({
                 request: {
                     method,
                     url,
