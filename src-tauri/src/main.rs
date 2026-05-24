@@ -7,7 +7,8 @@ use reqwest::cookie::Jar;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs;
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, Instant};
@@ -28,6 +29,7 @@ use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
+const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
 const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -210,6 +212,34 @@ fn get_sync_status(
 }
 
 #[tauri::command]
+fn set_sync_root(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] set_sync_root requested");
+    ensure_sync_command_allowed(&window)?;
+    let sync_root = validate_sync_root_path(&path)?;
+    persist_selected_sync_root(
+        &app.path().app_data_dir().map_err(|e| {
+            eprintln!("[Sync] app data dir unavailable for sync config: {e}");
+            "Unable to save sync folder".to_string()
+        })?,
+        &sync_root,
+    )?;
+    state.sync_manager.start(app, sync_root)?;
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] set_sync_root active enabled={} folder={} poll_interval_seconds={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>"),
+        status.poll_interval_seconds
+    );
+    Ok(status)
+}
+
+#[tauri::command]
 fn handle_remote_update(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
@@ -265,14 +295,14 @@ async fn proxy_request(
     println!("[Proxy][{}] {} {} start", request_id, method, sanitized_url);
 
     let target_url = tauri::Url::parse(&url).map_err(|e| {
-        eprintln!(
-            "[Proxy] invalid target URL {}: {e}",
-            sanitized_url
-        );
+        eprintln!("[Proxy] invalid target URL {}: {e}", sanitized_url);
         "Invalid request URL".to_string()
     })?;
 
-    let mut req = state.client.request(method, &url).timeout(PROXY_REQUEST_TIMEOUT);
+    let mut req = state
+        .client
+        .request(method, &url)
+        .timeout(PROXY_REQUEST_TIMEOUT);
     if let Some(cookie_header) = combined_cookie_header(&window, &state.cookie_jar, &target_url) {
         req = req.header(reqwest::header::COOKIE, cookie_header);
     }
@@ -389,6 +419,52 @@ fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
     }
 
     Ok(canonical)
+}
+
+fn sync_root_config_path(app_data_dir: &Path) -> PathBuf {
+    app_data_dir.join(SYNC_ROOT_CONFIG_FILE)
+}
+
+fn persist_selected_sync_root(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
+    fs::create_dir_all(app_data_dir).map_err(|e| {
+        eprintln!("[Sync] failed to create app data dir for sync config: {e}");
+        "Unable to save sync folder".to_string()
+    })?;
+
+    fs::write(
+        sync_root_config_path(app_data_dir),
+        sync_root.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| {
+        eprintln!("[Sync] failed to persist selected sync root: {e}");
+        "Unable to save sync folder".to_string()
+    })
+}
+
+fn read_selected_sync_root(app_data_dir: &Path) -> Option<String> {
+    fs::read_to_string(sync_root_config_path(app_data_dir))
+        .ok()
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty())
+}
+
+fn start_selected_sync_root(
+    app_handle: tauri::AppHandle,
+    state: &Arc<AppState>,
+    path: &str,
+    source: &str,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] selected root requested source={}", source);
+    let sync_root = validate_sync_root_path(path)?;
+    state.sync_manager.start(app_handle, sync_root)?;
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] auto-start active enabled={} folder={} poll_interval_seconds={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>"),
+        status.poll_interval_seconds
+    );
+    Ok(status)
 }
 
 fn main() {
@@ -1442,18 +1518,32 @@ fn main() {
                 })
                 .build()?;
 
+            let app_data_dir = app.path().app_data_dir()?;
             if let Ok(path) = std::env::var("PROTONDRIVE_AUTO_SYNC_PATH") {
-                println!("[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested path={}", path);
+                println!("[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested");
                 match validate_sync_root_path(&path)
-                    .and_then(|sync_root| startup_sync_state.sync_manager.start(app.handle().clone(), sync_root))
-                    .and_then(|_| startup_sync_state.sync_manager.status())
+                    .and_then(|sync_root| {
+                        persist_selected_sync_root(&app_data_dir, &sync_root)?;
+                        start_selected_sync_root(
+                            app.handle().clone(),
+                            &startup_sync_state,
+                            &sync_root.to_string_lossy(),
+                            "env",
+                        )
+                    })
                 {
-                    Ok(status) => println!(
-                        "[Sync] auto-start active enabled={} folder={}",
-                        status.enabled,
-                        status.folder_path.as_deref().unwrap_or("<none>")
-                    ),
+                    Ok(_) => {}
                     Err(error) => eprintln!("[Sync] auto-start failed: {}", error),
+                }
+            } else if let Some(path) = read_selected_sync_root(&app_data_dir) {
+                match start_selected_sync_root(
+                    app.handle().clone(),
+                    &startup_sync_state,
+                    &path,
+                    "persisted",
+                ) {
+                    Ok(_) => {}
+                    Err(error) => eprintln!("[Sync] persisted auto-start failed: {}", error),
                 }
             }
 
@@ -1477,6 +1567,7 @@ fn main() {
             start_sync,
             stop_sync,
             get_sync_status,
+            set_sync_root,
             handle_remote_update
         ])
         .run(tauri::generate_context!())
