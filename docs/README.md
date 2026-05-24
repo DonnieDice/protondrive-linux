@@ -20,3 +20,8 @@ Project documentation lives here. The root `README.md` is kept as the GitHub lan
 ## Debugging
 
 - [Worker Login SRI Debugging](debugging/worker-login-sri.md)
+
+## Runtime
+
+- [Two-Way Sync Notes](sync.md)
+- [Login And Sync Regression Runbook](login-sync-regression-runbook.md)

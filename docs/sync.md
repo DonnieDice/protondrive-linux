@@ -101,7 +101,15 @@ While testing, monitor:
 
 ## Current Audit Finding
 
-The current native bridge is present and unit-tested. In this checkout, the only checked-in references to the sync commands are the Tauri command definitions, README documentation, and this document. If sync is working from the app UI, that frontend path must come from the bundled WebClients integration, runtime code, or a branch/patch not represented by a checked-in source reference here. Capture that call path during testing so future regressions can be guarded at the exact integration point.
+The current native bridge is present and unit-tested. In this checkout, the sync command names and event contract are also guarded by:
+
+- the Tauri command definitions in `src-tauri/src/main.rs`
+- the native watcher implementation in `src-tauri/src/live_sync.rs`
+- `scripts/ci/check-sync-regressions.sh`
+- `docs/login-sync-regression-runbook.md`
+- this document
+
+If sync is working from the app UI, the frontend call path still does not appear as a normal checked-in app source file in this repo tree. That path may come from the bundled WebClients integration, runtime assets, or a branch/patch not represented by a direct source reference here. Capture that call path during testing so future regressions can be guarded at the exact integration point.
 
 ## Live Test Notes
 
