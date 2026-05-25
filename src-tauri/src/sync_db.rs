@@ -4,7 +4,7 @@ use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SCHEMA_VERSION: i64 = 1;
+const SCHEMA_VERSION: i64 = 2;
 const ERR_SYNC_DB_OPEN_FAILED: &str = "Failed to open sync metadata database";
 const ERR_SYNC_DB_MIGRATE_FAILED: &str = "Failed to migrate sync metadata database";
 const ERR_SYNC_DB_WRITE_FAILED: &str = "Failed to write sync metadata";
@@ -89,16 +89,26 @@ impl SyncDb {
     }
 
     pub fn upsert_root(&self, root_path: &Path) -> Result<String, String> {
+        self.upsert_root_mapping(root_path, None)
+    }
+
+    pub fn upsert_root_mapping(
+        &self,
+        root_path: &Path,
+        remote_path: Option<&str>,
+    ) -> Result<String, String> {
         let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let remote_path_hash = remote_path.map(hash_sensitive);
         let now = now_unix_ns();
         self.conn
             .execute(
-                "INSERT INTO sync_roots (id, root_path_hash, created_at_ns, updated_at_ns)
-                 VALUES (?1, ?2, ?3, ?3)
+                "INSERT INTO sync_roots (id, root_path_hash, remote_path_hash, created_at_ns, updated_at_ns)
+                 VALUES (?1, ?2, ?3, ?4, ?4)
                  ON CONFLICT(id) DO UPDATE SET
                    root_path_hash = excluded.root_path_hash,
+                   remote_path_hash = excluded.remote_path_hash,
                    updated_at_ns = excluded.updated_at_ns",
-                params![root_id, root_id, now],
+                params![root_id, root_id, remote_path_hash, now],
             )
             .map_err(|e| {
                 eprintln!("[SyncDb] root upsert failed: {e}");
@@ -284,6 +294,7 @@ impl SyncDb {
                 CREATE TABLE IF NOT EXISTS sync_roots (
                     id TEXT PRIMARY KEY,
                     root_path_hash TEXT NOT NULL,
+                    remote_path_hash TEXT,
                     created_at_ns INTEGER NOT NULL,
                     updated_at_ns INTEGER NOT NULL
                 );
@@ -320,6 +331,7 @@ impl SyncDb {
                 eprintln!("[SyncDb] migration failed: {e}");
                 ERR_SYNC_DB_MIGRATE_FAILED.to_string()
             })?;
+        ensure_column(&self.conn, "sync_roots", "remote_path_hash", "TEXT")?;
 
         self.conn
             .execute(
@@ -334,6 +346,48 @@ impl SyncDb {
             })?;
         Ok(())
     }
+}
+
+fn ensure_column(
+    conn: &Connection,
+    table: &str,
+    column: &str,
+    column_type: &str,
+) -> Result<(), String> {
+    let mut stmt = conn
+        .prepare(&format!("PRAGMA table_info({table})"))
+        .map_err(|e| {
+            eprintln!("[SyncDb] schema inspection failed: {e}");
+            ERR_SYNC_DB_MIGRATE_FAILED.to_string()
+        })?;
+    let rows = stmt
+        .query_map([], |row| row.get::<_, String>(1))
+        .map_err(|e| {
+            eprintln!("[SyncDb] schema inspection query failed: {e}");
+            ERR_SYNC_DB_MIGRATE_FAILED.to_string()
+        })?;
+    let mut exists = false;
+    for row in rows {
+        if row.map_err(|e| {
+            eprintln!("[SyncDb] schema inspection row failed: {e}");
+            ERR_SYNC_DB_MIGRATE_FAILED.to_string()
+        })? == column
+        {
+            exists = true;
+            break;
+        }
+    }
+    if !exists {
+        conn.execute(
+            &format!("ALTER TABLE {table} ADD COLUMN {column} {column_type}"),
+            [],
+        )
+        .map_err(|e| {
+            eprintln!("[SyncDb] schema alter failed: {e}");
+            ERR_SYNC_DB_MIGRATE_FAILED.to_string()
+        })?;
+    }
+    Ok(())
 }
 
 pub struct RemoteItemRef<'a> {
@@ -488,7 +542,9 @@ mod tests {
         let db = SyncDb::open(&path).unwrap();
         let root = Path::new("/home/alice/Pictures/protondrive-sync-smoke");
         let relative = Path::new("family/private-vacation.jpg");
-        let root_id = db.upsert_root(root).unwrap();
+        let root_id = db
+            .upsert_root_mapping(root, Some("Computers/alice-laptop"))
+            .unwrap();
 
         db.upsert_local_item(
             &root_id,
@@ -524,6 +580,7 @@ mod tests {
         let db_file = String::from_utf8_lossy(&bytes);
         assert!(!db_file.contains("private-vacation"));
         assert!(!db_file.contains("/home/alice"));
+        assert!(!db_file.contains("alice-laptop"));
         assert!(!db_file.contains("link-secret"));
         assert!(!db_file.contains("share-secret"));
 

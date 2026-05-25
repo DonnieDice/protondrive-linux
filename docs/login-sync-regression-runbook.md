@@ -29,6 +29,7 @@ The CI checks do not use real Proton credentials. They guard:
   call must go through the serialization queue or the loading screen will freeze.
 - Sync commands stay registered and the native watcher emits `live-sync://local-change`.
 - Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
+- Default sync startup creates and watches `~/ProtonDrive` and maps it to `Computers/<PC name>`.
 
 ## Manual Login And 2FA Procedure
 
@@ -68,23 +69,24 @@ Expected negative markers:
 
 ## Manual Sync Procedure
 
-Do not start with the full `~/Pictures` tree. Use a disposable staged folder
-first, then expand only after the staged loop passes.
+Do not start with the full `~/Pictures` tree. Normal startup should create and
+watch `~/ProtonDrive`. Use a disposable staged folder under that root first,
+then expand only after the staged loop passes.
 
 ```bash
-mkdir -p "$HOME/Pictures/protondrive-sync-smoke/nested"
-PROTONDRIVE_AUTO_SYNC_PATH="$HOME/Pictures/protondrive-sync-smoke" proton-drive
+mkdir -p "$HOME/ProtonDrive/protondrive-sync-smoke/nested"
+proton-drive
 ```
 
-If testing from the UI or frontend command path instead of the environment
-variable, use `set_sync_root("~/Pictures/protondrive-sync-smoke")` and then
-call or observe `get_sync_status()`. The Linux entry in the right-side Proton
-app rail opens the Drive quick-settings drawer as the first Proton Drive Linux
-options surface. The rail should preserve WebClients behavior: collapsed on
-startup with the expand/collapse chevron visible; the dedicated sync UI should
-live there later, not in the current folder route.
+For override smoke tests, `PROTONDRIVE_AUTO_SYNC_PATH` may point at another
+folder under `$HOME`; treat that as an extra mapping path, not the primary drive
+root model. The Linux entry in the right-side Proton app rail opens the Drive
+quick-settings drawer as the first Proton Drive Linux options surface. The rail
+should preserve WebClients behavior: collapsed on startup with the
+expand/collapse chevron visible; the dedicated sync UI should live there later,
+not in the current folder route.
 
-1. Confirm the native watcher and poll reconciler are active for the staged folder.
+1. Confirm the native watcher and poll reconciler are active for `~/ProtonDrive`.
 2. Create `local-create.txt` in the staged folder.
 3. Confirm the local create event includes `relativePaths` for future remote-root mapping.
 4. Modify `local-create.txt`.
@@ -100,8 +102,9 @@ live there later, not in the current folder route.
 
 Expected positive markers:
 
-- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested` when using env designation.
-- `[Sync] selected root requested source=env` or `source=persisted`.
+- `[Sync] selected root requested source=default` on normal startup.
+- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested` when using env override for extra mapping tests.
+- `[Sync] selected root requested source=env` when using env override.
 - `[Sync] auto-start active enabled=true folder=... poll_interval_seconds=...`.
 - `[Sync] set_sync_root active enabled=true folder=... poll_interval_seconds=...` when using UI/command designation.
 - `[Sync] get_sync_status enabled=true folder=...`.

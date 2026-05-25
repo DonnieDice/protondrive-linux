@@ -9,8 +9,13 @@ The repository contains the native Tauri sync bridge from PR #35:
 - `set_sync_root(path)` persists a selected sync directory under app data and starts sync.
 - `start_sync(path)` starts a recursive native watcher for an existing folder under `$HOME`.
 - `PROTONDRIVE_AUTO_SYNC_PATH` designates the selected sync directory during smoke tests and
-  persists it for later passive startup.
-- On app launch, the persisted selected sync directory auto-starts without UI.
+  overrides the default root for that test launch.
+- On app launch, the primary local sync directory defaults to `~/ProtonDrive` and is created if
+  missing.
+- The default remote target is a device-scoped folder, `Computers/<PC name>`. The PC name is
+  sanitized from the host name so multiple Linux machines do not collide at the same remote root.
+- Extra path mappings will be layered on through CLI/config/UI instead of being copied into
+  `~/ProtonDrive`, which would duplicate host data.
 - The selected root is registered in a private SQLite metadata database for future reconciliation.
 - `live-sync://local-change` is emitted for local create, modify, and remove events from both
   the watcher and the poll reconciler.
@@ -63,7 +68,9 @@ remote-root mappings without coupling sync to whichever Drive folder is currentl
 Do not change these without updating tests, docs, and frontend integration together:
 
 - Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`.
-- Passive root command/config: `set_sync_root`, `SYNC_ROOT_CONFIG_FILE`.
+- Passive primary root/config: `DEFAULT_SYNC_ROOT_DIR`, `~/ProtonDrive`, `SYNC_ROOT_CONFIG_FILE`.
+- Default remote device mapping: `DEFAULT_REMOTE_DEVICE_PARENT_DIR`, `Computers/<PC name>`.
+- Test override hook: `PROTONDRIVE_AUTO_SYNC_PATH`.
 - Event name: `live-sync://local-change`.
 - Event payload shape: `{ kind, paths, rootPath, relativePaths, source }`.
 - Remote update payload shape: `{ relativePath, action, contentBase64 }`.
@@ -85,23 +92,25 @@ Current guarantees:
 
 - Database path: `sync-state.sqlite3` under the app data directory.
 - File mode: `0600` on Unix; parent directory is tightened to `0700`.
-- Sensitive values are SHA-256 hashed before storage: root paths, relative paths, volume IDs, share
-  IDs, link IDs, parent IDs, and remote revisions.
+- Sensitive values are SHA-256 hashed before storage: root paths, remote device folder paths,
+  relative paths, volume IDs, share IDs, link IDs, parent IDs, and remote revisions.
 - Rows track metadata only: local kind, size, mtime, optional content fingerprint, remote mapping
   hashes, sync state, retries, error code, and tombstone timestamps.
 - Tombstones only apply to previously known items; a missing row cannot create a destructive delete.
 - The DB is treated as untrusted cache. Future upload/download workers must validate destructive
   operations against the filesystem and Proton Drive API before applying them.
 
-The existing `sync-root.txt` file still stores the selected local path because the native process
-must know which directory to watch before the UI exists. That file is also restricted to `0600` on
-Unix. It is operational config, not sync history.
+The existing `sync-root.txt` file still stores the active local path because the native process
+must know which directory to watch before the UI exists. On normal startup the primary local root is
+`~/ProtonDrive` and the remote mapping is `Computers/<PC name>`; non-default roots are treated as
+future extra mappings, not replacements for the primary drive root. The config file is restricted to
+`0600` on Unix. It is operational config, not sync history.
 
 ## Weak Areas
 
 These are the areas to watch during real sync testing:
 
-- There is a passive selected-root config and a zero-trust metadata database, but no native
+- There is a passive primary-root config and a zero-trust metadata database, but no native
   reconciliation worker consumes pending DB rows yet.
 - There is no native conflict resolver beyond DB state placeholders.
 - There is no native retry queue or offline queue.
@@ -116,12 +125,13 @@ These are the areas to watch during real sync testing:
   not be enabled until staged-folder event volume is acceptable.
 - The suppression cache prevents immediate ping-pong but is not durable across app restarts.
 
-## `~/Pictures` Test Plan
+## `~/ProtonDrive` Test Plan
 
-Use a staged folder before pointing at the full Pictures library:
+Use the default drive root for normal testing, and a staged folder only when intentionally testing
+extra path mappings:
 
-1. Create `~/Pictures/protondrive-sync-smoke`.
-2. Start sync on that staged folder from the app UI or frontend command path.
+1. Confirm `~/ProtonDrive` exists after app startup.
+2. Create `~/ProtonDrive/protondrive-sync-smoke`.
 3. Confirm logs show the sync root in `get_sync_status()`.
 4. Create a small local file in the staged folder.
 5. Confirm a `live-sync://local-change` event appears and the frontend uploads it.

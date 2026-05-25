@@ -31,6 +31,8 @@ use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
 const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
+const DEFAULT_SYNC_ROOT_DIR: &str = "ProtonDrive";
+const DEFAULT_REMOTE_DEVICE_PARENT_DIR: &str = "Computers";
 const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -463,6 +465,63 @@ fn read_selected_sync_root(app_data_dir: &Path) -> Option<String> {
         .filter(|path| !path.is_empty())
 }
 
+fn default_sync_root_path() -> Result<PathBuf, String> {
+    dirs::home_dir()
+        .map(|home| home.join(DEFAULT_SYNC_ROOT_DIR))
+        .ok_or_else(|| "Invalid sync folder".to_string())
+}
+
+fn default_remote_device_folder_path() -> String {
+    format!(
+        "{}/{}",
+        DEFAULT_REMOTE_DEVICE_PARENT_DIR,
+        sanitize_sync_device_name(&machine_name_for_sync())
+    )
+}
+
+fn machine_name_for_sync() -> String {
+    std::env::var("HOSTNAME")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| fs::read_to_string("/etc/hostname").ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Linux-PC".to_string())
+}
+
+fn sanitize_sync_device_name(value: &str) -> String {
+    let sanitized = value
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches(|ch| matches!(ch, '-' | '_' | '.'))
+        .chars()
+        .take(64)
+        .collect::<String>();
+
+    if sanitized.is_empty() || sanitized == "." || sanitized == ".." {
+        "Linux-PC".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn ensure_default_sync_root() -> Result<PathBuf, String> {
+    let root = default_sync_root_path()?;
+    fs::create_dir_all(&root).map_err(|e| {
+        eprintln!("[Sync] failed to create default sync root: {e}");
+        "Unable to create default sync folder".to_string()
+    })?;
+    validate_sync_root_path(&root.to_string_lossy())
+}
+
 fn start_selected_sync_root(
     app_handle: tauri::AppHandle,
     state: &Arc<AppState>,
@@ -489,7 +548,7 @@ fn start_selected_sync_root(
 
 fn register_sync_root_metadata(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
     let db = sync_db::SyncDb::open(&sync_db::sync_db_path(app_data_dir))?;
-    db.upsert_root(sync_root)?;
+    db.upsert_root_mapping(sync_root, Some(&default_remote_device_folder_path()))?;
     Ok(())
 }
 
@@ -502,6 +561,38 @@ fn set_private_file_permissions(path: &Path) -> std::io::Result<()> {
 #[cfg(not(unix))]
 fn set_private_file_permissions(_path: &Path) -> std::io::Result<()> {
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_sync_root_is_home_protondrive() {
+        let root = default_sync_root_path().unwrap();
+        assert_eq!(
+            root.file_name().and_then(|name| name.to_str()),
+            Some("ProtonDrive")
+        );
+    }
+
+    #[test]
+    fn device_folder_name_is_path_safe_and_bounded() {
+        assert_eq!(
+            sanitize_sync_device_name("dev box/../../bad"),
+            "dev-box-..-..-bad"
+        );
+        assert_eq!(sanitize_sync_device_name("..."), "Linux-PC");
+        assert_eq!(sanitize_sync_device_name(""), "Linux-PC");
+        assert!(sanitize_sync_device_name(&"a".repeat(100)).len() <= 64);
+    }
+
+    #[test]
+    fn default_remote_folder_uses_computers_parent() {
+        let remote = default_remote_device_folder_path();
+        assert!(remote.starts_with("Computers/"));
+        assert!(remote.len() > "Computers/".len());
+    }
 }
 
 fn main() {
@@ -1572,15 +1663,24 @@ fn main() {
                     Ok(_) => {}
                     Err(error) => eprintln!("[Sync] auto-start failed: {}", error),
                 }
-            } else if let Some(path) = read_selected_sync_root(&app_data_dir) {
-                match start_selected_sync_root(
-                    app.handle().clone(),
-                    &startup_sync_state,
-                    &path,
-                    "persisted",
-                ) {
+            } else {
+                if read_selected_sync_root(&app_data_dir).is_some() {
+                    println!(
+                        "[Sync] persisted extra sync root present; primary root defaults to ~/{}",
+                        DEFAULT_SYNC_ROOT_DIR
+                    );
+                }
+                match ensure_default_sync_root().and_then(|sync_root| {
+                    persist_selected_sync_root(&app_data_dir, &sync_root)?;
+                    start_selected_sync_root(
+                        app.handle().clone(),
+                        &startup_sync_state,
+                        &sync_root.to_string_lossy(),
+                        "default",
+                    )
+                }) {
                     Ok(_) => {}
-                    Err(error) => eprintln!("[Sync] persisted auto-start failed: {}", error),
+                    Err(error) => eprintln!("[Sync] default auto-start failed: {}", error),
                 }
             }
 
