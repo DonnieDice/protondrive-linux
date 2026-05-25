@@ -21,10 +21,11 @@ The native bridge is not the full sync engine by itself. The frontend integratio
 choosing the folder, mapping local root-relative paths to Proton Drive node paths, uploading local
 changes to Proton Drive, receiving remote Proton Drive events, and calling `handle_remote_update`.
 The UI target is a Linux entry in the right-side Proton app rail where Contacts, Calendar, and
-Referral currently live. The initial rail patch opens the existing Drive quick-settings drawer as
-the Proton Drive Linux options surface. The dedicated sync UI still needs to call `set_sync_root`,
-show `get_sync_status`, and manage future remote-root mappings without coupling sync to whichever
-Drive folder is currently open.
+Referral currently live. The rail should follow WebClients behavior: collapsed on startup with the
+existing expand/collapse chevron visible, then showing the Linux entry after expansion. The initial
+rail patch opens the existing Drive quick-settings drawer as the Proton Drive Linux options surface.
+The dedicated sync UI still needs to call `set_sync_root`, show `get_sync_status`, and manage future
+remote-root mappings without coupling sync to whichever Drive folder is currently open.
 
 ## Native Contract
 
