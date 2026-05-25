@@ -32,7 +32,8 @@ const PROTON_API_BASE: &str = "https://mail.proton.me";
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
 const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
 const DEFAULT_SYNC_ROOT_DIR: &str = "ProtonDrive";
-const DEFAULT_REMOTE_DEVICE_PARENT_DIR: &str = "Computers";
+const DEFAULT_REMOTE_SCOPE_COMPUTERS: &str = "computers";
+const DEFAULT_DEVICE_TYPE_LINUX: &str = "linux";
 const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -471,12 +472,8 @@ fn default_sync_root_path() -> Result<PathBuf, String> {
         .ok_or_else(|| "Invalid sync folder".to_string())
 }
 
-fn default_remote_device_folder_path() -> String {
-    format!(
-        "{}/{}",
-        DEFAULT_REMOTE_DEVICE_PARENT_DIR,
-        sanitize_sync_device_name(&machine_name_for_sync())
-    )
+fn default_sync_device_name() -> String {
+    sanitize_sync_device_name(&machine_name_for_sync())
 }
 
 fn machine_name_for_sync() -> String {
@@ -548,7 +545,15 @@ fn start_selected_sync_root(
 
 fn register_sync_root_metadata(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
     let db = sync_db::SyncDb::open(&sync_db::sync_db_path(app_data_dir))?;
-    db.upsert_root_mapping(sync_root, Some(&default_remote_device_folder_path()))?;
+    debug_assert_eq!(
+        DEFAULT_REMOTE_SCOPE_COMPUTERS,
+        sync_db::REMOTE_SCOPE_COMPUTERS
+    );
+    db.upsert_computers_root(
+        sync_root,
+        &default_sync_device_name(),
+        DEFAULT_DEVICE_TYPE_LINUX,
+    )?;
     Ok(())
 }
 
@@ -588,10 +593,11 @@ mod tests {
     }
 
     #[test]
-    fn default_remote_folder_uses_computers_parent() {
-        let remote = default_remote_device_folder_path();
-        assert!(remote.starts_with("Computers/"));
-        assert!(remote.len() > "Computers/".len());
+    fn default_sync_device_metadata_uses_linux_computers_scope() {
+        let device_name = default_sync_device_name();
+        assert_eq!(DEFAULT_REMOTE_SCOPE_COMPUTERS, "computers");
+        assert_eq!(DEFAULT_DEVICE_TYPE_LINUX, "linux");
+        assert!(!device_name.is_empty());
     }
 }
 

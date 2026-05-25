@@ -29,7 +29,8 @@ The CI checks do not use real Proton credentials. They guard:
   call must go through the serialization queue or the loading screen will freeze.
 - Sync commands stay registered and the native watcher emits `live-sync://local-change`.
 - Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
-- Default sync startup creates and watches `~/ProtonDrive` and maps it to `Computers/<PC name>`.
+- Default sync startup creates and watches `~/ProtonDrive` and maps it to a Linux device under the
+  Proton Drive `Computers` section, not a `My files` path prefix.
 
 ## Manual Login And 2FA Procedure
 
