@@ -24,12 +24,20 @@ The repository contains the native Tauri sync bridge from PR #35:
 - `live-sync://local-change` is emitted for local create, modify, and remove events from both
   the watcher and the poll reconciler.
 - `handle_remote_update(change)` applies remote create, update, and delete events into the watched folder.
+- `read_sync_file(rootPath, relativePath)` is the zero-trust local file read used by the WebClients
+  upload bridge. It only reads regular files under the active sync root, rejects traversal and
+  symlinks, and enforces `MAX_SYNC_BRIDGE_FILE_BYTES`.
+- `get_sync_device_name()` returns the sanitized Linux device name used with the Proton Drive SDK
+  device API.
 - `get_sync_status()` reports whether a folder is currently being watched.
 - `stop_sync()` stops the watcher and clears suppression state.
 
-The native bridge is not the full sync engine by itself. The frontend integration is responsible for
-choosing the folder, mapping local root-relative paths to Proton Drive node paths, uploading local
-changes to Proton Drive, receiving remote Proton Drive events, and calling `handle_remote_update`.
+The WebClients build installs `ProtonDriveLinuxSyncBridge`, which listens for
+`live-sync://local-change`, resolves or creates the SDK Linux device under `Computers`, reads local
+changed files through `read_sync_file`, and passes browser `File` objects into WebClients'
+`uploadManager.upload`. Local deletes remain conservative until remote link-ID mapping is persisted.
+The remaining frontend integration is responsible for choosing extra folders, receiving remote
+Proton Drive events, and calling `handle_remote_update`.
 The UI target is a Linux entry in the right-side Proton app rail where Contacts, Calendar, and
 Referral currently live. The rail should follow WebClients behavior: collapsed on startup with the
 existing expand/collapse chevron visible, then showing the Linux entry after expansion. The initial
@@ -53,7 +61,9 @@ remote-root mappings without coupling sync to whichever Drive folder is currentl
    - `rootPath`: selected local sync root
    - `relativePaths`: paths relative to `rootPath`
    - `source`: `watcher` or `poller`
-6. Frontend maps `relativePaths` to the configured Proton Drive remote root and uploads/deletes in Proton Drive.
+6. `ProtonDriveLinuxSyncBridge` maps create/modify file changes to the configured Proton Drive
+   remote root and queues uploads through WebClients' SDK upload manager.
+7. Local deletes are skipped until the zero-trust metadata DB has a known remote link mapping.
 
 ### Remote To Local
 
@@ -71,7 +81,8 @@ remote-root mappings without coupling sync to whichever Drive folder is currentl
 
 Do not change these without updating tests, docs, and frontend integration together:
 
-- Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`.
+- Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`,
+  `read_sync_file`, `get_sync_device_name`.
 - Passive primary root/config: `DEFAULT_SYNC_ROOT_DIR`, `~/ProtonDrive`, `SYNC_ROOT_CONFIG_FILE`.
 - Default remote device mapping: `DEFAULT_REMOTE_SCOPE_COMPUTERS`, `DEFAULT_DEVICE_TYPE_LINUX`,
   `default_sync_device_name`, and the Proton Drive SDK `createDevice(name, DeviceType.Linux)`
@@ -81,6 +92,8 @@ Do not change these without updating tests, docs, and frontend integration toget
 - Event name: `live-sync://local-change`.
 - Event payload shape: `{ kind, paths, rootPath, relativePaths, source }`.
 - Remote update payload shape: `{ relativePath, action, contentBase64 }`.
+- Local upload bridge: `ProtonDriveLinuxSyncBridge`, `read_sync_file`, `get_sync_device_name`,
+  `DeviceType.Linux`, and `uploadManager.upload`.
 - Poll rate: `DEFAULT_SYNC_POLL_INTERVAL`.
 - Sync roots must stay constrained under `$HOME`.
 - Remote relative paths must reject `..`, absolute paths, Windows prefixes, and symlink traversal.
@@ -126,6 +139,8 @@ These are the areas to watch during real sync testing:
 
 - There is a passive primary-root config and a zero-trust metadata database, but no native
   reconciliation worker consumes pending DB rows yet.
+- Local create/modify upload is wired through the WebClients bridge; local delete requires remote
+  link-ID mapping before it can safely delete remote files.
 - There is no native conflict resolver beyond DB state placeholders.
 - There is no native retry queue or offline queue.
 - There is no native checksum or mtime comparison.
@@ -184,7 +199,10 @@ The current native bridge is present and unit-tested. In this checkout, the sync
 - `docs/login-sync-regression-runbook.md`
 - this document
 
-If sync is working from the app UI, the frontend call path still does not appear as a normal checked-in app source file in this repo tree. That path may come from the bundled WebClients integration, runtime assets, or a branch/patch not represented by a direct source reference here. Capture that call path during testing so future regressions can be guarded at the exact integration point.
+The current local-to-remote frontend call path is injected into WebClients by
+`scripts/patch_drive_linux_sync_bridge.py` during `scripts/build-webclients.sh`. If sync stops
+working, verify that `ProtonDriveLinuxSyncBridge` is present in `DriveProvider` and that runtime logs
+show `[LiveSync][AUDIT] local bridge active scope=computers`.
 
 ## Live Test Notes
 

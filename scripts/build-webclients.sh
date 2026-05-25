@@ -21,6 +21,8 @@ calc_cache_key() {
         for path in \
             "$REPO_ROOT/scripts/fix_deps.py" \
             "$REPO_ROOT/scripts/create_stubs.py" \
+            "$REPO_ROOT/scripts/patch_drive_linux_drawer.py" \
+            "$REPO_ROOT/scripts/patch_drive_linux_sync_bridge.py" \
             "$WEBCLIENTS_DIR/package.json" \
             "$WEBCLIENTS_DIR/yarn.lock" \
             "$WEBCLIENTS_DIR/.yarnrc.yml"
@@ -97,6 +99,9 @@ if [ -d "$PATCHES_DIR" ]; then
         fi
     done
 fi
+cd "$REPO_ROOT"
+python3 scripts/patch_drive_linux_sync_bridge.py
+cd "$WEBCLIENTS_DIR"
 
 # 3. Install dependencies in WebClients
 echo "📦 Installing WebClients dependencies..."
