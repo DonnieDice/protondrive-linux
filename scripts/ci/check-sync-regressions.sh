@@ -76,6 +76,7 @@ require_pattern patches/common/add-drive-linux-drawer-rail.patch "protondrive-li
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "brand-linux" "Linux drawer rail entry must use the Linux icon"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "Proton Drive Linux" "Linux drawer rail entry must expose a product label"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "DRAWER_NATIVE_APPS\\.QUICK_SETTINGS" "Linux drawer rail entry must open the native Drive settings drawer until dedicated sync UI exists"
+require_pattern docs/sync.md "collapsed on startup" "Linux drawer startup behavior must stay documented"
 require_pattern scripts/build-webclients.sh "patches/common.*\\.patch" "WebClients build cache key must include every common patch"
 
 require_absent src-tauri/src/live_sync.rs "emit\\([^\\n]*local-change" "event name must remain explicit, not rebuilt dynamically"
