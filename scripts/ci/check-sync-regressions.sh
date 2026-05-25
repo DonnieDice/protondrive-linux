@@ -56,6 +56,8 @@ require_pattern src-tauri/src/live_sync.rs "root_path" "local change events must
 require_pattern src-tauri/src/live_sync.rs "relative_paths" "local change events must expose root-relative mapping"
 require_pattern src-tauri/src/live_sync.rs "source" "local change events must identify watcher or poller source"
 require_pattern src-tauri/src/live_sync.rs "diff_snapshots" "poll reconciliation diff must stay implemented"
+require_pattern src-tauri/src/live_sync.rs "record_local_change_metadata" "local changes must be persisted into the sync metadata queue"
+require_pattern src-tauri/src/live_sync.rs "SyncItemState::LocalPending" "local changes must become pending sync metadata"
 require_pattern src-tauri/src/live_sync.rs "relative_path" "remote relative path field must remain implemented"
 require_pattern src-tauri/src/live_sync.rs "content_base64" "remote base64 content field must remain implemented"
 require_pattern src-tauri/src/live_sync.rs "SUPPRESSION_CACHE_MAX" "remote write suppression must stay bounded"
@@ -64,6 +66,7 @@ require_pattern src-tauri/src/live_sync.rs "remote_change_serde_uses_frontend_ca
 require_pattern src-tauri/src/live_sync.rs "sync_target_rejects_symlink_traversal" "symlink traversal rejection must have unit coverage"
 require_pattern src-tauri/src/live_sync.rs "relative_sync_path_is_root_relative_for_mapping" "relative path mapping must have unit coverage"
 require_pattern src-tauri/src/live_sync.rs "poll_snapshot_diff_detects_create_modify_and_remove" "poll diffing must have unit coverage"
+require_pattern src-tauri/src/live_sync.rs "local_change_metadata_records_pending_items_and_safe_tombstones" "local change metadata queueing must have unit coverage"
 require_pattern src-tauri/src/live_sync.rs "suppression_cache_drops_remote_write_marker_once" "remote write ping-pong suppression must have unit coverage"
 require_pattern src-tauri/src/live_sync.rs "suppression_cache_is_bounded" "suppression cache bound must have unit coverage"
 
