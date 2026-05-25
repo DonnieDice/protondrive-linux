@@ -3,11 +3,13 @@
     windows_subsystem = "windows"
 )]
 
+use base64::Engine as _;
 use reqwest::cookie::Jar;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fs;
+use std::io::Read;
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
@@ -34,6 +36,7 @@ const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
 const DEFAULT_SYNC_ROOT_DIR: &str = "ProtonDrive";
 const DEFAULT_REMOTE_SCOPE_COMPUTERS: &str = "computers";
 const DEFAULT_DEVICE_TYPE_LINUX: &str = "linux";
+const MAX_SYNC_BRIDGE_FILE_BYTES: u64 = 100 * 1024 * 1024;
 const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
 const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
@@ -59,6 +62,16 @@ struct ProxyResponse {
     status: u16,
     headers: HashMap<String, String>,
     body: String,
+}
+
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncFilePayload {
+    relative_path: String,
+    name: String,
+    size: u64,
+    modified_ms: Option<u128>,
+    content_base64: String,
 }
 
 #[tauri::command]
@@ -267,6 +280,86 @@ fn handle_remote_update(
 }
 
 #[tauri::command]
+fn get_sync_device_name(window: tauri::WebviewWindow) -> Result<String, String> {
+    ensure_sync_command_allowed(&window)?;
+    Ok(default_sync_device_name())
+}
+
+#[tauri::command]
+fn read_sync_file(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+    root_path: String,
+    relative_path: String,
+) -> Result<SyncFilePayload, String> {
+    ensure_sync_command_allowed(&window)?;
+    let status = state.sync_manager.status()?;
+    let active_root = status
+        .folder_path
+        .ok_or_else(|| "Live sync is not active".to_string())?;
+    let requested_root = PathBuf::from(root_path);
+    let active_root = PathBuf::from(active_root).canonicalize().map_err(|e| {
+        eprintln!("[Sync] failed to resolve active root for file read: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    let requested_root = requested_root.canonicalize().map_err(|e| {
+        eprintln!("[Sync] failed to resolve requested root for file read: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    if requested_root != active_root {
+        eprintln!("[Sync] rejected file read for inactive root");
+        return Err("Unable to read sync file".to_string());
+    }
+
+    let relative = validate_sync_relative_path(&relative_path)?;
+    let target = active_root.join(&relative);
+    live_sync::validate_path_within_root(&active_root, &target).map_err(|e| {
+        eprintln!("[Sync] rejected file read target: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    let metadata = fs::symlink_metadata(&target).map_err(|e| {
+        eprintln!("[Sync] failed to stat sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        eprintln!("[Sync] rejected non-file sync upload payload");
+        return Err("Unable to read sync file".to_string());
+    }
+    if metadata.len() > MAX_SYNC_BRIDGE_FILE_BYTES {
+        eprintln!("[Sync] rejected oversized sync upload payload");
+        return Err("Sync file is too large".to_string());
+    }
+
+    let mut file = fs::File::open(&target).map_err(|e| {
+        eprintln!("[Sync] failed to open sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut bytes).map_err(|e| {
+        eprintln!("[Sync] failed to read sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    Ok(SyncFilePayload {
+        relative_path: relative.to_string_lossy().to_string(),
+        name: relative
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("upload.bin")
+            .to_string(),
+        size: metadata.len(),
+        modified_ms: metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis()),
+        content_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
+}
+
+#[tauri::command]
 async fn proxy_request(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
@@ -430,6 +523,27 @@ fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
     }
 
     Ok(canonical)
+}
+
+fn validate_sync_relative_path(path: &str) -> Result<PathBuf, String> {
+    let relative = Path::new(path);
+    if relative.as_os_str().is_empty() || relative.is_absolute() {
+        return Err("Invalid sync path".to_string());
+    }
+
+    let mut clean = PathBuf::new();
+    for component in relative.components() {
+        match component {
+            std::path::Component::Normal(part) => clean.push(part),
+            _ => return Err("Invalid sync path".to_string()),
+        }
+    }
+
+    if clean.as_os_str().is_empty() {
+        Err("Invalid sync path".to_string())
+    } else {
+        Ok(clean)
+    }
 }
 
 fn sync_root_config_path(app_data_dir: &Path) -> PathBuf {
@@ -598,6 +712,17 @@ mod tests {
         assert_eq!(DEFAULT_REMOTE_SCOPE_COMPUTERS, "computers");
         assert_eq!(DEFAULT_DEVICE_TYPE_LINUX, "linux");
         assert!(!device_name.is_empty());
+    }
+
+    #[test]
+    fn sync_relative_path_rejects_escape_and_absolute_paths() {
+        assert_eq!(
+            validate_sync_relative_path("nested/file.txt").unwrap(),
+            PathBuf::from("nested/file.txt")
+        );
+        assert!(validate_sync_relative_path("../file.txt").is_err());
+        assert!(validate_sync_relative_path("/tmp/file.txt").is_err());
+        assert!(validate_sync_relative_path("").is_err());
     }
 }
 
@@ -1705,13 +1830,17 @@ fn main() {
             // Sync bridge contract:
             // start_sync/get_sync_status/stop_sync are the local folder watcher side.
             // handle_remote_update is the remote-to-local apply side.
+            // read_sync_file/get_sync_device_name are the zero-trust local-to-remote
+            // upload bridge used by the WebClients sync listener.
             // The frontend owns Proton Drive upload/download semantics and must keep
             // these command names in sync with docs/sync.md and CI regression checks.
             start_sync,
             stop_sync,
             get_sync_status,
             set_sync_root,
-            handle_remote_update
+            handle_remote_update,
+            read_sync_file,
+            get_sync_device_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
