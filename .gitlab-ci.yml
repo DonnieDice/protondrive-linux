@@ -92,7 +92,8 @@ build:apk:alpine-3.20:
     - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release --verbose && cd ..
@@ -159,7 +160,8 @@ build:apk:alpine-3.22:
     - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release --verbose && cd ..
@@ -227,7 +229,8 @@ build:apk:alpine-3.23:
     - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release --verbose && cd ..
@@ -285,7 +288,8 @@ build:appimage:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cargo build --manifest-path src-tauri/Cargo.toml --release
@@ -370,7 +374,8 @@ build:aur:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cargo build --manifest-path src-tauri/Cargo.toml --release
@@ -419,7 +424,8 @@ build:deb:debian-12:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles deb --verbose
@@ -463,7 +469,8 @@ build:deb:debian-13:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles deb --verbose
@@ -508,7 +515,8 @@ build:deb:ubuntu-24.04:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles deb --verbose
@@ -553,7 +561,8 @@ build:deb:ubuntu-26.04:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles deb --verbose
@@ -602,7 +611,8 @@ build:flatpak:gnome-49:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release && cd ..
@@ -699,7 +709,8 @@ build:flatpak:gnome-50:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release && cd ..
@@ -798,7 +809,8 @@ build:rpm:el10:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles rpm --verbose
@@ -838,7 +850,8 @@ build:rpm:fedora-43:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles rpm --verbose
@@ -878,7 +891,8 @@ build:rpm:fedora-44:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles rpm --verbose
@@ -929,7 +943,8 @@ build:rpm:opensuse-tumbleweed:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - npx tauri build --bundles rpm --verbose
@@ -978,7 +993,8 @@ build:snap:core24:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release && cd ..
@@ -1035,7 +1051,8 @@ build:snap:core26:
       fi
     - scripts/build-webclients.sh
     - VERSION=$(node -p "require('./package.json').version")
-    - sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cd src-tauri && cargo build --release && cd ..

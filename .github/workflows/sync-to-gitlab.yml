@@ -1,0 +1,130 @@
+name: Sync to GitLab
+
+on:
+  issues:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, assigned, unassigned]
+  pull_request:
+    types: [opened, edited, closed, reopened, labeled, unlabeled, synchronize]
+  issue_comment:
+    types: [created, edited, deleted]
+
+jobs:
+  sync-issue:
+    if: github.event_name == 'issues'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync issue to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_SYNC_TOKEN }}
+          GITLAB_URL: https://gitlab.dicematrix.cloud
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          ACTION: ${{ github.event.action }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          ISSUE_TITLE: ${{ github.event.issue.title }}
+          ISSUE_BODY: ${{ github.event.issue.body }}
+          ISSUE_STATE: ${{ github.event.issue.state }}
+          ISSUE_URL: ${{ github.event.issue.html_url }}
+        run: |
+          BODY="**[Mirrored from GitHub #${ISSUE_NUMBER}](${ISSUE_URL})**\n\n${ISSUE_BODY}"
+
+          # Search for existing GitLab issue by GitHub issue number marker
+          EXISTING=$(curl -sf \
+            -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+            "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues?search=GH%23${ISSUE_NUMBER}&scope=all" \
+            | jq -r '.[0].iid // empty')
+
+          if [ -n "$EXISTING" ]; then
+            # Update existing issue
+            STATE_EVENT=""
+            if [ "$ISSUE_STATE" = "closed" ]; then STATE_EVENT='"state_event":"close"'; fi
+            if [ "$ACTION" = "reopened" ]; then STATE_EVENT='"state_event":"reopen"'; fi
+
+            PAYLOAD="{\"title\":\"[GH#${ISSUE_NUMBER}] ${ISSUE_TITLE}\",\"description\":\"${BODY}\"${STATE_EVENT:+,${STATE_EVENT}}}"
+            curl -sf -X PUT \
+              -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues/${EXISTING}" \
+              -d "$PAYLOAD"
+          else
+            # Create new issue
+            curl -sf -X POST \
+              -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues" \
+              -d "{\"title\":\"[GH#${ISSUE_NUMBER}] ${ISSUE_TITLE}\",\"description\":\"${BODY}\"}"
+          fi
+
+  sync-pr:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync PR as GitLab issue
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_SYNC_TOKEN }}
+          GITLAB_URL: https://gitlab.dicematrix.cloud
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          ACTION: ${{ github.event.action }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          PR_BODY: ${{ github.event.pull_request.body }}
+          PR_STATE: ${{ github.event.pull_request.state }}
+          PR_URL: ${{ github.event.pull_request.html_url }}
+          PR_MERGED: ${{ github.event.pull_request.merged }}
+        run: |
+          BODY="**[Mirrored PR from GitHub #${PR_NUMBER}](${PR_URL})**\n\n${PR_BODY}"
+          LABEL="github-pr"
+
+          EXISTING=$(curl -sf \
+            -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+            "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues?search=GH-PR%23${PR_NUMBER}&scope=all" \
+            | jq -r '.[0].iid // empty')
+
+          if [ -n "$EXISTING" ]; then
+            STATE_EVENT=""
+            if [ "$PR_STATE" = "closed" ]; then STATE_EVENT='"state_event":"close"'; fi
+            if [ "$ACTION" = "reopened" ]; then STATE_EVENT='"state_event":"reopen"'; fi
+
+            PAYLOAD="{\"title\":\"[GH-PR#${PR_NUMBER}] ${PR_TITLE}\",\"description\":\"${BODY}\"${STATE_EVENT:+,${STATE_EVENT}}}"
+            curl -sf -X PUT \
+              -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues/${EXISTING}" \
+              -d "$PAYLOAD"
+          else
+            curl -sf -X POST \
+              -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues" \
+              -d "{\"title\":\"[GH-PR#${PR_NUMBER}] ${PR_TITLE}\",\"description\":\"${BODY}\",\"labels\":\"${LABEL}\"}"
+          fi
+
+  sync-comment:
+    if: github.event_name == 'issue_comment'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Sync issue comment to GitLab
+        env:
+          GITLAB_TOKEN: ${{ secrets.GITLAB_SYNC_TOKEN }}
+          GITLAB_URL: https://gitlab.dicematrix.cloud
+          GITLAB_PROJECT_ID: ${{ secrets.GITLAB_PROJECT_ID }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+          COMMENT_BODY: ${{ github.event.comment.body }}
+          COMMENT_USER: ${{ github.event.comment.user.login }}
+          COMMENT_URL: ${{ github.event.comment.html_url }}
+          ACTION: ${{ github.event.action }}
+        run: |
+          if [ "$ACTION" = "deleted" ]; then exit 0; fi
+
+          EXISTING=$(curl -sf \
+            -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+            "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues?search=GH%23${ISSUE_NUMBER}&scope=all" \
+            | jq -r '.[0].iid // empty')
+
+          if [ -n "$EXISTING" ]; then
+            NOTE="**[@${COMMENT_USER}](${COMMENT_URL}) on GitHub:**\n\n${COMMENT_BODY}"
+            curl -sf -X POST \
+              -H "PRIVATE-TOKEN: ${GITLAB_TOKEN}" \
+              -H "Content-Type: application/json" \
+              "${GITLAB_URL}/api/v4/projects/${GITLAB_PROJECT_ID}/issues/${EXISTING}/notes" \
+              -d "{\"body\":\"${NOTE}\"}"
+          fi
