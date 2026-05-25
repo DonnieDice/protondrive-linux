@@ -1,6 +1,6 @@
-diff --git a/applications/drive/src/app/legacy/components/layout/DriveWindow.tsx b/applications/drive/src/app/legacy/components/layout/DriveWindow.tsx
---- a/applications/drive/src/app/legacy/components/layout/DriveWindow.tsx
-+++ b/applications/drive/src/app/legacy/components/layout/DriveWindow.tsx
+diff --git a/applications/drive/src/app/components/layout/DriveWindow.tsx b/applications/drive/src/app/components/layout/DriveWindow.tsx
+--- a/applications/drive/src/app/components/layout/DriveWindow.tsx
++++ b/applications/drive/src/app/components/layout/DriveWindow.tsx
 @@ -1,12 +1,16 @@
  import { type ReactNode, useState } from 'react';
  import { useLocation } from 'react-router-dom-v5-compat';

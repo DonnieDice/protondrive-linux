@@ -1,7 +1,31 @@
+diff --git a/applications/drive/src/app/App.tsx b/applications/drive/src/app/App.tsx
+--- a/applications/drive/src/app/App.tsx
++++ b/applications/drive/src/app/App.tsx
+@@ -17,7 +17,6 @@ import {
+ import useEffectOnce from '@proton/hooks/useEffectOnce';
+ import { ProtonStoreProvider } from '@proton/redux-shared-store/sharedProvider';
+ import { getNonEmptyErrorMessage } from '@proton/shared/lib/helpers/error';
+-import { DRAWER_VISIBILITY } from '@proton/shared/lib/interfaces';
+ import { FlagProvider } from '@proton/unleash/proxy';
+ import noop from '@proton/utils/noop';
+ 
+@@ -71,7 +70,11 @@ const App = () => {
+ 
+                 useUserSettingsStore.getState().initialize(user, driveUserSettings);
+                 setState({
+-                    showDrawerSidebar: userSettings.HideSidePanel === DRAWER_VISIBILITY.SHOW,
++                    // Proton Drive Linux owns native sync/settings controls in this rail.
++                    // Keep it visible by default so the Linux controls, Contacts,
++                    // Calendar, and Referral entries are reachable in packaged
++                    // desktop builds. The chevron can still collapse it.
++                    showDrawerSidebar: true,
+                     store,
+                 });
+ 
 diff --git a/packages/components/components/drawer/DrawerSidebar.tsx b/packages/components/components/drawer/DrawerSidebar.tsx
 --- a/packages/components/components/drawer/DrawerSidebar.tsx
 +++ b/packages/components/components/drawer/DrawerSidebar.tsx
-@@ -34,7 +34,7 @@ const DrawerSidebar = ({ buttons }: Props) => {
+@@ -36,7 +36,7 @@ const DrawerSidebar = ({ buttons }: Props) => {
      return (
          <nav
              aria-label={c('Landmarks').t`Side panel`}
@@ -13,7 +37,7 @@ diff --git a/packages/components/components/drawer/DrawerSidebar.tsx b/packages/
 diff --git a/packages/components/components/drawer/DrawerVisibilityButton.tsx b/packages/components/components/drawer/DrawerVisibilityButton.tsx
 --- a/packages/components/components/drawer/DrawerVisibilityButton.tsx
 +++ b/packages/components/components/drawer/DrawerVisibilityButton.tsx
-@@ -39,7 +39,7 @@ const DrawerVisibilityButton = ({ spotlightSeenRef }: Props) => {
+@@ -40,7 +40,7 @@ const DrawerVisibilityButton = ({ spotlightSeenRef }: Props) => {
          <Tooltip title={tooltipText} originalPlacement="left">
              <span
                  className={clsx(
