@@ -83,9 +83,10 @@ For override smoke tests, `PROTONDRIVE_AUTO_SYNC_PATH` may point at another
 folder under `$HOME`; treat that as an extra mapping path, not the primary drive
 root model. The Linux entry in the right-side Proton app rail opens the Drive
 quick-settings drawer as the first Proton Drive Linux options surface. The rail
-should preserve WebClients behavior: collapsed on startup with the
-expand/collapse chevron visible; the dedicated sync UI should live there later,
-not in the current folder route.
+is visible on startup in packaged Linux builds so Contacts, Calendar, Referral,
+and Linux controls are discoverable; the expand/collapse chevron must still
+work. The dedicated sync UI should live there later, not in the current folder
+route.
 
 1. Confirm the native watcher and poll reconciler are active for `~/ProtonDrive`.
 2. Create `local-create.txt` in the staged folder.
