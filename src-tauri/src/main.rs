@@ -16,6 +16,7 @@ use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 mod live_sync;
 mod proton_navigation;
+mod sync_db;
 mod url_log;
 mod webview_cookies;
 mod webview_storage;
@@ -173,6 +174,13 @@ fn start_sync(
     println!("[Sync] start_sync requested path={}", path);
     ensure_sync_command_allowed(&window)?;
     let sync_root = validate_sync_root_path(&path)?;
+    register_sync_root_metadata(
+        &app.path().app_data_dir().map_err(|e| {
+            eprintln!("[Sync] app data dir unavailable for sync metadata: {e}");
+            "Unable to save sync metadata".to_string()
+        })?,
+        &sync_root,
+    )?;
     state.sync_manager.start(app, sync_root)?;
     let status = state.sync_manager.status()?;
     println!(
@@ -438,7 +446,14 @@ fn persist_selected_sync_root(app_data_dir: &Path, sync_root: &Path) -> Result<(
     .map_err(|e| {
         eprintln!("[Sync] failed to persist selected sync root: {e}");
         "Unable to save sync folder".to_string()
-    })
+    })?;
+
+    set_private_file_permissions(&sync_root_config_path(app_data_dir)).map_err(|e| {
+        eprintln!("[Sync] failed to secure selected sync root config: {e}");
+        "Unable to save sync folder".to_string()
+    })?;
+
+    register_sync_root_metadata(app_data_dir, sync_root)
 }
 
 fn read_selected_sync_root(app_data_dir: &Path) -> Option<String> {
@@ -456,6 +471,11 @@ fn start_selected_sync_root(
 ) -> Result<live_sync::LiveSyncStatus, String> {
     println!("[Sync] selected root requested source={}", source);
     let sync_root = validate_sync_root_path(path)?;
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| {
+        eprintln!("[Sync] app data dir unavailable for sync metadata: {e}");
+        "Unable to save sync metadata".to_string()
+    })?;
+    register_sync_root_metadata(&app_data_dir, &sync_root)?;
     state.sync_manager.start(app_handle, sync_root)?;
     let status = state.sync_manager.status()?;
     println!(
@@ -465,6 +485,23 @@ fn start_selected_sync_root(
         status.poll_interval_seconds
     );
     Ok(status)
+}
+
+fn register_sync_root_metadata(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
+    let db = sync_db::SyncDb::open(&sync_db::sync_db_path(app_data_dir))?;
+    db.upsert_root(sync_root)?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_private_file_permissions(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+}
+
+#[cfg(not(unix))]
+fn set_private_file_permissions(_path: &Path) -> std::io::Result<()> {
+    Ok(())
 }
 
 fn main() {

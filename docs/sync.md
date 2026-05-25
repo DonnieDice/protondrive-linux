@@ -11,6 +11,7 @@ The repository contains the native Tauri sync bridge from PR #35:
 - `PROTONDRIVE_AUTO_SYNC_PATH` designates the selected sync directory during smoke tests and
   persists it for later passive startup.
 - On app launch, the persisted selected sync directory auto-starts without UI.
+- The selected root is registered in a private SQLite metadata database for future reconciliation.
 - `live-sync://local-change` is emitted for local create, modify, and remove events from both
   the watcher and the poll reconciler.
 - `handle_remote_update(change)` applies remote create, update, and delete events into the watched folder.
@@ -70,13 +71,39 @@ Do not change these without updating tests, docs, and frontend integration toget
 - Sync roots must stay constrained under `$HOME`.
 - Remote relative paths must reject `..`, absolute paths, Windows prefixes, and symlink traversal.
 - Remote-write suppression must stay bounded and short-lived.
+- Sync metadata must stay zero-trust: local paths and remote IDs are stored as stable hashes, not
+  raw names, paths, share IDs, link IDs, or file contents.
+
+## Zero-Trust Metadata Database
+
+The native sync engine now has a SQLite metadata foundation in `src-tauri/src/sync_db.rs`.
+This follows the OneDrive Linux model at the architecture level: use a durable local database as a
+last-known-synced metadata cache, then reconcile local scans, watcher events, and remote deltas
+against that cache. It does not store file contents and it is not a source of truth.
+
+Current guarantees:
+
+- Database path: `sync-state.sqlite3` under the app data directory.
+- File mode: `0600` on Unix; parent directory is tightened to `0700`.
+- Sensitive values are SHA-256 hashed before storage: root paths, relative paths, volume IDs, share
+  IDs, link IDs, parent IDs, and remote revisions.
+- Rows track metadata only: local kind, size, mtime, optional content fingerprint, remote mapping
+  hashes, sync state, retries, error code, and tombstone timestamps.
+- Tombstones only apply to previously known items; a missing row cannot create a destructive delete.
+- The DB is treated as untrusted cache. Future upload/download workers must validate destructive
+  operations against the filesystem and Proton Drive API before applying them.
+
+The existing `sync-root.txt` file still stores the selected local path because the native process
+must know which directory to watch before the UI exists. That file is also restricted to `0600` on
+Unix. It is operational config, not sync history.
 
 ## Weak Areas
 
 These are the areas to watch during real sync testing:
 
-- There is a passive selected-root config, but no durable local sync database in the native layer.
-- There is no native conflict resolver.
+- There is a passive selected-root config and a zero-trust metadata database, but no native
+  reconciliation worker consumes pending DB rows yet.
+- There is no native conflict resolver beyond DB state placeholders.
 - There is no native retry queue or offline queue.
 - There is no native checksum or mtime comparison.
 - Rename and move are not modeled as first-class operations by the native bridge.
