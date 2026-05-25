@@ -3,8 +3,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 WEBCLIENTS_DIR = REPO_ROOT / "WebClients"
-BRIDGE_RELATIVE = Path("applications/drive/src/app/store/ProtonDriveLinuxSyncBridge.tsx")
-DRIVE_PROVIDER_RELATIVE = Path("applications/drive/src/app/store/DriveProvider.tsx")
+DRIVE_APP_DIR = WEBCLIENTS_DIR / "applications/drive/src/app"
+BRIDGE_FILENAME = "ProtonDriveLinuxSyncBridge.tsx"
 
 BRIDGE_SOURCE = """import { useEffect, useRef } from 'react';
 
@@ -149,6 +149,14 @@ def fail(message: str) -> None:
     raise SystemExit(f"❌ {message}")
 
 
+def find_drive_provider() -> Path:
+    for path in DRIVE_APP_DIR.rglob("DriveProvider.tsx"):
+        source = path.read_text()
+        if "export function DriveProvider" in source and "<UploadProvider>" in source:
+            return path
+    fail("Unable to find DriveProvider.tsx with UploadProvider in current WebClients layout")
+
+
 def patch_drive_provider(path: Path) -> None:
     source = path.read_text()
     if "ProtonDriveLinuxSyncBridge" not in source:
@@ -167,14 +175,11 @@ def main() -> None:
     if not WEBCLIENTS_DIR.exists():
         fail("WebClients directory is missing")
 
-    bridge_path = WEBCLIENTS_DIR / BRIDGE_RELATIVE
-    provider_path = WEBCLIENTS_DIR / DRIVE_PROVIDER_RELATIVE
-    if not provider_path.exists():
-        fail("Unable to find DriveProvider.tsx in current WebClients layout")
-
+    provider_path = find_drive_provider()
+    bridge_path = provider_path.parent / BRIDGE_FILENAME
     bridge_path.write_text(BRIDGE_SOURCE)
     patch_drive_provider(provider_path)
-    print("  ✓ Installed Proton Drive Linux sync bridge")
+    print(f"  ✓ Installed Proton Drive Linux sync bridge at {bridge_path.relative_to(WEBCLIENTS_DIR)}")
 
 
 if __name__ == "__main__":
