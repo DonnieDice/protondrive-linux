@@ -12,10 +12,14 @@ The repository contains the native Tauri sync bridge from PR #35:
   overrides the default root for that test launch.
 - On app launch, the primary local sync directory defaults to `~/ProtonDrive` and is created if
   missing.
-- The default remote target is a device-scoped folder, `Computers/<PC name>`. The PC name is
-  sanitized from the host name so multiple Linux machines do not collide at the same remote root.
+- The default remote target is the Proton Drive SDK device model under the Web UI's `Computers`
+  section, not a folder path under `My files`. The local `~/ProtonDrive` root maps to a Linux
+  device named from the sanitized host name via `createDevice(name, DeviceType.Linux)`.
+- The device API returns `rootFolderUid` and `shareId`; those are the remote root identifiers the
+  future upload worker must use when mapping root-relative local paths into the Computers section.
 - Extra path mappings will be layered on through CLI/config/UI instead of being copied into
-  `~/ProtonDrive`, which would duplicate host data.
+  `~/ProtonDrive`, which would duplicate host data. Extra mappings target `My files` separately
+  and must not be nested under the primary device root.
 - The selected root is registered in a private SQLite metadata database for future reconciliation.
 - `live-sync://local-change` is emitted for local create, modify, and remove events from both
   the watcher and the poll reconciler.
@@ -69,7 +73,10 @@ Do not change these without updating tests, docs, and frontend integration toget
 
 - Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`.
 - Passive primary root/config: `DEFAULT_SYNC_ROOT_DIR`, `~/ProtonDrive`, `SYNC_ROOT_CONFIG_FILE`.
-- Default remote device mapping: `DEFAULT_REMOTE_DEVICE_PARENT_DIR`, `Computers/<PC name>`.
+- Default remote device mapping: `DEFAULT_REMOTE_SCOPE_COMPUTERS`, `DEFAULT_DEVICE_TYPE_LINUX`,
+  `default_sync_device_name`, and the Proton Drive SDK `createDevice(name, DeviceType.Linux)`
+  flow. `Computers` is a device/share API scope, not a `My files` path prefix.
+- Extra folder mappings target `My files` separately and must not be nested into `~/ProtonDrive`.
 - Test override hook: `PROTONDRIVE_AUTO_SYNC_PATH`.
 - Event name: `live-sync://local-change`.
 - Event payload shape: `{ kind, paths, rootPath, relativePaths, source }`.
@@ -88,12 +95,19 @@ This follows the OneDrive Linux model at the architecture level: use a durable l
 last-known-synced metadata cache, then reconcile local scans, watcher events, and remote deltas
 against that cache. It does not store file contents and it is not a source of truth.
 
+The OneDrive Linux client pattern we are copying is architectural, not API-specific: a default local
+sync directory, inotify for immediate local events, a polling/monitor loop for remote deltas, periodic
+full local/remote true-up scans, and a local SQLite cache for reconciliation. Proton Drive differs in
+one important way: the primary root belongs to the SDK device API (`Computers`), while optional extra
+folder mappings belong to `My files`.
+
 Current guarantees:
 
 - Database path: `sync-state.sqlite3` under the app data directory.
 - File mode: `0600` on Unix; parent directory is tightened to `0700`.
-- Sensitive values are SHA-256 hashed before storage: root paths, remote device folder paths,
-  relative paths, volume IDs, share IDs, link IDs, parent IDs, and remote revisions.
+- Sensitive values are SHA-256 hashed before storage: root paths, device names, remote device UIDs,
+  root folder UIDs, share IDs, remote My files mapping paths, relative paths, volume IDs, link IDs,
+  parent IDs, and remote revisions.
 - Rows track metadata only: local kind, size, mtime, optional content fingerprint, remote mapping
   hashes, sync state, retries, error code, and tombstone timestamps.
 - Tombstones only apply to previously known items; a missing row cannot create a destructive delete.
@@ -102,9 +116,9 @@ Current guarantees:
 
 The existing `sync-root.txt` file still stores the active local path because the native process
 must know which directory to watch before the UI exists. On normal startup the primary local root is
-`~/ProtonDrive` and the remote mapping is `Computers/<PC name>`; non-default roots are treated as
-future extra mappings, not replacements for the primary drive root. The config file is restricted to
-`0600` on Unix. It is operational config, not sync history.
+`~/ProtonDrive` and the remote mapping is a Proton Drive Linux device under `Computers`; non-default
+roots are treated as future `My files` extra mappings, not replacements for the primary drive root.
+The config file is restricted to `0600` on Unix. It is operational config, not sync history.
 
 ## Weak Areas
 

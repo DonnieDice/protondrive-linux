@@ -4,11 +4,15 @@ use std::fs::{self, OpenOptions};
 use std::path::{Path, PathBuf};
 use std::time::{SystemTime, UNIX_EPOCH};
 
-const SCHEMA_VERSION: i64 = 2;
+const SCHEMA_VERSION: i64 = 3;
 const ERR_SYNC_DB_OPEN_FAILED: &str = "Failed to open sync metadata database";
 const ERR_SYNC_DB_MIGRATE_FAILED: &str = "Failed to migrate sync metadata database";
 const ERR_SYNC_DB_WRITE_FAILED: &str = "Failed to write sync metadata";
 const ERR_SYNC_DB_READ_FAILED: &str = "Failed to read sync metadata";
+
+pub const REMOTE_SCOPE_COMPUTERS: &str = "computers";
+pub const REMOTE_SCOPE_MY_FILES: &str = "my_files";
+pub const REMOTE_SCOPE_UNMAPPED: &str = "unmapped";
 
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub enum SyncItemState {
@@ -89,29 +93,95 @@ impl SyncDb {
     }
 
     pub fn upsert_root(&self, root_path: &Path) -> Result<String, String> {
-        self.upsert_root_mapping(root_path, None)
-    }
-
-    pub fn upsert_root_mapping(
-        &self,
-        root_path: &Path,
-        remote_path: Option<&str>,
-    ) -> Result<String, String> {
         let root_id = hash_sensitive(&root_path.to_string_lossy());
-        let remote_path_hash = remote_path.map(hash_sensitive);
         let now = now_unix_ns();
         self.conn
             .execute(
-                "INSERT INTO sync_roots (id, root_path_hash, remote_path_hash, created_at_ns, updated_at_ns)
+                "INSERT INTO sync_roots (id, root_path_hash, remote_scope, created_at_ns, updated_at_ns)
                  VALUES (?1, ?2, ?3, ?4, ?4)
                  ON CONFLICT(id) DO UPDATE SET
                    root_path_hash = excluded.root_path_hash,
-                   remote_path_hash = excluded.remote_path_hash,
                    updated_at_ns = excluded.updated_at_ns",
-                params![root_id, root_id, remote_path_hash, now],
+                params![root_id, root_id, REMOTE_SCOPE_UNMAPPED, now],
             )
             .map_err(|e| {
                 eprintln!("[SyncDb] root upsert failed: {e}");
+                ERR_SYNC_DB_WRITE_FAILED.to_string()
+            })?;
+        Ok(root_id)
+    }
+
+    pub fn upsert_computers_root(
+        &self,
+        root_path: &Path,
+        device_name: &str,
+        device_type: &str,
+    ) -> Result<String, String> {
+        let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let device_name_hash = hash_sensitive(device_name);
+        let now = now_unix_ns();
+        self.conn
+            .execute(
+                "INSERT INTO sync_roots (
+                   id, root_path_hash, remote_scope, device_type, device_name_hash,
+                   remote_path_hash, created_at_ns, updated_at_ns
+                 )
+                 VALUES (?1, ?2, ?3, ?4, ?5, NULL, ?6, ?6)
+                 ON CONFLICT(id) DO UPDATE SET
+                   root_path_hash = excluded.root_path_hash,
+                   remote_scope = excluded.remote_scope,
+                   device_type = excluded.device_type,
+                   device_name_hash = excluded.device_name_hash,
+                   remote_path_hash = excluded.remote_path_hash,
+                   updated_at_ns = excluded.updated_at_ns",
+                params![
+                    root_id,
+                    root_id,
+                    REMOTE_SCOPE_COMPUTERS,
+                    device_type,
+                    device_name_hash,
+                    now
+                ],
+            )
+            .map_err(|e| {
+                eprintln!("[SyncDb] computers root upsert failed: {e}");
+                ERR_SYNC_DB_WRITE_FAILED.to_string()
+            })?;
+        Ok(root_id)
+    }
+
+    pub fn upsert_my_files_mapping(
+        &self,
+        root_path: &Path,
+        remote_path: &str,
+    ) -> Result<String, String> {
+        let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let remote_path_hash = hash_sensitive(remote_path);
+        let now = now_unix_ns();
+        self.conn
+            .execute(
+                "INSERT INTO sync_roots (
+                   id, root_path_hash, remote_scope, device_type, device_name_hash,
+                   remote_path_hash, created_at_ns, updated_at_ns
+                 )
+                 VALUES (?1, ?2, ?3, NULL, NULL, ?4, ?5, ?5)
+                 ON CONFLICT(id) DO UPDATE SET
+                   root_path_hash = excluded.root_path_hash,
+                   remote_scope = excluded.remote_scope,
+                   device_type = excluded.device_type,
+                   device_name_hash = excluded.device_name_hash,
+                   remote_path_hash = excluded.remote_path_hash,
+                   updated_at_ns = excluded.updated_at_ns",
+                params![
+                    root_id,
+                    root_id,
+                    REMOTE_SCOPE_MY_FILES,
+                    remote_path_hash,
+                    now
+                ],
+            )
+            .map_err(|e| {
+                eprintln!("[SyncDb] My files mapping upsert failed: {e}");
                 ERR_SYNC_DB_WRITE_FAILED.to_string()
             })?;
         Ok(root_id)
@@ -294,6 +364,12 @@ impl SyncDb {
                 CREATE TABLE IF NOT EXISTS sync_roots (
                     id TEXT PRIMARY KEY,
                     root_path_hash TEXT NOT NULL,
+                    remote_scope TEXT NOT NULL DEFAULT 'unmapped',
+                    device_type TEXT,
+                    device_name_hash TEXT,
+                    remote_device_uid_hash TEXT,
+                    remote_root_folder_uid_hash TEXT,
+                    remote_share_id_hash TEXT,
                     remote_path_hash TEXT,
                     created_at_ns INTEGER NOT NULL,
                     updated_at_ns INTEGER NOT NULL
@@ -331,6 +407,22 @@ impl SyncDb {
                 eprintln!("[SyncDb] migration failed: {e}");
                 ERR_SYNC_DB_MIGRATE_FAILED.to_string()
             })?;
+        ensure_column(
+            &self.conn,
+            "sync_roots",
+            "remote_scope",
+            "TEXT NOT NULL DEFAULT 'unmapped'",
+        )?;
+        ensure_column(&self.conn, "sync_roots", "device_type", "TEXT")?;
+        ensure_column(&self.conn, "sync_roots", "device_name_hash", "TEXT")?;
+        ensure_column(&self.conn, "sync_roots", "remote_device_uid_hash", "TEXT")?;
+        ensure_column(
+            &self.conn,
+            "sync_roots",
+            "remote_root_folder_uid_hash",
+            "TEXT",
+        )?;
+        ensure_column(&self.conn, "sync_roots", "remote_share_id_hash", "TEXT")?;
         ensure_column(&self.conn, "sync_roots", "remote_path_hash", "TEXT")?;
 
         self.conn
@@ -543,7 +635,7 @@ mod tests {
         let root = Path::new("/home/alice/Pictures/protondrive-sync-smoke");
         let relative = Path::new("family/private-vacation.jpg");
         let root_id = db
-            .upsert_root_mapping(root, Some("Computers/alice-laptop"))
+            .upsert_computers_root(root, "alice-laptop", "linux")
             .unwrap();
 
         db.upsert_local_item(
@@ -583,6 +675,100 @@ mod tests {
         assert!(!db_file.contains("alice-laptop"));
         assert!(!db_file.contains("link-secret"));
         assert!(!db_file.contains("share-secret"));
+
+        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn computers_root_stores_device_scope_without_remote_path() {
+        let path = temp_db_path("computers-root");
+        let db = SyncDb::open(&path).unwrap();
+        let root_id = db
+            .upsert_computers_root(
+                Path::new("/home/alice/ProtonDrive"),
+                "alice-laptop",
+                "linux",
+            )
+            .unwrap();
+
+        let (remote_scope, device_type, device_name_hash, remote_path_hash): (
+            String,
+            Option<String>,
+            Option<String>,
+            Option<String>,
+        ) = db
+            .conn
+            .query_row(
+                "SELECT remote_scope, device_type, device_name_hash, remote_path_hash
+                 FROM sync_roots WHERE id = ?1",
+                params![root_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?, row.get(3)?)),
+            )
+            .unwrap();
+
+        assert_eq!(remote_scope, REMOTE_SCOPE_COMPUTERS);
+        assert_eq!(device_type.as_deref(), Some("linux"));
+        assert_eq!(
+            device_name_hash.as_deref(),
+            Some(hash_sensitive("alice-laptop").as_str())
+        );
+        assert!(remote_path_hash.is_none());
+
+        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn my_files_mapping_stores_remote_path_hash_without_device_name() {
+        let path = temp_db_path("my-files-root");
+        let db = SyncDb::open(&path).unwrap();
+        let root_id = db
+            .upsert_my_files_mapping(Path::new("/home/alice/Pictures"), "Pictures/Linux")
+            .unwrap();
+
+        let (remote_scope, device_name_hash, remote_path_hash): (
+            String,
+            Option<String>,
+            Option<String>,
+        ) = db
+            .conn
+            .query_row(
+                "SELECT remote_scope, device_name_hash, remote_path_hash
+                 FROM sync_roots WHERE id = ?1",
+                params![root_id],
+                |row| Ok((row.get(0)?, row.get(1)?, row.get(2)?)),
+            )
+            .unwrap();
+
+        assert_eq!(remote_scope, REMOTE_SCOPE_MY_FILES);
+        assert!(device_name_hash.is_none());
+        assert_eq!(
+            remote_path_hash.as_deref(),
+            Some(hash_sensitive("Pictures/Linux").as_str())
+        );
+
+        fs::remove_dir_all(path.parent().unwrap()).unwrap();
+    }
+
+    #[test]
+    fn generic_root_upsert_preserves_existing_remote_mapping() {
+        let path = temp_db_path("preserve-root-mapping");
+        let db = SyncDb::open(&path).unwrap();
+        let root = Path::new("/home/alice/ProtonDrive");
+        let root_id = db
+            .upsert_computers_root(root, "alice-laptop", "linux")
+            .unwrap();
+
+        assert_eq!(db.upsert_root(root).unwrap(), root_id);
+
+        let remote_scope: String = db
+            .conn
+            .query_row(
+                "SELECT remote_scope FROM sync_roots WHERE id = ?1",
+                params![root_id],
+                |row| row.get(0),
+            )
+            .unwrap();
+        assert_eq!(remote_scope, REMOTE_SCOPE_COMPUTERS);
 
         fs::remove_dir_all(path.parent().unwrap()).unwrap();
     }
