@@ -1,3 +1,4 @@
+use crate::sync_db::{self, SyncDb, SyncItemState};
 use base64::Engine as _;
 use notify::{Config, EventKind, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::{Deserialize, Serialize};
@@ -7,7 +8,7 @@ use std::path::{Component, Path, PathBuf};
 use std::sync::{mpsc, Arc, Mutex};
 use std::thread::JoinHandle;
 use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
-use tauri::{AppHandle, Emitter};
+use tauri::{AppHandle, Emitter, Manager};
 
 const ERR_SYNC_SETUP_FAILED: &str = "Failed to start live sync";
 const ERR_SYNC_STATE_UNAVAILABLE: &str = "Live sync is temporarily unavailable";
@@ -87,6 +88,12 @@ impl LiveSyncManager {
             eprintln!("[LiveSync] canonicalize root failed for {:?}: {e}", folder);
             ERR_SYNC_SETUP_FAILED.to_string()
         })?;
+        let app_data_dir = app.path().app_data_dir().map_err(|e| {
+            eprintln!("[LiveSync] app data dir unavailable for sync metadata: {e}");
+            ERR_SYNC_SETUP_FAILED.to_string()
+        })?;
+        let sync_db_path = sync_db::sync_db_path(&app_data_dir);
+        let root_id = SyncDb::open(&sync_db_path)?.upsert_root(&folder)?;
 
         self.stop()?;
 
@@ -110,6 +117,8 @@ impl LiveSyncManager {
         let watcher_known_files = Arc::clone(&self.known_files);
         let watcher_app_handle = app.clone();
         let watcher_root = folder.clone();
+        let watcher_db_path = sync_db_path.clone();
+        let watcher_root_id = root_id.clone();
 
         let worker = std::thread::Builder::new()
             .name("live-sync-watcher".to_string())
@@ -138,6 +147,8 @@ impl LiveSyncManager {
 
                             emit_local_change(
                                 &watcher_app_handle,
+                                &watcher_db_path,
+                                &watcher_root_id,
                                 &watcher_root,
                                 kind,
                                 filtered_paths,
@@ -157,6 +168,8 @@ impl LiveSyncManager {
         let poller_known_files = Arc::clone(&self.known_files);
         let poller_app_handle = app;
         let poller_root = folder.clone();
+        let poller_db_path = sync_db_path;
+        let poller_root_id = root_id;
         let mut snapshot = scan_sync_root(&poller_root).map_err(|e| {
             eprintln!(
                 "[LiveSync] poller baseline scan failed for {:?}: {e}",
@@ -184,6 +197,8 @@ impl LiveSyncManager {
                             if !filtered_paths.is_empty() {
                                 emit_local_change(
                                     &poller_app_handle,
+                                    &poller_db_path,
+                                    &poller_root_id,
                                     &poller_root,
                                     kind,
                                     filtered_paths,
@@ -440,6 +455,8 @@ fn should_ignore_known_file(
 
 fn emit_local_change(
     app_handle: &AppHandle,
+    db_path: &Path,
+    root_id: &str,
     root: &Path,
     kind: &str,
     paths: Vec<String>,
@@ -459,6 +476,12 @@ fn emit_local_change(
         .iter()
         .map(|path| relative_sync_path(root, Path::new(path)))
         .collect();
+    if let Err(e) = record_local_change_metadata(db_path, root_id, root, kind, &paths) {
+        eprintln!(
+            "[LiveSync][AUDIT] local metadata record failed reason={}",
+            e
+        );
+    }
 
     // Regression guard: the frontend sync engine depends on this exact event
     // name. Payloads are intentionally mapping-ready: absolute paths are kept
@@ -476,6 +499,50 @@ fn emit_local_change(
     ) {
         eprintln!("[LiveSync] failed to emit local-change event: {e}");
     }
+}
+
+fn record_local_change_metadata(
+    db_path: &Path,
+    root_id: &str,
+    root: &Path,
+    kind: &str,
+    paths: &[String],
+) -> Result<(), String> {
+    let db = SyncDb::open(db_path)?;
+    for path in paths {
+        let path = Path::new(path);
+        let relative = Path::new(&relative_sync_path(root, path)).to_path_buf();
+        if kind == "remove" {
+            db.mark_tombstone(root_id, &relative)?;
+            continue;
+        }
+
+        let metadata = fs::symlink_metadata(path).ok();
+        let local_kind = metadata
+            .as_ref()
+            .map(|meta| if meta.is_dir() { "dir" } else { "file" })
+            .unwrap_or("unknown");
+        let local_size = metadata
+            .as_ref()
+            .filter(|meta| meta.is_file())
+            .map(|meta| meta.len().min(i64::MAX as u64) as i64);
+        let local_mtime_ns = metadata
+            .as_ref()
+            .and_then(|meta| meta.modified().ok())
+            .and_then(system_time_nanos)
+            .map(|ns| ns.min(i64::MAX as u128) as i64);
+
+        db.upsert_local_item(
+            root_id,
+            &relative,
+            local_kind,
+            local_size,
+            local_mtime_ns,
+            None,
+            SyncItemState::LocalPending,
+        )?;
+    }
+    Ok(())
 }
 
 fn relative_sync_path(root: &Path, path: &Path) -> String {
@@ -784,5 +851,55 @@ mod tests {
         assert!(changes
             .iter()
             .any(|(kind, paths)| kind == &"remove" && paths == &vec![removed.clone()]));
+    }
+
+    #[test]
+    fn local_change_metadata_records_pending_items_and_safe_tombstones() {
+        let root = temp_sync_root("metadata");
+        let db_path = root.join(".sync-state.sqlite3");
+        let db = SyncDb::open(&db_path).unwrap();
+        let root_id = db.upsert_root(&root).unwrap();
+        drop(db);
+
+        let file = root.join("folder").join("local.txt");
+        fs::create_dir_all(file.parent().unwrap()).unwrap();
+        fs::write(&file, b"local").unwrap();
+
+        record_local_change_metadata(
+            &db_path,
+            &root_id,
+            &root,
+            "create",
+            &[file.to_string_lossy().to_string()],
+        )
+        .unwrap();
+
+        let db = SyncDb::open(&db_path).unwrap();
+        let item = db
+            .get_item(&root_id, Path::new("folder/local.txt"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(item.state, SyncItemState::LocalPending);
+        assert_eq!(item.local_kind, "file");
+        drop(db);
+
+        fs::remove_file(&file).unwrap();
+        record_local_change_metadata(
+            &db_path,
+            &root_id,
+            &root,
+            "remove",
+            &[file.to_string_lossy().to_string()],
+        )
+        .unwrap();
+
+        let db = SyncDb::open(&db_path).unwrap();
+        let item = db
+            .get_item(&root_id, Path::new("folder/local.txt"))
+            .unwrap()
+            .unwrap();
+        assert_eq!(item.state, SyncItemState::Tombstone);
+
+        fs::remove_dir_all(root).unwrap();
     }
 }
