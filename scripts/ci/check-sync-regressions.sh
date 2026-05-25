@@ -117,6 +117,9 @@ require_pattern patches/common/show-drive-drawer-rail-in-desktop-shell.patch "dr
 require_pattern patches/common/show-drive-drawer-rail-in-desktop-shell.patch "drawer-sidebar inline" "drawer rail must not be hidden by responsive web breakpoints in the desktop shell"
 require_pattern docs/sync.md "collapsed on startup" "Linux drawer startup behavior must stay documented"
 require_pattern scripts/build-webclients.sh "patches/common.*\\.patch" "WebClients build cache key must include every common patch"
+require_pattern scripts/build-webclients.sh "patch_drive_linux_drawer\\.py" "WebClients drawer patch must have a tolerant fallback for upstream layout churn"
+require_pattern scripts/patch_drive_linux_drawer.py "protondrive-linux-drawer-app-button:linux-icon" "Linux drawer fallback must install the Linux rail entry"
+require_pattern scripts/patch_drive_linux_drawer.py "applications/drive/src/app/legacy/components/layout/DriveWindow\\.tsx" "Linux drawer fallback must target current DriveWindow location"
 
 require_absent src-tauri/src/live_sync.rs "emit\\([^\\n]*local-change" "event name must remain explicit, not rebuilt dynamically"
 require_absent src-tauri/src/main.rs "DEFAULT_REMOTE_DEVICE_PARENT_DIR|default_remote_device_folder_path" "Computers must not be modeled as a My files path prefix"

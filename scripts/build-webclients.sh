@@ -85,8 +85,13 @@ if [ -d "$PATCHES_DIR" ]; then
             elif git apply --check "$patch" 2>/dev/null; then
                 git apply "$patch"
                 echo "  ✓ Applied"
+            elif [ "$patch_name" = "add-drive-linux-drawer-rail.patch" ]; then
+                cd "$REPO_ROOT"
+                python3 scripts/patch_drive_linux_drawer.py
+                cd "$WEBCLIENTS_DIR"
             else
                 echo "  ❌ Failed to apply - conflicts detected"
+                git apply --check "$patch"
                 exit 1
             fi
         fi
