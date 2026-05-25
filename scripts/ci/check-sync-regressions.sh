@@ -109,6 +109,7 @@ require_pattern docs/login-sync-regression-runbook.md "No test may be considered
 require_pattern docs/login-sync-regression-runbook.md "silent window where file changes occur but no .*\\[Sync\\].*\\[LiveSync\\]" "manual sync procedure must catch silent no-op sync"
 
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "protondrive-linux-drawer-app-button:linux-icon" "Linux drawer rail entry must stay patched into WebClients"
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "applications/drive/src/app/legacy/components/layout/DriveWindow\\.tsx" "Linux drawer patch must target current DriveWindow location"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "brand-linux" "Linux drawer rail entry must use the Linux icon"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "Proton Drive Linux" "Linux drawer rail entry must expose a product label"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "DRAWER_NATIVE_APPS\\.QUICK_SETTINGS" "Linux drawer rail entry must open the native Drive settings drawer until dedicated sync UI exists"
