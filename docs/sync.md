@@ -39,9 +39,9 @@ changed files through `read_sync_file`, and passes browser `File` objects into W
 The remaining frontend integration is responsible for choosing extra folders, receiving remote
 Proton Drive events, and calling `handle_remote_update`.
 The UI target is a Linux entry in the right-side Proton app rail where Contacts, Calendar, and
-Referral currently live. The rail should follow WebClients behavior: collapsed on startup with the
-existing expand/collapse chevron visible, then showing the Linux entry after expansion. The initial
-rail patch opens the existing Drive quick-settings drawer as the Proton Drive Linux options surface.
+Referral currently live. The Linux desktop build shows that rail on startup so the native controls
+are discoverable; the existing expand/collapse chevron must remain available. The initial rail patch
+opens the existing Drive quick-settings drawer as the Proton Drive Linux options surface.
 The dedicated sync UI still needs to call `set_sync_root`, show `get_sync_status`, and manage future
 remote-root mappings without coupling sync to whichever Drive folder is currently open.
 
