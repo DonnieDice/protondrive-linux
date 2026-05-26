@@ -1,0 +1,39 @@
+# VM smoke tests for the Unraid-hosted GitLab runner.
+# The runner mounts /mnt/user/appdata/gitlab-runner/ssh into each Docker job
+# as /root/.ssh:ro, so these jobs can use SSH aliases from that config.
+
+vm:ssh:smoke:
+  stage: spec
+  image: alpine:latest
+  timeout: 10m
+  parallel:
+    matrix:
+      - VM_HOST:
+          - tower
+          - debian12
+          - debian13
+          - alpine320
+          - alpine322
+  before_script:
+    - apk add --no-cache openssh-client
+  script:
+    - test -r /root/.ssh/id_ed25519
+    - test -r /root/.ssh/config
+    - ssh -o BatchMode=yes -o ConnectTimeout=10 "$VM_HOST" "echo vm-smoke-ok:\$(hostname):\$(whoami)"
+  rules:
+    - when: manual
+      allow_failure: true
+
+vm:ssh:diagnostics:
+  stage: spec
+  image: alpine:latest
+  timeout: 10m
+  before_script:
+    - apk add --no-cache openssh-client
+  script:
+    - ssh -V
+    - ls -la /root/.ssh
+    - for h in tower debian12 debian13 alpine320 alpine322 arch ubuntu2404 ubuntu2604; do echo "--- $h ---"; ssh -o BatchMode=yes -o ConnectTimeout=5 "$h" "hostname; whoami" || true; done
+  rules:
+    - when: manual
+      allow_failure: true
