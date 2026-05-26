@@ -73,7 +73,12 @@ npm run dev
 
 ## Building
 
-Remote GitHub Actions workflows are the source of truth for release artifacts.
+GitLab CI is the authoritative build, package, VM-test, signing, and release
+system. The GitHub repository is a public mirror/community surface; GitHub
+Actions are intentionally limited to public sanity checks plus explicit manual
+maintenance workflows so mirrored commits do not duplicate the full CI/CD
+pipeline.
+
 Local builds are useful for debugging compilation only:
 
 ```bash
@@ -82,8 +87,10 @@ cd src-tauri
 cargo build --release
 ```
 
-The package workflows under `.github/workflows/` produce release artifacts.
-See `docs/packaging.md` for the release gate.
+The package workflow implementations under `.github/workflows/` are retained for
+manual compatibility checks and maintenance, but release artifacts should be
+produced and published by GitLab CI unless the CI authority is intentionally
+changed. See `docs/packaging.md` for the release gate.
 
 ## Packaging Rules
 
