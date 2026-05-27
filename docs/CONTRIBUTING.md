@@ -73,11 +73,15 @@ npm run dev
 
 ## Building
 
-GitLab CI is the authoritative build, package, VM-test, signing, and release
-system. The GitHub repository is a public mirror/community surface; GitHub
-Actions are intentionally limited to public sanity checks plus explicit manual
-maintenance workflows so mirrored commits do not duplicate the full CI/CD
-pipeline.
+GitLab CI is the authoritative build, package, VM-test, signing, and release system. The GitHub repository serves only as a public mirror/community surface; GitHub Actions are intentionally limited to public sanity checks plus explicit manual maintenance workflows so mirrored commits do not duplicate the full CI/CD pipeline.
+
+**Note:** All merge requests (MRs) must be opened against the GitLab repository. The MR workflow includes:
+
+1. Push your branch to the GitLab remote.
+2. Open an MR targeting the `main` branch.
+3. Ensure all GitLab CI jobs pass, including the packaging and release validation stages.
+4. Request reviewers and wait for mandatory approvals.
+5. Once approved, click **Merge** in GitLab – this will trigger the full release pipeline.
 
 Local builds are useful for debugging compilation only:
 
@@ -159,7 +163,7 @@ git commit -m "(#123) Add system tray icon support"
 ```
 
 The number in the commit title is the **issue** number (e.g., `#123`), not the
-PR number. If the work is not tracked yet, open an issue first and use that
+MR number. If the work is not tracked yet, open an issue first and use that
 number. Do not leave the commit title without a GitHub reference.
 
 If you also want body traceability, reference the issue in the body or footer:
@@ -170,15 +174,15 @@ git commit -m "(#123) Add system tray icon support" -m "Refs #123"
 
 Use `Closes #123` when the commit fully resolves the issue.
 
-Push and open a pull request:
+Push and open a merge request (MR):
 
 ```bash
 git push origin feature/my-feature
 ```
 
-### PR Body Format
+### MR Body Format
 
-Reference the tracked issue at the top. Use `Closes #123` when the PR fully
+Reference the tracked issue at the top. Use `Closes #123` when the MR fully
 resolves the issue, or `Refs #123` for partial work:
 
 ```markdown
@@ -200,21 +204,21 @@ Closes #42
 - List the local commands or GitHub Actions runs used to verify the change
 ```
 
-Do not add handcrafted GitHub `#diff-` anchors to PR bodies. They are easy to
-break when files move or the PR is rebased. Plain repository paths are stable,
+Do not add handcrafted GitHub `#diff-` anchors to MR bodies. They are easy to
+break when files move or the MR is rebased. Plain repository paths are stable,
 and reviewers can use the Files changed tab for exact diffs.
 
-### PR Title Format
+### MR Title Format
 
-All PR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
+All MR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
-- The number in the PR title is the **PR** number, not the tracked issue number
-- Start with an uppercase letter after the PR prefix
-- Be at least 10 characters long after the PR prefix
-- Put the PR prefix at the start of the title, e.g. `(#43) Title here`
-- If GitHub has not assigned the PR number yet, create the PR first, then edit
+- The number in the MR title is the **MR** number, not the tracked issue number
+- Start with an uppercase letter after the MR prefix
+- Be at least 10 characters long after the MR prefix
+- Put the MR prefix at the start of the title, e.g. `(#43) Title here`
+- If the MR number is not yet assigned, create the MR first, then edit the title once the number exists
   the title once the number exists
 
 Examples:
@@ -223,27 +227,27 @@ Examples:
 - `(#52) Fix linker flags for musl static linking`
 - `(#39) Update WebClients clone depth in build script`
 
-Open an issue before opening a PR when there is no tracked issue yet. This keeps
+Open an issue before opening an MR when there is no tracked issue yet. This keeps
 commits and closing links aligned from the first push.
 
 ### Review Bot Feedback
 
-Before merging **any** PR, all automated review bot findings must be addressed:
+Before merging **any** MR, all automated review bot findings must be addressed:
 
-- Check CodeRabbit, Qodo, and any other review bot comments on the PR
+- Check CodeRabbit, Qodo, and any other review bot comments on the MR
 - Every actionable comment must be either **fixed** or explicitly **dismissed with justification**
 - Do not merge with unresolved bot review items — even if CI passes
-- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
+- If a bot comment is a false positive, dismiss it on the MR conversation so it is documented
 - Re-request review after pushing fixes to ensure bots re-evaluate
 
 ### Commit Message and Link Rules
 
 - Use the commit title for a clear imperative summary plus an **issue** number
-  prefix when the commit is not a squash-merge PR title.
+  prefix when the commit is not a squash-merge MR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the PR title for the **PR** number prefix (`(#124) ...`).
-- Do not link file diffs or fake PR numbers in commit titles.
+- Use the MR title for the **MR** number prefix (`(#124) ...`).
+- Do not link file diffs or fake MR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
 ## Troubleshooting
@@ -262,7 +266,7 @@ Clone WebClients if it is missing:
 git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients
 ```
 
-Node.js 20+ is required:
+Node.js 20+ is required (verify with `node -v`):
 
 ```bash
 node -v

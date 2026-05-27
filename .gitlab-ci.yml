@@ -47,9 +47,20 @@ workflow:
   if [ ! -f "$CARGO_HOME/bin/rustup" ]; then
     curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
       sh -s -- -y --default-toolchain "${RUST_VERSION}" --no-modify-path
+  else
+    rustup default "${RUST_VERSION}" 2>/dev/null || rustup default stable
   fi
   export PATH="$CARGO_HOME/bin:$PATH"
   rustc --version && cargo --version
+
+.clone_webclients: &clone_webclients |
+  if [ -d "WebClients/.git" ]; then
+    echo "✅ WebClients already cloned – resetting to ${WEBCLIENTS_REF}"
+    cd WebClients && git fetch origin "${WEBCLIENTS_REF}" && git checkout "origin/${WEBCLIENTS_REF}" && git clean -fd && cd ..
+  else
+    rm -rf WebClients
+    git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+  fi
 
 # ─── APK ──────────────────────────────────────────────────────────────────────
 
@@ -81,7 +92,7 @@ build:apk:alpine-3.20:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -149,7 +160,7 @@ build:apk:alpine-3.22:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -218,7 +229,7 @@ build:apk:alpine-3.23:
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
       git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -278,7 +289,7 @@ build:appimage:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -361,8 +372,9 @@ build:aur:
         nodejs npm python rustup base-devel patch
     - rustup default "${RUST_VERSION}"
     - *install_rust
-    - |
-      git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
+- |
+  rm -rf WebClients
+  git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
       git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
       git -C WebClients checkout --detach "${WEBCLIENTS_COMMIT}"
     - |
@@ -414,7 +426,7 @@ build:deb:debian-12:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -459,7 +471,7 @@ build:deb:debian-13:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -505,7 +517,7 @@ build:deb:ubuntu-24.04:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -551,7 +563,7 @@ build:deb:ubuntu-26.04:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -601,7 +613,7 @@ build:flatpak:gnome-49:
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -699,7 +711,7 @@ build:flatpak:gnome-50:
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -799,7 +811,7 @@ build:rpm:el10:
         librsvg2-devel libsoup3-devel webkit2gtk4.1-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -840,7 +852,7 @@ build:rpm:fedora-43:
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -881,7 +893,7 @@ build:rpm:fedora-44:
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -933,7 +945,7 @@ build:rpm:opensuse-tumbleweed:
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -983,7 +995,7 @@ build:snap:core24:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -1040,7 +1052,7 @@ build:snap:core26:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+ - *clone_webclients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
