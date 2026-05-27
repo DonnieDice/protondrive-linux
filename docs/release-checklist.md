@@ -24,15 +24,16 @@ Use this checklist before every release deployment.
   - [ ] Roadmap, legacy candidate, and not-primary targets are excluded unless promoted.
   - [ ] Release artifacts use stable, unique names.
 
-- [ ] All builds are green in GitHub Actions.
-  - [ ] AppImage linux-baseline job is passing.
-  - [ ] Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 DEB jobs are passing.
-  - [ ] Fedora 43, Fedora 44, EL10, and openSUSE Tumbleweed RPM jobs are passing.
-  - [ ] Flatpak GNOME 49 and GNOME 50 jobs are passing.
-  - [ ] Snap core24 and core26 jobs are passing.
-  - [ ] AUR Arch Native job is passing.
-  - [ ] Alpine 3.20, 3.22, and 3.23 APK jobs are passing.
-  - [ ] Release job is passing.
+- [ ] All builds are green in CI.
+ - [ ] AppImage linux-baseline job is passing.
+ - [ ] Debian 12, Debian 13, Ubuntu 24.04, and Ubuntu 26.04 DEB jobs are passing.
+ - [ ] Fedora 43, Fedora 44, EL10, and openSUSE Tumbleweed RPM jobs are passing.
+ - [ ] Flatpak GNOME 49 and GNOME 50 jobs are passing.
+ - [ ] Snap core24 and core26 jobs are passing. **BLOCKED: snapcraft CLI / Snap Store API inconsistency — publishing on hold. See issues #83 and #19.**
+ - [ ] AUR Arch Native job is passing.
+ - [ ] Alpine 3.20, 3.22, and 3.23 APK jobs are passing.
+ - [ ] Release job is passing.
+ - [ ] GitLab CI full pipeline is green (authoritative build system).
 - [ ] Publish implementation secrets are configured.
   - [ ] `AUR_SSH_PRIVATE_KEY` secret is set for AUR publishing.
   - [ ] `SNAPCRAFT_STORE_CREDENTIALS` secret is set for Snap Store publishing. **BLOCKED: snapcraft CLI / Snap Store API inconsistency — publishing on hold. See issues #83 and #19.**
