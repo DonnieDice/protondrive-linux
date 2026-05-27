@@ -249,12 +249,12 @@ Use **patch files** applied during build process (standard packaging approach):
 ```
 protondrive-linux/
 ├── patches/
-│   └── webclients/
-│       └── 001-tauri-worker-compat.patch
+│ └── common/
+│ └── fix-tauri-worker-protocol.patch
 ├── scripts/
-│   └── build-webclients.sh  (applies patches before building)
+│ └── build-webclients.sh (applies patches before building)
 └── .github/workflows/
-    └── *.yml  (apply patches in CI/CD)
+ └── *.yml (apply patches in CI/CD)
 ```
 
 **Patch Content:**
@@ -289,7 +289,7 @@ git clone https://github.com/ProtonMail/WebClients.git
 
 # 2. Apply patches
 cd WebClients
-git apply ../patches/webclients/001-tauri-worker-compat.patch
+git apply ../patches/common/fix-tauri-worker-protocol.patch
 
 # 3. Build as normal
 yarn install
@@ -300,7 +300,7 @@ yarn workspace proton-drive build:web
 ```
 
 ### See Full Details
-**Complete implementation plan:** `IMPLEMENTATION_PLAN.md`
+**Implementation details are documented in this doc** — no separate implementation plan file exists.
 
 ---
 
@@ -385,10 +385,10 @@ This fix must be applied to BOTH:
 ## Session 2026-05-07: Patch Staleness + Runtime Override Conflict
 
 ### ❌ CI Never Applied the Patch
-- `build-linux-packages.yml` looked in `patches/webclients/` (doesn't exist)
+- `package-workflows.yml` looked in `patches/webclients/` (doesn't exist)
 - Actual patch location: `patches/common/`
 - **All CI builds had zero patching applied** — root cause of persistent Worker failures in releases
-- **Fix:** Corrected path in all three CI workflows (linux-packages, flatpak)
+- **Fix:** Corrected path in all per-distro CI workflows (under `.github/workflows/rpm/`, `deb/`, `flatpak/`, etc.)
 
 ### ❌ Runtime `window.Worker = undefined` Conflicted with Patch
 - `main.rs` set `window.Worker = undefined` for rpm/deb/flatpak/snap builds
@@ -396,18 +396,20 @@ This fix must be applied to BOTH:
 - But other Proton code could still call `new Worker()` — hitting `undefined` → crash
 - This is exactly issue #32 "undefined is not a constructor"
 - **Fix:** Removed runtime Worker override from `main.rs`; source patch handles everything
+- **NOTE:** As of current main, the runtime `window.Worker = undefined` override is STILL PRESENT in main.rs (lines 793-794 for rpm/deb/flatpak/snap, lines 803-804 for unknown-distro fallback). The removal described here has not been applied. The runtime override and source patch coexist.
 
 ### ❌ Patch Hunk Line Number Stale
 - WebClients added 2 import lines at top of `browser.ts`, shifting hunk from line 5→7
 - **Fix:** Updated patch `@@ -5,6` → `@@ -7,6`; verified applies cleanly
+- **NOTE:** Current patch file still uses `@@ -5,6 +5,14 @@`, not `@@ -7,6`. Either the WebClients source reverted, or this fix was never committed. The current patch applies at line 5, not line 7.
 
 ### ✅ Current State (v1.1.5)
 - Patch in `patches/common/fix-tauri-worker-protocol.patch` applies cleanly to current WebClients
 - CI now correctly applies patch (`patches/common/`)
-- `main.rs` no longer overrides Workers — relies entirely on patch
+- `main.rs` **still** overrides Workers for rpm/deb/flatpak/snap (lines 793-794) and unknown-distro fallback (lines 803-804) — the runtime override coexists with the source patch
 - Login + 2FA tested working on Fedora (RPM) in prior sessions
 
-## Test Environment
+## Test Environment (Session 2026-05-07)
 - **OS:** Fedora 40 (Linux 6.8.9-300.fc40.x86_64)
 - **System WebKitGTK:** webkit2gtk4.1
 - **Tauri:** 2.0
@@ -635,7 +637,7 @@ Checked all 21 forks via GitHub API. Summary:
 
 ---
 
-## Test Environment
+## Test Environment (Session 2026-05-12)
 - **OS:** Fedora 40 (Linux 6.14.5-100.fc40.x86_64)
 - **System WebKitGTK:** webkit2gtk4.1 (system-installed)
 - **Tauri:** 2.0
