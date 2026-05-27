@@ -46,7 +46,7 @@ All development work stays strictly isolated within its branch.
 
 ## Step 3: Create Merge Request
 
-Open a merge request (MR) when your branch is ready for review. An MR:
+Open a merge request (MR) on GitLab when your branch is ready for review. An MR:
 
 - Triggers CI (all build workflows run automatically)
 - Lets reviewers check the diff
@@ -57,13 +57,13 @@ Open a merge request (MR) when your branch is ready for review. An MR:
 ### MR Title Format
 
 ```
-(#PR-number) Descriptive title starting with uppercase
+(#MR-number) Descriptive title starting with uppercase
 ```
 
 The MR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-The number in the PR title is the **PR** number, not the tracked issue number.
-If the PR number is not yet assigned, create the PR first, then edit the
+The number in the MR title is the **MR** number, not the tracked issue number.
+If the MR number is not yet assigned, create the MR first, then edit the
 title once the number exists.
 Open an issue first when work does not already have one.
 
@@ -105,7 +105,7 @@ Closes #42
 
 ## Testing
 
-- List local commands or GitHub Actions runs used to verify the change
+- List local commands or CI runs used to verify the change
 ```
 
 Do not add handcrafted GitHub `#diff-` anchors to MR bodies. Plain repository
@@ -115,8 +115,8 @@ paths are stable, and reviewers can use the Files changed tab for exact diffs.
 
 Before any merge, enforce a strict code review and metadata loop:
 
-1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`
-2. **Issue Link:** Confirm the PR body includes `Closes #N` or `Refs #N`
+1. **Edit Title:** Set MR title to `(#MR-number) Descriptive title`
+2. **Issue Link:** Confirm the MR body includes `Closes #N` or `Refs #N`
 3. **Context:** Provide a detailed summary answering **WHY** the changes were made
 4. **CR Feedback:** If a code review requires changes, iterate within the same branch
 
@@ -151,14 +151,26 @@ Evaluate the automated status checks and tests.
 The visible GitHub Actions entrypoint is
 `.github/workflows/package-workflows.yml`. It calls package-specific
 implementations from subfolders such as `.github/workflows/deb/debian-12/` and
-`.github/workflows/rpm/fedora-43/`.
+`.github/workflows/rpm/fedora-43/`. These jobs run via `workflow_dispatch`
+(manual trigger) on GitHub.
+
+On GitLab, the equivalent pipeline is defined in `.gitlab-ci.yml` and runs
+automatically on push to feature branches and MR events. GitLab CI is the
+authoritative build and release system — see
+`docs/ci-authority-and-mirroring.md`.
 
 Package jobs trigger on pushes to `feature/**`, `fix/**`, and `chore/**`
 branches. To test a build:
 
+**On GitLab:**
+1. Push your branch to the GitLab remote
+2. Check the pipeline status in GitLab CI/CD > Pipelines
+3. Download build artifacts from the pipeline
+
+**On GitHub:**
 1. Push your branch
 2. Go to the **Actions** tab on GitHub
-3. Find the workflow run for your push
+3. Run the package workflow via `workflow_dispatch`
 4. Download the build artifact from the run summary
 
 Artifacts are retained for 30 days and include the branch name for easy identification.
@@ -167,10 +179,10 @@ Artifacts are retained for 30 days and include the branch name for easy identifi
 
 | Job group | Triggers on |
 |-----------|-------------|
-| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**` + tags + MRs to `main` |
+| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | GitLab: push/MR to `main`, `feature/**`, `fix/**`, `chore/**` + tags; GitHub: `workflow_dispatch` only |
 | Generate package specs | Same as package builds |
-| Release | Release publication and release-tag flow through `package-workflows.yml` |
-| Publish AUR, Snap, Flatpak | Release events and manual dispatch through `package-workflows.yml` |
+| Release | GitLab: push to `main` and tags matching `v*`; GitHub: manual only |
+| Publish AUR, Snap, Flatpak | GitLab: tag events; GitHub: `workflow_dispatch` only |
 
 ## Branch Protection
 

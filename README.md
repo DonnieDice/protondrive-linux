@@ -2,10 +2,12 @@
 <h1><img src="src-tauri/icons/proton-drive.svg" height="28"> ProtonDrive Linux</h1>
 </div>
 
-[![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
+[![latest](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/-/badges/master.svg?label=latest&color=6d4aff)](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/-/releases)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
 [![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](docs/LICENSE)
 [![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
+
+> **📍 Repository status:** This is the **public mirror** of the project. Active development, full CI/CD pipelines, packaging, and merges happen on [**self-hosted GitLab**](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux) — every commit here is mirrored from there. Issues and Pull Requests opened on GitHub are automatically synced to GitLab for triage and review via the [sync-to-gitlab workflow](.github/workflows/sync-to-gitlab.yml). GitHub Actions here only run lightweight final-verification checks (see [Sanity Checks](.github/workflows/sanity.yml)); package builds and releases are produced on GitLab. See [CI Authority & GitHub Mirroring](docs/ci-authority-and-mirroring.md) for the full policy.
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
 
@@ -44,8 +46,11 @@ Operational notes, weak areas, and the `~/Pictures` test plan are documented in 
 |---------|-------------|
 | `start_sync(path)` | Start watching a folder. `path` must be an existing directory under `$HOME`. |
 | `stop_sync()` | Stop watching and release the file watcher. |
-| `get_sync_status()` | Returns `{ enabled, folder_path }`. |
+| `get_sync_status()` | Returns `{ enabled, folder_path, poll_interval_seconds }`. |
+| `set_sync_root(path)` | Persist a new sync directory and start sync. |
 | `handle_remote_update(change)` | Apply a remote change. `change` is `{ relativePath, action, contentBase64 }` where `action` is `"create"`, `"update"`, or `"delete"`. |
+| `read_sync_file(rootPath, relativePath)` | Zero-trust local file read for upload (max 100 MB). Rejects symlinks and path traversal. |
+| `get_sync_device_name()` | Return the sanitized Linux device name used with the Proton Drive SDK. |
 
 ### Constraints
 
@@ -62,8 +67,12 @@ Operational notes, weak areas, and the `~/Pictures` test plan are documented in 
 | [Workflow](docs/workflow.md) | Branch, PR, review, and merge guide |
 | [CI Authority & GitHub Mirroring](docs/ci-authority-and-mirroring.md) | GitLab CI authority, GitHub mirror policy, and release ownership |
 | [Two-Way Sync Notes](docs/sync.md) | Sync bridge contract, weak areas, and test plan |
+| [Login & Sync Regression Runbook](docs/login-sync-regression-runbook.md) | Manual login, 2FA, and sync acceptance procedures |
+| [v2 API Reference](docs/api_v2_reference.md) | REST endpoints, Tauri commands, events, and curl examples |
 | [Contributing](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
 | [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
+| [Changelog](docs/CHANGELOG.md) | Release history |
+| [Contributors](docs/contributors.md) | Community contributions |
 | [License](docs/LICENSE) | AGPL-3.0 or later |
 | [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
 | [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |

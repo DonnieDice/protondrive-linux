@@ -102,8 +102,8 @@ repos, and the compatibility map can lag behind reality.
   - Set any target env values, container image, secrets, and dependencies in
     the entrypoint job.
 
-- [ ] Verify the entrypoint triggers the job on `push` to `main`, `alpha`,
-  package branches, tags, pull requests, and `workflow_dispatch`.
+- [ ] Verify the entrypoint triggers the job on `push` to `main`,
+ package branches, tags, pull requests, and `workflow_dispatch`.
 
 ## Step 4: Create the Local CI Build Script
 
