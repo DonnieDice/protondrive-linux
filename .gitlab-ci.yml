@@ -1,3 +1,6 @@
+include:
+  - local: .gitlab-ci-vm-tests.yml
+
 variables:
   RUST_VERSION: stable
   WEBCLIENTS_REF: main
