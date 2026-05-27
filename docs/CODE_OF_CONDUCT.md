@@ -58,7 +58,12 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement by opening an issue on GitHub.
+reported to the community leaders responsible for enforcement:
+
+- **Email:** donniedice@proton.me
+- **GitHub issues:** https://github.com/DonnieDice/protondrive-linux/issues
+- **GitLab issues** (authoritative repo): open an issue on the project's GitLab instance
+
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the

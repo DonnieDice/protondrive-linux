@@ -29,7 +29,7 @@ The repository contains the native Tauri sync bridge from PR #35:
   symlinks, and enforces `MAX_SYNC_BRIDGE_FILE_BYTES`.
 - `get_sync_device_name()` returns the sanitized Linux device name used with the Proton Drive SDK
   device API.
-- `get_sync_status()` reports whether a folder is currently being watched.
+- `get_sync_status()` reports whether a folder is currently being watched, the folder path, and the poll interval.
 - `stop_sync()` stops the watcher and clears suppression state.
 
 The WebClients build installs `ProtonDriveLinuxSyncBridge`, which listens for
@@ -81,7 +81,7 @@ remote-root mappings without coupling sync to whichever Drive folder is currentl
 
 Do not change these without updating tests, docs, and frontend integration together:
 
-- Command names: `start_sync`, `stop_sync`, `get_sync_status`, `handle_remote_update`,
+- Command names: `start_sync`, `stop_sync`, `get_sync_status`, `set_sync_root`, `handle_remote_update`,
   `read_sync_file`, `get_sync_device_name`.
 - Passive primary root/config: `DEFAULT_SYNC_ROOT_DIR`, `~/ProtonDrive`, `SYNC_ROOT_CONFIG_FILE`.
 - Default remote device mapping: `DEFAULT_REMOTE_SCOPE_COMPUTERS`, `DEFAULT_DEVICE_TYPE_LINUX`,

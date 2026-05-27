@@ -28,6 +28,10 @@ git clone https://github.com/DonnieDice/protondrive-linux.git
 cd protondrive-linux
 ```
 
+The GitHub repository is the public mirror and contributor surface. The
+authoritative source is on GitLab; if you have access, clone from there
+instead. Either clone works for development — MRs should target GitLab.
+
 Clone WebClients when building locally:
 
 ```bash
@@ -58,10 +62,15 @@ sudo pacman -S webkit2gtk-4.1 gtk3 libayatana-appindicator
 
 For web app changes, edit files under `WebClients/applications/drive/src/`.
 
-For desktop features, edit `src-tauri/src/main.rs` and restart the dev server.
+For desktop features, edit files under `src-tauri/src/` (main.rs, live_sync.rs,
+proton_navigation.rs, auth.rs, webview_cookies.rs, webview_storage.rs, sync_db.rs,
+url_log.rs) and restart the dev server.
 Do not add distro-specific WebKitGTK env vars or runtime behavior in
-`main.rs`; those belong in `patches/`. `DISTRO_TYPE` is only for package-type
-diagnostics.
+`main.rs`; those belong in `patches/`. `DISTRO_TYPE` is a build-time env
+var (`option_env!`) used to select per-distro Worker compatibility init
+scripts (see the "MULTI-DISTRO WORKER COMPATIBILITY" block in main.rs);
+do not add new behavior branches without updating the packaging matrix and
+CI workflows.
 
 For configuration, edit `src-tauri/tauri.conf.json`.
 
@@ -164,7 +173,7 @@ git commit -m "(#123) Add system tray icon support"
 
 The number in the commit title is the **issue** number (e.g., `#123`), not the
 MR number. If the work is not tracked yet, open an issue first and use that
-number. Do not leave the commit title without a GitHub reference.
+number. Do not leave the commit title without a GitLab reference.
 
 If you also want body traceability, reference the issue in the body or footer:
 
@@ -174,11 +183,15 @@ git commit -m "(#123) Add system tray icon support" -m "Refs #123"
 
 Use `Closes #123` when the commit fully resolves the issue.
 
-Push and open a merge request (MR):
+Push and open a merge request (MR) on GitLab:
 
 ```bash
 git push origin feature/my-feature
 ```
+
+Then open the MR at the GitLab repository (not GitHub). GitHub PRs are
+accepted but full validation runs in GitLab before merge — see
+`docs/ci-authority-and-mirroring.md` for the PR policy.
 
 ### MR Body Format
 
@@ -195,13 +208,14 @@ Closes #42
 
 ## Changed Areas
 
+- `.gitlab-ci.yml`
 - `.github/workflows/package-workflows.yml`
 - `.github/workflows/deb/debian-12/action.yml`
 - `docs/packaging.md`
 
 ## Testing
 
-- List the local commands or GitHub Actions runs used to verify the change
+- List the local commands or CI runs used to verify the change
 ```
 
 Do not add handcrafted GitHub `#diff-` anchors to MR bodies. They are easy to
@@ -214,11 +228,11 @@ All MR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
-- The number in the PR title is the **PR** number, not the tracked issue number
-- Start with an uppercase letter after the PR prefix
-- Be at least 10 characters long after the PR prefix
-- Put the PR prefix at the start of the title, e.g. `(#43) Title here`
-- If the PR number is not yet assigned, create the PR first, then edit the title once the number exists
+- The number in the MR title is the **MR** number, not the tracked issue number
+- Start with an uppercase letter after the MR prefix
+- Be at least 10 characters long after the MR prefix
+- Put the MR prefix at the start of the title, e.g. `(#43) Title here`
+- If the MR number is not yet assigned, create the MR first, then edit the title once the number exists
 
 Examples:
 
@@ -226,7 +240,7 @@ Examples:
 - `(#52) Fix linker flags for musl static linking`
 - `(#39) Update WebClients clone depth in build script`
 
-Open an issue before opening a PR when there is no tracked issue yet. This keeps
+Open an issue before opening an MR when there is no tracked issue yet. This keeps
 commits and closing links aligned from the first push.
 
 ### Review Bot Feedback
@@ -242,11 +256,11 @@ Before merging **any** MR, all automated review bot findings must be addressed:
 ### Commit Message and Link Rules
 
 - Use the commit title for a clear imperative summary plus an **issue** number
-  prefix when the commit is not a squash-merge MR title.
+ prefix when the commit is not a squash-merge MR title.
 - Use the commit body or footer for extra traceability if needed
-  (`Refs #123` or `Closes #123`).
-- Use the PR title for the **PR** number prefix (`(#124) ...`).
-- Do not link file diffs or fake PR numbers in commit titles.
+ (`Refs #123` or `Closes #123`).
+- Use the MR title for the **MR** number prefix (`(#124) ...`).
+- Do not link file diffs or fake MR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
 ## Troubleshooting
@@ -275,4 +289,4 @@ node -v
 
 - [Tauri Documentation](https://tauri.app/)
 - [Proton WebClients](https://github.com/ProtonMail/WebClients)
-- Open an issue with build logs and the target distro/runtime
+- Open an issue (GitLab preferred; GitHub issues are also monitored) with build logs and the target distro/runtime

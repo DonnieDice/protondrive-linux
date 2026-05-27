@@ -24,7 +24,7 @@
   <screenshots>
     <screenshot type="default">
       <caption>The main file management interface</caption>
-      <image>https://raw.githubusercontent.com/DonnieDice/protondrive-linux/main/screenshots/main.png</image>
+      <image type="source">https://raw.githubusercontent.com/DonnieDice/protondrive-linux/main/screenshots/main.png</image>
     </screenshot>
   </screenshots>
 
@@ -36,6 +36,16 @@
   </provides>
 
   <releases>
+    <release version="2.0.0" date="2026-05-27">
+      <description>
+        <p>Proton Drive Linux v2.0.0 release:</p>
+        <ul>
+          <li>Major release of the unofficial Linux client.</li>
+          <li>Expanded package target support: 17 release-gated targets across DEB, RPM, AppImage, Flatpak, Snap, AUR, and APK.</li>
+          <li>Full compatibility gate system with glibc and WebKitGTK validation.</li>
+        </ul>
+      </description>
+    </release>
     <release version="1.4.4" date="2026-05-21">
       <description>
         <p>Proton Drive Linux v1.4.4 release:</p>

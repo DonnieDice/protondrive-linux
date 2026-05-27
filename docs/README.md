@@ -9,11 +9,14 @@ Project documentation lives here. The root `README.md` is kept as the GitHub lan
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
 - [License](LICENSE)
+- [Contributors](contributors.md)
+- [Changelog](CHANGELOG.md)
 
 ## Packaging
 
 - [Packaging, Compatibility, And Release](packaging.md)
 - [CI/CD Roadmap](ci-cd-roadmap.md)
+- [CI Authority & GitHub Mirroring](ci-authority-and-mirroring.md)
 - [Release Checklist](release-checklist.md)
 - [New Build/Package Checklist](new-build-checklist.md)
 
@@ -25,3 +28,4 @@ Project documentation lives here. The root `README.md` is kept as the GitHub lan
 
 - [Two-Way Sync Notes](sync.md)
 - [Login And Sync Regression Runbook](login-sync-regression-runbook.md)
+- [v2 API Reference](api_v2_reference.md)
