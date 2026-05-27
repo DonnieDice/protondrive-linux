@@ -214,12 +214,11 @@ All MR titles must match the CommitCheck regex: `^\(#\d+\)\s[A-Z].{9,}$`
 
 Rules:
 
-- The number in the MR title is the **MR** number, not the tracked issue number
-- Start with an uppercase letter after the MR prefix
-- Be at least 10 characters long after the MR prefix
-- Put the MR prefix at the start of the title, e.g. `(#43) Title here`
-- If the MR number is not yet assigned, create the MR first, then edit the title once the number exists
-  the title once the number exists
+- The number in the PR title is the **PR** number, not the tracked issue number
+- Start with an uppercase letter after the PR prefix
+- Be at least 10 characters long after the PR prefix
+- Put the PR prefix at the start of the title, e.g. `(#43) Title here`
+- If the PR number is not yet assigned, create the PR first, then edit the title once the number exists
 
 Examples:
 
@@ -227,7 +226,7 @@ Examples:
 - `(#52) Fix linker flags for musl static linking`
 - `(#39) Update WebClients clone depth in build script`
 
-Open an issue before opening an MR when there is no tracked issue yet. This keeps
+Open an issue before opening a PR when there is no tracked issue yet. This keeps
 commits and closing links aligned from the first push.
 
 ### Review Bot Feedback
@@ -246,8 +245,8 @@ Before merging **any** MR, all automated review bot findings must be addressed:
   prefix when the commit is not a squash-merge MR title.
 - Use the commit body or footer for extra traceability if needed
   (`Refs #123` or `Closes #123`).
-- Use the MR title for the **MR** number prefix (`(#124) ...`).
-- Do not link file diffs or fake MR numbers in commit titles.
+- Use the PR title for the **PR** number prefix (`(#124) ...`).
+- Do not link file diffs or fake PR numbers in commit titles.
 - If there is no issue yet, create one before writing the commit title.
 
 ## Troubleshooting
