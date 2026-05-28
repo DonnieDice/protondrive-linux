@@ -126,10 +126,13 @@ npm run dev
 
 ## Building
 
-Remote CI workflows (GitHub Actions) are the source of truth for release
-artifacts. Local builds are useful for debugging compilation only.
+GitLab CI is the authoritative build, package, VM-test, signing, and release
+system. The GitHub repository is a public mirror/community surface; GitHub
+Actions are intentionally limited to public sanity checks plus explicit manual
+maintenance workflows so mirrored commits do not duplicate the full CI/CD
+pipeline.
 
-### Build the frontend (WebClients)
+Local builds are useful for debugging compilation only:
 
 ```bash
 npm run build:web
@@ -160,21 +163,10 @@ cd src-tauri
 cargo build --release
 ```
 
-> **Alpine / musl builds:** When building on Alpine, set up
-> `.cargo/config.toml` to use dynamic linking. See
-> `docs/new-build-checklist.md` for the exact configuration.
-
-### Available npm scripts
-
-| Script | Description |
-|--------|-------------|
-| `npm run dev` | Start Tauri dev server with hot reload |
-| `npm run build` | Full release build (deb + rpm + AppImage) |
-| `npm run build:web` | Build WebClients frontend only |
-| `npm run build:deb` | Build DEB package only |
-| `npm run build:rpm` | Build RPM package only |
-| `npm run build:appimage` | Build AppImage only |
-| `npx tauri build --bundles <type>` | Direct Tauri build (bypasses npm scripts) |
+The package workflow implementations under `.github/workflows/` are retained for
+manual compatibility checks and maintenance, but release artifacts should be
+produced and published by GitLab CI unless the CI authority is intentionally
+changed. See `docs/packaging.md` for the release gate.
 
 ## Packaging Rules
 

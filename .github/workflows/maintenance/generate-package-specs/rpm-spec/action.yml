@@ -113,9 +113,22 @@ runs:
         - Build from ${{ github.ref }}
         EOF
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=. \
+          bash scripts/ci/write-artifact-manifest.sh \
+          rpm-spec \
+          rpm-metadata \
+          generic \
+          x86_64 \
+          "proton-drive.spec"
+
     - name: Upload spec file artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: rpm-spec
-        path: proton-drive.spec
+        path: |
+          proton-drive.spec
+          rpm-spec.*
         retention-days: 90

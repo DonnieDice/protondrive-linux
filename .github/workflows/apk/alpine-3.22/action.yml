@@ -143,10 +143,23 @@ runs:
         tar -C "$APK_STAGING" -czf "$ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
         echo "Packaged: $ARTIFACT_DIR/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz"
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=/tmp/apk-artifact \
+          bash scripts/ci/write-artifact-manifest.sh \
+          apk-package-alpine322 \
+          apk \
+          alpine-3.22 \
+          x86_64 \
+          "/tmp/apk-artifact/proton-drive_*_alpine322_amd64.apk.tar.gz"
+
     - name: Upload APK artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: apk-package-alpine322
-        path: /tmp/apk-artifact/proton-drive_*_alpine322_amd64.apk.tar.gz
+        path: |
+          /tmp/apk-artifact/proton-drive_*_alpine322_amd64.apk.tar.gz
+          /tmp/apk-artifact/apk-package-alpine322.*
         if-no-files-found: error
         retention-days: 30

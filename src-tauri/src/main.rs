@@ -3,26 +3,54 @@
     windows_subsystem = "windows"
 )]
 
+use base64::Engine as _;
+use reqwest::cookie::Jar;
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::path::PathBuf;
+use std::fs;
+use std::io::Read;
+use std::path::{Path, PathBuf};
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::Arc;
+use std::time::{Duration, Instant};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
 /// Live sync module — monitors local filesystem changes and syncs with Proton Drive.
 mod live_sync;
+mod proton_navigation;
+mod sync_db;
+mod url_log;
+mod webview_cookies;
+mod webview_storage;
+
+use proton_navigation::{
+    account_login_complete_redirect_url, captcha_completion_token, unsupported_app_redirect_url,
+};
+use url_log::sanitize_url_for_log;
+use webview_cookies::{combined_cookie_header, store_webview_cookie};
+use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 /// Base URL for the Proton API.
 const PROTON_API_BASE: &str = "https://mail.proton.me";
 
 /// Error message shown when a sync command is invoked from an untrusted origin.
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
+const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
+const DEFAULT_SYNC_ROOT_DIR: &str = "ProtonDrive";
+const DEFAULT_REMOTE_SCOPE_COMPUTERS: &str = "computers";
+const DEFAULT_DEVICE_TYPE_LINUX: &str = "linux";
+const MAX_SYNC_BRIDGE_FILE_BYTES: u64 = 100 * 1024 * 1024;
+const PROXY_REQUEST_TIMEOUT: Duration = Duration::from_secs(45);
+const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
+
+static PROXY_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
 /// Shared application state, holding the HTTP client and sync manager.
 // Shared HTTP client with cookie jar
 struct AppState {
     client: Client,
+    cookie_jar: Arc<Jar>,
     sync_manager: live_sync::LiveSyncManager,
 }
 
@@ -43,7 +71,16 @@ struct ProxyResponse {
     body: String,
 }
 
-/// Forwards a JavaScript console message to the Rust-side log output.
+#[derive(Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+struct SyncFilePayload {
+    relative_path: String,
+    name: String,
+    size: u64,
+    modified_ms: Option<u128>,
+    content_base64: String,
+}
+
 #[tauri::command]
 fn js_log(msg: String) {
     println!("[JS] {}", msg);
@@ -169,10 +206,24 @@ fn start_sync(
     state: tauri::State<'_, Arc<AppState>>,
     path: String,
 ) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] start_sync requested path={}", path);
     ensure_sync_command_allowed(&window)?;
     let sync_root = validate_sync_root_path(&path)?;
+    register_sync_root_metadata(
+        &app.path().app_data_dir().map_err(|e| {
+            eprintln!("[Sync] app data dir unavailable for sync metadata: {e}");
+            "Unable to save sync metadata".to_string()
+        })?,
+        &sync_root,
+    )?;
     state.sync_manager.start(app, sync_root)?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] start_sync active enabled={} folder={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>")
+    );
+    Ok(status)
 }
 
 /// Stops the active live-sync operation.
@@ -181,9 +232,12 @@ fn stop_sync(
     window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] stop_sync requested");
     ensure_sync_command_allowed(&window)?;
     state.sync_manager.stop()?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!("[Sync] stop_sync complete enabled={}", status.enabled);
+    Ok(status)
 }
 
 /// Returns the current status of the live-sync manager.
@@ -193,7 +247,41 @@ fn get_sync_status(
     state: tauri::State<'_, Arc<AppState>>,
 ) -> Result<live_sync::LiveSyncStatus, String> {
     ensure_sync_command_allowed(&window)?;
-    state.sync_manager.status()
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] get_sync_status enabled={} folder={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>")
+    );
+    Ok(status)
+}
+
+#[tauri::command]
+fn set_sync_root(
+    window: tauri::WebviewWindow,
+    app: tauri::AppHandle,
+    state: tauri::State<'_, Arc<AppState>>,
+    path: String,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] set_sync_root requested");
+    ensure_sync_command_allowed(&window)?;
+    let sync_root = validate_sync_root_path(&path)?;
+    persist_selected_sync_root(
+        &app.path().app_data_dir().map_err(|e| {
+            eprintln!("[Sync] app data dir unavailable for sync config: {e}");
+            "Unable to save sync folder".to_string()
+        })?,
+        &sync_root,
+    )?;
+    state.sync_manager.start(app, sync_root)?;
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] set_sync_root active enabled={} folder={} poll_interval_seconds={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>"),
+        status.poll_interval_seconds
+    );
+    Ok(status)
 }
 
 /// Applies a remote change received from the Proton Drive server to the local sync root.
@@ -203,13 +291,100 @@ fn handle_remote_update(
     state: tauri::State<'_, Arc<AppState>>,
     change: live_sync::RemoteSyncChange,
 ) -> Result<String, String> {
+    println!(
+        "[Sync] handle_remote_update action={} path={}",
+        change.action, change.relative_path
+    );
     ensure_sync_command_allowed(&window)?;
-    state.sync_manager.apply_remote_change(change)
+    let target = state.sync_manager.apply_remote_change(change)?;
+    println!("[Sync] handle_remote_update applied target={}", target);
+    Ok(target)
+}
+
+#[tauri::command]
+fn get_sync_device_name(window: tauri::WebviewWindow) -> Result<String, String> {
+    ensure_sync_command_allowed(&window)?;
+    Ok(default_sync_device_name())
+}
+
+#[tauri::command]
+fn read_sync_file(
+    window: tauri::WebviewWindow,
+    state: tauri::State<'_, Arc<AppState>>,
+    root_path: String,
+    relative_path: String,
+) -> Result<SyncFilePayload, String> {
+    ensure_sync_command_allowed(&window)?;
+    let status = state.sync_manager.status()?;
+    let active_root = status
+        .folder_path
+        .ok_or_else(|| "Live sync is not active".to_string())?;
+    let requested_root = PathBuf::from(root_path);
+    let active_root = PathBuf::from(active_root).canonicalize().map_err(|e| {
+        eprintln!("[Sync] failed to resolve active root for file read: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    let requested_root = requested_root.canonicalize().map_err(|e| {
+        eprintln!("[Sync] failed to resolve requested root for file read: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    if requested_root != active_root {
+        eprintln!("[Sync] rejected file read for inactive root");
+        return Err("Unable to read sync file".to_string());
+    }
+
+    let relative = validate_sync_relative_path(&relative_path)?;
+    let target = active_root.join(&relative);
+    live_sync::validate_path_within_root(&active_root, &target).map_err(|e| {
+        eprintln!("[Sync] rejected file read target: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    let metadata = fs::symlink_metadata(&target).map_err(|e| {
+        eprintln!("[Sync] failed to stat sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    if metadata.file_type().is_symlink() || !metadata.is_file() {
+        eprintln!("[Sync] rejected non-file sync upload payload");
+        return Err("Unable to read sync file".to_string());
+    }
+    if metadata.len() > MAX_SYNC_BRIDGE_FILE_BYTES {
+        eprintln!("[Sync] rejected oversized sync upload payload");
+        return Err("Sync file is too large".to_string());
+    }
+
+    let mut file = fs::File::open(&target).map_err(|e| {
+        eprintln!("[Sync] failed to open sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+    let mut bytes = Vec::with_capacity(metadata.len() as usize);
+    file.read_to_end(&mut bytes).map_err(|e| {
+        eprintln!("[Sync] failed to read sync file for upload: {e}");
+        "Unable to read sync file".to_string()
+    })?;
+
+    Ok(SyncFilePayload {
+        relative_path: relative.to_string_lossy().to_string(),
+        name: relative
+            .file_name()
+            .and_then(|name| name.to_str())
+            .unwrap_or("upload.bin")
+            .to_string(),
+        size: metadata.len(),
+        modified_ms: metadata
+            .modified()
+            .ok()
+            .and_then(|time| time.duration_since(std::time::UNIX_EPOCH).ok())
+            .map(|duration| duration.as_millis()),
+        content_base64: base64::engine::general_purpose::STANDARD.encode(bytes),
+    })
 }
 
 /// Proxies an HTTP request from the WebView through the shared cookie-authenticated client.
 #[tauri::command]
 async fn proxy_request(
+    window: tauri::WebviewWindow,
     state: tauri::State<'_, Arc<AppState>>,
     request: ProxyRequest,
 ) -> Result<ProxyResponse, String> {
@@ -241,14 +416,27 @@ async fn proxy_request(
     let method = reqwest::Method::from_bytes(request.method.to_uppercase().as_bytes())
         .unwrap_or(reqwest::Method::GET);
 
-    println!("[Proxy] {} {}", method, sanitize_url_for_log(&url));
+    let request_id = PROXY_REQUEST_ID.fetch_add(1, Ordering::Relaxed);
+    let started_at = Instant::now();
+    let sanitized_url = sanitize_url_for_log(&url);
+    println!("[Proxy][{}] {} {} start", request_id, method, sanitized_url);
 
-    let mut req = state.client.request(method, &url);
+    let target_url = tauri::Url::parse(&url).map_err(|e| {
+        eprintln!("[Proxy] invalid target URL {}: {e}", sanitized_url);
+        "Invalid request URL".to_string()
+    })?;
 
-    // Forward headers from frontend (skip cookie - client handles it)
+    let mut req = state
+        .client
+        .request(method, &url)
+        .timeout(PROXY_REQUEST_TIMEOUT);
+    if let Some(cookie_header) = combined_cookie_header(&window, &state.cookie_jar, &target_url) {
+        req = req.header(reqwest::header::COOKIE, cookie_header);
+    }
+
+    // Forward headers from frontend. Cookies come from WebKit's native jar.
     for (key, value) in &request.headers {
         let k = key.to_lowercase();
-        // Skip cookie header - reqwest cookie jar handles cookies automatically
         if k != "host" && k != "cookie" {
             req = req.header(key.as_str(), value.as_str());
         }
@@ -258,35 +446,60 @@ async fn proxy_request(
         req = req.body(body.clone());
     }
 
-    let resp = req.send().await.map_err(|e| {
-        eprintln!(
-            "[Proxy] request failed for {}: {e}",
-            sanitize_url_for_log(&url)
-        );
-        "Request failed".to_string()
-    })?;
+    let resp = match req.send().await {
+        Ok(resp) => resp,
+        Err(e) => {
+            let elapsed_ms = started_at.elapsed().as_millis();
+            let status = if e.is_timeout() { 504 } else { 502 };
+            eprintln!(
+                "[Proxy][{}] {} {} failed status={} elapsed_ms={} error={}",
+                request_id, request.method, sanitized_url, status, elapsed_ms, e
+            );
+            return Ok(ProxyResponse {
+                status,
+                headers: HashMap::new(),
+                body: format!(
+                    "{{\"Error\":\"Native proxy request failed\",\"Status\":{},\"Timeout\":{}}}",
+                    status,
+                    e.is_timeout()
+                ),
+            });
+        }
+    };
     let status = resp.status().as_u16();
 
-    // Forward response headers including set-cookie (needed for WebView session)
+    // Forward response headers, but keep Set-Cookie inside WebKit's native jar.
     let mut resp_headers = HashMap::new();
-    let mut set_cookies: Vec<String> = Vec::new();
     for (name, value) in resp.headers().iter() {
         if let Ok(v) = value.to_str() {
             if name.as_str().eq_ignore_ascii_case("set-cookie") {
-                set_cookies.push(v.to_string());
+                store_webview_cookie(&window, &target_url, v);
             } else {
                 resp_headers.insert(name.to_string(), v.to_string());
             }
         }
     }
-    // Join multiple set-cookie headers with a delimiter JS can split on
-    if !set_cookies.is_empty() {
-        resp_headers.insert("x-set-cookie".to_string(), set_cookies.join("|||"));
-    }
 
-    let body = resp.text().await.unwrap_or_default();
+    let body = match resp.text().await {
+        Ok(body) => body,
+        Err(e) => {
+            let elapsed_ms = started_at.elapsed().as_millis();
+            eprintln!(
+                "[Proxy][{}] {} {} body_read_failed elapsed_ms={} error={}",
+                request_id, request.method, sanitized_url, elapsed_ms, e
+            );
+            String::new()
+        }
+    };
 
-    println!("[Proxy] {} <- {}", status, sanitize_url_for_log(&url));
+    println!(
+        "[Proxy][{}] {} <- {} elapsed_ms={} body={}",
+        request_id,
+        status,
+        sanitized_url,
+        started_at.elapsed().as_millis(),
+        body.len()
+    );
 
     Ok(ProxyResponse {
         status,
@@ -337,13 +550,205 @@ fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
     Ok(canonical)
 }
 
-/// Strips sensitive details from a URL for safe logging (keeps scheme + host + path).
-fn sanitize_url_for_log(url: &str) -> String {
-    if let Ok(parsed) = tauri::Url::parse(url) {
-        let host = parsed.host_str().unwrap_or("unknown");
-        return format!("{}://{}{}", parsed.scheme(), host, parsed.path());
+fn validate_sync_relative_path(path: &str) -> Result<PathBuf, String> {
+    let relative = Path::new(path);
+    if relative.as_os_str().is_empty() || relative.is_absolute() {
+        return Err("Invalid sync path".to_string());
     }
-    "<unparsed-url>".to_string()
+
+    let mut clean = PathBuf::new();
+    for component in relative.components() {
+        match component {
+            std::path::Component::Normal(part) => clean.push(part),
+            _ => return Err("Invalid sync path".to_string()),
+        }
+    }
+
+    if clean.as_os_str().is_empty() {
+        Err("Invalid sync path".to_string())
+    } else {
+        Ok(clean)
+    }
+}
+
+fn sync_root_config_path(app_data_dir: &Path) -> PathBuf {
+    app_data_dir.join(SYNC_ROOT_CONFIG_FILE)
+}
+
+fn persist_selected_sync_root(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
+    fs::create_dir_all(app_data_dir).map_err(|e| {
+        eprintln!("[Sync] failed to create app data dir for sync config: {e}");
+        "Unable to save sync folder".to_string()
+    })?;
+
+    fs::write(
+        sync_root_config_path(app_data_dir),
+        sync_root.to_string_lossy().as_bytes(),
+    )
+    .map_err(|e| {
+        eprintln!("[Sync] failed to persist selected sync root: {e}");
+        "Unable to save sync folder".to_string()
+    })?;
+
+    set_private_file_permissions(&sync_root_config_path(app_data_dir)).map_err(|e| {
+        eprintln!("[Sync] failed to secure selected sync root config: {e}");
+        "Unable to save sync folder".to_string()
+    })?;
+
+    register_sync_root_metadata(app_data_dir, sync_root)
+}
+
+fn read_selected_sync_root(app_data_dir: &Path) -> Option<String> {
+    fs::read_to_string(sync_root_config_path(app_data_dir))
+        .ok()
+        .map(|path| path.trim().to_string())
+        .filter(|path| !path.is_empty())
+}
+
+fn default_sync_root_path() -> Result<PathBuf, String> {
+    dirs::home_dir()
+        .map(|home| home.join(DEFAULT_SYNC_ROOT_DIR))
+        .ok_or_else(|| "Invalid sync folder".to_string())
+}
+
+fn default_sync_device_name() -> String {
+    sanitize_sync_device_name(&machine_name_for_sync())
+}
+
+fn machine_name_for_sync() -> String {
+    std::env::var("HOSTNAME")
+        .ok()
+        .filter(|value| !value.trim().is_empty())
+        .or_else(|| fs::read_to_string("/etc/hostname").ok())
+        .map(|value| value.trim().to_string())
+        .filter(|value| !value.is_empty())
+        .unwrap_or_else(|| "Linux-PC".to_string())
+}
+
+fn sanitize_sync_device_name(value: &str) -> String {
+    let sanitized = value
+        .trim()
+        .chars()
+        .map(|ch| {
+            if ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '.') {
+                ch
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>()
+        .trim_matches(|ch| matches!(ch, '-' | '_' | '.'))
+        .chars()
+        .take(64)
+        .collect::<String>();
+
+    if sanitized.is_empty() || sanitized == "." || sanitized == ".." {
+        "Linux-PC".to_string()
+    } else {
+        sanitized
+    }
+}
+
+fn ensure_default_sync_root() -> Result<PathBuf, String> {
+    let root = default_sync_root_path()?;
+    fs::create_dir_all(&root).map_err(|e| {
+        eprintln!("[Sync] failed to create default sync root: {e}");
+        "Unable to create default sync folder".to_string()
+    })?;
+    validate_sync_root_path(&root.to_string_lossy())
+}
+
+fn start_selected_sync_root(
+    app_handle: tauri::AppHandle,
+    state: &Arc<AppState>,
+    path: &str,
+    source: &str,
+) -> Result<live_sync::LiveSyncStatus, String> {
+    println!("[Sync] selected root requested source={}", source);
+    let sync_root = validate_sync_root_path(path)?;
+    let app_data_dir = app_handle.path().app_data_dir().map_err(|e| {
+        eprintln!("[Sync] app data dir unavailable for sync metadata: {e}");
+        "Unable to save sync metadata".to_string()
+    })?;
+    register_sync_root_metadata(&app_data_dir, &sync_root)?;
+    state.sync_manager.start(app_handle, sync_root)?;
+    let status = state.sync_manager.status()?;
+    println!(
+        "[Sync] auto-start active enabled={} folder={} poll_interval_seconds={}",
+        status.enabled,
+        status.folder_path.as_deref().unwrap_or("<none>"),
+        status.poll_interval_seconds
+    );
+    Ok(status)
+}
+
+fn register_sync_root_metadata(app_data_dir: &Path, sync_root: &Path) -> Result<(), String> {
+    let db = sync_db::SyncDb::open(&sync_db::sync_db_path(app_data_dir))?;
+    debug_assert_eq!(
+        DEFAULT_REMOTE_SCOPE_COMPUTERS,
+        sync_db::REMOTE_SCOPE_COMPUTERS
+    );
+    db.upsert_computers_root(
+        sync_root,
+        &default_sync_device_name(),
+        DEFAULT_DEVICE_TYPE_LINUX,
+    )?;
+    Ok(())
+}
+
+#[cfg(unix)]
+fn set_private_file_permissions(path: &Path) -> std::io::Result<()> {
+    use std::os::unix::fs::PermissionsExt;
+    fs::set_permissions(path, fs::Permissions::from_mode(0o600))
+}
+
+#[cfg(not(unix))]
+fn set_private_file_permissions(_path: &Path) -> std::io::Result<()> {
+    Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn default_sync_root_is_home_protondrive() {
+        let root = default_sync_root_path().unwrap();
+        assert_eq!(
+            root.file_name().and_then(|name| name.to_str()),
+            Some("ProtonDrive")
+        );
+    }
+
+    #[test]
+    fn device_folder_name_is_path_safe_and_bounded() {
+        assert_eq!(
+            sanitize_sync_device_name("dev box/../../bad"),
+            "dev-box-..-..-bad"
+        );
+        assert_eq!(sanitize_sync_device_name("..."), "Linux-PC");
+        assert_eq!(sanitize_sync_device_name(""), "Linux-PC");
+        assert!(sanitize_sync_device_name(&"a".repeat(100)).len() <= 64);
+    }
+
+    #[test]
+    fn default_sync_device_metadata_uses_linux_computers_scope() {
+        let device_name = default_sync_device_name();
+        assert_eq!(DEFAULT_REMOTE_SCOPE_COMPUTERS, "computers");
+        assert_eq!(DEFAULT_DEVICE_TYPE_LINUX, "linux");
+        assert!(!device_name.is_empty());
+    }
+
+    #[test]
+    fn sync_relative_path_rejects_escape_and_absolute_paths() {
+        assert_eq!(
+            validate_sync_relative_path("nested/file.txt").unwrap(),
+            PathBuf::from("nested/file.txt")
+        );
+        assert!(validate_sync_relative_path("../file.txt").is_err());
+        assert!(validate_sync_relative_path("/tmp/file.txt").is_err());
+        assert!(validate_sync_relative_path("").is_err());
+    }
 }
 
 /// Application entry point — sets up WebKitGTK workarounds, initializes state, and launches the Tauri window.
@@ -356,20 +761,33 @@ fn main() {
     std::env::set_var("GSK_RENDERER", "cairo");
 
     // Create shared client with cookie jar
+    let cookie_jar = Arc::new(Jar::default());
     let state = Arc::new(AppState {
         client: Client::builder()
-            .cookie_store(true) // Enable cookie jar
+            .cookie_provider(cookie_jar.clone())
+            .connect_timeout(PROXY_CONNECT_TIMEOUT)
+            .timeout(PROXY_REQUEST_TIMEOUT)
             .build()
             .expect("Failed to create HTTP client"),
+        cookie_jar,
         sync_manager: live_sync::LiveSyncManager::default(),
     });
+
+    let startup_sync_state = Arc::clone(&state);
 
     tauri::Builder::default()
         .manage(state)
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_notification::init())
-        .setup(|app| {
+        .setup(move |app| {
+            let webview_data_dir = persistent_webview_data_dir(app.path().app_data_dir()?);
+            ensure_webview_data_dir(&webview_data_dir)?;
+            println!(
+                "[Storage] Using persistent WebView data directory: {:?}",
+                webview_data_dir
+            );
+
             // MULTI-DISTRO WORKER COMPATIBILITY
             // Different distros use different WebKitGTK builds with varying Worker support
             // Use DISTRO_TYPE env var at build time to determine Worker handling
@@ -460,6 +878,26 @@ fn main() {
 (function() {{
     {}
 "#, worker_init) + r#"
+
+    // Regression guard for post-2FA Drive load:
+    // The Tauri asset protocol must load Drive at tauri://localhost/, but the
+    // Drive SPA needs a /u/<localID>/ route when a persisted ps-<localID>
+    // session exists. If we leave the path at /, Drive treats the session as
+    // expired and loops back through account login. Rewrite the route before
+    // Proton app code runs so React Router starts on the active user route
+    // without a full deep-path WebView reload.
+    try {
+        if (window.location.protocol === 'tauri:' && window.location.hostname === 'localhost' && window.location.pathname === '/') {
+            const sessionKey = Object.keys(localStorage).find((key) => /^ps-\d+$/.test(key));
+            const localId = sessionKey && sessionKey.slice(3);
+            if (localId) {
+                history.replaceState({}, '', `/u/${localId}/`);
+                console.log('[SSO] Restored Drive user route before app init:', `/u/${localId}/`);
+            }
+        }
+    } catch (e) {
+        console.warn('[SSO] Failed to restore Drive user route:', e);
+    }
 
     // Intercept Blob downloads and save to ~/Downloads
     const origCreateObjectURL = URL.createObjectURL;
@@ -649,38 +1087,25 @@ fn main() {
         if (event.data && event.data.type === 'HUMAN_VERIFICATION_SUCCESS' && event.data.payload) {
             const token = event.data.payload.token;
             const tokenType = event.data.payload.type || 'captcha';
-            console.log('[CAPTCHA] Verification successful, storing token and returning');
+            console.log('[CAPTCHA] Verification successful, returning to account');
             captchaPending = false;
 
-            // Store in Rust memory (zero trust - cleared after single use)
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: tokenType
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            // External verify pages cannot use Tauri IPC reliably. Return the
+            // token through a local URL and let Rust store it before auth retry.
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=' + encodeURIComponent(tokenType);
         }
 
         // hCaptcha sends pm_captcha with the token directly
         if (event.data && event.data.type === 'pm_captcha' && event.data.token) {
             const token = event.data.token;
-            console.log('[CAPTCHA] pm_captcha received, storing token');
+            console.log('[CAPTCHA] pm_captcha received, returning to account');
             captchaPending = false;
 
-            try {
-                await window.__TAURI__.core.invoke('store_verification_token', {
-                    token: token,
-                    tokenType: 'captcha'
-                });
-                console.log('[CAPTCHA] Token stored, navigating back');
-                window.location.href = 'tauri://localhost/account/';
-            } catch (e) {
-                console.error('[CAPTCHA] Failed to store token:', e);
-            }
+            window.location.href = 'tauri://localhost/account/?hv_token='
+                + encodeURIComponent(token)
+                + '&hv_type=captcha';
         }
     });
 
@@ -746,7 +1171,170 @@ fn main() {
         sendToRust('UNHANDLED', [msg]);
     };
 
+    // Zero-trust startup diagnostics: the app has repeatedly regressed into
+    // a visible loading spinner with no actionable UI state. Keep this
+    // user-facing so a frozen WebView shows what request/state is blocking.
+    const startupDiagnostics = {
+        startedAt: Date.now(),
+        pendingProxy: new Map(),
+        lastLocation: window.location.href,
+        panel: null,
+        ensurePanel() {
+            if (this.panel || !document.body) return this.panel;
+            const panel = document.createElement('pre');
+            panel.id = 'protondrive-startup-diagnostics';
+            panel.style.cssText = [
+                'position:fixed',
+                'left:12px',
+                'right:12px',
+                'bottom:12px',
+                'z-index:2147483647',
+                'max-height:34vh',
+                'overflow:auto',
+                'white-space:pre-wrap',
+                'font:12px/1.4 monospace',
+                'padding:10px',
+                'border-radius:8px',
+                'border:1px solid rgba(255,255,255,.25)',
+                'background:rgba(0,0,0,.86)',
+                'color:#fff',
+                'box-shadow:0 8px 32px rgba(0,0,0,.35)',
+                'display:none'
+            ].join(';');
+            document.body.appendChild(panel);
+            this.panel = panel;
+            return panel;
+        },
+        snapshot(label, forceVisible = false) {
+            let sessionKeys = [];
+            try { sessionKeys = Object.keys(localStorage).filter(k => k.startsWith('ps-')); } catch {}
+            const pending = Array.from(this.pendingProxy.values()).map(entry => {
+                return `${Math.round((Date.now() - entry.startedAt) / 1000)}s ${entry.method} ${entry.url}`;
+            });
+            const lines = [
+                `[StartupDiag] ${label}`,
+                `url=${window.location.href}`,
+                `ready=${document.readyState} visible=${document.visibilityState}`,
+                `sessions=${sessionKeys.join(',') || 'none'}`,
+                `pendingProxy=${pending.length}`,
+                ...pending.slice(0, 8)
+            ];
+            sendToRust('STARTUP_DIAG', lines);
+            const panel = this.ensurePanel();
+            if (panel) {
+                panel.textContent = lines.join('\n');
+                panel.style.display = (forceVisible || pending.length > 0) ? 'block' : 'none';
+            }
+        },
+        trackRequest(id, method, url) {
+            this.pendingProxy.set(id, { method, url, startedAt: Date.now() });
+            setTimeout(() => {
+                if (this.pendingProxy.has(id)) {
+                    this.snapshot('proxy request still pending after 10s', true);
+                }
+            }, 10000);
+            setTimeout(() => {
+                if (this.pendingProxy.has(id)) {
+                    this.snapshot('proxy request still pending after 30s', true);
+                }
+            }, 30000);
+        },
+        finishRequest(id) {
+            this.pendingProxy.delete(id);
+            if (this.pendingProxy.size === 0) this.snapshot('proxy idle');
+        }
+    };
+    window.__PROTONDRIVE_STARTUP_DIAGNOSTICS__ = startupDiagnostics;
+    document.addEventListener('DOMContentLoaded', () => startupDiagnostics.snapshot('DOMContentLoaded'));
+    window.addEventListener('load', () => startupDiagnostics.snapshot('window load'));
+    window.addEventListener('pageshow', () => startupDiagnostics.snapshot('pageshow'));
+    setTimeout(() => startupDiagnostics.snapshot('startup watchdog 8s', true), 8000);
+    setTimeout(() => startupDiagnostics.snapshot('startup watchdog 30s', true), 30000);
+
     const originalFetch = window.fetch;
+    const responseBodyForStatus = (status, body) => {
+        return [204, 205, 304].includes(status) ? null : (body ?? '');
+    };
+    const isStorageBlockUrl = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            return parsed.pathname.includes('/storage/blocks');
+        } catch {
+            return String(url || '').includes('/storage/blocks');
+        }
+    };
+
+    const requestBodyToString = async (body) => {
+        if (body == null) return null;
+        if (typeof body === 'string') return body;
+        if (body instanceof URLSearchParams) return body.toString();
+        if (body instanceof FormData) return new URLSearchParams(body).toString();
+        if (body instanceof Blob) return await body.text();
+        if (body instanceof ArrayBuffer) return new TextDecoder().decode(body);
+        if (ArrayBuffer.isView(body)) {
+            return new TextDecoder().decode(body.buffer.slice(body.byteOffset, body.byteOffset + body.byteLength));
+        }
+        if (body instanceof ReadableStream) {
+            throw new Error('ReadableStream request bodies are not supported by the Tauri API proxy');
+        }
+        return JSON.stringify(body);
+    };
+
+    const collectHeaders = (input, init) => {
+        const headers = {};
+        const mergeHeaders = (source) => {
+            if (!source) return;
+            const sourceHeaders = new Headers(source);
+            sourceHeaders.forEach((value, key) => headers[key] = value);
+        };
+
+        if (input instanceof Request) {
+            mergeHeaders(input.headers);
+        }
+        mergeHeaders(init?.headers);
+
+        return headers;
+    };
+
+    const collectFetchRequest = async (input, init = {}) => {
+        const request = input instanceof Request ? input : null;
+        const method = (init.method || request?.method || 'GET').toUpperCase();
+        const headers = collectHeaders(request || input, init);
+        const hasInitBody = Object.prototype.hasOwnProperty.call(init, 'body') && init.body != null;
+        let body = null;
+
+        if (method !== 'GET' && method !== 'HEAD') {
+            if (hasInitBody) {
+                body = await requestBodyToString(init.body);
+            } else if (request) {
+                try {
+                    body = await request.clone().text();
+                } catch (e) {
+                    console.warn('[Proxy] Unable to read Request body:', e);
+                }
+            }
+        }
+
+        return { method, headers, body };
+    };
+
+    // Serialize Tauri IPC invokes for proxy_request. WebKitGTK's IPC custom
+    // protocol can only handle one in-flight invoke at a time on this build;
+    // 5+ concurrent invokes break the bridge and fall back to postMessage,
+    // which has a known Tauri bug where JSON object responses never resolve
+    // — leaving the SPA frozen on the loading screen forever. Queue invokes
+    // through a chained promise so the bridge always sees exactly one
+    // request in flight. The upstream HTTPS calls still parallelize fine on
+    // the Rust side via reqwest's connection pool, so this only serializes
+    // the JS→Rust crossing.
+    let proxyInvokeChain = Promise.resolve();
+    function invokeProxyRequest(payload) {
+        const next = proxyInvokeChain
+            .catch(() => null)
+            .then(() => window.__TAURI__.core.invoke('proxy_request', payload));
+        proxyInvokeChain = next.catch(() => null);
+        return next;
+    }
 
     window.fetch = async function(input, init = {}) {
         let url = typeof input === 'string' ? input : (input.url || String(input));
@@ -758,10 +1346,11 @@ fn main() {
             console.log('[FETCH] Fixed protocol-relative URL to:', url);
         }
 
-        // Skip IPC calls for logging
-        if (!url.startsWith('ipc://')) {
-            sendToRust('FETCH', [init.method || 'GET', url]);
-        }
+        // Note: FETCH-level logging removed from hot path.
+        // Each js_log invoke adds IPC pressure that can break the WebKitGTK
+        // IPC bridge under concurrent load (5 SPA fetches + 5 FETCH logs
+        // + 5 PROXY_REQ logs = 15 concurrent invokes, vs ~5 on main).
+        // Rust already logs [Proxy][N] for proxied requests.
 
         // Only proxy API calls
         if (!url.includes('/api/')) {
@@ -772,6 +1361,18 @@ fn main() {
             } else if (typeof input === 'object' && input.url) {
                 fetchInput = new Request(url, input);
             }
+            const method = (init.method || (input instanceof Request ? input.method : 'GET') || 'GET').toUpperCase();
+            const storageBlockUrl = isStorageBlockUrl(url);
+            if (storageBlockUrl) {
+                let bodyLength = 0;
+                try {
+                    const collected = await collectFetchRequest(input, init);
+                    bodyLength = collected.body ? String(collected.body).length : 0;
+                } catch (e) {
+                    console.warn('[StorageBlocks] Unable to inspect request body:', e);
+                }
+                sendToRust('STORAGE_BLOCK_REQ', [method, url, 'body=' + bodyLength]);
+            }
 
             return originalFetch.call(window, fetchInput, init).then(r => {
                 // Skip logging IPC calls to reduce noise
@@ -780,38 +1381,30 @@ fn main() {
                     if (r.status !== 200) {
                         sendToRust('NATIVE_STATUS', [r.status, url]);
                     }
+                    if (storageBlockUrl) {
+                        const length = r.headers?.get?.('content-length') || 'unknown';
+                        sendToRust('STORAGE_BLOCK_RES', [method, r.status, url, 'content-length=' + length]);
+                    }
                 }
                 return r;
             }).catch(e => {
                 if (!url.startsWith('ipc://')) {
                     sendToRust('NATIVE_ERR', [url, e.message || e]);
+                    if (storageBlockUrl) {
+                        sendToRust('STORAGE_BLOCK_ERR', [method, url, e.message || e]);
+                    }
                 }
                 throw e;
             });
         }
 
-        const method = init.method || 'GET';
-        const headers = {};
-
-        if (init.headers) {
-            if (init.headers instanceof Headers) {
-                init.headers.forEach((v, k) => headers[k] = v);
-            } else if (Array.isArray(init.headers)) {
-                init.headers.forEach(([k, v]) => headers[k] = v);
-            } else {
-                Object.assign(headers, init.headers);
-            }
-        }
-
-        let body = null;
-        if (init.body) {
-            body = typeof init.body === 'string' ? init.body : JSON.stringify(init.body);
-        }
-
+        let proxyTraceId = null;
         try {
+            const proxiedRequest = await collectFetchRequest(input, init);
+
             // Ensure all header values are strings
             const cleanHeaders = {};
-            for (const [k, v] of Object.entries(headers)) {
+            for (const [k, v] of Object.entries(proxiedRequest.headers)) {
                 cleanHeaders[k] = String(v);
             }
 
@@ -826,29 +1419,17 @@ fn main() {
                 }
             }
 
-            const cleanBody = body ? String(body) : null;
-            const response = await window.__TAURI__.core.invoke('proxy_request', {
-                request: { method, url, headers: cleanHeaders, body: cleanBody }
+            const cleanBody = proxiedRequest.body == null ? null : String(proxiedRequest.body);
+            proxyTraceId = Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 8);
+            startupDiagnostics.trackRequest(proxyTraceId, proxiedRequest.method, url);
+            const response = await invokeProxyRequest({
+                request: { method: proxiedRequest.method, url, headers: cleanHeaders, body: cleanBody }
             });
+            startupDiagnostics.finishRequest(proxyTraceId);
 
             const respHeaders = new Headers();
             for (const [k, v] of Object.entries(response.headers || {})) {
                 try { respHeaders.set(k, v); } catch(e) {}
-            }
-
-            // Apply Set-Cookie headers to WebView (needed for session decryption)
-            if (response.headers && response.headers['x-set-cookie']) {
-                const cookies = response.headers['x-set-cookie'].split('|||');
-                for (const cookie of cookies) {
-                    try {
-                        // Extract just the cookie name=value part (before first ;)
-                        const cookiePart = cookie.split(';')[0];
-                        document.cookie = cookiePart + '; path=/; SameSite=Lax';
-                        console.log('[COOKIE] Set:', cookiePart.split('=')[0]);
-                    } catch (e) {
-                        console.warn('[COOKIE] Failed to set:', e);
-                    }
-                }
             }
 
             // Check for 9001 (captcha required) and navigate to verify page
@@ -890,11 +1471,12 @@ fn main() {
                 } catch (e) {}
             }
 
-            return new Response(response.body, {
+            return new Response(responseBodyForStatus(response.status, response.body), {
                 status: response.status,
                 headers: respHeaders
             });
         } catch (err) {
+            if (proxyTraceId) startupDiagnostics.finishRequest(proxyTraceId);
             console.error('[Proxy Error]', url, err);
             throw new TypeError('Network request failed: ' + err);
         }
@@ -927,18 +1509,27 @@ fn main() {
 
             console.log('[XHR Proxy]', method, url);
 
-            window.__TAURI__.core.invoke('proxy_request', {
-                request: { method, url, headers, body: body || null }
-            }).then(response => {
+            requestBodyToString(body).then((serializedBody) => invokeProxyRequest({
+                request: {
+                    method,
+                    url,
+                    headers,
+                    body: serializedBody == null ? null : String(serializedBody)
+                }
+            })).then(response => {
                 Object.defineProperty(xhr, 'status', { value: response.status });
+                Object.defineProperty(xhr, 'statusText', { value: String(response.status) });
                 Object.defineProperty(xhr, 'responseText', { value: response.body });
                 Object.defineProperty(xhr, 'response', { value: response.body });
+                Object.defineProperty(xhr, 'responseURL', { value: url });
                 Object.defineProperty(xhr, 'readyState', { value: 4 });
                 xhr.dispatchEvent(new Event('readystatechange'));
                 xhr.dispatchEvent(new Event('load'));
+                xhr.dispatchEvent(new Event('loadend'));
             }).catch(err => {
                 console.error('[XHR Proxy Error]', err);
                 xhr.dispatchEvent(new Event('error'));
+                xhr.dispatchEvent(new Event('loadend'));
             });
         };
 
@@ -976,6 +1567,7 @@ fn main() {
                 .title("Proton Drive")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
+                .data_directory(webview_data_dir)
                 .initialization_script(init_script)
                 .devtools(true)  // Enable right-click -> Inspect
                 .on_download(|_webview, event| {
@@ -1096,26 +1688,21 @@ fn main() {
                         return false;
                     }
 
-                    // After successful login, account app navigates to account.localhost/u/X/drive/...
-                    // Extract the user ID and redirect to Drive with user context
-                    if url.host_str() == Some("account.localhost") {
-                        let path = url.path();
-                        // Extract /u/X/ from path like /u/0/drive/account
-                        let user_path = if path.starts_with("/u/") {
-                            if let Some(end) = path[3..].find('/') {
-                                format!("/u/{}/", &path[3..3+end])
-                            } else {
-                                "/".to_string()
-                            }
-                        } else {
-                            "/".to_string()
-                        };
-                        let drive_url = format!("tauri://localhost{}", user_path);
+                    // After successful login/2FA, account.localhost lands on a
+                    // user-scoped Drive handoff route. Redirect to Drive root,
+                    // not /u/<id>/; deep tauri://localhost paths break the
+                    // WebKitGTK asset protocol/IPC bridge and freeze the app.
+                    // Force account to about:blank before loading Drive. Direct
+                    // same-origin handoffs to tauri://localhost/ can update the
+                    // URL while leaving the account document alive on WebKitGTK,
+                    // so the Drive init script never reinstalls IPC.
+                    if let Some(drive_url) = account_login_complete_redirect_url(url) {
                         println!("[SSO] Login complete, redirecting to: {}", drive_url);
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
                             tauri::async_runtime::spawn(async move {
-                                tokio::time::sleep(std::time::Duration::from_millis(300)).await;
+                                let _ = window.eval("window.location.replace('about:blank');");
+                                tokio::time::sleep(std::time::Duration::from_millis(250)).await;
                                 let _ = window.navigate(drive_url.parse().unwrap());
                             });
                         }
@@ -1128,6 +1715,40 @@ fn main() {
                         if host == "hcaptcha.com" || host.ends_with(".hcaptcha.com") {
                             println!("[CAPTCHA] Allowing hCaptcha resource: {}", url_str);
                             return true;
+                        }
+                    }
+
+                    // Regression guard for login/2FA:
+                    // Captcha completion is ONLY valid when injected JS returns to
+                    // tauri://localhost/account/?hv_token=...&hv_type=...
+                    // Do not infer completion from "leaving" verify.proton.me.
+                    // WebKitGTK emits captcha-internal about:blank/verify-api
+                    // navigations while verification is still active; handling
+                    // those as completion caused post-2FA freezes.
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                    {
+                        if let Some((token, token_type)) = captcha_completion_token(url) {
+                            ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
+                            println!("[CAPTCHA] Storing token from completion URL");
+                            *PENDING_VERIFICATION.lock().unwrap() = Some((token, token_type));
+
+                            if let Some(window) = app_handle_nav.get_webview_window("main") {
+                                tauri::async_runtime::spawn(async move {
+                                    let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
+                                });
+                            }
+                            return false;
+                        }
+
+                        if url.scheme() == "tauri"
+                            && url.host_str() == Some("localhost")
+                            && url.path().starts_with("/account/")
+                        {
+                            println!(
+                                "[CAPTCHA] Ignoring account return without verification token: {}",
+                                url_str
+                            );
+                            return false;
                         }
                     }
 
@@ -1145,19 +1766,27 @@ fn main() {
                         return true;
                     }
 
-                    // Detect navigation AWAY from captcha to non-captcha page - means captcha flow completed
-                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst) {
-                        // We're leaving the captcha page (not to another captcha/hcaptcha URL)
-                        ON_CAPTCHA_PAGE.store(false, std::sync::atomic::Ordering::SeqCst);
-                        println!("[CAPTCHA] Left captcha page, returning to account app");
+                    if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
+                        && url.scheme() == "about"
+                    {
+                        println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
+                        return true;
+                    }
 
-                        // Navigate back to account app to retry auth
+                    if let Some(local_url) = unsupported_app_redirect_url(url) {
+                        println!(
+                            "[SSO] Redirecting unsupported Proton app host {} to Drive: {}",
+                            url.host_str().unwrap_or("unknown"),
+                            local_url
+                        );
+
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
+                            let url_clone = local_url.clone();
                             tauri::async_runtime::spawn(async move {
-                                let _ = window.navigate("tauri://localhost/account/".parse().unwrap());
+                                let _ = window.navigate(url_clone.parse().unwrap());
                             });
                         }
-                        return false; // Block whatever navigation triggered this, we'll go to account
+                        return false;
                     }
 
                     // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
@@ -1174,6 +1803,44 @@ fn main() {
                 })
                 .build()?;
 
+            let app_data_dir = app.path().app_data_dir()?;
+            if let Ok(path) = std::env::var("PROTONDRIVE_AUTO_SYNC_PATH") {
+                println!("[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested");
+                match validate_sync_root_path(&path)
+                    .and_then(|sync_root| {
+                        persist_selected_sync_root(&app_data_dir, &sync_root)?;
+                        start_selected_sync_root(
+                            app.handle().clone(),
+                            &startup_sync_state,
+                            &sync_root.to_string_lossy(),
+                            "env",
+                        )
+                    })
+                {
+                    Ok(_) => {}
+                    Err(error) => eprintln!("[Sync] auto-start failed: {}", error),
+                }
+            } else {
+                if read_selected_sync_root(&app_data_dir).is_some() {
+                    println!(
+                        "[Sync] persisted extra sync root present; primary root defaults to ~/{}",
+                        DEFAULT_SYNC_ROOT_DIR
+                    );
+                }
+                match ensure_default_sync_root().and_then(|sync_root| {
+                    persist_selected_sync_root(&app_data_dir, &sync_root)?;
+                    start_selected_sync_root(
+                        app.handle().clone(),
+                        &startup_sync_state,
+                        &sync_root.to_string_lossy(),
+                        "default",
+                    )
+                }) {
+                    Ok(_) => {}
+                    Err(error) => eprintln!("[Sync] default auto-start failed: {}", error),
+                }
+            }
+
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
@@ -1186,10 +1853,20 @@ fn main() {
             store_login_credentials,
             get_and_clear_login_credentials,
             save_download,
+            // Sync bridge contract:
+            // start_sync/get_sync_status/stop_sync are the local folder watcher side.
+            // handle_remote_update is the remote-to-local apply side.
+            // read_sync_file/get_sync_device_name are the zero-trust local-to-remote
+            // upload bridge used by the WebClients sync listener.
+            // The frontend owns Proton Drive upload/download semantics and must keep
+            // these command names in sync with docs/sync.md and CI regression checks.
             start_sync,
             stop_sync,
             get_sync_status,
-            handle_remote_update
+            set_sync_root,
+            handle_remote_update,
+            read_sync_file,
+            get_sync_device_name
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

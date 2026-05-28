@@ -1,220 +1,107 @@
 #!/usr/bin/env python3
-"""
-patch_drive_linux_drawer.py — Patch the navigation drawer/rail into the WebClients Drive UI.
-
-The Proton Drive web app ships with a mobile-oriented layout that lacks a Linux-native
-sidebar/drawer (a persistent navigation rail showing folder tree, breadcrumbs, and
-top-level actions). When wrapped inside the Tauri desktop shell, this missing component
-degrades the user experience — users expect a resizable left sidebar common to native
-file managers and desktop apps.
-
-This script modifies the WebClients source (the Proton monorepo checked out locally) to:
-
-1. INJECT DRAWER COMPONENT   — Adds the Proton Drive Linux drawer/navigation-rail React
-   component(s) into the Drive app's routing layer so the sidebar renders persistently
-   across all drive views (My Files, Shared, Trash, etc.).
-
-2. WIRE NAVIGATION EVENTS    — Patches the app shell to manage drawer open/close state,
-   collapse/expand transitions, and keyboard shortcuts (Ctrl+B to toggle).
-
-3. HOOK THEME SYSTEM         — Ensures the drawer respects the active Proton theme
-   (light/dark) and adapts to the Tauri window frame on all desktop environments
-   (GNOME, KDE, XFCE, Sway).
-
-4. ADD RESIZE HANDLING       — Patches the root layout to support a resizable split-pane
-   between the drawer (default ~240 px) and the main content area, persisting the width
-   preference via Tauri store if available.
-
-Run this AFTER `yarn install` in WebClients so all dependencies are resolved before
-patching source files. The script reads and rewrites files under WebClients/applications/drive/
-and WebClients/packages/ — it is designed to be safe to re-run and idempotent (skips
-already-patched files on subsequent runs).
-
-Prerequisites:
-  - WebClients/ must exist (cloned from https://github.com/ProtonMail/WebClients)
-  - `yarn install` must have completed inside WebClients
-  - Run from the protondrive-linux repository root
-
-Example:
-  python3 scripts/patch_drive_linux_drawer.py
-"""
-
-import json
-import os
-import re
 import sys
 from pathlib import Path
 
 
-# ── Constants ─────────────────────────────────────────────────────────────────
-
-WEBCLIENT_DIR = Path("WebClients")
-"""Path to the cloned WebClients monorepo root, relative to the repo working dir."""
-
-DRIVE_APP_DIR = WEBCLIENT_DIR / "applications" / "drive"
-"""Path to the Proton Drive application source inside the WebClients monorepo."""
-
-DRAWER_MARKER = "/* @proton-drive-linux-drawer */"
-"""Comment marker injected into patched files so re-runs detect already-patched state.
-
-When this marker appears in a source file, the script skips it on subsequent runs
-to ensure idempotency.
-"""
-
-DEFAULT_DRAWER_WIDTH = 240
-"""Default drawer width in pixels when no persisted preference exists."""
+REPO_ROOT = Path(__file__).resolve().parents[1]
+WEBCLIENTS_DIR = REPO_ROOT / "WebClients"
+DRIVE_WINDOW_CANDIDATES = [
+    WEBCLIENTS_DIR / "applications/drive/src/app/components/layout/DriveWindow.tsx",
+    WEBCLIENTS_DIR / "applications/drive/src/app/legacy/components/layout/DriveWindow.tsx",
+]
+DRIVE_APP = WEBCLIENTS_DIR / "applications/drive/src/app/App.tsx"
 
 
-# ── Pre-flight Check ──────────────────────────────────────────────────────────
+def fail(message: str) -> None:
+    print(f"  ❌ {message}", file=sys.stderr)
+    sys.exit(1)
 
 
-def check_prerequisites() -> None:
-    """
-    Verify that the required WebClients directory exists and is a monorepo.
-
-    Exits with a non-zero code and prints a remediation message if the directory
-    is missing or does not contain a package.json at its root.
-
-    Raises:
-        SystemExit: If WebClients/ does not exist or is not a recognisable monorepo.
-    """
-    if not WEBCLIENT_DIR.exists():
-        print("❌ ERROR: WebClients directory not found!")
-        print("   Please clone WebClients first:")
-        print("   git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients")
-        sys.exit(1)
-
-    if not (WEBCLIENT_DIR / "package.json").exists():
-        print("❌ ERROR: WebClients does not appear to be a valid monorepo (no package.json).")
-        sys.exit(1)
-
-    print(f"✓ WebClients found at {WEBCLIENT_DIR.resolve()}")
-
-
-# ── Drawer Source Injection ────────────────────────────────────────────────────
-
-
-def inject_drawer_component() -> bool:
-    """
-    Copy or generate the Linux-native drawer React component into the Drive app.
-
-    Places the drawer component (e.g. ``DriveLinuxNavigationDrawer.tsx``) under
-    ``applications/drive/src/app/components/`` and registers it in the app layout
-    so it renders on every Drive route.
-
-    Returns:
-        True if the component was injected, False if already present (idempotent).
-    """
-    # --- Placeholder implementation ---
-    # Step 1: Create the drawer component source file if it does not exist.
-    # Step 2: Import and mount it in the root app layout component.
-    # Step 3: Inject the DRAWER_MARKER comment for idempotency detection.
-
-    print("ℹ [PLACEHOLDER] inject_drawer_component() — not yet implemented")
-    return False
-
-
-def wire_drawer_events() -> bool:
-    """
-    Attach keyboard shortcut (Ctrl+B) and state management for drawer open/close.
-
-    Patches the Tauri app shell to listen for the keyboard shortcut, toggles an
-    ``isDrawerOpen`` state flag, and passes it as a prop to the drawer component.
-    Also wires the close action on route navigation (selecting a file closes the
-    drawer on narrow windows).
-
-    Returns:
-        True if events were wired, False if already wired.
-    """
-    # --- Placeholder implementation ---
-    # Step 1: Locate the app shell component (e.g. MainContainer.tsx).
-    # Step 2: Add keyboard event listener for Ctrl+B.
-    # Step 3: Lift isDrawerOpen state and pass it down.
-    # Step 4: Inject DRAWER_MARKER for idempotency.
-
-    print("ℹ [PLACEHOLDER] wire_drawer_events() — not yet implemented")
-    return False
-
-
-def hook_drawer_theme() -> bool:
-    """
-    Apply the active Proton theme to the drawer component.
-
-    Reads the current CSS custom properties (``--theme-*``) from the Proton theme
-    system and writes corresponding rules into a scoped stylesheet for the drawer,
-    ensuring the drawer follows light / dark / high-contrast modes automatically.
-
-    Returns:
-        True if theme hooks were applied, False if already present.
-    """
-    # --- Placeholder implementation ---
-    # Step 1: Read theme variables from Proton's theme CSS.
-    # Step 2: Generate a scoped stylesheet for the drawer.
-    # Step 3: Inject a <link> or <style> tag into the head.
-    # Step 4: Add DRAWER_MARKER for idempotency.
-
-    print("ℹ [PLACEHOLDER] hook_drawer_theme() — not yet implemented")
-    return False
-
-
-def add_drawer_resize_handling() -> bool:
-    """
-    Enable resizable split-pane between the drawer and main content area.
-
-    Wraps the root layout with a split-pane container that allows the user to drag
-    the drawer boundary. The persisted drawer width is read from the Tauri store
-    (``@tauri-apps/plugin-store``) on startup, or falls back to DEFAULT_DRAWER_WIDTH.
-
-    Returns:
-        True if resize handling was added, False if already present.
-    """
-    # --- Placeholder implementation ---
-    # Step 1: Locate the root layout component.
-    # Step 2: Wrap with a resizable split-pane container.
-    # Step 3: Wire drag-handle events and persistence logic.
-    # Step 4: Add DRAWER_MARKER for idempotency.
-
-    print("ℹ [PLACEHOLDER] add_drawer_resize_handling() — not yet implemented")
-    return False
-
-
-# ── Main Entry Point ──────────────────────────────────────────────────────────
+def replace_once(content: str, old: str, new: str, label: str) -> str:
+    if old not in content:
+        fail(f"Unable to patch Drive drawer: missing {label}")
+    return content.replace(old, new, 1)
 
 
 def main() -> None:
-    """
-    Run the full drawer-patching pipeline in order.
+    drive_window = next((path for path in DRIVE_WINDOW_CANDIDATES if path.exists()), None)
+    if drive_window is None:
+        fail("Unable to find DriveWindow.tsx in current WebClients layout")
 
-    Steps:
-        1. Check prerequisites (WebClients exists).
-        2. Inject the drawer component into the Drive app source.
-        3. Wire keyboard shortcuts and event handlers.
-        4. Hook the theme system for consistent styling.
-        5. Add resize/drag handling for the split-pane layout.
+    content = drive_window.read_text()
+    if "protondrive-linux-drawer-app-button:linux-icon" in content:
+        print("  ⚠ Linux drawer entry already present - skipping")
+    else:
+        if "import { c } from 'ttag';" not in content:
+            content = replace_once(
+                content,
+                "import { useLocation } from 'react-router-dom-v5-compat';\n\n",
+                "import { useLocation } from 'react-router-dom-v5-compat';\n\nimport { c } from 'ttag';\n\n",
+                "ttag import anchor",
+            )
 
-    Each step is idempotent: if the drawer marker comment is already found in a
-    target file, the step is skipped and reported accordingly.
-    """
-    check_prerequisites()
+        if "    DrawerAppButton,\n" not in content:
+            content = replace_once(
+                content,
+                "    ContactDrawerAppButton,\n",
+                "    ContactDrawerAppButton,\n    DrawerAppButton,\n",
+                "DrawerAppButton import anchor",
+            )
 
-    steps = [
-        ("Injecting drawer component", inject_drawer_component),
-        ("Wiring keyboard & navigation events", wire_drawer_events),
-        ("Hooking theme system", hook_drawer_theme),
-        ("Adding resize handling", add_drawer_resize_handling),
-    ]
+        if "    Icon,\n" not in content:
+            content = replace_once(
+                content,
+                "    DrawerVisibilityButton,\n",
+                "    DrawerVisibilityButton,\n    Icon,\n",
+                "Icon import anchor",
+            )
 
-    for label, step_fn in steps:
-        print(f"\n{label}...")
-        result = step_fn()
-        if result:
-            print(f"  ✓ {label} completed")
-        else:
-            print(f"  - {label} already applied (skipped)")
+        content = replace_once(
+            content,
+            "    const { appInView, showDrawerSidebar } = useDrawer();",
+            "    const { appInView, showDrawerSidebar, toggleDrawerApp } = useDrawer();",
+            "useDrawer destructuring",
+        )
 
-    print("\n✅ Drive Linux drawer patching complete.")
-    print("   Rebuild WebClients for the changes to take effect:")
-    print("   cd WebClients && yarn build:web:drive")
+        linux_button = """        <DrawerAppButton
+            key="toggle-protondrive-linux-drawer-app-button"
+            tooltipText={c('Title').t`Proton Drive Linux`}
+            data-testid="protondrive-linux-drawer-app-button:linux-icon"
+            buttonContent={<Icon name="brand-linux" size={5} />}
+            onClick={() => toggleDrawerApp({ app: DRAWER_NATIVE_APPS.QUICK_SETTINGS })()}
+            alt={c('Action').t`Toggle Proton Drive Linux options`}
+            aria-controls="drawer-app-protondrive-linux"
+            aria-expanded={isAppInView(DRAWER_NATIVE_APPS.QUICK_SETTINGS, appInView)}
+        />,
+"""
+        content = replace_once(
+            content,
+            "    const drawerSidebarButtons = [\n",
+            "    const drawerSidebarButtons = [\n" + linux_button,
+            "drawerSidebarButtons anchor",
+        )
+
+        drive_window.write_text(content)
+        print(f"  ✓ Applied Linux drawer entry to {drive_window.relative_to(WEBCLIENTS_DIR)}")
+
+    if not DRIVE_APP.exists():
+        fail("Unable to find Drive App.tsx in current WebClients layout")
+
+    app_content = DRIVE_APP.read_text()
+    if "Proton Drive Linux owns native sync/settings controls in this rail." not in app_content:
+        app_content = app_content.replace("import { DRAWER_VISIBILITY } from '@proton/shared/lib/interfaces';\n", "", 1)
+        app_content = replace_once(
+            app_content,
+            "                    showDrawerSidebar: userSettings.HideSidePanel === DRAWER_VISIBILITY.SHOW,\n",
+            "                    // Proton Drive Linux owns native sync/settings controls in this rail.\n"
+            "                    // Keep it visible by default so the Linux controls, Contacts,\n"
+            "                    // Calendar, and Referral entries are reachable in packaged\n"
+            "                    // desktop builds. The chevron can still collapse it.\n"
+            "                    showDrawerSidebar: true,\n",
+            "Drive drawer default visibility",
+        )
+        DRIVE_APP.write_text(app_content)
+        print(f"  ✓ Forced Drive drawer rail visible by default in {DRIVE_APP.relative_to(WEBCLIENTS_DIR)}")
 
 
 if __name__ == "__main__":

@@ -1,6 +1,6 @@
 [package]
 name = "proton-drive"
-version = "1.4.4"
+version = "2.0.0"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
 license = "AGPL-3.0"
@@ -27,6 +27,9 @@ base64 = "0.22"
 dirs = "5.0"
 mime_guess = "2.0"
 notify = "6.1"
+rusqlite = { version = "0.32", features = ["bundled"] }
+sha2 = "0.10"
+hex = "0.4"
 
 [features]
 default = ["custom-protocol"]

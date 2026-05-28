@@ -135,10 +135,23 @@ runs:
         mkdir -p src-tauri/target/release/bundle/appimage
         mv "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage" src-tauri/target/release/bundle/appimage/
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=src-tauri/target/release/bundle/appimage \
+          bash scripts/ci/write-artifact-manifest.sh \
+          appimage-linux-baseline \
+          appimage \
+          linux-baseline \
+          x86_64 \
+          "src-tauri/target/release/bundle/appimage/*.AppImage"
+
     - name: Upload AppImage artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: appimage-linux-baseline
-        path: src-tauri/target/release/bundle/appimage/*.AppImage
+        path: |
+          src-tauri/target/release/bundle/appimage/*.AppImage
+          src-tauri/target/release/bundle/appimage/appimage-linux-baseline.*
         if-no-files-found: error
         retention-days: 30

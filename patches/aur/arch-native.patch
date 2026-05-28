@@ -1,11 +1,7 @@
 diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 246078bb..7bf6d122 100644
 --- a/src-tauri/src/main.rs
 +++ b/src-tauri/src/main.rs
-@@ -320,12 +320,12 @@ fn sanitize_url_for_log(url: &str) -> String {
- }
- 
- fn main() {
+@@ -332,8 +332,8 @@ fn main() {
 -    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
 +    // WebKitGTK environment for Arch native build (webkit2gtk 2.52+).
 +    // Disable sandbox and IPInt WASM; keep hardware rendering.
@@ -18,4 +14,3 @@ index 246078bb..7bf6d122 100644
 +    std::env::set_var("JSC_useWasmIPInt", "false");
  
      // Create shared client with cookie jar
-     let state = Arc::new(AppState {
