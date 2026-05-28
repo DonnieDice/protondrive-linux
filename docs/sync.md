@@ -53,8 +53,8 @@ Payload shape:
 {
     "kind": "create|modify|remove",
     "paths": ["/absolute/path/to/file"],
-    "rootPath": "/absolute/sync/root",
-    "relativePaths": ["relative/path/to/file"],
+    "root_path": "/absolute/sync/root",
+    "relative_paths": ["relative/path/to/file"],
     "source": "watcher|poller"
 }
 ```

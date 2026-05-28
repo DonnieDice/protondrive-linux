@@ -257,7 +257,7 @@ fn ensure_column(conn: &Connection, table: &str, column: &str, column_type: &str
 The schema version is stored in the `sync_meta` table. The current version is:
 
 ```rust
-const SCHEMA_VERSION: u32 = 1;
+const SCHEMA_VERSION: i64 = 3;
 ```
 
 ## Remote item reference

@@ -147,7 +147,7 @@ User enters credentials in WebView
 **Token propagation:**
 - The `AuthManager` stores the `AuthSession` in memory
 - When the WebView's intercepted `fetch()` makes API calls, the shared `reqwest::Client` (with cookie jar) handles cookie-based authentication automatically via the `proxy_request` command
-- When cookies need to reach the WebView's `document.cookie`, they're relayed via the `x-set-cookie` response header
+- Response cookies are written directly to the WebView's native WebKit cookie manager via `store_webview_cookie()`, keeping the WebView's session in sync with the proxy HTTP client
 
 ---
 
@@ -159,12 +159,12 @@ User enters credentials in WebView
 2. For any URL containing `/api/`, the request is redirected to the `proxy_request` Tauri command instead of making a real HTTP request
 3. The Rust `proxy_request` handler (main.rs:188-272):
    - Rewrites URLs: `localhost/api/...` → `https://mail.proton.me/api/...`, resolves `tauri://` scheme URLs, handles relative paths
-   - Creates a `reqwest::Request` with the forwarded headers (except `Host` and `Cookie` — the cookie jar handles those)
+   - Creates a `reqwest::Request` with the forwarded headers (except `Host` and `Cookie` — cookies are merged from both WebKit's native jar and the reqwest jar via `combined_cookie_header()`)
    - Sends the request through the shared `AppState.client` (which has an automatic cookie jar)
-   - Collects `Set-Cookie` response headers into a single `x-set-cookie` header (delimited by `|||`)
+   - Routes `Set-Cookie` response headers directly into the WebView's native WebKit cookie manager via `store_webview_cookie()`, bypassing JavaScript-land entirely
    - Returns `ProxyResponse { status, headers, body }` to the JS side
 
-4. The JS side reconstructs a `Response` object and applies cookies to `document.cookie` so the WebView's session state stays in sync
+4. The JS side reconstructs a `Response` object. Cookies are already in WebKit's native cookie store — no `document.cookie` manipulation needed.
 
 ### 4.2 Why this exists
 
