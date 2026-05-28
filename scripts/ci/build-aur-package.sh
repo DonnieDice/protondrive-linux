@@ -126,22 +126,22 @@ makedepends=('cargo' 'rust' 'nodejs' 'npm' 'git' 'pkg-config' 'patch' 'python')
 conflicts=('proton-drive-bin')
 replaces=('proton-drive-bin')
 options=('!strip')
-\${SOURCE_LINE}
-\${SHA256_LINE}
+${SOURCE_LINE}
+${SHA256_LINE}
 
 package() {
-\tinstall -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
-\tinstall -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
+	install -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
+	install -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
 
-\tfor size in 32x32 128x128 256x256; do
-\t\tif [ -f "\${srcdir}/icon-\${size}.png" ]; then
-\t\t\tinstall -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
-\t\tfi
-\tdone
+	for size in 32x32 128x128 256x256; do
+		if [ -f "\${srcdir}/icon-\${size}.png" ]; then
+			install -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
+		fi
+	done
 
-\tif [ -f "\${srcdir}/proton-drive.svg" ]; then
-\t\tinstall -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-\tfi
+	if [ -f "\${srcdir}/proton-drive.svg" ]; then
+		install -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+	fi
 }
 PKGBUILD
 
