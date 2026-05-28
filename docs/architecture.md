@@ -52,13 +52,20 @@ flowchart TD
 
 ### 1. The Rust backend (`src-tauri/src/`)
 
-Three Rust source files totaling **~3,600 lines**:
+Seven Rust source files:
 
 | File | Lines | Purpose |
 |------|-------|---------|
-| `main.rs` | 1,847 | Tauri setup, proxy, SSO, captcha, downloads, init script |
-| `live_sync.rs` | 905 | Filesystem watcher + poller, change suppression, remote apply |
+| `main.rs` | 1,873 | Tauri setup, proxy, SSO, CAPTCHA, downloads, init script |
+| `live_sync.rs` | 941 | Filesystem watcher + poller, change suppression, remote apply, DB integration |
 | `sync_db.rs` | 839 | SQLite schema, migrations, item tracking, privacy hashing |
+| `auth.rs` | 418 | SRP authentication: login, 2FA, token refresh, session management |
+| `webview_cookies.rs` | 329 | WebKit cookie jar integration: read, merge, store, legacy cleanup |
+| `proton_navigation.rs` | 180 | URL rewriting: SSO redirects, CAPTCHA completion detection, unsupported app redirects |
+| `webview_storage.rs` | 11 | Persistent WebView data directory provisioning |
+| `url_log.rs` | 8 | URL sanitization for log output (strips query params and fragments) |
+
+**Total: ~3,600 lines of Rust**
 
 Dependencies (from `Cargo.toml`):
 - **tauri 2.0** — WebView shell with `protocol-asset` feature
@@ -102,7 +109,7 @@ SPA calls fetch('/api/core/v4/auth', { method: 'POST', body: ... })
   → invoke('proxy_request', { request: { method, url, headers, body } })
   → Rust proxy_request() handler
   → rewrites URL: localhost/api/... → https://mail.proton.me/api/...
-  → builds reqwest request with timeout (60s connect, 180s request)
+  → builds reqwest request with timeout (15s connect, 45s request)
   → attaches cookies from WebKit jar (WebKit manages auth cookies natively)
   → forwards custom headers (x-pm-*, etc.)
   → sends HTTPS request
@@ -133,7 +140,7 @@ Location: `main.rs` lines 362–486
 This is the most important Rust command — every API call from the SPA passes through it. The complete flow:
 
 1. **URL rewriting** — converts localhost, `tauri://`, relative, and absolute paths to `https://mail.proton.me/api/...`
-2. **Request construction** — `reqwest` client with 60s connect timeout, 180s request timeout
+2. **Request construction** — `reqwest` client with 15s connect timeout, 45s request timeout
 3. **Cookie injection** — reads cookies from WebKit's native jar via `combined_cookie_header()`
 4. **Header forwarding** — passes through non-cookie, non-host headers from the frontend
 5. **Body passthrough** — forwards request body as raw bytes
