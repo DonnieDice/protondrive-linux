@@ -143,14 +143,18 @@ async function handleBlobDownload(blobUrl, filename) {
         console.error('[Download] Blob not found for:', blobUrl);
         return;
     }
-
-    const buffer = await blob.arrayBuffer();
-    const bytes = Array.from(new Uint8Array(buffer));
-    const path = await window.__TAURI__.core.invoke('save_download', {
-        filename: filename,
-        data: bytes
-    });
-    console.log('[Download] Saved to:', path);
+    try {
+        console.log('[Download] Saving:', filename, 'size:', blob.size);
+        const buffer = await blob.arrayBuffer();
+        const bytes = Array.from(new Uint8Array(buffer));
+        const path = await window.__TAURI__.core.invoke('save_download', {
+            filename: filename,
+            data: bytes
+        });
+        console.log('[Download] Saved to:', path);
+    } catch (err) {
+        console.error('[Download] Failed:', err);
+    }
 }
 ```
 
@@ -163,10 +167,19 @@ async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String
         .or_else(|| dirs::home_dir().map(|h| h.join("Downloads")))
         .ok_or("Unable to access download location")?;
 
-    std::fs::create_dir_all(&downloads_dir)?;
+    // Ensure downloads dir exists
+    std::fs::create_dir_all(&downloads_dir).map_err(|e| {
+        eprintln!("[Download] Failed to create downloads dir {:?}: {e}", downloads_dir);
+        "Unable to save download".to_string()
+    })?;
 
     let file_path = downloads_dir.join(&filename);
-    std::fs::write(&file_path, &data)?;
+    println!("[Download] Saving file to Downloads folder");
+
+    std::fs::write(&file_path, &data).map_err(|e| {
+        eprintln!("[Download] Failed to write download {:?}: {e}", file_path);
+        "Unable to save download".to_string()
+    })?;
 
     Ok(file_path.to_string_lossy().to_string())
 }

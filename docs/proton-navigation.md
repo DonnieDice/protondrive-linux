@@ -185,7 +185,7 @@ async fn proxy_request(state: ..., request: ProxyRequest) -> Result<ProxyRespons
 **Cookie Management:**
 - The `reqwest::Client` is configured with `.cookie_store(true)`
 - Cookies flow automatically through the shared cookie jar
-- `Set-Cookie` headers from responses are forwarded to the WebView via a synthetic `x-set-cookie` header (multiple cookies joined by `|||`)
+- Response `Set-Cookie` headers are written directly to the WebView's native WebKit cookie manager via `store_webview_cookie()`, keeping the WebView and proxy client cookie state in sync
 
 ---
 

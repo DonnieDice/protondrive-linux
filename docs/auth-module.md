@@ -171,8 +171,8 @@ While `auth.rs` is planned for native auth, the current application authenticate
 │  │  ↓                                         │   │
 │  │  Proton API (mail.proton.me)               │   │
 │  │  ↓                                         │   │
-│  │  Response headers scanned for Set-Cookie    │   │
-│  │  → x-set-cookie header added to response    │   │
+│  │  Set-Cookie → store_webview_cookie()       │   │
+│  │  (routes to WebKit native cookie manager)  │   │
 │  └────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────┘
 ```
@@ -198,11 +198,11 @@ The `proxy_request` Tauri command is the critical bridge:
 1. **Frontend intercepts all API fetches/XHRs** via monkey-patched `window.fetch` and `XMLHttpRequest`
 2. **API calls are sent** to the Rust backend via `invoke('proxy_request', { method, url, headers, body })`
 3. **Rust rewrites localhost URLs** to the real Proton API (`https://mail.proton.me`)
-4. **The shared reqwest client** (created with `cookie_store(true)`) handles cookies automatically — it stores `Set-Cookie` from Proton responses and sends them on subsequent requests
-5. **Response `Set-Cookie` headers** are collected into a single `x-set-cookie` header (joined with `|||`)
-6. **Frontend reads `x-set-cookie`** and injects each cookie into `document.cookie` with `path=/; SameSite=Lax`
+4. **The shared reqwest client** forwards requests with cookies merged from both WebKit's native jar and the reqwest cookie jar (via `combined_cookie_header()`)
+5. **Response `Set-Cookie` headers** are routed directly into WebKit's native cookie manager (via `store_webview_cookie()`) — WebKit handles all cookie lifecycle (expiry, domain, Secure/HttpOnly flags) exactly as a browser would
+6. **Legacy cookie cleanup** — when a correctly-scoped AUTH/REFRESH cookie is stored on `mail.proton.me`, older builds' blank-domain and host-only cookies are automatically deleted
 
-This two-way cookie sync is essential because the Proton WebClients frontend uses JavaScript cookies for session decryption. Without it, the web app cannot decode session data even though the HTTP client is authenticated.
+This WebKit-native cookie approach is important because Proton's WebClients frontend relies on cookie-bearing requests for session continuity. Unlike the older `x-set-cookie` approach that wrote cookies to `document.cookie`, the current implementation writes directly to WebKit's cookie manager — this is more reliable across app restarts and avoids race conditions between JavaScript's `document.cookie` and WebKit's native cookie store.
 
 ### CAPTCHA / Human Verification Flow
 
@@ -255,6 +255,6 @@ This is controlled at build time via the `DISTRO_TYPE` environment variable.
 - **Token refresh failure during active use:** The `refresh_token()` method returns `InvalidCredentials` if the refresh fails. The caller should redirect to the login page.
 - **2FA interrupted mid-flow:** `Pending2FA` state is lost on `AuthManager` drop. If the user does not complete 2FA, they must restart login from scratch.
 - **CAPTCHA credential loss:** If the user navigates away during CAPTCHA, saved credentials in `PENDING_CREDENTIALS` persist until retrieved. Restarting the app clears them.
-- **Multiple Set-Cookie headers:** Proton may send multiple `Set-Cookie` headers in one response. These are joined with `|||` and split on the JS side — each is applied independently.
+- **Multiple Set-Cookie headers:** Proton may send multiple `Set-Cookie` headers in one response. Each is routed individually to WebKit's cookie manager via `store_webview_cookie()`, which applies RFC-6265 path/domain scoping before calling `window.set_cookie()`.
 - **blob: URL downloads:** Downloads initiated by the web app (via `window.open(blob:...)` or anchor clicks) are intercepted, read as `ArrayBuffer`, and saved to `~/Downloads` via the `save_download` command.
 - **Navigation to `/api/` paths:** Blocked by `on_navigation` to prevent iframes from loading API endpoints as documents. API calls must go through the fetch proxy.
