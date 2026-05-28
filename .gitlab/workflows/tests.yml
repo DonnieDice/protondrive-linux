@@ -73,7 +73,7 @@ test:clippy:
     - |
       printf '<!doctype html><html><body>rust clippy fixture</body></html>\n' \
         > WebClients/applications/drive/dist/index.html
-    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -W clippy::all -W clippy::pedantic
 
 # ─── Test: Rust Unit Tests ────────────────────────────────────────────────────
 

@@ -686,7 +686,10 @@ fn prune_known_files(cache: &mut HashMap<PathBuf, Instant>, now: Instant) {
     }
 }
 
-pub(crate) fn validate_path_within_root(root_canonical: &Path, target: &Path) -> Result<(), String> {
+pub(crate) fn validate_path_within_root(
+    root_canonical: &Path,
+    target: &Path,
+) -> Result<(), String> {
     let mut cur = PathBuf::new();
     for component in target.components() {
         cur.push(component.as_os_str());
