@@ -41,7 +41,7 @@ test:fmt:
     when: always
   before_script:
     - apt-get update && apt-get install -y bash curl
-    - bash scripts/ci/install-rust.sh
+    - source scripts/ci/install-rust.sh
     - rustup component add rustfmt
   script:
     - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -66,7 +66,7 @@ test:clippy:
     - apt-get update && apt-get install -y bash curl build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev
-    - bash scripts/ci/install-rust.sh
+    - source scripts/ci/install-rust.sh
     - rustup component add clippy
   script:
     - mkdir -p WebClients/applications/drive/dist
@@ -95,7 +95,7 @@ test:rust:
     - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev
-    - bash scripts/ci/install-rust.sh
+    - source scripts/ci/install-rust.sh
   script:
     - mkdir -p WebClients/applications/drive/dist
     - |
