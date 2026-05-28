@@ -129,7 +129,7 @@ let url = if request.url.starts_with("https://localhost/api/")
 ```rust
 let mut req = state.client
     .request(method, &url)
-    .timeout(PROXY_REQUEST_TIMEOUT);  // 180s
+    .timeout(PROXY_REQUEST_TIMEOUT);  // 45s
 
 // Inject WebKit cookies
 if let Some(cookie_header) = combined_cookie_header(&window, &state.cookie_jar, &target_url) {
@@ -154,7 +154,7 @@ if let Some(ref body) = request.body {
 
 | Error | Status Code | Behavior |
 |-------|-------------|----------|
-| Timeout (180s) | 504 | Returns standard JSON error body |
+| Timeout (45s) | 504 | Returns standard JSON error body |
 | Connection failure | 502 | Returns standard JSON error body |
 | Body read failure | 200 | Returns empty body |
 | URL parse failure | — | Returns error string |
