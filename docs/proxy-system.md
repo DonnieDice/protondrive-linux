@@ -15,7 +15,7 @@ The proxy solves both by intercepting every fetch/XHR call and routing it throug
 
 ### Layer 1: `window.fetch` override
 
-Location: init script, `main.rs` lines 1313–1457
+Location: init script, `main.rs` lines 1339–1485
 
 ```javascript
 window.fetch = async function(input, init = {}) {
@@ -48,7 +48,7 @@ window.fetch = async function(input, init = {}) {
 
 ### Layer 2: `XMLHttpRequest` override
 
-Location: init script, `main.rs` lines 1459–1511
+Location: init script, `main.rs` lines 1487–1537
 
 ```javascript
 window.XMLHttpRequest = function() {
@@ -92,7 +92,7 @@ This serializes the JS→Rust crossing. The actual HTTPS requests still parallel
 
 ## Rust proxy_request handler
 
-Location: `main.rs` lines 363–486
+Location: `main.rs` lines 386–510
 
 ### URL rewriting rules
 

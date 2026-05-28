@@ -268,14 +268,25 @@ All sync commands (`start_sync`, `stop_sync`, `get_sync_status`,
 origin check in `main.rs`:
 
 ```rust
-fn ensure_sync_command_allowed(window: &WebviewWindow) -> Result<(), String> {
-    let current_url = window.url()?;
+fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
+    let current_url = window.url().map_err(|e| {
+        eprintln!("[Sync] failed to read window URL: {e}");
+        ERR_SYNC_NOT_ALLOWED.to_string()
+    })?;
+
     let host = current_url.host_str().unwrap_or_default();
-    let is_allowed = current_url.scheme() == "tauri"
-        && (host == "localhost" || host == "tauri.localhost");
+    let is_allowed =
+        current_url.scheme() == "tauri" && (host == "localhost" || host == "tauri.localhost");
+
     if !is_allowed {
-        return Err("Sync operation is not allowed in this context".into());
+        eprintln!(
+            "[Sync] rejected command from origin scheme={} host={}",
+            current_url.scheme(),
+            host
+        );
+        return Err(ERR_SYNC_NOT_ALLOWED.to_string());
     }
+
     Ok(())
 }
 ```

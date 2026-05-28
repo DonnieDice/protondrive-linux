@@ -31,7 +31,7 @@ WebView (Proton Web Client)
 
 ## 1. URL Routing (`on_navigation` callback)
 
-The `on_navigation` closure (lines 1005–1174) is called by Tauri for **every URL the WebView attempts to navigate to**. It returns `true` to allow the navigation or `false` to block it (optionally redirecting elsewhere).
+The `on_navigation` closure (lines 1597–1803) is called by Tauri for **every URL the WebView attempts to navigate to**. It returns `true` to allow the navigation or `false` to block it (optionally redirecting elsewhere).
 
 ### 1.1 Blob URL Interception (Downloads)
 
@@ -165,7 +165,7 @@ Same pattern as fetch but for XHR-based API calls. API calls are redirected thro
 
 ### 2.3 `proxy_request` Rust Command
 
-> **File:** `main.rs`, lines 211–296
+> **File:** `main.rs`, lines 386–510
 
 ```rust
 #[tauri::command]
@@ -201,7 +201,7 @@ Proton may require human verification (CAPTCHA / hCaptcha) during login or sensi
 
 ### 3.2 Navigation
 
-The `navigate_to_captcha` Rust command (lines 106–129):
+The `navigate_to_captcha` Rust command (lines 143–166):
 1. Stores the return URL in `CAPTCHA_RETURN_URL`
 2. Navigates the main WebView window to the CAPTCHA URL (e.g., `https://verify.proton.me/...`)
 

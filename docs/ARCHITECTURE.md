@@ -32,11 +32,12 @@ src-tauri/src/
 └── live_sync.rs        # LiveSyncManager — filesystem watcher, remote change application
 ```
 
-### 2.1 `AppState` (main.rs:19-22)
+### 2.1 `AppState` (main.rs:51-55)
 
 ```rust
 struct AppState {
     client: Client,
+    cookie_jar: Arc<Jar>,
     sync_manager: live_sync::LiveSyncManager,
 }
 ```
@@ -60,7 +61,7 @@ All four are deliberately **in-memory-only** with zero-trust semantics — clear
 
 Owns:
 - `fn main()` — sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITING_MODE`, `WEBKIT_FORCE_SANDBOX`, `GDK_GL`, `GSK_RENDERER` env vars for WebKitGTK compatibility; builds `AppState`; registers Tauri plugins (shell, dialog, notification); runs the builder
-- **13 Tauri commands** (registered via `generate_handler!` at line 1151)
+- **16 Tauri commands** (registered via `generate_handler!` at line 1846)
 - The **WebView initialization script** (~900 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, and iframe behavior)
 - The **`on_navigation` callback** that rewrites Proton URLs to local `tauri://localhost/...` paths
 
@@ -157,7 +158,7 @@ User enters credentials in WebView
 
 1. The WebView's initialization script patches `window.fetch` and `window.XMLHttpRequest`
 2. For any URL containing `/api/`, the request is redirected to the `proxy_request` Tauri command instead of making a real HTTP request
-3. The Rust `proxy_request` handler (main.rs:188-272):
+3. The Rust `proxy_request` handler (main.rs:386-510):
    - Rewrites URLs: `localhost/api/...` → `https://mail.proton.me/api/...`, resolves `tauri://` scheme URLs, handles relative paths
    - Creates a `reqwest::Request` with the forwarded headers (except `Host` and `Cookie` — cookies are merged from both WebKit's native jar and the reqwest jar via `combined_cookie_header()`)
    - Sends the request through the shared `AppState.client` (which has an automatic cookie jar)
@@ -184,7 +185,7 @@ WebKitGTK's cookie handling is inconsistent across Linux distributions. By routi
 
 ### 4.4 Key constants
 
-`PROTON_API_BASE` (`"https://mail.proton.me"` — main.rs:15) — The base URL for all proxied API requests.
+`PROTON_API_BASE` (`"https://mail.proton.me"` — main.rs:35) — The base URL for all proxied API requests.
 
 ---
 
@@ -248,15 +249,15 @@ WebClients detect remote change (via polling or push)
 
 ### 5.3 Sync command security
 
-The `ensure_sync_command_allowed` function (main.rs:274-293) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
+The `ensure_sync_command_allowed` function (main.rs:512-531) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
 
-The `validate_sync_root_path` function (main.rs:296-312) ensures the sync root is a subdirectory of the user's home directory.
+The `validate_sync_root_path` function (main.rs:535-550) ensures the sync root is a subdirectory of the user's home directory.
 
 ---
 
 ## 6. Navigation Routing (SSO / Login / Captcha)
 
-The `on_navigation` callback (main.rs:977-1146) intercepts all WebView navigations and rewrites them:
+The `on_navigation` callback (main.rs:1597-1803) intercepts all WebView navigations and rewrites them:
 
 | Incoming URL | Action |
 |--------------|--------|
@@ -326,7 +327,7 @@ Since WebKitGTK does not reliably handle `Content-Disposition: attachment` heade
 6. **`on_download`** callback in Rust sets download destinations to `~/Downloads/<filename>`
 7. **`on_navigation`** intercepts `blob:` scheme navigations and triggers `handleBlobDownload` via `eval`
 
-The `save_download` Tauri command (main.rs:120-143) writes bytes to the user's Downloads directory.
+The `save_download` Tauri command (main.rs:176-199) writes bytes to the user's Downloads directory.
 
 ---
 
@@ -346,13 +347,13 @@ This is where Proton WebClients store their encrypted session state (`ps-*` keys
 
 | Constant | Value | Location | Purpose |
 |----------|-------|----------|---------|
-| `PROTON_API_BASE` | `"https://mail.proton.me"` | main.rs:15 | Base URL for all proxied API requests |
-| `ERR_SYNC_NOT_ALLOWED` | `"Sync operation is not allowed in this context"` | main.rs:16 | Error message when sync commands come from disallowed origins |
-| `SUPPRESSION_TTL` | `30 seconds` | live_sync.rs:19 | Duration during which a file write is suppressed from watcher events (prevents echo loops) |
-| `SUPPRESSION_CACHE_MAX` | `4096` | live_sync.rs:20 | Maximum entries in the known-files suppression cache |
-| `ERR_SYNC_SETUP_FAILED` | `"Failed to start live sync"` | live_sync.rs:12 | Generic watcher initialization error |
+| `PROTON_API_BASE` | `"https://mail.proton.me"` | main.rs:35 | Base URL for all proxied API requests |
+| `ERR_SYNC_NOT_ALLOWED` | `"Sync operation is not allowed in this context"` | main.rs:38 | Error message when sync commands come from disallowed origins |
+| `SUPPRESSION_TTL` | `30 seconds` | live_sync.rs:20 | Duration during which a file write is suppressed from watcher events (prevents echo loops) |
+| `SUPPRESSION_CACHE_MAX` | `4096` | live_sync.rs:21 | Maximum entries in the known-files suppression cache |
+| `ERR_SYNC_SETUP_FAILED` | `"Failed to start live sync"` | live_sync.rs:13 | Generic watcher initialization error |
 | `ERR_SYNC_NOT_ACTIVE` | `"Live sync is not active"` | live_sync.rs:15 | Error when applying remote changes without an active sync |
-| `ERR_SYNC_INVALID_TARGET` | `"Invalid sync target path"` | live_sync.rs:18 | Path traversal / symlink escape error |
+| `ERR_SYNC_INVALID_TARGET` | `"Invalid sync target path"` | live_sync.rs:19 | Path traversal / symlink escape error |
 
 ---
 

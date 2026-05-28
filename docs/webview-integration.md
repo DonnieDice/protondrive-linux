@@ -177,9 +177,14 @@ page navigations. Every navigation event is logged to stdout with the
 The `on_navigation` callback tracks CAPTCHA state via an atomic boolean
 (`ON_CAPTCHA_PAGE`). When a navigation enters a CAPTCHA-related URL
 (`verify.proton.me`, hCaptcha, or Proton captcha endpoints), the flag is set.
-When a subsequent navigation leaves the CAPTCHA page, the flag triggers a
-redirect back to the account app (`tauri://localhost/account/`) to retry
-authentication with the newly obtained human-verification token.
+While on the CAPTCHA page, internal navigations (about:blank, verify-api
+requests) are allowed through. Completion is detected when the WebView
+navigates to `tauri://localhost/account/?hv_token=...&hv_type=...` —
+`captcha_completion_token()` parses these query parameters, stores the token
+in `PENDING_VERIFICATION`, and navigates back to the account app to retry
+authentication. If the WebView navigates back to `tauri://localhost/account/`
+*without* `hv_token` params while `ON_CAPTCHA_PAGE` is true, the navigation is
+blocked (ignored) to prevent premature auth retries.
 
 ### Download Blob Interception
 
@@ -207,15 +212,18 @@ coordinated Rust and JavaScript components:
 
    - Saves any login credentials from the page into Rust memory (zero-trust,
      single-use).
-   - Navigates the entire WebView to the CAPTCHA URL
-     (`verify.proton.me` or `mail.proton.me/captcha/`).
+   - Calls `navigate_to_captcha(captcha_url, return_url)` which stores the
+     return URL and navigates the entire WebView to the CAPTCHA page.
    - hCaptcha requires a top-level navigation in WebKitGTK — iframes do not
      render correctly.
-   - On completion, a `HUMAN_VERIFICATION_SUCCESS` or `pm_captcha` postMessage
-     stores the verification token in Rust memory.
-   - The WebView navigates back to `tauri://localhost/account/` where saved
-     credentials are auto-filled and the auth request is retried with the
-     verification token.
+   - On completion, the WebView returns to `tauri://localhost/account/?hv_token=...&hv_type=...`.
+     The `on_navigation` callback detects this via `captcha_completion_token()`
+     (which parses query params `hv_token` and `hv_type`), stores the token in
+     `PENDING_VERIFICATION`, and navigates back to `tauri://localhost/account/`.
+   - Saved credentials are auto-filled into the login form and submitted.
+     The auth API call includes `x-pm-human-verification-token` and
+     `x-pm-human-verification-token-type` headers (from `get_and_clear_verification_token`)
+     to satisfy the verification requirement.
 
 4. **Token refresh** — `AuthManager::refresh_token` obtains a new access token
    without user interaction.

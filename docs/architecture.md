@@ -135,7 +135,7 @@ Proton uses a single sign-on flow: `account.proton.me` → login/2FA → redirec
 
 ## The proxy_request function
 
-Location: `main.rs` lines 362–486
+Location: `main.rs` lines 386–510
 
 This is the most important Rust command — every API call from the SPA passes through it. The complete flow:
 
