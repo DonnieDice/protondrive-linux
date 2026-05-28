@@ -1,8 +1,8 @@
 include:
-  - local: .gitlab/ci/variables.yml
-  - local: .gitlab/ci/tests.yml
-  - local: .gitlab/ci/builds.yml
-  - local: .gitlab/ci/release.yml
+  - local: .gitlab/workflows/_shared.yml
+  - local: .gitlab/workflows/tests.yml
+  - local: .gitlab/workflows/builds.yml
+  - local: .gitlab/workflows/release.yml
 
 stages:
   - test
