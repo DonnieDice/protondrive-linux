@@ -232,3 +232,9 @@ Proton SPA decrypts block
 - **Maximum file size**: Limited by WebView memory — the entire decrypted Blob is held in JS memory as an ArrayBuffer before sending to Rust. Very large files (>500MB) may cause memory pressure.
 - **No streaming**: The entire file must be decrypted and held in memory before the download starts. There's no chunked/streaming path through the Tauri IPC bridge.
 - **Concurrent downloads**: Each download holds a full file in JS memory. Multiple concurrent downloads compound memory usage.
+
+## See Also
+
+- **[WebView Integration](webview-integration.md)** — How the download pipeline connects to the WebView bridge
+- **[Auth Module](auth-module.md)** — The blob download intercept and `save_download` command
+- **[Architecture](ARCHITECTURE.md)** — How downloads fit into the AppState

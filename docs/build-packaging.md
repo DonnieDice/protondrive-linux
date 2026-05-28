@@ -277,3 +277,10 @@ DISTRO_TYPE=aur cargo build --release
 ```
 
 Output binary: `src-tauri/target/release/proton-drive`
+
+## See Also
+
+- **[Build System](build-system.md)** — Cargo feature flags, platform-specific notes, Tauri CLI
+- **[Packaging](packaging.md)** — AppImage, deb, rpm packaging details
+- **[CI Pipeline Reference](ci-pipeline-reference.md)** — CI job matrix, artifact naming, release workflow
+- **[New Build Checklist](new-build-checklist.md)** — Step-by-step build verification guide

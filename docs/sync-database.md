@@ -285,3 +285,54 @@ conn.execute_batch("PRAGMA journal_mode=WAL")?;
 ```
 
 WAL mode allows concurrent reads while a write is in progress, which is important because both the watcher thread and the poller thread write to the database.
+
+## Troubleshooting
+
+### "Failed to open sync metadata database"
+
+**Symptoms:** Sync never starts. Console shows `ERR_SYNC_DB_OPEN_FAILED`.
+
+**Causes:**
+- `app_data_dir` is on a read-only filesystem
+- Another process holds an exclusive lock on `sync-metadata.db`
+- Permission denied on the app data directory
+
+**Fix:**
+```bash
+# Check file permissions
+ls -la ~/.local/share/com.proton.drive/sync-metadata.db
+
+# Check for stale WAL/SHM files (leftover from crashed process)
+ls -la ~/.local/share/com.proton.drive/sync-metadata.db-wal
+ls -la ~/.local/share/com.proton.drive/sync-metadata.db-shm
+
+# Remove stale WAL artifacts if the app is not running
+rm ~/.local/share/com.proton.drive/sync-metadata.db-wal
+rm ~/.local/share/com.proton.drive/sync-metadata.db-shm
+```
+
+### WAL Checkpoint Growth
+
+**Symptoms:** `sync-metadata.db-wal` grows to hundreds of MB. Sync operations slow down.
+
+**Cause:** The WAL file accumulates un-checkpointed frames when the app crashes or is killed without clean shutdown. WAL mode checkpoints on close, but SIGKILL bypasses this.
+
+**Fix:** Close the app cleanly (use the tray icon > Quit, or SIGTERM). On next start, SQLite auto-checkpoints the WAL. If the WAL is extreme (>500MB), delete the WAL and SHM files while the app is **not running** — you lose the most recent sync state but the DB is intact.
+
+### Schema Version Mismatch
+
+**Symptoms:** `ERR_SYNC_DB_MIGRATE_FAILED` on startup after upgrading from an older version.
+
+**Cause:** The `SCHEMA_VERSION` has changed (currently 3) and the old DB has a lower version. The migration code should handle this, but if you're on a very old version (schema 1), the upgrade path may be incomplete.
+
+**Fix:** Delete the database and let it rebuild:
+```bash
+rm ~/.local/share/com.proton.drive/sync-metadata.db*
+```
+This resets all sync state — files will re-sync from scratch on next launch.
+
+## See Also
+
+- **[Sync DB Module](sync-db-module.md)** — How `sync_db.rs` integrates into AppState, SyncKeyring decryption, persistence constants
+- **[Sync System](sync-system.md)** — Full architecture: change detection, remote apply, startup path
+- **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, suppression cache
