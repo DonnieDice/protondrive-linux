@@ -327,6 +327,71 @@ Hardcoded at the top of `live_sync.rs`:
 
 No runtime configuration is exposed — these are compile-time constants.
 
+## Troubleshooting
+
+### Sync Never Starts (Poller Not Running)
+
+**Symptoms:** Console shows `[Sync] active enabled=true` but no poll cycles appear. Files never sync.
+
+**Causes:**
+- Watcher thread panicked during event processing and the `JoinHandle` was dropped
+- Sync root path validation failed (path doesn't exist, is a symlink to nowhere, or is on a network mount)
+- Disk is full — inotify can't create watches
+
+**Fix:**
+1. Check the console for `[Sync]` prefixed errors
+2. Verify the sync root exists: `ls -d ~/ProtonDrive/`
+3. Check disk space: `df -h ~/ProtonDrive/`
+4. Check inotify watch limit (Linux): `cat /proc/sys/fs/inotify/max_user_watches` — if you have many files, increase it: `echo 524288 | sudo tee /proc/sys/fs/inotify/max_user_watches`
+
+### Files Not Appearing After Remote Changes
+
+**Symptoms:** Files added via the Proton Drive web app never appear locally.
+
+**Causes:**
+- Poller interval hasn't elapsed yet (30s default)
+- Network connectivity to `drive-api.proton.me` is broken
+- The remote scope changed (e.g. file moved from "My Files" to "Computers")
+
+**Fix:**
+1. Wait 30+ seconds for the next poll cycle
+2. Check network: `curl -I https://drive-api.proton.me`
+3. Verify the file is in the same scope your sync root tracks (check the Proton web UI)
+
+### Suppression Cache Prevents Local Changes
+
+**Symptoms:** You modify a file locally, but it doesn't upload. Console shows no `ChangeDetected` event.
+
+**Causes:**
+- The suppression cache still holds the file's hash from the last remote download
+- The file was downloaded <60s ago and the suppression window hasn't expired
+- The file content hasn't actually changed (same hash)
+
+**Fix:**
+1. Wait 60s for the suppression cache entry to expire
+2. Force a change: `touch` the file and append a byte: `echo " " >> file.txt`
+3. Restart the app to flush the suppression cache
+
+### Poller Reports Stale Events
+
+**Symptoms:** The same file syncs repeatedly. Console shows repeated `RemoteChange` for the same file.
+
+**Causes:**
+- The file's modification time is in the future (Proton API returns future timestamps)
+- The suppression cache hash calculation is non-deterministic
+- The file is being modified by an external process at the same time the poller reads it
+
+**Fix:**
+1. Check file timestamp: `stat file.txt` — if it's in the future, fix with `touch file.txt`
+2. Exclude the file from the sync root if it's being modified by another process (logs, caches, etc.)
+
+## See Also
+
+- **[Sync System](sync-system.md)** — Full sync architecture: Tauri command wiring, lifecycle flows, startup path, device name resolution
+- **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing, migration strategy
+- **[Sync DB Module](sync-db-module.md)** — The `sync_db.rs` integration: AppState wiring, SyncKeyring decryption, debounce/persistence constants
+- **[WebView Integration](webview-integration.md)** — How the frontend connects to sync commands, origin gating
+
 ---
 
 ## Limitations

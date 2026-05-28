@@ -287,3 +287,10 @@ All navigation-related Tauri commands are registered via `generate_handler!`:
 | `save_download` | Write blob data to `~/Downloads` |
 
 *Sync commands (`start_sync`, `stop_sync`, etc.) are documented in `docs/sync.md`.*
+
+## See Also
+
+- **[SSO Authentication](sso-authentication.md)** — URL flow through SSO, CAPTCHA integration
+- **[Proxy System](proxy-system.md)** — How navigation decisions interact with the fetch proxy
+- **[WebView Integration](webview-integration.md)** — Tauri plugin wiring, IPC commands
+- **[Architecture](ARCHITECTURE.md)** — How navigation fits into the AppState

@@ -359,3 +359,84 @@ process isolation.
 | `src-tauri/src/webview_storage.rs` | Persistent WebView data directory |
 | `src-tauri/src/url_log.rs` | URL sanitization for log output |
 | `src-tauri/tauri.conf.json` | Tauri app configuration (window, build, bundle, plugins) |
+
+## Troubleshooting
+
+### Blank White Window
+
+**Symptoms:** The app window opens but shows a blank white screen — no Proton Drive interface.
+
+**Causes:**
+- WebKitGTK rendering issue — GPU driver incompatibility
+- The `tauri://localhost` custom protocol isn't registered
+- The frontend build (`dist/`) is missing or empty
+- WebKit sandbox blocks the custom protocol
+
+**Fix:**
+1. Verify the GPU env vars are set (the app sets them at startup — run from terminal to confirm)
+2. Check the custom protocol: `grep -r "custom-protocol" src-tauri/Cargo.toml` — must be enabled
+3. Verify `dist/` exists and contains the built frontend: `ls dist/index.html`
+4. Try running with `WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_BACKEND=x11` to force software rendering
+5. Check console for errors: Right Click > Inspect Element (requires developer tools)
+
+### GPU Rendering Artifacts
+
+**Symptoms:** Visual glitches — flickering, garbled text, black rectangles, color corruption.
+
+**Causes:**
+- GPU driver incompatibility with WebKitGTK's DMA-BUF buffer sharing
+- Hardware compositing on a buggy driver (common on older NVIDIA and some AMD cards)
+- Wayland compositor issues (the app uses `GDK_GL=disable` and `GSK_RENDERER=cairo` but some compositors override)
+
+**Fix:**
+The app already sets five env vars to mitigate this (`WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`, etc.). If artifacts persist:
+```bash
+# Force X11 backend (bypass Wayland entirely)
+GDK_BACKEND=x11 ./proton-drive
+
+# Force software rendering
+LIBGL_ALWAYS_SOFTWARE=1 ./proton-drive
+
+# Disable GPU acceleration entirely
+WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_GL=disable GSK_RENDERER=cairo ./proton-drive
+```
+
+### IPC Bridge Broken (Tauri Commands Not Responding)
+
+**Symptoms:** UI shows "Connecting..." forever. No sync commands work. Console shows `TypeError: window.__TAURI__ is undefined`.
+
+**Causes:**
+- The Tauri IPC bridge failed to initialize
+- `WEBKIT_FORCE_SANDBOX=1` blocks the IPC communication channel
+- The init script didn't inject or ran too late
+- WebKitGTK version is too old (< 2.40)
+
+**Fix:**
+1. Verify `WEBKIT_FORCE_SANDBOX=0` is set (the app sets it at startup)
+2. Check WebKitGTK version: `pkg-config --modversion webkit2gtk-4.1` — must be ≥ 2.40
+3. Restart the app — IPC initialization is a one-shot at startup
+4. Check the console for early errors (before page load)
+
+### WebView Crashes (SIGSEGV)
+
+**Symptoms:** The app crashes with a segmentation fault. Backtrace points to WebKitGTK internals.
+
+**Causes:**
+- WebKitGTK bug triggered by a specific Proton page or Web API
+- Memory corruption from GPU driver (NVIDIA proprietary drivers are common culprits)
+- Out of memory — WebKitGTK can use 500MB+ for the Proton Drive SPA
+
+**Fix:**
+1. Update WebKitGTK to the latest version
+2. Try the software rendering workarounds above
+3. Check memory usage: `htop` or `ps aux | grep proton` — if RSS > 1.5GB, memory pressure may cause crashes
+4. Get a backtrace: `coredumpctl dump` or `gdb ./proton-drive`
+
+## See Also
+
+- **[Proxy System](proxy-system.md)** — Fetch/XHR proxy layer, request interception, error handling
+- **[Auth Module](auth-module.md)** — Session lifecycle, cookie management, logout flow
+- **[SSO Authentication](sso-authentication.md)** — End-to-end SSO, CAPTCHA, cookie bridge protocol
+- **[Proton Navigation](proton-navigation.md)** — URL rewriting, SSO routing
+- **[Blob Downloads](blob-downloads.md)** — File download pipeline through the WebView bridge
+- **[Architecture](ARCHITECTURE.md)** — How the WebView fits into the overall AppState

@@ -539,3 +539,65 @@ fn read_sync_file(
 ```
 
 The returned `SyncFilePayload` contains `relative_path`, `name`, `size`, `modified_ms`, and `content_base64`.
+
+## Troubleshooting
+
+### `Invalid sync folder` Error
+
+**Symptoms:** Console shows `[Sync] Invalid sync folder` when trying to set a sync root.
+
+**Causes:**
+- Path doesn't exist or isn't a directory
+- Path is a symlink to a non-existent target
+- Path is outside `$HOME` (the validator rejects paths not under `$HOME`)
+- Path is on a network mount (NFS, CIFS) that tricks `is_dir()` into returning false
+
+**Fix:**
+```bash
+# Verify the path exists and is a real directory
+ls -ld /path/to/sync/root
+
+# Resolve any symlinks
+readlink -f /path/to/sync/root
+
+# Must be under $HOME
+echo $HOME
+```
+
+### `sync-root.txt` Not Persisting
+
+**Symptoms:** Sync root resets to `~/ProtonDrive` after restart despite setting a custom path.
+
+**Causes:**
+- `app_data_dir` doesn't exist or isn't writable
+- File permissions on `sync-root.txt` were set too restrictive and `read_selected_sync_root` returns `None`
+- The `set_sync_root` command was called but the write to `sync-root.txt` silently failed
+
+**Fix:**
+```bash
+# Check the file
+cat ~/.local/share/com.proton.drive/sync-root.txt
+
+# Verify permissions
+ls -la ~/.local/share/com.proton.drive/sync-root.txt
+# Should be -rw------- (0600)
+
+# If missing, create it manually
+echo "/home/user/custom/path" > ~/.local/share/com.proton.drive/sync-root.txt
+chmod 600 ~/.local/share/com.proton.drive/sync-root.txt
+```
+
+### Sync Bridge File Too Large
+
+**Symptoms:** Console shows a file rejected with size > 100MB. File never uploads.
+
+**Cause:** `MAX_SYNC_BRIDGE_FILE_BYTES` (100 MiB) is exceeded. The sync bridge between WebView and Rust has a size limit for files passed through IPC.
+
+**Fix:** The file must be under 100 MiB. This is a hard compile-time limit. For larger files, use the Proton Drive web interface directly, or rebuild with a higher `MAX_SYNC_BRIDGE_FILE_BYTES` constant.
+
+## See Also
+
+- **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, suppression cache, event contract
+- **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing
+- **[Sync DB Module](sync-db-module.md)** — `sync_db.rs` integration, SyncKeyring, AppState wiring
+- **[WebView Integration](webview-integration.md)** — Frontend sync command wiring, origin gating

@@ -274,3 +274,56 @@ A subtle but important fix: Proton's SPA occasionally emits protocol-relative UR
 | `PROXY_REQUEST_TIMEOUT` | 45s | Entire request-response cycle |
 
 There is **no automatic retry** in the proxy layer. If a request fails with 502/504, the SPA's own retry logic (if any) handles it. The proxy returns the error and moves on.
+
+## Troubleshooting
+
+### 502 Bad Gateway from Proton API
+
+**Symptoms:** Console shows `PROXY_RESP: 502` for API requests. Drive UI shows "Error loading" or blank sections.
+
+**Causes:**
+- Proton's API is temporarily down or rate-limiting the request
+- The request body is malformed (Proton returns 502 for some validation errors)
+- DNS resolution failed for `drive-api.proton.me` or `api.proton.me`
+
+**Fix:**
+1. Check if Proton services are up: visit `https://status.proton.me`
+2. Verify DNS: `dig drive-api.proton.me` — should resolve
+3. Check the request body in console logs (look for `PROXY_REQ` before the error)
+4. Wait and retry — Proton rate limits reset after ~60 seconds
+
+### Requests Hanging (Timeout)
+
+**Symptoms:** Console shows `PROXY_REQ` but no matching `PROXY_RESP`. UI frozen.
+
+**Causes:**
+- Network connectivity issue (firewall blocking outbound HTTPS)
+- Proton API is slow (rare — timeout is 45s)
+- The reqwest client's connection pool is exhausted
+
+**Fix:**
+1. Check network: `curl -m 10 https://api.proton.me` — should return quickly
+2. Verify firewall allows outbound HTTPS on port 443
+3. Restart the app to reset the connection pool
+4. Check for DNS issues: the app uses system DNS, try `resolvectl` or `nslookup`
+
+### CORS Errors in Console
+
+**Symptoms:** WebView console shows `Access-Control-Allow-Origin` errors for API calls.
+
+**Causes:**
+- A fetch/XHR request bypassed the proxy and hit the API directly
+- The proxy initialization script didn't run (the `init.js` injection failed)
+- The URL didn't match the proxy's interception rules
+
+**Fix:**
+1. Check the request URL — is it going through `tauri://localhost` (proxied) or directly to `https://api.proton.me` (blocked)?
+2. Verify the init script is injected: check DevTools Sources tab for an injected `<script>` in the `<head>`
+3. If using a custom build, verify the init script is included in `frontendDist`
+
+## See Also
+
+- **[WebView Integration](webview-integration.md)** — How the proxy is injected and configured in the WebView
+- **[Proton Navigation](proton-navigation.md)** — URL rewriting decisions that route requests through vs. around the proxy
+- **[Auth Module](auth-module.md)** — Cookie/header injection at the proxy boundary
+- **[Architecture](ARCHITECTURE.md)** — How the proxy fits into the AppState

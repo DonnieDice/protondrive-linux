@@ -339,3 +339,57 @@ Cookies live in WebKit's native cookie jar, not in the Rust proxy. The proxy:
 2. **Writes Set-Cookie** responses back to WebKit via `store_webview_cookie(&window, &target_url, cookie_value)`
 
 This means WebKit handles all cookie lifecycle (expiry, domain matching, secure flags, etc.) exactly as a browser would. The Rust `reqwest` cookie jar (`Arc<Jar>`) is present but serves as a fallback — the primary cookie source is WebKit.
+
+## Troubleshooting
+
+### CAPTCHA Loop (Never Completes)
+
+**Symptoms:** The CAPTCHA page appears but the puzzle never completes, or it loops back to a new CAPTCHA after solving.
+
+**Causes:**
+- The `ON_CAPTCHA_PAGE` atomic isn't being set/reset correctly
+- WebKit's internal navigations (`about:blank`, verify API calls) are being misinterpreted as CAPTCHA completion
+- The `hv_token` parameter extraction fails (URL format changed)
+- Proton is demanding additional verification (SMS, email code) beyond CAPTCHA
+
+**Fix:**
+1. Check the console for `[Navigate]` logs — they show every URL flow through the CAPTCHA state machine
+2. Look for `ON_CAPTCHA_PAGE` state transitions: `enter CAPTCHA` → `exit CAPTCHA`
+3. If the CAPTCHA exits but redirects back to another CAPTCHA, Proton is requesting multi-factor auth — check your Proton account security settings
+4. Try logging in via a real browser first to see if additional verification is required
+
+### SSO Redirects to Wrong Page
+
+**Symptoms:** After SSO login, the app shows a Proton page that isn't Drive (e.g. Mail, Account settings).
+
+**Causes:**
+- Proton's SSO redirect URL points to the wrong service
+- The navigation handler didn't intercept the redirect
+- The `force about:blank` step failed — the account document stayed alive and redirected to its default page
+
+**Fix:**
+1. Check console for `[Navigate]` decisions — each URL navigation is logged
+2. Look for `Force about:blank` — if this step fails, the old document survives and redirects
+3. Manually navigate: go to `Help > Reset to Drive` or close and reopen the app
+4. If persistent, check if Proton changed their SSO redirect behavior (the URL patterns in `proton_navigation.rs` may need updating)
+
+### "The operation is insecure" During SSO
+
+**Symptoms:** Console shows `The operation is insecure` during the SSO flow, typically after the CAPTCHA.
+
+**Causes:**
+- WebKitGTK's security restrictions block a required Web API (likely `window.crypto.subtle`)
+- The page tried to access a restricted API in a non-secure context
+- The `tauri://` protocol isn't recognized as a secure context by WebKit
+
+**Fix:**
+1. This is usually benign — WebKitGTK is stricter than a browser but the app continues
+2. If the error prevents login, ensure WebKitGTK ≥ 2.40 and that the custom protocol is enabled
+3. Try running with `WEBKIT_IGNORE_SSL_ERRORS=1` (development only — not for production)
+
+## See Also
+
+- **[Auth Module](auth-module.md)** — Session lifecycle, general cookie management, logout flow
+- **[Proton Navigation](proton-navigation.md)** — SSO URL routing, CAPTCHA lifecycle states
+- **[WebView Integration](webview-integration.md)** — Cookie handling details, IPC commands
+- **[Login/Sync Regression Runbook](login-sync-regression-runbook.md)** — Manual testing procedures

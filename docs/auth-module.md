@@ -258,3 +258,52 @@ This is controlled at build time via the `DISTRO_TYPE` environment variable.
 - **Multiple Set-Cookie headers:** Proton may send multiple `Set-Cookie` headers in one response. Each is routed individually to WebKit's cookie manager via `store_webview_cookie()`, which applies RFC-6265 path/domain scoping before calling `window.set_cookie()`.
 - **blob: URL downloads:** Downloads initiated by the web app (via `window.open(blob:...)` or anchor clicks) are intercepted, read as `ArrayBuffer`, and saved to `~/Downloads` via the `save_download` command.
 - **Navigation to `/api/` paths:** Blocked by `on_navigation` to prevent iframes from loading API endpoints as documents. API calls must go through the fetch proxy.
+
+## Troubleshooting
+
+### Infinite Spinner During Login
+
+**Symptoms:** Login page shows Proton's loading spinner forever. Never reaches the Drive interface.
+
+**Causes:**
+- **Worker instantiation failure** — the crypto worker can't initialize. Check console for `The operation is insecure` (Firefox WebKitGTK equivalent).
+- **Patch not applied** — the `hasModulesSupport()` patch in `patches/` wasn't applied during build.
+- **Wrong detection method** — the patch uses `location.protocol` (not `window.__TAURI__`) because `__TAURI__` initializes after the crypto worker.
+
+**Fix:**
+1. Open the DevTools console (Right Click > Inspect Element, or `WEBKIT_INSPECTOR=1`)
+2. Look for `The operation is insecure` — this confirms the worker can't start
+3. Verify the patch: grep for `location.protocol === 'tauri:'` in the built frontend bundle
+4. Rebuild with the correct `DISTRO_TYPE` or verify the patch is applied
+
+### Session Lost After Restart
+
+**Symptoms:** You have to re-login every time you restart the app.
+
+**Causes:**
+- WebView's persistent storage directory wasn't created or is wrong
+- `WEBKIT_FORCE_SANDBOX=1` — sandbox blocks IndexedDB/localStorage writes
+- WebKit data directory permissions are wrong
+
+**Fix:**
+1. Check that the WebView data directory exists: `ls -la ~/.local/share/com.proton.drive/webview-data/`
+2. Verify sandbox is disabled: the app sets `WEBKIT_FORCE_SANDBOX=0` at startup — ensure this isn't overridden
+3. Check directory permissions: `stat ~/.local/share/com.proton.drive/webview-data/` — should be owned by your user
+
+### Cookies Not Persisting Between Sessions
+
+**Symptoms:** Login works, but after restart, you're logged out. Auth cookies disappear.
+
+**Causes:**
+- WebView cookie storage is in-memory instead of on-disk
+- The persistent data directory path changes between runs (e.g. if `$XDG_DATA_HOME` changes)
+- WebKit process is sandboxed and can't write cookies to disk
+
+**Fix:** See "Session Lost After Restart" above — the same root cause. The WebView data directory must be writable and persistent.
+
+## See Also
+
+- **[SSO Authentication](sso-authentication.md)** — End-to-end SSO flow, CAPTCHA handling, cookie bridge protocol
+- **[Proxy System](proxy-system.md)** — The fetch/XHR proxy layer, request construction, error handling
+- **[WebView Integration](webview-integration.md)** — Cookie handling, IPC commands, security considerations
+- **[Proton Navigation](proton-navigation.md)** — URL rewriting, SSO routing, CAPTCHA lifecycle
