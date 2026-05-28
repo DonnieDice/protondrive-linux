@@ -67,12 +67,12 @@ workflow:
 test:login-routing-regression:
   extends: .rules:test
   stage: test
-  image: debian:12
+  image: alpine:latest
   timeout: 10m
   dependencies: []
   cache: []
   script:
-    - apt-get update && apt-get install -y bash
+    - apk add --no-cache bash
     - bash scripts/ci/check-login-routing-regressions.sh
 
 # ─── Test: Sync Regression ─────────────────────────────────────────────────────
@@ -80,13 +80,57 @@ test:login-routing-regression:
 test:sync-regression:
   extends: .rules:test
   stage: test
-  image: debian:12
+  image: alpine:latest
   timeout: 10m
   dependencies: []
   cache: []
   script:
-    - apt-get update && apt-get install -y bash
+    - apk add --no-cache bash
     - bash scripts/ci/check-sync-regressions.sh
+
+# ─── Test: Rust Format Check ────────────────────────────────────────────────────
+
+test:fmt:
+  extends: .rules:test
+  stage: test
+  image: rust:${RUST_VERSION}
+  timeout: 10m
+  dependencies: []
+  cache:
+    key: test-fmt-cargo
+    paths:
+      - .cargo/
+    when: always
+  script:
+    - rustup component add rustfmt
+    - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+# ─── Test: Rust Clippy Lints ────────────────────────────────────────────────────
+
+test:clippy:
+  extends: .rules:test
+  stage: test
+  image: rust:${RUST_VERSION}
+  timeout: 30m
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-clippy"
+  cache:
+    key: test-clippy-cargo
+    paths:
+      - .cargo-clippy/
+      - src-tauri/target/
+    when: always
+  script:
+    - apt-get update && apt-get install -y libssl-dev libwebkit2gtk-4.1-dev
+        libgtk-3-dev libayatana-appindicator3-dev librsvg2-dev libsoup-3.0-dev
+        pkg-config
+    - rustup component add clippy
+    - mkdir -p WebClients/applications/drive/dist
+    - |
+      printf '<!doctype html><html><body>rust clippy fixture</body></html>\n' \
+        > WebClients/applications/drive/dist/index.html
+    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
 
 # ─── Test: Rust Unit Tests ─────────────────────────────────────────────────────
 
