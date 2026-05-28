@@ -1098,6 +1098,7 @@ spec:aur-pkgbuild:
   stage: spec
   image: node:22
   timeout: 30m
+  dependencies: []
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
@@ -1147,6 +1148,7 @@ spec:rpm-spec:
   stage: spec
   image: node:22
   timeout: 30m
+  dependencies: []
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
@@ -1197,8 +1199,11 @@ spec:rpm-spec:
 spec:source-dist:
   extends: .rules:build
   stage: spec
-  image: alpine/git:latest
+  image: alpine:latest
   timeout: 30m
+  dependencies: []
+  before_script:
+    - apk add --no-cache git bash
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
@@ -1259,6 +1264,8 @@ release:
       artifacts: true
     - job: build:apk:alpine-3.23
       artifacts: true
+  variables:
+    GIT_SSL_NO_VERIFY: "true"
   before_script:
     - apk add --no-cache curl bash
   script:
@@ -1271,7 +1278,7 @@ release:
         local file="$1"
         local name
         name=$(basename "$file")
-        curl --silent --fail \
+        curl --silent --fail -k \
           --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$file" \
           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}"
@@ -1285,7 +1292,7 @@ release:
         -o -name "*.apk.tar.gz" \
       \) | while read -r f; do upload_file "$f"; done
 
-      release-cli create \
+      release-cli --insecure create \
         --name "Proton Drive Linux ${TAG}" \
         --tag-name "${TAG}" \
         --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
