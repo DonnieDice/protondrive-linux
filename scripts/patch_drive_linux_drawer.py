@@ -10,6 +10,8 @@ DRIVE_WINDOW_CANDIDATES = [
     WEBCLIENTS_DIR / "applications/drive/src/app/legacy/components/layout/DriveWindow.tsx",
 ]
 DRIVE_APP = WEBCLIENTS_DIR / "applications/drive/src/app/App.tsx"
+DRAWER_SIDEBAR = WEBCLIENTS_DIR / "packages/components/components/drawer/DrawerSidebar.tsx"
+DRAWER_VISIBILITY_BUTTON = WEBCLIENTS_DIR / "packages/components/components/drawer/DrawerVisibilityButton.tsx"
 
 
 def fail(message: str) -> None:
@@ -102,6 +104,34 @@ def main() -> None:
         )
         DRIVE_APP.write_text(app_content)
         print(f"  ✓ Forced Drive drawer rail visible by default in {DRIVE_APP.relative_to(WEBCLIENTS_DIR)}")
+
+    # Patch DrawerSidebar: always show rail (remove hidden md:inline)
+    if DRAWER_SIDEBAR.exists():
+        sidebar = DRAWER_SIDEBAR.read_text()
+        if "drawer-sidebar hidden md:inline" in sidebar:
+            sidebar = sidebar.replace(
+                "'drawer-sidebar hidden md:inline no-print'",
+                "'drawer-sidebar inline no-print'",
+                1,
+            )
+            DRAWER_SIDEBAR.write_text(sidebar)
+            print(f"  ✓ Removed hidden-on-mobile from {DRAWER_SIDEBAR.relative_to(WEBCLIENTS_DIR)}")
+        else:
+            print(f"  ⚠ DrawerSidebar already patched or class changed - skipping")
+
+    # Patch DrawerVisibilityButton: always show chevron (remove hidden md:flex)
+    if DRAWER_VISIBILITY_BUTTON.exists():
+        btn = DRAWER_VISIBILITY_BUTTON.read_text()
+        if "drawer-visibility-control hidden md:flex" in btn:
+            btn = btn.replace(
+                "'drawer-visibility-control hidden md:flex'",
+                "'drawer-visibility-control flex'",
+                1,
+            )
+            DRAWER_VISIBILITY_BUTTON.write_text(btn)
+            print(f"  ✓ Removed hidden-on-mobile from {DRAWER_VISIBILITY_BUTTON.relative_to(WEBCLIENTS_DIR)}")
+        else:
+            print(f"  ⚠ DrawerVisibilityButton already patched or class changed - skipping")
 
 
 if __name__ == "__main__":
