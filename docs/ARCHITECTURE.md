@@ -62,7 +62,7 @@ All four are deliberately **in-memory-only** with zero-trust semantics — clear
 Owns:
 - `fn main()` — sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITING_MODE`, `WEBKIT_FORCE_SANDBOX`, `GDK_GL`, `GSK_RENDERER` env vars for WebKitGTK compatibility; builds `AppState`; registers Tauri plugins (shell, dialog, notification); runs the builder
 - **16 Tauri commands** (registered via `generate_handler!` at line 1846)
-- The **WebView initialization script** (~900 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, and iframe behavior)
+- **The WebView initialization script** (~700 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, and iframe behavior)
 - The **`on_navigation` callback** that rewrites Proton URLs to local `tauri://localhost/...` paths
 
 ### 2.4 Module: `auth.rs`

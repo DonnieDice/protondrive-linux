@@ -10,10 +10,10 @@ Drive SPA in a Tauri v2 `WebviewWindow`. The application serves the Drive UI fro
 locally built frontend bundle located at:
 
 ```
-WebClients/applications/drive/dist/
+../WebClients/applications/drive/dist/
 ```
 
-configured via `frontendDist` in `src-tauri/tauri.conf.json`. The WebView loads
+(relative to `src-tauri/`), configured via `frontendDist` in `src-tauri/tauri.conf.json`. The WebView loads
 `index.html` (a thin shell) which bootstraps the React-based Drive application
 (`index.tsx`). All UI rendering, routing, and business logic runs inside the WebView
 via standard browser APIs. The Rust backend supplements the web app with native
@@ -65,7 +65,7 @@ system notifications.
 |---|---|---|
 | Tauri version | 2.x (`"2.0"` Cargo dep) | `protocol-asset` feature enabled |
 | `withGlobalTauri` | `true` | Exposes `window.__TAURI__` to frontend |
-| CSP | `null` (disabled) | Security concern — wide-open |
+| CSP | Configured (allows `unsafe-inline`/`unsafe-eval`) | Required for Proton SPA inline scripts |
 | DevTools | enabled (`devtools: true`) | Right-click → Inspect available |
 | Frontend origin | `tauri://localhost` | Custom protocol (`custom-protocol` feature) |
 | WebView backend | WebKitGTK (Linux) | WebKit2GTK 4.1 required |
@@ -250,13 +250,24 @@ main-thread crypto (detected in
 
 ## Security Considerations
 
-### CSP is disabled
+### CSP
 
-The Content Security Policy is set to `null` in `tauri.conf.json`, meaning no
-CSP restrictions are applied to the WebView. This is a known security concern
-— any XSS vulnerability in the Proton SPA or injected scripts could be
-exploited without CSP mitigation. (CSP cannot be trivially enabled because
-Proton's SPA requires inline scripts and dynamic resource loading.)
+A Content Security Policy is configured in `tauri.conf.json` allowing
+`'unsafe-inline'` and `'unsafe-eval'` to support Proton's SPA requirements:
+
+```
+default-src 'self' ipc: asset: https: blob: data:;
+connect-src ipc: https: blob: data: 'self';
+script-src 'self' 'unsafe-inline' 'unsafe-eval';
+style-src 'self' 'unsafe-inline';
+img-src 'self' data: blob: https:;
+font-src 'self' data: https:;
+worker-src 'self' blob:;
+media-src 'self' blob: https:
+```
+
+This provides some baseline protection while allowing Proton's inline scripts,
+dynamic resource loading, IPC communication (`ipc:`), and blob URL usage.
 
 ### Command origin gating
 
