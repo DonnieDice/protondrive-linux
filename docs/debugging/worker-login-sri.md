@@ -219,6 +219,29 @@ Never reaches:
 GET /assets/version.json  <- Drive app initialization
 ```
 
+### Keep-Me-Signed-In Regression Note
+
+If login succeeds during the current app process but restart shows
+`/api/auth/v4/sessions/local/key -> 401`, `/api/auth/refresh -> 422`, or a
+`session-expired` redirect, inspect host-only auth cookie persistence before
+changing routing again.
+
+Proton auth responses can set cookies without a `Domain` attribute. Because the
+native proxy stores those cookies through Tauri's `set_cookie(cookie)` API
+rather than a browser response URL, the app must assign the response host before
+storing the cookie. Without that fallback, the in-memory reqwest jar keeps the
+current login working, but WebKit persists cookies with no usable domain and the
+next launch cannot refresh the session.
+
+Regression guards:
+
+- `src-tauri/src/webview_cookies.rs` contains the inline comment explaining why
+  host-only Proton auth cookies are scoped to the response host.
+- `host_only_cookies_are_scoped_to_response_host_for_restart_persistence` covers
+  the restart-persistence behavior.
+- `scripts/ci/check-login-routing-regressions.sh` fails if that guard is
+  removed.
+
 ### Worker Error Location
 Worker is created at: `tauri://localhost/account/assets/static/public-index.2ae8d2f5.js:1003:87490`
 
@@ -590,6 +613,16 @@ Checked all 21 forks via GitHub API. Summary:
 - Treat CAPTCHA completion only as explicit return to `tauri://localhost/account/?hv_token=...&hv_type=...`.
 - Store the token in Rust memory and add Proton human-verification headers to the retried auth request.
 - Avoid forwarding console logs from external captcha pages to Rust to prevent Tauri ACL noise.
+- After account login/2FA handoff, redirect to `tauri://localhost/`, not `tauri://localhost/u/<id>/`. Deep `tauri://localhost/u/<id>/` reloads break the WebKitGTK/Tauri asset protocol and kill IPC, freezing the app after 2FA.
+- Force the final account-to-Drive handoff through `about:blank` before loading `tauri://localhost/`. On WebKitGTK, direct same-origin handoffs to `tauri://localhost/` can update the URL while leaving the account document alive, so the Drive document does not reload and the init script/IPC proxy is not reinstalled.
+- On Drive root load, if localStorage contains a persisted `ps-<localID>` session, rewrite the SPA route to `/u/<localID>/` before Proton app code runs. Loading the Tauri document directly at `/u/<localID>/` breaks assets/IPC, but leaving the SPA route at `/` makes Drive treat the restored session as expired and loop back through Account.
+
+**Regression Coverage:**
+- `proton_navigation::tests::accepts_only_explicit_captcha_completion_token_return` verifies the only valid CAPTCHA completion is `tauri://localhost/account/?hv_token=...&hv_type=...`.
+- `proton_navigation::tests::rejects_account_return_without_captcha_token` verifies account returns without the token are not treated as CAPTCHA completion.
+- `proton_navigation::tests::rejects_captcha_internal_navigation_as_completion` verifies `about:blank` and `verify-api` CAPTCHA internals do not complete verification.
+- `proton_navigation::tests::redirects_account_proton_drive_handoff_to_local_drive_root` and `redirects_local_account_drive_handoff_to_local_drive_root` verify post-login account handoff lands on `tauri://localhost/`, not `/u/<id>/`.
+- `scripts/ci/check-login-routing-regressions.sh` is run by the `Login/2FA Routing Regression Checks` workflow job and fails if the broad "left captcha page" completion path, the deep `/u/<id>/` redirect pattern, removal of the `about:blank` hard handoff, or removal of the pre-init Drive user route restore is reintroduced.
 
 **Validated Result:**
 - Fedora local release binary launched successfully.

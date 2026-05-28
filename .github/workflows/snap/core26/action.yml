@@ -105,10 +105,23 @@ runs:
         mv "$SNAP_FILE" "proton-drive_${VERSION}_core26_amd64.snap"
         sudo rm -rf "$BUILD_CONTEXT"
 
+    - name: Write artifact manifest
+      shell: bash
+      run: |
+        ARTIFACT_MANIFEST_DIR=. \
+          bash scripts/ci/write-artifact-manifest.sh \
+          snap-package-core26 \
+          snap \
+          core26 \
+          x86_64 \
+          "proton-drive_*_core26_amd64.snap"
+
     - name: Upload Snap artifact
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: snap-package-core26
-        path: "proton-drive_*_core26_amd64.snap"
+        path: |
+          proton-drive_*_core26_amd64.snap
+          snap-package-core26.*
         if-no-files-found: error
         retention-days: 30

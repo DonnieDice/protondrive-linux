@@ -50,6 +50,8 @@ SHA256 checksums are provided in the `SHA256SUMS` file attached to each release.
 
 The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** — the web frontend must call the Tauri commands to use it.
 
+Operational notes, weak areas, and the `~/Pictures` test plan are documented in [Two-Way Sync Notes](docs/sync.md).
+
 ### How it works
 
 1. **Choose a sync folder** — the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
@@ -78,6 +80,8 @@ The native sync layer lets the Proton Drive web app watch a local folder and app
 | | |
 |---|---|
 | [Workflow](docs/workflow.md) | Branch, PR, review, and merge guide |
+| [CI Authority & GitHub Mirroring](docs/ci-authority-and-mirroring.md) | GitLab CI authority, GitHub mirror policy, and release ownership |
+| [Two-Way Sync Notes](docs/sync.md) | Sync bridge contract, weak areas, and test plan |
 | [Contributing](docs/CONTRIBUTING.md) | Detailed dev, build, and packaging rules |
 | [Packaging & Compatibility](docs/packaging.md) | Support matrix, compatibility gates, patch policy |
 | [License](docs/LICENSE) | AGPL-3.0 or later |

@@ -1,183 +1,182 @@
-# CI/CD Roadmap — Proton Drive Linux
+# CI/CD Roadmap
 
-> High-level roadmap for the CI/CD pipeline. Documents current capability,
-> completed milestones, and planned improvements.
->
-> Companion to: [`ci-pipeline-reference.md`](ci-pipeline-reference.md) (detailed
-> GitLab job reference) and [`workflow.md`](workflow.md) (contributor workflow).
+This roadmap separates checks by what they can prove, how much infrastructure
+they require, and whether they should block releases.
 
----
+## Stage 0: Artifact Traceability
 
-## Current State (Snapshot)
+Status: started in PR #102.
 
-The project runs **two CI systems** in parallel:
+Goal: make every build artifact self-describing before adding new test
+infrastructure.
 
-| System | Entrypoint | Purpose |
-|--------|-----------|---------|
-| **GitHub Actions** | `.github/workflows/package-workflows.yml` | Primary — build, package, release, publish |
-| **GitLab CI** | `.gitlab-ci.yml` | Mirror — same package builds on GitLab infrastructure |
+What this proves:
 
-Both systems execute the same build matrix. A **`sync-to-gitlab.yml`** workflow
-mirrors GitHub issues, PRs, and comments to a GitLab instance for backup.
-**Dependabot** is configured for dependency updates.
+- Which commit produced an artifact
+- Which PR/run/job produced an artifact
+- Which package type, distro, arch, and version the artifact targets
+- Which checksum belongs to each file
 
-### Pipeline Stages (Both Systems)
+What this does not prove:
 
-```
-Build (17 jobs) → Spec/GitLab only → Release → Publish
-```
+- The package installs
+- The GUI opens
+- Login or 2FA works
 
-#### Build — 17 distro packages
+Gate recommendation: required once stable.
 
-| Format | Variants |
-|--------|----------|
-| APK | Alpine 3.20, 3.22, 3.23 |
-| AppImage | linux-baseline (portable) |
-| AUR | Arch Linux rolling |
-| DEB | Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 |
-| Flatpak | GNOME 49, GNOME 50 |
-| RPM | CentOS Stream 10, Fedora 43, Fedora 44, openSUSE Tumbleweed |
-| Snap | Core 24, Core 26 (allow_failure) |
+## Stage 1: Unit Tests
 
-All build jobs: install deps → clone WebClients → apply distro patch →
-build web clients → npm install → cargo build → package → `artifacts/`.
+Goal: test isolated logic that does not need a desktop session, WebKit, a
+network login, or system package installation.
 
-#### Spec (GitLab CI only)
+Good candidates:
 
-- `spec:aur-pkgbuild` — generates `PKGBUILD`
-- `spec:rpm-spec` — generates `.spec` file
-- `spec:source-dist` — creates source tarball + SHA-256
+- URL routing helpers
+- cookie/session persistence helpers
+- auth state parsing
+- storage path selection
+- package metadata helper scripts
+- small JS/Rust utility functions
 
-#### Release
+What this proves:
 
-- **GitLab**: aggregates 17 build artifacts → uploads to Generic Packages →
-  creates GitLab Release via `release-cli`
-- **GitHub**: aggregates artifacts → creates GitHub Release via
-  `.github/workflows/maintenance/release`
+- Deterministic helper logic behaves as expected
+- Regressions are caught before package builds start
 
-#### Publish
+What this does not prove:
 
-| Channel | Both systems | Secrets needed |
-|---------|:-----------:|----------------|
-| AUR (aur.archlinux.org) | Yes | `AUR_SSH_PRIVATE_KEY` |
-| Flathub (flathub.org) | Yes | `FLATHUB_SSH_PRIVATE_KEY` |
-| Snap Store (snapcraft.io) | Yes | `SNAPCRAFT_STORE_CREDENTIALS` |
+- WebView rendering
+- desktop integration
+- login/2FA behavior against Proton
 
-### Trigger Rules
+Gate recommendation: required for touched helper code.
 
-| Event | What runs |
-|-------|-----------|
-| PR / branch push | All build jobs + all spec jobs |
-| Tag push (`v*`) | Full pipeline: build → spec → release → publish |
-| Main branch push | Build + spec + release (no publish) |
-| Manual dispatch | Any job group via `workflow_dispatch` |
+## Stage 2: Debug Markers
 
-### Cross-Distro Patch System
+Goal: add structured logs around startup, WebView creation, navigation,
+auth handoff, cookie persistence, and 2FA transitions.
 
-Each OS variant has a patch file in `patches/<format>/<variant>.patch` that
-adapts the WebClients checkout. APK and EL10 patches apply idempotently
-(`--reverse --check` first). Missing patches emit warnings or errors depending
-on format.
+What this proves:
 
----
+- The app reached specific internal checkpoints
+- session/auth hooks ran
+- a tester can identify where login stopped
 
-## ✅ Completed Milestones
+What this does not prove:
 
-- [x] **17-package build matrix** — every major Linux packaging format represented
-- [x] **Dual CI redundancy** — GitLab CI mirrors GitHub Actions for availability
-- [x] **Automated releases** — tagged releases produce downloadable artifacts on both GitLab and GitHub
-- [x] **Automated publishing** — AUR, Flathub, and Snap Store updates happen automatically on tag
-- [x] **Package spec generation** — PKGBUILD, RPM `.spec`, and source tarballs auto-generated
-- [x] **Distro patch system** — per-distribution WebClients patches with idempotent apply
-- [x] **Cross-platform Rust caching** — per-job `.cargo` + `target/` caches (2h TTL)
-- [x] **Issue/PR sync** — GitHub ↔ GitLab bidirectional mirroring
-- [x] **Dependabot** — automated dependency update PRs
-- [x] **Contributor workflow docs** — `workflow.md`, `CONTRIBUTING.md`, `ci-pipeline-reference.md`
-- [x] **Branch-based auto-labeling** — `feature/` → `enhancement`, `fix/` → `bug`, `chore/` → `chore`
+- a real window was visible
+- WebKit rendered content
+- user input worked
+- 2FA was actually usable
 
----
+Gate recommendation: required for login/session changes once enough markers
+exist.
 
-## 🔜 Near-Term (Next 1-2 Months)
+## Stage 3: Mini-Compositor GUI Smoke Test
 
-### Code Quality Gates
+Goal: run the app under a lightweight CI display stack such as `xvfb`,
+`weston`, or `xvfb + openbox` and verify that the process creates a window
+without crashing.
 
-- [ ] **Unit test runner** — add a `test` job (plain `cargo test`) to both CI systems
-- [ ] **Lint / format check** — run `cargo fmt --check` and `cargo clippy` on PRs
-- [ ] **Review bot integration** — CodeRabbit / Qodo is mentioned in workflow.md but not wired into CI commit status gates
+What this proves:
 
-### Signing & Supply Chain
+- the app can start in a CI desktop-like environment
+- Tauri/WebKit can create a GUI surface
+- obvious blank-start or crash-on-open failures are caught
 
-- [ ] **Artifact signing** — GPG/signify signing of `.AppImage`, `.deb`, `.rpm`, `.snap` artifacts
-- [ ] **Checksum manifest** — produce `SHA256SUMS` or `SHA256SUMS.asc` alongside releases
-- [ ] **SBOM generation** — `cargo cyclonedx` or `cargo auditable` for software bill of materials
+What this does not prove:
 
-### CI Hygiene
+- distro-specific package install behavior
+- login success
+- 2FA success
+- keyring and desktop-session behavior in a real user VM
 
-- [ ] **Shared Rust cache** — one cache namespace across all jobs instead of per-formula caches
-- [ ] **Better failure diagnostics** — structured artifact failure output (currently just grep logs)
-- [ ] **Retry flaky builds** — network timeout retry already in openSUSE; extend to APK/DNF jobs
+Gate recommendation: start non-blocking, then make required after flake rate is
+known.
 
----
+## Stage 4: Package Install Smoke Tests
 
-## 🗺 Medium-Term (3-6 Months)
+Goal: install built artifacts into matching distro environments and run basic
+post-install checks.
 
-### Testing Infrastructure
+Likely targets:
 
-- [ ] **Integration tests** — headless Tauri test suite (`tauri-driver` or WebDriver)
-- [ ] **VM-level smoke tests** — boot each package format in its native distro container, verify `--version`
-- [ ] **Cross-arch builds** — arm64 for Apple Silicon / Raspberry Pi via QEMU emulation
+- DEB on Ubuntu/Debian
+- RPM on Fedora/EL/openSUSE
+- APK on Alpine
+- AUR package on Arch
+- AppImage launch check
+- Flatpak install check
+- Snap install check, excluding known store publish issues
 
-### Release Automation
+What this proves:
 
-- [ ] **Auto-changelog** — derive release notes from conventional commits since last tag
-- [ ] **Homebrew tap publish** — automate `brew tap protondrive-linux` formula push
-- [ ] **Docker image publish** — push `protondrive-linux` images to GHCR for headless testing
+- package dependencies are installable
+- desktop files/icons are present
+- package managers accept the artifact
+- basic app launch still works after packaging
 
-### Security Hardening
+What this does not prove:
 
-- [ ] **Container image scanning** — Trivy or Grype scan of build containers
-- [ ] **Dependency auditing** — `cargo audit` / `npm audit` in CI
-- [ ] **SAST scanning** — `cargo deny` for license + advisory checks
-- [ ] **FIPS-compatible build** — verify Alpine musl build compiles without OpenSSL FIPS violations
+- real login/2FA success
+- complete desktop integration
+- long-running sync behavior
 
----
+Gate recommendation: non-blocking at first, then required per package family
+after the scripts stabilize.
 
-## 🚀 Long-Term (6+ Months)
+## Stage 5: VM Login And 2FA Acceptance Tests
 
-### Service Migrations
+Goal: test the real user workflow in persistent or provisioned virtual
+machines with a real desktop session.
 
-- [ ] **Unified CI entrypoint** — one pipeline driving both GitHub and GitLab from shared YAML (e.g., `pipeline.yml` referenced via includes)
-- [ ] **Self-hosted runner pool** — reduce reliance on GitHub/GitLab shared runners for 2h builds
-- [ ] **Matrix UI** — visual dashboard showing per-distro tier: stable / beta / dev
+Required infrastructure:
 
-### Quality of Life
+- VM per priority distro or distro family
+- desktop session and compositor
+- WebKitGTK runtime
+- keyring/secret-service
+- network access
+- test Proton account
+- controlled 2FA flow, likely TOTP via CI secret
+- screenshot, video, and app log capture
 
-- [ ] **PR preview builds** — comment on PRs with "Download Alpine 3.22 APK" links
-- [ ] **CI regression telemetry** — track build duration / failure rate per job over time
-- [ ] **Cross-distro compatibility map** — auto-detected WebKitGTK version vs. features matrix
+What this proves:
 
----
+- the app can open in a real desktop environment
+- login page is usable
+- 2FA can be completed
+- authenticated state persists after the handoff
 
-## Known Gaps
+What this does not prove:
 
-| Gap | Impact | Tracked |
-|-----|--------|---------|
-| No unit tests in CI | Silent regressions in Rust and JS code | — |
-| No artifact signing | Users cannot verify provenance of downloads | — |
-| No SBOM | Downstream packagers (Debian, Fedora) cannot validate dependencies | — |
-| No VM/integration tests | AppImage/Flatpak/Snap might work in build env but not in target | — |
-| Snap core26 `allow_failure` | Latest Ubuntu snap base is untested | — |
-| No shared Rust cache between jobs | Each of 17 jobs rebuilds deps independently; ~2h each | — |
+- every user account state
+- every distro variant
+- every store-specific publish path
 
----
+Gate recommendation: manual or scheduled at first. Make it a release candidate
+gate only after the VM jobs are reliable and the account/2FA process is
+controlled.
 
-## CI File Index
+## Priority Order
 
-| File | Lines | Purpose |
-|------|-------|---------|
-| `.gitlab-ci.yml` | 1,492 | GitLab CI: build → spec → release → publish |
-| `.github/workflows/package-workflows.yml` | 601 | GitHub Actions: build → release → publish |
-| `.github/workflows/sync-to-gitlab.yml` | 130 | Issue/PR/comment mirror to GitLab |
-| `.github/workflows/maintenance/` | — | Release, auto-label, package-spec generators |
-| `.github/workflows/{apk,appimage,aur,deb,flatpak,rpm,snap}/**/action.yml` | — | Per-formula composite action implementations |
-| `patches/{apk,appimage,aur,deb,flatpak,rpm,snap}/*.patch` | — | Distro-specific WebClients patches |
+1. Artifact traceability
+2. Unit tests for isolated helpers
+3. Debug markers for login/session routing
+4. mini-compositor GUI smoke test
+5. package install smoke tests
+6. VM login and 2FA acceptance tests
+
+## Release Policy Direction
+
+Until VM login/2FA testing exists, release confidence should come from:
+
+- successful package builds
+- artifact manifests and checksums
+- helper-level unit tests
+- targeted manual testing of priority artifacts
+- clear debug logs when login/session behavior fails
+
+Do not treat container-only tests as proof that login and 2FA work. Login and
+2FA are end-to-end acceptance tests and need a real desktop-like environment.

@@ -21,7 +21,8 @@ calc_cache_key() {
         for path in \
             "$REPO_ROOT/scripts/fix_deps.py" \
             "$REPO_ROOT/scripts/create_stubs.py" \
-            "$REPO_ROOT/patches/common/fix-tauri-worker-protocol.patch" \
+            "$REPO_ROOT/scripts/patch_drive_linux_drawer.py" \
+            "$REPO_ROOT/scripts/patch_drive_linux_sync_bridge.py" \
             "$WEBCLIENTS_DIR/package.json" \
             "$WEBCLIENTS_DIR/yarn.lock" \
             "$WEBCLIENTS_DIR/.yarnrc.yml"
@@ -30,6 +31,11 @@ calc_cache_key() {
                 sha256sum "$path"
             fi
         done
+        if [ -d "$REPO_ROOT/patches/common" ]; then
+            find "$REPO_ROOT/patches/common" -maxdepth 1 -type f -name "*.patch" -print0 \
+                | sort -z \
+                | xargs -0r sha256sum
+        fi
     } | sha256sum | awk '{print $1}'
 }
 
@@ -81,13 +87,21 @@ if [ -d "$PATCHES_DIR" ]; then
             elif git apply --check "$patch" 2>/dev/null; then
                 git apply "$patch"
                 echo "  ✓ Applied"
+            elif [ "$patch_name" = "add-drive-linux-drawer-rail.patch" ]; then
+                cd "$REPO_ROOT"
+                python3 scripts/patch_drive_linux_drawer.py
+                cd "$WEBCLIENTS_DIR"
             else
                 echo "  ❌ Failed to apply - conflicts detected"
+                git apply --check "$patch"
                 exit 1
             fi
         fi
     done
 fi
+cd "$REPO_ROOT"
+python3 scripts/patch_drive_linux_sync_bridge.py
+cd "$WEBCLIENTS_DIR"
 
 # 3. Install dependencies in WebClients
 echo "📦 Installing WebClients dependencies..."

@@ -1,6 +1,6 @@
 {
   "name": "protondrive-linux",
-  "version": "1.4.4",
+  "version": "2.0.0",
   "description": "Proton Drive desktop client for Linux",
   "repository": {
     "type": "git",

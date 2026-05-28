@@ -1,422 +1,144 @@
-# Login Sync / SRI Regression Runbook
+# Login And Sync Regression Runbook
 
-Use this runbook to verify that login-sync and SRI (Subresource Integrity)
-fixes are correctly applied in CI builds and local development. Run through
-these checks before tagging a release or after any change to the WebClients
-build pipeline, patch files, or CI workflows.
-
-## Overview
-
-Proton Drive Linux ships three web apps inside a Tauri wrapper:
-
-- **Drive app** — main file storage UI
-- **Account app** — login, 2FA, settings (nested under `/account/`)
-- **Verify app** — CAPTCHA, auth challenges (nested under `/verify/`)
-
-Two classes of regression affect login:
-
-1. **Web Worker incompatibility** — System WebKitGTK (RPM/deb/flatpak/snap)
-   doesn't support Workers from `tauri://` protocol. Fix: patch WebClients
-   `hasModulesSupport()` to return `false` in Tauri environments.
-2. **SRI (Subresource Integrity) + path mismatches** — webpack embeds SHA-384
-   hashes at build time via `webpack-subresource-integrity`. If hashes remain
-   or publicPath is wrong, lazy chunks (locales, date-fns) fail to load,
-   producing white screen or "Something went wrong" on login.
-
----
+This runbook covers the recurring regressions that cannot be fully proven in
+container CI because they need Proton Account, 2FA, WebKitGTK persistence, and a
+real desktop session. CI must still guard the static contracts and unit tests
+listed here so risky changes are visible before manual acceptance testing.
 
 ## CI Guardrails
 
-### 1. Patch Application
-
-The WebClients compat patch **must** be applied before every build:
-
-| Check | Expected |
-|-------|----------|
-| Patch file exists | `patches/common/fix-tauri-worker-protocol.patch` |
-| Applied by `scripts/build-webclients.sh` | Searches `patches/common/*.patch`, git-applies each |
-| Applied by `.gitlab-ci.yml` | All build jobs call `scripts/build-webclients.sh` |
-| Applied by Flatpak build | `packaging/com.proton.drive.yml` calls `scripts/build-webclients.sh` |
-
-**Per-distro patches:** In addition to the common patch, `.gitlab-ci.yml` also
-applies distro-specific patches from `patches/<type>/` (e.g. `patches/apk/`,
-`patches/appimage/`, `patches/deb/`, `patches/aur/`). These handle
-distro-specific build env quirks. The common patch is always the baseline.
-
-**Verify patch is active** in a built dist:
+Run these checks before packaging or manual acceptance:
 
 ```bash
-# Check hasModulesSupport() returns false in Tauri context (TypeScript source)
-grep -rF "window.location?.protocol === 'tauri:'" WebClients/packages/shared/lib/helpers/browser.ts
-
-# Confirm the patched function is in the webpack bundle (transpiled JS)
-grep -F "=== 'tauri:'" applications/drive/dist/assets/static/main.*.js
+bash scripts/ci/check-login-routing-regressions.sh
+bash scripts/ci/check-sync-regressions.sh
+cd src-tauri && cargo test proton_navigation::tests webview_cookies::tests live_sync::tests
 ```
 
-**If missing**, the patch hunk may be stale (WebClients upstream added/removed
-lines near the target). Update the hunk offset in the `.patch` file:
+The CI checks do not use real Proton credentials. They guard:
+
+- Post-2FA handoff goes to `tauri://localhost/`, not a deep `/u/<id>/` Tauri URL.
+- CAPTCHA completion is accepted only from `tauri://localhost/account/?hv_token=...&hv_type=...`.
+- Drive restores `/u/<localID>/` from persisted `ps-<localID>` localStorage before app init.
+- Host-only Proton auth cookies are scoped to the response host for restart persistence.
+- Startup loading has user-facing diagnostics for WebView state and blocked proxy requests.
+- All `proxy_request` IPC invokes are serialized through `invokeProxyRequest`/`proxyInvokeChain`.
+  WebKitGTK's IPC custom protocol breaks under concurrent invoke load and falls back to
+  postMessage, where JSON object responses never resolve. Direct
+  `await window.__TAURI__.core.invoke('proxy_request', ...)` is forbidden — every API proxy
+  call must go through the serialization queue or the loading screen will freeze.
+- Sync commands stay registered and the native watcher emits `live-sync://local-change`.
+- Remote sync payloads keep the `{ relativePath, action, contentBase64 }` contract.
+- Default sync startup creates and watches `~/ProtonDrive` and maps it to a Linux device under the
+  Proton Drive `Computers` section, not a `My files` path prefix.
+
+## Manual Login And 2FA Procedure
+
+Use a disposable test account or an account approved for release testing. Select
+`Keep me signed in` during login.
+
+1. Start from a clean app process and capture logs.
+2. Complete username/password login.
+3. Complete 2FA.
+4. Confirm Drive loads without freezing after the account handoff.
+5. Quit the app completely.
+6. Start the app again without re-entering credentials.
+7. Confirm Drive restores the signed-in session and does not loop back to Account.
+
+Expected positive markers:
+
+- `[SSO] Login complete, redirecting to: tauri://localhost/`
+- `window.location.replace('about:blank')` exists in the handoff code path.
+- `[SSO] Restored Drive user route before app init: /u/<localID>/`
+- `[STORAGE] pathname: /u/<localID>/ ... sessions: ps-<localID>`
+- `[Cookie] stored name=AUTH-... domain=mail.proton.me path=/api/...`
+- `[Cookie] stored name=REFRESH-... domain=mail.proton.me path=/api/auth/refresh...`
+- `[Proxy][<id>] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key elapsed_ms=...`
+- `[STARTUP_DIAG] [StartupDiag] startup watchdog 8s` if startup is still loading.
+- A visible `protondrive-startup-diagnostics` panel appears if API proxy calls remain pending.
+
+Expected negative markers:
+
+- No repeated navigation between Account and Drive after 2FA.
+- No final deep WebView reload to `tauri://localhost/u/<localID>/`.
+- No `[CAPTCHA] Left captcha page, returning to account app`.
+- No repeated post-login `/api/auth/v4/sessions/local/key` `401`.
+- No repeated post-login `/api/auth/refresh` `422`.
+- No `session-expired` loop after the restart test.
+- No startup request remains pending past 30 seconds without a visible diagnostics panel.
+- No native proxy request hangs indefinitely; failures must resolve as logged `502` or `504`.
+
+## Manual Sync Procedure
+
+Do not start with the full `~/Pictures` tree. Normal startup should create and
+watch `~/ProtonDrive`. Use a disposable staged folder under that root first,
+then expand only after the staged loop passes.
 
 ```bash
-cd WebClients
-git apply --check ../patches/common/fix-tauri-worker-protocol.patch
-# If this fails, the hunk @@ line numbers are wrong
+mkdir -p "$HOME/ProtonDrive/protondrive-sync-smoke/nested"
+proton-drive
 ```
 
-### 2. SRI Hash Stripping (Safety Net)
-
-Webpack's `webpack-subresource-integrity` plugin embeds SHA-384 hashes in
-`runtime.js` and `index.html`. These must be stripped because:
-
-- Modifying runtime.js post-build (e.g., fixing publicPath) invalidates the hashes
-- Unconditional `i.integrity = sriHashes[e]` sets `integrity="undefined"` for
-  chunks not in the hash map, which WebKitGTK rejects as a failed integrity match
-
-**Primary fix:** `scripts/fix_deps.py` adds `--no-sri` to the `build:web`
-script in each app's `package.json` **before** webpack runs. This disables
-SRI at the webpack plugin level — no hashes are generated.
-
-**Safety net in `scripts/build-webclients.sh`:** Post-build stripping in case
-`--no-sri` was missed (e.g., WebClients updated and fix_deps.py didn't run):
-
-```bash
-# 1. Remove integrity/crossorigin from all HTML files (drive root, account, verify)
-find applications/drive/dist -name "*.html" -exec sed -i \
-  -e 's| integrity="[^"]*"||g' \
-  -e 's| crossorigin="anonymous"||g' {} \;
-
-# 2. Strip sriHashes object and unconditional integrity assignment
-#    from all runtime.js files (drive root, account, verify)
-find applications/drive/dist -name "runtime*.js" -exec python3 -c "
-import re, sys
-for p in sys.argv[1:]:
-    c = open(p).read()
-    c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c)
-    c = re.sub(r'[a-z]\.integrity=[a-z]\.sriHashes\[[a-z]\],', '', c)
-    open(p,'w').write(c)
-" {} \;
-```
-
-**Verify SRI is stripped:**
-
-```bash
-# No sriHashes entries — use find for portability (avoids ** globstar dependency)
-find applications/drive/dist -name 'runtime*.js' -exec grep -c 'sriHashes' {} +
-# Should return lines with 'sriHashes={}' only, not hash maps
-
-# No integrity attributes in HTML
-grep 'integrity=' applications/drive/dist/index.html
-# Should return nothing
-
-# No crossorigin in HTML
-grep 'crossorigin="anonymous"' applications/drive/dist/index.html
-# Should return nothing
-```
-
-**Verify `--no-sri` was applied at build time:**
-
-```bash
-# Check each app's package.json for --no-sri in build:web
-grep -r "no-sri" WebClients/applications/*/package.json
-# Expected: drive, account, and verify all have --no-sri in their build:web script
-```
-
-If `--no-sri` is missing from any app, `scripts/fix_deps.py` needs to be
-run again or its regex may be stale.
-
-### 3. PublicPath Fix
-
-Webpack's `__webpack_public_path__` defaults to `"/"`. For the nested account
-app at `tauri://localhost/account/`, this creates double-slash paths:
-
-```
-"/" + "/account/assets/..." = "//account/assets/..." (protocol-relative!)
-"//account/..." on tauri:// = "tauri://account/..."  (WRONG HOST)
-```
-
-**Fix applied in `scripts/build-webclients.sh`:**
-
-```bash
-# Account app
-find applications/drive/dist/account -name "runtime*.js" -exec sed -i \
-  's/\.p="\/"/.p=""/g' {} \;
-
-# Verify app (same fix)
-find applications/drive/dist/verify -name "runtime*.js" -exec sed -i \
-  's/\.p="\/"/.p=""/g' {} \;
-```
-
-**Verify publicPath:**
-
-```bash
-grep '\.p=""' applications/drive/dist/account/runtime*.js
-# Should match — publicPath set to empty string
-
-grep '\.p=""' applications/drive/dist/verify/runtime*.js
-# Should match
-```
-
-### 4. Account/Verify Nested Path Fix
-
-Asset paths in account and verify apps must be rewritten for nested deployment:
-
-| Original | Fixed |
-|----------|-------|
-| `<base href="/">` | `<base href="/account/">` or `<base href="/verify/">` |
-| `src="/assets/..."` | `src="/account/assets/..."` or `src="/verify/assets/..."` |
-| `href="/assets/..."` | `href="/account/assets/..."` or `href="/verify/assets/..."` |
-| `content="/assets/..."` | `content="/account/assets/..."` or `content="/verify/assets/..."` |
-
-The build script also strips `integrity` and `crossorigin` attributes from
-HTML during path fixing (same WebKitGTK SRI rejection issue documented above).
-
-**Verify path fixes:**
-
-```bash
-# Account app base href must be correct
-grep '<base href="/account/">' applications/drive/dist/account/index.html
-
-# No unfixed absolute paths in account app
-grep 'src="/assets/' applications/drive/dist/account/index.html
-# Should return nothing
-grep 'href="/assets/' applications/drive/dist/account/index.html
-# Should return nothing
-
-# Verify app base href
-grep '<base href="/verify/">' applications/drive/dist/verify/index.html
-
-# No unfixed absolute paths in verify app
-grep 'src="/assets/' applications/drive/dist/verify/index.html
-# Should return nothing
-```
-
----
-
-## Local Regression Test
-
-Run the full build pipeline locally before pushing to CI:
-
-### Step 1: Clean build
-
-```bash
-# Remove cached dist to force a fresh build
-rm -rf WebClients/.codex-cache
-rm -rf WebClients/applications/drive/dist
-
-# Run the CI build script (matches what CI does)
-bash scripts/build-webclients.sh
-```
-
-### Step 2: Verify all guardrails
-
-```bash
-echo "=== PATCH CHECK ==="
-grep -c "== 'tauri:'" applications/drive/dist/assets/static/main.*.js | head -1 && \
-  echo "PASS: patch present in bundle" || \
-  echo "FAIL: patch not in webpack bundle"
-
-echo "=== SRI CHECK ==="
-if grep -q 'integrity=' applications/drive/dist/index.html; then
-  echo "FAIL: integrity attributes remain in index.html"
-else
-  echo "PASS: SRI stripped from index.html"
-fi
-
-echo "=== NO-SRI FLAG CHECK ==="
-if grep -q 'no-sri' WebClients/applications/*/package.json; then
-  echo "PASS: --no-sri present in build scripts"
-else
-  echo "FAIL: --no-sri missing from build scripts"
-fi
-
-echo "=== PUBLICPATH CHECK ==="
-if grep -q '\.p=""' applications/drive/dist/account/runtime*.js; then
-  echo "PASS: account app publicPath fixed"
-else
-  echo "FAIL: account app publicPath not fixed"
-fi
-if grep -q '\.p=""' applications/drive/dist/verify/runtime*.js; then
-  echo "PASS: verify app publicPath fixed"
-else
-  echo "FAIL: verify app publicPath not fixed"
-fi
-
-echo "=== NESTED PATH CHECK ==="
-if grep -q '<base href="/account/">' applications/drive/dist/account/index.html; then
-  echo "PASS: account app base href correct"
-else
-  echo "FAIL: account app base href wrong"
-fi
-
-if grep -q 'src="/assets/' applications/drive/dist/account/index.html; then
-  echo "FAIL: account app has unfixed asset paths"
-else
-  echo "PASS: account app asset paths correct"
-fi
-
-if grep -q '<base href="/verify/">' applications/drive/dist/verify/index.html; then
-  echo "PASS: verify app base href correct"
-else
-  echo "FAIL: verify app base href wrong"
-fi
-
-if grep -q 'src="/assets/' applications/drive/dist/verify/index.html; then
-  echo "FAIL: verify app has unfixed asset paths"
-else
-  echo "PASS: verify app asset paths correct"
-fi
-```
-
-### Step 3: Build and run packaged app
-
-```bash
-# Build the Tauri binary (AppImage for quick test)
-npx @tauri-apps/cli build --target appimage
-
-# Run and attempt login + 2FA
-./src-tauri/target/release/Proton\ Drive &
-```
-
-Verify login flow completes:
-
-1. App launches to login page (not white screen)
-2. Credentials accepted, no infinite spinner
-3. 2FA challenge loads (if enabled)
-4. Drive main UI loads after authentication
-5. Lazy chunks (locales, date-fns) load without "Something went wrong"
-
----
-
-## CI Pipeline Triggers
-
-Builds that test login sync run on:
-
-| Trigger | CI System | Pipeline |
-|---------|-----------|----------|
-| Push to `main` | Both | GitLab CI — all build jobs; GitHub Actions — `package-workflows.yml` |
-| Push to `feature/**`, `fix/**`, `chore/**` | Both | GitLab CI — all build jobs; GitHub Actions — `package-workflows.yml` |
-| PR to `main` | GitHub Actions | `package-workflows.yml` — build + upload |
-| Push tag `v*` | Both | GitLab CI — release + publish stages; GitHub Actions — release build |
-| `workflow_dispatch` | Both | Manual trigger |
-
-### GitLab CI SRI-specific check
-
-The CI build calls `scripts/build-webclients.sh` which in turn runs
-`scripts/fix_deps.py` before the webpack build. `fix_deps.py` patches each
-app's `package.json` to add `--no-sri` to the `build:web` command,
-disabling SRI at the webpack plugin level.
-
-Verify the `--no-sri` flag is present in all three apps' build scripts:
-
-```bash
-grep 'no-sri' WebClients/applications/*/package.json
-# Expected: --no-sri appears in the build:web script for drive, account, and verify
-```
-
-### GitHub Actions patch path check
-
-All GitHub Actions workflow implementations under `.github/workflows/` use
-`scripts/build-webclients.sh` which handles patches from `patches/common/`.
-Verify no workflow references a stale `patches/webclients/` path:
-
-```bash
-grep -r "patches/webclients" .github/workflows/
-# Expected: no matches (historical bug — was `patches/webclients/`, fixed to `patches/common/`)
-```
-
----
-
-## Known Pitfalls
-
-### Patch stale on WebClients update
-
-When WebClients upstream adds/removes imports at the top of `browser.ts`, the
-patch hunk `@@ -5,6` (or similar) drifts. Symptoms: CI build succeeds but
-patch silently fails — `git apply` returns non-zero, but the build script
-skips already-applied detection and only flags conflicts. **Always check**
-the patch applied by verifying the content in the bundle (step 2 above).
-
-### `window.__TAURI__` timing
-
-Do NOT rely on `window.__TAURI__` to detect Tauri. It's set AFTER early
-module initialization — the crypto worker starts before the Tauri IPC bridge
-is ready. Use `window.location.protocol === 'tauri:'` instead (available
-from the first line of JS execution).
-
-### Runtime Worker override in main.rs
-
-The old approach overrode `window.Worker = undefined` in `main.rs`. This
-**conflicts** with the source patch: when the patch IS applied,
-`setupCryptoWorker.ts` never uses Workers, but other Proton code may still
-call `new Worker()` — hitting `undefined` causes a crash. **Do NOT add**
-Worker overrides in `main.rs`. The source patch in `patches/common/` is the
-correct and only fix path.
-
-### SRI regex fragility
-
-The SRI stripping regex `\.sriHashes=\{...\}` uses `[^}]` which fails on
-multi-line or nested hash maps. The build script's Python approach handles
-this correctly, but if you're manually editing runtime.js, beware. The
-primary fix is `--no-sri` at build time (via `fix_deps.py`); the post-build
-Python stripping is a safety net only.
-
-### Account and Verify build failures are non-fatal
-
-In `scripts/build-webclients.sh`, both account and verify builds exit with a
-warning, NOT a hard error:
-
-```bash
-wait $ACCOUNT_PID && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
-wait $VERIFY_PID  && echo "✅ Verify build complete"  || echo "⚠️  Verify build failed (captcha optional)"
-```
-
-A failed account build means **login will not work** — the account app
-`index.html` won't be deployed under `/account/`. A failed verify build
-means CAPTCHA/auth challenges may not display. Always verify both account
-and verify dist directories were produced after the build finishes.
-
-### Per-distro patches can overlap with common patches
-
-GitLab CI jobs apply a distro-specific patch (e.g. `patches/apk/alpine.3.20.patch`)
-before calling `build-webclients.sh`. If a distro patch and the common patch
-touch the same file, conflicts may arise. Verify by checking the build log for
-"Failed to apply" errors. The common patch in `patches/common/` should always
-be the authoritative source for the `hasModulesSupport()` fix.
-
----
-
-## Quick Reference
-
-```bash
-# Verify patch in bundle (transpiled JS)
-grep "=== 'tauri:'" applications/drive/dist/assets/static/main.*.js | head -3
-
-# Verify --no-sri was applied at build time
-grep "no-sri" WebClients/applications/*/package.json
-
-# Verify SRI stripping (all apps)
-find applications/drive/dist -name 'runtime*.js' -exec sh -c '
-  for f; do
-    if grep -q "\.sriHashes" "$f" && ! grep -q "\.sriHashes={}" "$f"; then
-      echo "SRI NOT stripped: $f"
-    fi
-  done
-' sh {} +
-
-# Verify publicPath (account + verify)
-grep '\.p=""' applications/drive/dist/account/runtime*.js
-grep '\.p=""' applications/drive/dist/verify/runtime*.js
-
-# Verify nested paths
-grep 'base href="/account/"' applications/drive/dist/account/index.html
-grep 'base href="/verify/"' applications/drive/dist/verify/index.html
-
-# Check for unfixed paths
-grep -r 'src="/assets/' applications/drive/dist/account/
-grep -r 'src="/assets/' applications/drive/dist/verify/
-
-# Full smoke test
-rm -rf WebClients/.codex-cache WebClients/applications/drive/dist
-bash scripts/build-webclients.sh && \
-  npx @tauri-apps/cli build --target appimage && \
-  echo "Ready for login testing"
-```
+For override smoke tests, `PROTONDRIVE_AUTO_SYNC_PATH` may point at another
+folder under `$HOME`; treat that as an extra mapping path, not the primary drive
+root model. The Linux entry in the right-side Proton app rail opens the Drive
+quick-settings drawer as the first Proton Drive Linux options surface. The rail
+is visible on startup in packaged Linux builds so Contacts, Calendar, Referral,
+and Linux controls are discoverable; the expand/collapse chevron must still
+work. The dedicated sync UI should live there later, not in the current folder
+route.
+
+1. Confirm the native watcher and poll reconciler are active for `~/ProtonDrive`.
+2. Create `local-create.txt` in the staged folder.
+3. Confirm the local create event includes `relativePaths` for future remote-root mapping.
+4. Modify `local-create.txt`.
+5. Confirm the local modify event includes `source=watcher` or `source=poller`.
+6. Delete `local-create.txt`.
+7. Confirm the remove event is emitted.
+8. Repeat create/modify/delete in `nested/`.
+9. Create or update a small remote file under the synced folder.
+10. Confirm frontend calls `handle_remote_update`.
+11. Confirm native writes the local file and suppresses immediate ping-pong.
+12. Delete the remote file.
+13. Confirm native removes the local file.
+
+Expected positive markers:
+
+- `[Sync] selected root requested source=default` on normal startup.
+- `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested` when using env override for extra mapping tests.
+- `[Sync] selected root requested source=env` when using env override.
+- `[Sync] auto-start active enabled=true folder=... poll_interval_seconds=...`.
+- `[Sync] set_sync_root active enabled=true folder=... poll_interval_seconds=...` when using UI/command designation.
+- `[Sync] get_sync_status enabled=true folder=...`.
+- `[LiveSync] watcher active root=... mode=recursive`.
+- `[LiveSync] poller active root=... interval_seconds=...`.
+- `[LiveSync] local-change kind=create paths=... source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=modify paths=... source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=remove paths=... source=watcher` or `source=poller`.
+- `live-sync://local-change` is observed by frontend handling.
+- `[LiveSync][AUDIT] remote action=create result=success path=...` or `remote action=update`.
+- `[LiveSync][AUDIT] remote action=delete result=success path=...`.
+
+Expected negative markers:
+
+- No test may be considered a sync pass from Drive/Photos API traffic alone.
+- No silent window where file changes occur but no `[Sync]`, `[LiveSync]`, or
+  `live-sync://local-change` markers appear.
+- No `[Sync] auto-start failed`.
+- No `[LiveSync] watcher init failed`.
+- No `[LiveSync] watcher start failed`.
+- No `[LiveSync] failed to emit local-change event`.
+- No `[LiveSync][AUDIT] rejected remote write`.
+- No `[LiveSync][AUDIT] rejected remote delete`.
+
+## Pass Criteria
+
+Login/session acceptance passes only when login, 2FA, app restart, and
+keep-me-signed-in restore all complete with the positive markers above and none
+of the negative loop markers.
+
+Sync acceptance passes only when the staged local-to-remote and remote-to-local
+loops both produce native sync markers. Authenticated Drive/Photos API activity
+without `start_sync`, `get_sync_status`, `[Sync]`, `[LiveSync]`, or
+`live-sync://local-change` is an inconclusive sync test and should be reported as
+a regression-risk gap, not a pass.
