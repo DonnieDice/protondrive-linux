@@ -1,0 +1,104 @@
+# ─── Test: Login/Routing Regression ──────────────────────────────────────────
+
+test:login-routing-regression:
+  extends: .rules:test
+  stage: test
+  image: alpine:latest
+  timeout: 10m
+  dependencies: []
+  cache: []
+  script:
+    - apk add --no-cache bash
+    - bash scripts/ci/check-login-routing-regressions.sh
+
+# ─── Test: Sync Regression ───────────────────────────────────────────────────
+
+test:sync-regression:
+  extends: .rules:test
+  stage: test
+  image: alpine:latest
+  timeout: 10m
+  dependencies: []
+  cache: []
+  script:
+    - apk add --no-cache bash
+    - bash scripts/ci/check-sync-regressions.sh
+
+# ─── Test: Rust Format Check ──────────────────────────────────────────────────
+
+test:fmt:
+  extends: .rules:test
+  stage: test
+  image: debian:12
+  timeout: 10m
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-fmt"
+  cache:
+    key: test-fmt-cargo
+    paths:
+      - .cargo-fmt/
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl
+    - bash scripts/ci/install-rust.sh
+    - rustup component add rustfmt
+  script:
+    - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+
+# ─── Test: Rust Clippy Lints ──────────────────────────────────────────────────
+
+test:clippy:
+  extends: .rules:test
+  stage: test
+  image: debian:12
+  timeout: 30m
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-clippy"
+  cache:
+    key: test-clippy-cargo
+    paths:
+      - .cargo-clippy/
+      - src-tauri/target/
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev
+    - bash scripts/ci/install-rust.sh
+    - rustup component add clippy
+  script:
+    - mkdir -p WebClients/applications/drive/dist
+    - |
+      printf '<!doctype html><html><body>rust clippy fixture</body></html>\n' \
+        > WebClients/applications/drive/dist/index.html
+    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -D warnings
+
+# ─── Test: Rust Unit Tests ────────────────────────────────────────────────────
+
+test:rust:
+  extends: .rules:test
+  stage: test
+  image: debian:12
+  timeout: 30m
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-test"
+  cache:
+    key: test-rust-cargo
+    paths:
+      - .cargo-test/
+      - src-tauri/target/
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev
+    - bash scripts/ci/install-rust.sh
+  script:
+    - mkdir -p WebClients/applications/drive/dist
+    - |
+      printf '<!doctype html><html><body>rust test fixture</body></html>\n' \
+        > WebClients/applications/drive/dist/index.html
+    - cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture

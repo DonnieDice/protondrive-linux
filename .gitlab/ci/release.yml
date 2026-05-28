@@ -1,0 +1,421 @@
+# ─── Package spec generation ──────────────────────────────────────────────────
+
+spec:aur-pkgbuild:
+  extends: .rules:build
+  stage: spec
+  image: node:22
+  timeout: 30m
+  dependencies: []
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(node -p "require('./package.json').version")
+      fi
+      cat > PKGBUILD <<EOF
+      # Maintainer: DonnieDice <donniedice@proton.me>
+      pkgname=proton-drive
+      pkgver=${VERSION}
+      pkgrel=1
+      pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+      arch=('x86_64')
+      url="${CI_PROJECT_URL}"
+      license=('AGPL-3.0')
+      depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'libssl' 'gcc-libs')
+      makedepends=('nodejs' 'npm' 'rust' 'python')
+      source=("${CI_PROJECT_URL}/-/archive/v\${pkgver}/protondrive-linux-v\${pkgver}.tar.gz")
+      sha256sums=('SKIP')
+
+      build() {
+        cd "\$srcdir/protondrive-linux-v\${pkgver}"
+        git clone --depth=1 --single-branch --branch main \\
+          https://github.com/ProtonMail/WebClients.git WebClients
+        scripts/build-webclients.sh
+        npm install
+        cd src-tauri && cargo build --release && cd ..
+      }
+
+      package() {
+        cd "\$srcdir/protondrive-linux-v\${pkgver}"
+        install -Dm755 src-tauri/target/release/proton-drive "\$pkgdir/usr/bin/proton-drive"
+        install -Dm644 src-tauri/icons/32x32.png "\$pkgdir/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+        install -Dm644 src-tauri/icons/128x128.png "\$pkgdir/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+        install -Dm644 src-tauri/icons/proton-drive.svg "\$pkgdir/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+        install -Dm644 LICENSE "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
+      }
+      EOF
+      mkdir -p artifacts && cp PKGBUILD artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+spec:rpm-spec:
+  extends: .rules:build
+  stage: spec
+  image: node:22
+  timeout: 30m
+  dependencies: []
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(node -p "require('./package.json').version")
+      fi
+      cat > proton-drive.spec <<EOF
+      Name:           proton-drive
+      Version:        ${VERSION}
+      Release:        1%{?dist}
+      Summary:        Proton Drive Linux Desktop Client
+      License:        AGPL-3.0
+      URL:            ${CI_PROJECT_URL}
+      Source0:        ${CI_PROJECT_URL}/-/archive/v%{version}/protondrive-linux-v%{version}.tar.gz
+      BuildRequires:  rustc cargo gcc make pkgconfig(gtk+-3.0) webkit2gtk4.1-devel
+      BuildRequires:  libayatana-appindicator-devel openssl-devel nodejs npm python3
+      Requires:       gtk3 webkit2gtk4.1 libayatana-appindicator openssl-libs
+      %description
+      Fast, lightweight, unofficial desktop GUI client for Proton Drive on Linux.
+      %prep
+      %autosetup -n protondrive-linux-v%{version}
+      %build
+      git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+      scripts/build-webclients.sh
+      npm install
+      cd src-tauri && cargo build --release && cd ..
+      %install
+      install -Dm755 src-tauri/target/release/proton-drive %{buildroot}%{_bindir}/proton-drive
+      install -Dm644 src-tauri/icons/32x32.png %{buildroot}%{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+      install -Dm644 src-tauri/icons/128x128.png %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+      install -Dm644 src-tauri/icons/proton-drive.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+      %files
+      %license LICENSE
+      %{_bindir}/proton-drive
+      %{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+      %{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+      %{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+      %changelog
+      * $(date +"%a %b %d %Y") Build System <build@proton.drive> - ${VERSION}-1
+      - Build from ${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+      EOF
+      mkdir -p artifacts && cp proton-drive.spec artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+spec:source-dist:
+  extends: .rules:build
+  stage: spec
+  image: alpine:latest
+  timeout: 30m
+  dependencies: []
+  before_script:
+    - apk add --no-cache git bash
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(cat package.json | grep '"version"' | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')
+      fi
+      git archive --format=tar.gz \
+        --prefix="proton-drive-${VERSION}/" \
+        -o "proton-drive-${VERSION}.tar.gz" HEAD
+      sha256sum "proton-drive-${VERSION}.tar.gz" > "proton-drive-${VERSION}.tar.gz.sha256"
+      mkdir -p artifacts
+      mv "proton-drive-${VERSION}.tar.gz" "proton-drive-${VERSION}.tar.gz.sha256" artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+# ─── Release ──────────────────────────────────────────────────────────────────
+
+release:
+  extends: .rules:release
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: build:appimage
+      artifacts: true
+    - job: build:flatpak:gnome-50
+      artifacts: true
+    - job: build:flatpak:gnome-49
+      artifacts: true
+    - job: build:snap:core24
+      artifacts: true
+      optional: true
+    - job: build:snap:core26
+      artifacts: true
+      optional: true
+    - job: build:aur
+      artifacts: true
+    - job: build:deb:debian-12
+      artifacts: true
+    - job: build:deb:debian-13
+      artifacts: true
+    - job: build:deb:ubuntu-24.04
+      artifacts: true
+    - job: build:deb:ubuntu-26.04
+      artifacts: true
+    - job: build:rpm:fedora-43
+      artifacts: true
+    - job: build:rpm:fedora-44
+      artifacts: true
+    - job: build:rpm:el10
+      artifacts: true
+    - job: build:rpm:opensuse-tumbleweed
+      artifacts: true
+    - job: build:apk:alpine-3.20
+      artifacts: true
+    - job: build:apk:alpine-3.22
+      artifacts: true
+    - job: build:apk:alpine-3.23
+      artifacts: true
+  variables:
+    GIT_SSL_NO_VERIFY: "true"
+  before_script:
+    - apk add --no-cache curl bash
+  script:
+    - |
+      TAG="${CI_COMMIT_TAG:-v$(cat package.json | grep '"version"' | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')}"
+      VERSION="${TAG#v}"
+      ASSET_LINKS=""
+
+      upload_file() {
+        local file="$1"
+        local name
+        name=$(basename "$file")
+        HTTP_CODE=$(curl -k -w "%{http_code}" -o /tmp/curl-response.txt \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$file" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}" 2>&1)
+        echo "Upload ${name}: HTTP ${HTTP_CODE} - $(cat /tmp/curl-response.txt)"
+        [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ] || \
+          { echo "ERROR: upload failed with HTTP ${HTTP_CODE}"; exit 1; }
+        ASSET_LINKS="${ASSET_LINKS}
+          --assets-link '{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}'"
+      }
+
+      find artifacts/ -type f \( \
+        -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+        -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \
+        -o -name "*.apk.tar.gz" \
+      \) | while read -r f; do upload_file "$f"; done
+
+      release-cli --insecure create \
+        --name "Proton Drive Linux ${TAG}" \
+        --tag-name "${TAG}" \
+        --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
+        $ASSET_LINKS
+
+# ─── Publish ──────────────────────────────────────────────────────────────────
+
+publish:aur:
+  extends: .rules:publish
+  stage: publish
+  image: archlinux:base-devel
+  timeout: 15m
+  script:
+    - pacman -Sy --noconfirm openssh git curl python
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+
+      SOURCE_URL="${CI_PROJECT_URL}/-/archive/${TAG}/protondrive-linux-${TAG}.tar.gz"
+      curl -sL "$SOURCE_URL" -o source.tar.gz
+      SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
+      rm source.tar.gz
+
+      COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/ProtonMail/WebClients/commits/main" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+      curl -sL "https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz" -o wc.tar.gz
+      WC_SHA256=$(sha256sum wc.tar.gz | cut -d' ' -f1)
+      rm wc.tar.gz
+
+      cd aur
+      sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+      sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+      sed -i "s|^_webclients_commit=.*|_webclients_commit=\"${COMMIT_SHA}\"|" PKGBUILD
+      sed -i "/^sha256sums=/,/)/c\\sha256sums=('${SHA256}'\n            '${WC_SHA256}')" PKGBUILD
+
+      cat > .SRCINFO <<SRCINFO
+      pkgbase = proton-drive
+      	pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
+      	pkgver = ${VERSION}
+      	pkgrel = 1
+      	url = ${CI_PROJECT_URL}
+      	arch = x86_64
+      	license = AGPL-3.0-only
+      	depends = webkit2gtk-4.1
+      	depends = gtk3
+      	depends = libayatana-appindicator
+      	source = proton-drive-${VERSION}.tar.gz::${SOURCE_URL}
+      	source = WebClients-${COMMIT_SHA}.tar.gz::https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz
+      	sha256sums = ${SHA256}
+      	sha256sums = ${WC_SHA256}
+
+      pkgname = proton-drive
+      SRCINFO
+    - mkdir -p ~/.ssh
+    - echo "${AUR_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -t rsa aur.archlinux.org >> ~/.ssh/known_hosts
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo 2>/dev/null || \
+        (mkdir -p aur-repo && cd aur-repo && git init && git checkout -b master &&
+         git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git)
+      cd aur-repo
+      git config user.name "DonnieDice"
+      git config user.email "donniedice@proton.me"
+      cp ../aur/PKGBUILD ../aur/.SRCINFO ../aur/proton-drive.install . 2>/dev/null || true
+      git add PKGBUILD .SRCINFO proton-drive.install
+      git commit -m "Update to v${VERSION}" || echo "No changes to commit"
+      git push -u origin master --force
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+
+publish:flatpak:
+  extends: .rules:publish
+  stage: publish
+  image: ubuntu:24.04
+  timeout: 30m
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+  script:
+    - apt-get update && apt-get install -y git curl openssh-client python3
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      RUNTIME="${FLATPAK_RUNTIME:-50}"
+
+      SOURCE_COMMIT=$(git ls-remote "${CI_PROJECT_URL}.git" "refs/tags/${TAG}" | cut -f1)
+      COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/ProtonMail/WebClients/commits/main" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+      curl -sL "https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz" -o wc.tar.gz
+      WC_SHA256=$(sha256sum wc.tar.gz | cut -d' ' -f1)
+      rm wc.tar.gz
+
+      mkdir -p ~/.ssh
+      echo "${FLATHUB_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+      ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      git clone git@github.com:flathub/com.proton.drive.git flathub-repo || \
+        { echo "ERROR: Flathub repo not found. Initial submission via PR to flathub/flathub required."; exit 1; }
+
+      cd flathub-repo
+      git config user.name "DonnieDice"
+      git config user.email "donniedice@proton.me"
+
+      cat > com.proton.drive.yml <<YAMLEOF
+      app-id: com.proton.drive
+      runtime: org.gnome.Platform
+      runtime-version: "${RUNTIME}"
+      sdk: org.gnome.Sdk
+      sdk-extensions:
+        - org.freedesktop.Sdk.Extension.node22
+        - org.freedesktop.Sdk.Extension.rust-stable
+      command: proton-drive
+      finish-args:
+        - --share=network
+        - --share=ipc
+        - --socket=fallback-x11
+        - --socket=wayland
+        - --socket=pulseaudio
+        - --device=dri
+        - --filesystem=xdg-download
+        - --filesystem=xdg-documents
+        - --talk-name=org.freedesktop.secrets
+        - --talk-name=org.freedesktop.Notifications
+      modules:
+        - name: proton-drive
+          buildsystem: simple
+          sources:
+            - type: git
+              url: ${CI_PROJECT_URL}.git
+              tag: ${TAG}
+              commit: ${SOURCE_COMMIT}
+            - type: archive
+              url: https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz
+              sha256: ${WC_SHA256}
+              dest: WebClients
+          build-commands:
+            - . /usr/lib/sdk/node22/enable.sh
+            - . /usr/lib/sdk/rust-stable/enable.sh
+            - ./scripts/build-webclients.sh
+            - npm install
+            - cd src-tauri && cargo build --release && cd ..
+            - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
+            - |
+              cat > /app/bin/proton-drive << 'WEOF'
+              #!/bin/bash
+              export WEBKIT_DISABLE_DMABUF_RENDERER=1
+              export WEBKIT_DISABLE_COMPOSITING_MODE=1
+              export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+              export GDK_GL=disable
+              exec /app/bin/proton-drive-bin "\$@"
+              WEOF
+              chmod +x /app/bin/proton-drive
+            - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+            - install -Dm644 packaging/com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+      YAMLEOF
+
+      RELEASE_DATE=$(date -u +'%Y-%m-%d')
+      if [ -f com.proton.drive.metainfo.xml ]; then
+        grep -q "version=\"${VERSION}\"" com.proton.drive.metainfo.xml || \
+          sed -i "/<releases>/a\\  <release version=\"${VERSION}\" date=\"${RELEASE_DATE}\" />" com.proton.drive.metainfo.xml
+      else
+        cp ../packaging/com.proton.drive.metainfo.xml . 2>/dev/null || true
+      fi
+
+      git add -A
+      git commit -m "Update to v${VERSION}" || echo "No changes to commit"
+      git push origin master
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+
+publish:snap:
+  extends: .rules:publish
+  stage: publish
+  image: ubuntu:24.04
+  timeout: 30m
+  services:
+    - docker:dind
+  variables:
+    SNAP_BASE: core24
+    SNAP_CHANNEL: stable
+    DEBIAN_FRONTEND: noninteractive
+  needs:
+    - job: build:snap:core24
+      artifacts: true
+  script:
+    - apt-get update && apt-get install -y docker.io
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
+
+      SNAP_FILE=$(find artifacts/ -name "proton-drive_*_${SNAP_BASE}_amd64.snap" | head -1)
+      [ -n "$SNAP_FILE" ] || { echo "ERROR: No snap file found for ${SNAP_BASE}"; exit 1; }
+
+      echo "Registering snap name..."
+      docker run --rm --entrypoint "" \
+        -e SNAPCRAFT_STORE_CREDENTIALS \
+        -v "$PWD":/project -w /project \
+        "$SNAPCRAFT_IMAGE" \
+        snapcraft register --yes proton-drive || true
+
+      echo "Uploading ${SNAP_FILE} to ${SNAP_CHANNEL}..."
+      for i in 1 2 3; do
+        docker run --rm --entrypoint "" \
+          -e SNAPCRAFT_STORE_CREDENTIALS \
+          -v "$PWD":/project -w /project \
+          "$SNAPCRAFT_IMAGE" \
+          snapcraft upload "${SNAP_FILE}" --release="${SNAP_CHANNEL}" && break
+        echo "Attempt $i failed, retrying in 30s..."; sleep 30
+      done

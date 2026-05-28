@@ -1,0 +1,51 @@
+variables:
+  RUST_VERSION: stable
+  WEBCLIENTS_REF: main
+  WEBCLIENTS_COMMIT: "bbad1a0a482227b93a2e963a232463aede9b8abf"
+  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+
+# ─── Rule templates ───────────────────────────────────────────────────────────
+
+.rules:build:
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+    - when: manual
+      allow_failure: true
+
+.rules:release:
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_COMMIT_TAG =~ /^v.*/
+    - when: never
+
+.rules:publish:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v.*/
+    - when: manual
+      allow_failure: true
+
+.rules:test:
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# ─── Reusable install helpers ────────────────────────────────────────────────
+
+.install_rust:
+  before_script:
+    - apt-get update && apt-get install -y bash curl
+    - bash scripts/ci/install-rust.sh
+
+.install_rust_full:
+  before_script:
+    - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev
+    - bash scripts/ci/install-rust.sh
