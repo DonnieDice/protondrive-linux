@@ -1,4 +1,61 @@
 #!/usr/bin/env bash
+# =============================================================================
+# build-alpine-322-apk.sh
+# =============================================================================
+# Builds a Proton Drive APK (.apk.tar.gz) package targetting Alpine Linux 3.22
+# (musl libc).  Creates a clean git worktree, applies the alpine.3.22 patch
+# set, builds the Tauri binary, and packs it into a portable tar.gz archive
+# ready for distribution or installation on Alpine 3.22.
+#
+# Usage
+# -----
+#   scripts/ci/build-alpine-322-apk.sh
+#   scripts/ci/build-alpine-322-apk.sh -h | --help   # show help text
+#
+# The script is designed to run from the project root or the ci/ directory;
+# SCRIPT_DIR auto-resolves relative paths internally.
+#
+# Environment (inputs)
+# --------------------
+#   OUTPUT_DIR      Destination directory for the final artifact.
+#                   Default: /tmp/protondrive-alpine322-apk
+#   HOME/.cargo/env Sourced if present (for Rust/Cargo toolchain).
+#
+# Required files
+# --------------
+#   patches/apk/alpine.3.22.patch   The Alpine 3.22 patches applied to the
+#                                   worktree before building.
+#
+# Outputs
+# -------
+#   proton-drive_<VERSION>_alpine322_amd64.apk.tar.gz
+#       Written to OUTPUT_DIR.  The archive contains an FHS-like layout:
+#         usr/bin/proton-drive                         (stripped ELF)
+#         usr/share/applications/proton-drive.desktop   (desktop entry)
+#         usr/share/icons/hicolor/*/apps/proton-drive.* (icons)
+#
+# Steps (high-level)
+# ------------------
+#   1. Validate that the required patch file exists.
+#   2. Create a temporary git worktree from HEAD.
+#   3. Apply the alpine.3.22 patch to the worktree.
+#   4. Build WebClients assets via scripts/build-webclients.sh.
+#   5. Build the Tauri release binary (npm install → npx tauri build).
+#   6. Stage binary, desktop file, and icons in an APK-like directory tree.
+#   7. Tar/gzip the staging directory to OUTPUT_DIR.
+#   8. Clean up the temporary worktree.
+#
+# Called by
+# ---------
+#   GitLab CI job:  build:apk:alpine-3.22  (stage: build)
+#   GitHub Actions: build-apk-alpine-3.22  (ci.yml workflow)
+#   See .gitlab-ci.yml line ~124 and .github/workflows/ci.yml.
+#
+# Exit codes
+# ----------
+#   0   Success — artifact produced.
+#   1   Patch file not found.
+# =============================================================================
 set -euo pipefail
 
 usage() {

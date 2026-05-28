@@ -1,3 +1,29 @@
+#!/usr/bin/env python3
+"""
+fix_deps.py — Patch dependency issues in the WebClients build.
+
+WebClients is a monorepo with Proton-internal dependencies and registries that are
+inaccessible from CI/build environments. This script performs several fixups:
+
+1. REMOVE PROBLEMATIC DEPS — Strips rowsnColumns, proton-meet, electron, and
+   proton-foundation-search from dependency sections in all WebClients package.json
+   files. These packages either don't exist on public npm or aren't needed for
+   the Drive desktop build.
+
+2. PATCH DRIVE BUILD — Changes appMode from 'sso' to 'standalone' (SSO expects
+   Proton's domain; standalone works with any origin like tauri://). Removes any
+   --api flag (Tauri IPC handles API calls). Adds --no-sri because WebKitGTK
+   rejects script integrity attributes on the tauri:// protocol.
+
+3. DISABLE SRI FOR ACCOUNT/VERIFY — Same WebKitGTK tauri:// SRI rejection affects
+   the account and verify apps; adds --no-sri to their build:web scripts.
+
+4. CONFIGURE YARN — Removes npmScopes and npmRegistries sections (internal Proton
+   registries unreachable from CI), overrides npmRegistryServer to the public
+   registry, and disables immutable installs for CI compatibility.
+
+Run BEFORE `yarn install` in WebClients. Requires WebClients/ to exist (cloned).
+"""
 import json
 import re
 import sys

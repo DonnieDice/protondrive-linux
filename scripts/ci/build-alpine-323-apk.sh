@@ -1,4 +1,32 @@
 #!/usr/bin/env bash
+# build-alpine-323-apk.sh
+# ========================
+# Builds a Proton Drive APK (.apk.tar.gz) package for Alpine 3.23 (musl).
+# Creates a clean git worktree, applies the alpine.3.23 patch, builds the
+# Tauri binary, and packs it into a portable tar.gz archive suitable for
+# installation on Alpine Linux via apk.
+#
+# Purpose:
+#   Produces a redistributable Alpine Linux APK bundle for Proton Drive on
+#   musl-based systems. Called by the GitLab CI pipeline to generate the
+#   alpine:3.23 build artifact for release or testing.
+#
+# Usage:
+#   scripts/ci/build-alpine-323-apk.sh
+#   scripts/ci/build-alpine-323-apk.sh --help   # show usage then exit
+#
+# Inputs:
+#   - files:  patches/apk/alpine.3.23.patch  (required — the Alpine-specific patch)
+#   - env:    OUTPUT_DIR  (optional, default: /tmp/protondrive-alpine323-apk)
+#             Determines where the final .apk.tar.gz artefact is written.
+#
+# Outputs:
+#   - proton-drive_<version>_alpine323_amd64.apk.tar.gz
+#     Written to OUTPUT_DIR (or the default if unset).
+#
+# Called by:
+#   GitLab CI job 'build:apk:alpine-3.23' — stage: build
+#   (line 192 of .gitlab-ci.yml)
 set -euo pipefail
 
 usage() {

@@ -28,31 +28,43 @@ Open an issue for every bug, feature request, or task. Issues:
 
 **Issue titles are plain text** — do NOT add `(#N)` syntax to issue titles.
 
+Labels are applied automatically based on the branch prefix (see Step 2).
+
 ## Step 2: Create Branch
 
 One branch per issue, named to make the connection explicit:
 
-| Prefix     | Use case                        | Example                        |
-|------------|---------------------------------|--------------------------------|
-| `feature/` | New functionality               | `feature/42-add-login-page`    |
-| `fix/`     | Bug fixes                       | `fix/87-broken-csv-export`     |
-| `chore/`   | Non-code work (docs, deps, CI)  | `chore/103-update-dependencies`|
+| Prefix     | Use case                        | Example                        | Auto-label     |
+|------------|---------------------------------|--------------------------------|----------------|
+| `feature/` | New functionality               | `feature/42-add-login-page`    | `enhancement`  |
+| `fix/`     | Bug fixes                       | `fix/87-broken-csv-export`     | `bug`          |
+| `chore/`   | Non-code work (docs, deps, CI)  | `chore/103-update-dependencies`| `chore`        |
 
 **Never work directly on `main`.** Even for a one-line fix, create a branch and open a PR.
 
-**No intermediate branches** (no `alpha`). All feature branches merge directly to `main`.
+**No intermediate branches** (no `alpha`, `beta`, `staging`). All feature branches merge directly to `main`.
 
 All development work stays strictly isolated within its branch.
+
+### Local Verification Before Pushing
+
+Before pushing your branch, run the local checks appropriate for your change:
+
+- **Formatting / linting**: If a `Makefile` or `justfile` target exists (e.g. `make lint`, `just format`), run it first.
+- **Build verification**: Build the component you changed if a local build target exists.
+- **Unit tests**: Run `make test` or the project's test runner if one is configured.
+
+CI will run a full suite regardless, but catching issues locally saves time.
 
 ## Step 3: Create Pull Request
 
 Open a PR when your branch is ready for review. A PR:
 
-- Triggers CI (all build workflows run automatically)
+- Triggers CI (all build workflows run automatically on push)
 - Lets reviewers check the diff
 - Creates a record of *why* code changed
 - Must be explicitly linked to the original issue
-- Should have appropriate tracking tags/labels applied
+- Labels are applied automatically based on the branch prefix (see Step 2)
 
 ### PR Title Format
 
@@ -60,7 +72,7 @@ Open a PR when your branch is ready for review. A PR:
 (#PR-number) Descriptive title starting with uppercase
 ```
 
-The PR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
+The PR title must match: `^\(\#\d+\)\s[A-Z].{9,}$`
 
 The number in the PR title is the **PR** number, not the tracked issue number.
 If GitHub has not assigned the PR number yet, create the PR first, then edit the
@@ -130,6 +142,24 @@ Before merging **any** PR, all automated review bot findings must be addressed:
 - If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
 - Re-request review after pushing fixes to ensure bots re-evaluate
 
+### Merge Strategy
+
+All PRs merge to `main` using **squash merge**. This keeps the commit history
+on `main` clean — one merge per PR with a single commit message. The squash
+commit message should follow the PR title format:
+
+```
+(#PR-number) Descriptive title starting with uppercase
+```
+
+After the PR is merged, GitHub automatically deletes the branch (configured at
+the repository level). Clean up your local copy with:
+
+```bash
+git fetch --prune
+git branch -d <branch-name>
+```
+
 ## Step 5: Conditional Verification & Closure
 
 Evaluate the automated status checks and tests.
@@ -138,8 +168,8 @@ Evaluate the automated status checks and tests.
 
 1. Confirm passing status
 2. Close the original tracking issue
-3. Merge the PR into `main`
-4. Delete the remote and local branch
+3. Merge the PR into `main` (squash merge)
+4. Clean up: remote branch is deleted automatically; delete the local branch
 
 ### IF ANY CHECKER FAILS:
 
@@ -161,16 +191,48 @@ branches. To test a build:
 3. Find the workflow run for your push
 4. Download the build artifact from the run summary
 
-Artifacts are retained for 30 days and include the branch name for easy identification.
+Artifacts are retained for 30 days and include the branch name for easy
+identification.
+
+Job triggers for PRs to `main` follow the same rules — every push to an open PR
+kicks off the package workflows.
 
 ## CI Workflows
 
 | Job group | Triggers on |
 |-----------|-------------|
-| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main` |
+| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main` |
 | Generate package specs | Same as package builds |
 | Release | Release publication and release-tag flow through `package-workflows.yml` |
 | Publish AUR, Snap, Flatpak | Release events and manual dispatch through `package-workflows.yml` |
+
+### CI Systems
+
+This project uses **two CI systems** that mirror each other:
+
+| System | Entrypoint | Purpose |
+|--------|-----------|---------|
+| **GitHub Actions** | `.github/workflows/package-workflows.yml` | Primary CI — build, package, release on GitHub |
+| **GitLab CI** | `.gitlab-ci.yml` (in repo root) | Mirror — same package builds on GitLab infrastructure |
+
+Both systems run the same build logic against the same branch patterns. The
+GitLab pipeline mirrors the GitHub Actions workflow for redundancy. Status
+on either system is sufficient to block or unblock a merge.
+
+### Troubleshooting CI Failures
+
+If CI fails:
+
+1. Check the **Actions** tab (GitHub) or **CI/CD > Pipelines** (GitLab) for the failed run
+2. Click on the failed job to see the build log
+3. Common failure modes:
+   - **Network timeout** — retry the job (GitHub: rerun from Actions tab; GitLab: click the retry icon)
+   - **Missing artifact** — ensure your branch is up to date with `main`; rebase if stale
+   - **Build error** — check the compile output; verify locally with `make` or the project's build command
+
+If the failure is a known intermittent issue, note it in the PR and retry. If CI
+passes on a subsequent retry without code changes, leave a comment documenting
+the transient failure.
 
 ## Branch Protection
 
@@ -179,6 +241,7 @@ Artifacts are retained for 30 days and include the branch name for easy identifi
 - Require PR before merging
 - Require status checks to pass
 - Require branches to be up to date before merging
+- Automatically delete head branches after merge
 
 ## Quick Decision Guide
 
@@ -188,4 +251,4 @@ Artifacts are retained for 30 days and include the branch name for easy identifi
 | New feature            | Issue + `feature/N-description` branch + PR         |
 | Tiny typo fix          | Branch + PR (skip the issue if truly trivial)       |
 | Want to test a build   | Push to feature branch → Actions tab → download artifact |
-| Ready to ship          | PR → CI passes → review → merge to main             |
+| Ready to ship          | PR → CI passes → review → squash merge to main      |

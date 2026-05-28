@@ -1,6 +1,18 @@
 # Web Worker Debugging Log - RPM/deb Build Issues
 
+## Current Status (v1.1.5)
+
+**Both issues resolved:**
+
+1. **Worker login:** Fixed by source patching `hasModulesSupport()` in WebClients's `browser.ts` to detect Tauri environment via `location.protocol` (not `window.__TAURI__`, which initializes too late). Patch: `patches/common/fix-tauri-worker-protocol.patch`.
+2. **Chunk loading / SRI:** Fixed by adding `--no-sri` to `proton-pack build` commands in all three apps (drive, account, verify) via `scripts/fix_deps.py`, plus correcting nested app `publicPath` from `"/"` to `""`.
+
+See the full debugging history below for details, failed approaches, and troubleshooting guidance.
+
+---
+
 ## Problem Statement
+
 System WebKitGTK on RPM/deb builds doesn't support Workers loaded from `tauri://` protocol URLs, causing login to fail with infinite spinner.
 
 **Error:** `The operation is insecure` when trying to create Workers from `tauri://` URLs
@@ -37,7 +49,7 @@ const init = async (options?: CryptoWorkerOptions) => {
 
 ---
 
-## Approaches Attempted
+## Approaches Attempted — Worker Login
 
 ### ❌ Approach 1: Worker Throws Immediately
 **Strategy:** Override `Worker` constructor to throw synchronously, forcing crypto library to detect failure and use sync fallback.
@@ -121,7 +133,7 @@ window.Worker = function Worker(scriptURL, options) {
 - Worker script loaded successfully (375KB)
 - But login still stuck in infinite spinner
 - Test logs: b63ec24
-- **Issue:** Worker loads but doesn't respond - possibly importScripts() issues or same tauri:// protocol restrictions inside Worker context
+- **Issue:** Worker loads but doesn't respond — possibly `importScripts()` issues or same tauri:// protocol restrictions inside Worker context
 
 ---
 
@@ -214,7 +226,7 @@ This is likely webpack-bundled code that doesn't check for Worker support before
 
 ---
 
-## ✅ SOLUTION: Source Code Patching
+## ✅ SOLUTION: Source Code Patching (Worker)
 
 ### Chosen Approach: Option 1 (Patch WebClients Source)
 We're building WebClients from **source code** specifically to avoid minified bundles. We can patch before building!
@@ -226,25 +238,25 @@ Use **patch files** applied during build process (standard packaging approach):
 ```
 protondrive-linux/
 ├── patches/
-│   └── webclients/
-│       └── 001-tauri-worker-compat.patch
+│   └── common/
+│       └── fix-tauri-worker-protocol.patch
 ├── scripts/
 │   └── build-webclients.sh  (applies patches before building)
 └── .github/workflows/
     └── *.yml  (apply patches in CI/CD)
 ```
 
-**Patch Content:**
+**Patch Content (v1.1.5 — uses `location.protocol` instead of `window.__TAURI__`):**
 ```diff
 --- a/packages/shared/lib/helpers/browser.ts
 +++ b/packages/shared/lib/helpers/browser.ts
-@@ -6,6 +6,12 @@ const ua = uaParser.getResult();
+@@ -7,6 +7,12 @@ const ua = uaParser.getResult();
 
  export const hasModulesSupport = () => {
-+    // Detect Tauri environment
++    // Detect Tauri environment via URL protocol (available immediately at JS startup)
 +    // System WebKitGTK (RPM/deb/flatpak) doesn't support Workers from tauri:// protocol
 +    // Force non-Worker crypto mode to use main-thread fallback
-+    if (typeof window !== 'undefined' && window.__TAURI__) {
++    if (typeof window !== 'undefined' && (window.location?.protocol === 'tauri:' || (window as any).__TAURI__)) {
 +        return false;
 +    }
 +
@@ -254,10 +266,10 @@ protondrive-linux/
 ```
 
 ### Why This Works
-1. **Proton has built-in fallback** - When `hasModulesSupport()` returns false, they load `@proton/crypto/lib/worker/api` directly in main thread
-2. **Clean detection** - `window.__TAURI__` exists in all our Tauri builds
-3. **No regression** - AppImage/AUR will still use Workers (they work there)
-4. **Standard practice** - Patch files are how distro packages modify upstream source
+1. **Proton has built-in fallback** — When `hasModulesSupport()` returns false, they load `@proton/crypto/lib/worker/api` directly in main thread
+2. **Reliable detection** — `window.location.protocol` is set at page load, before any JavaScript runs. Unlike `window.__TAURI__` (too late)
+3. **No regression** — AppImage/AUR will still use Workers (they work there)
+4. **Standard practice** — Patch files are how distro packages modify upstream source
 
 ### Build Process
 ```bash
@@ -266,7 +278,7 @@ git clone https://github.com/ProtonMail/WebClients.git
 
 # 2. Apply patches
 cd WebClients
-git apply ../patches/webclients/001-tauri-worker-compat.patch
+git apply ../patches/common/fix-tauri-worker-protocol.patch
 
 # 3. Build as normal
 yarn install
@@ -320,7 +332,7 @@ Tauri's injection sequence:
 
 ### ✅ Approach 8: URL Protocol Check + PublicPath Fix
 
-**Status:** WORKING - Login and 2FA passed!
+**Status:** WORKING — Login and 2FA passed!
 
 **Rationale:** `window.location.protocol` is set IMMEDIATELY when the page loads, before ANY JavaScript executes.
 
@@ -384,19 +396,6 @@ This fix must be applied to BOTH:
 - `main.rs` no longer overrides Workers — relies entirely on patch
 - Login + 2FA tested working on Fedora (RPM) in prior sessions
 
-## Test Environment
-- **OS:** Fedora 40 (Linux 6.8.9-300.fc40.x86_64)
-- **System WebKitGTK:** webkit2gtk4.1
-- **Tauri:** 2.0
-- **DISTRO_TYPE:** Set at compile-time via environment variable
-
-## Related Files
-- `src-tauri/src/main.rs` - DISTRO_TYPE-based init scripts
-- `patches/common/fix-tauri-worker-protocol.patch` - Worker compat patch
-- `scripts/build-webclients.sh` - Applies patches before building
-- `WebClients/packages/shared/lib/helpers/setupCryptoWorker.ts` - Proton's fallback logic
-- `WebClients/packages/shared/lib/helpers/browser.ts` - Target file for patch
-
 ---
 
 # Chunk Loading / SRI Debugging Log
@@ -458,7 +457,7 @@ Combined with the nested deployment (account app is at `/account/`):
 
 ---
 
-## Approaches Attempted
+## Approaches Attempted — Chunk Loading / SRI
 
 ### ❌ Approach 1: Post-build sriHashes strip + HTML integrity removal
 
@@ -540,7 +539,7 @@ verify:  proton-pack build --appMode=standalone ... --no-sri
 
 **Combined with publicPath fix (in `scripts/build-webclients.sh`):**
 ```bash
-# Change webpack publicPath from "/" to "" in runtime.js
+# Change webpack publicPath from "/" to "" in nested apps' runtime.js
 # So chunk URLs resolve relative to document base, not absolute
 find applications/drive/dist/account -name "runtime*.js" -exec sed -i \
     's/\.p="\/"/.p=""/g' {} \;
@@ -598,20 +597,233 @@ Checked all 21 forks via GitHub API. Summary:
 - CAPTCHA completed and returned a verification token.
 - Auth retry consumed the token, reached 2FA, loaded app selection, and Drive opened.
 
-**Release Status:** Prepared for `v1.1.5`.
+---
+
+## Troubleshooting Quick Reference
+
+| Symptom | Likely Cause | Check / Fix |
+|---------|-------------|-------------|
+| Infinite spinner during login | Worker not supported in WebKitGTK — patch not applied or wrong detection method | Verify `hasModulesSupport()` returns `false` in Tauri builds. Check: `grep "tauri:" dist/account/assets/static/runtime.*.js` |
+| White screen (full blank page, no UI) | SRI hash mismatch, publicPath broken, or runtime.js completely missing — app can't boot | Check devtools console for SRI errors. Verify `--no-sri` is in build commands. Check `integrity=` attributes on `<script>` tags |
+| "Something went wrong, please refresh" | Chunk loading failure after initial boot — locale, date-fns, or crypto chunks failing | Check Runtime publicPath: `grep '\.p="' runtime.*.js`. Should be `""` for nested account/verify apps, `"/"` for drive root |
+| "undefined is not a constructor (evaluating 'new Worker(...)')" | Runtime `window.Worker = undefined` still in `main.rs` | Check `src-tauri/src/main.rs` for `window.Worker = undefined`. Should be removed in v1.1.5+ |
+| CAPTCHA page loading inside app frame instead of separate dialog | Challenge navigation not intercepted by Rust proxy handler | Verify captcha navigation rules block `/api/challenge/v4/` navigations but allow captcha-internal `about:blank` |
+| Login succeeds but immediately loops back to login screen | Auth challenge retry without human verification token being captured | Check CAPTCHA completion flow — expects `?hv_token=...&hv_type=...` return URL to `tauri://localhost/account/` |
+| Flatpak-specific chunk errors (works on RPM/deb) | Flatpak sandbox blocking cross-origin or file-relative fetches | Verify `--filesystem=host` or appropriate Flatpak permissions for WebKitGTK asset loading |
+| "patch does not apply" during build | WebClients upstream updated; patch hunk line numbers are stale | Run `git apply --reject` to see exact failures. Update `@@ -N,6` line offsets in `.patch` file |
+| Build succeeds but old behavior persists | Rust binary embeds stale frontend assets — `cargo build` captured old dist | Ensure full rebuild order: `scripts/build-webclients.sh && cargo build --release` |
 
 ---
 
-## Test Environment
+## Additional Debug Scenarios
+
+### Debug Scenario A: Verifying Patches Were Applied
+
+**Goal:** Confirm the `fix-tauri-worker-protocol.patch` was actually applied during build — the most common regression source.
+
+**Check Build Logs:**
+```bash
+# Each CI workflow logs patch output:
+grep "Applying patch" build.log
+# Expected: "Applying patch: patches/common/fix-tauri-worker-protocol.patch"
+# If absent, or path says patches/webclients/ (old, wrong path), patch was NOT applied
+```
+
+**Check Built Artifacts:**
+```bash
+# Confirm patch content made it into the bundle
+cd applications/drive/dist/
+
+# Look for the protocol check in account runtime
+grep "window.location" account/assets/static/runtime.*.js | head -3
+# Should show: (window.location?.protocol==='tauri:'...)
+
+# Look for the hasModulesSupport patch
+grep "hasModulesSupport" account/assets/static/runtime.*.js | head -3
+# Should show patched version with tauri: check
+```
+
+**Check Runtime Behavior (in Tauri devtools console):**
+```javascript
+// These are available on the very first tick of JS execution:
+console.log(window.location.protocol);
+// Should be 'tauri:' for all Tauri builds
+
+// To verify hasModulesSupport is truly returning false:
+// Look for absence of Worker instantiation errors on login
+// If no "The operation is insecure" or "Loading chunk" errors → patch working
+```
+
+### Debug Scenario B: Diagnosing White Screen vs Infinite Spinner vs Partial Crash
+
+**Rule of Thumb — three distinct failure modes with different root causes:**
+
+| Symptom | Root Cause Class | First Thing to Check |
+|---------|-----------------|---------------------|
+| **White screen** (nothing renders at all) | SRI mismatch, publicPath broken, or runtime.js missing — app can't bootstrap | Element inspector: are `<script>` tags present with correct `src=`? Network tab: are chunks being requested at all? |
+| **"Something went wrong"** with partial UI loading | Chunk loading failure during lazy import (locale, date-fns, moment) | Console for `Loading chunk N failed` errors. Check which chunk ID is failing. |
+| **Infinite spinner** during login | Worker instantiation error — crypto never initializes | Console for `The operation is insecure`. Check patch was applied and detection method is correct (`location.protocol`, not `__TAURI__`). |
+
+**Step-by-step diagnosis:**
+1. Open Tauri devtools (Ctrl+Shift+I or right-click → Inspect)
+2. **Console tab:** Capture all errors before dismissing them. Look for:
+   - `Loading chunk N failed after M retries` → SRI or publicPath issue
+   - `The operation is insecure` → Worker/patch issue
+   - `undefined is not a constructor` → stale runtime Worker override
+   - `SyntaxError: Unexpected token '<'` → chunk fetched wrong URL (HTML instead of JS)
+3. **Network tab:** Filter by `.js` / `.chunk.js`. Verify all chunk URLs:
+   - Resolve correctly (no `//` double-slash in URL)
+   - Return HTTP 200 with JS content type
+   - Are served from `tauri://localhost/account/assets/...` not `tauri://account/...`
+4. **Elements tab:** Check `<script>` tags for `integrity=` attributes:
+   - If present, SRI stripping failed → rebuild with `--no-sri`
+   - Check the `src` attributes match actual file paths
+
+### Debug Scenario C: Stale Rust Binary with Old Frontend Assets
+
+**Symptom:** Rebuilt WebClients with fixes applied, but the Tauri app still shows old behavior.
+
+**Root Cause:** The Rust binary (`protondrive`) embeds the frontend at compile time. Running `cargo build` captures whatever is in `applications/drive/dist/` at that exact moment. If you built WebClients in one terminal but `cargo build` in another with a different working directory, or forgot to rebuild WebClients, the binary will embed stale assets.
+
+**Diagnostic:**
+```bash
+# Check which runtime is embedded in the binary
+strings target/release/protondrive | grep "runtime" | head -5
+# Compare with expected chunk names from the fresh dist/
+ls applications/drive/dist/account/assets/static/runtime.*.js
+# If hashes or filenames don't match, the binary is stale
+```
+
+**Fix — full clean rebuild:**
+```bash
+cd WebClients
+scripts/build-webclients.sh    # Applies patches, builds, fixes publicPath
+cd ..
+cargo build --release          # Embeds the fresh dist from applications/drive/dist/
+```
+
+**Prevention:** The CI workflows handle this automatically (clean checkout, then build-webclients.sh, then cargo build in the same runner). Local dev must replicate this exact order.
+
+### Debug Scenario D: CAPTCHA vs Chunk Loading — Cross-Distro Failures
+
+**Symptom:** "Login works on Fedora (RPM) but fails on Linux Mint / Zorin OS (deb) or Flatpak."
+
+**Possible root causes to investigate:**
+
+1. **WebKitGTK version differences** — Different distros ship different WebKitGTK versions with different security policies:
+   ```bash
+   # Check version on the affected distro:
+   rpm -q webkit2gtk4.1       # Fedora/RPM
+   dpkg -l | grep webkit2gtk  # Debian/Ubuntu
+   flatpak info org.gnome.Sdk//44  # Flatpak runtime version
+   ```
+
+2. **CAPTCHA rendering differences** — Some distros have different default browser configurations affecting CAPTCHA iframe rendering:
+   - Check if CAPTCHA page loads fully vs. shows "not supported" message
+   - Verify `about:blank` navigation rules are correctly allowing captcha-internal navigations
+
+3. **Flatpak sandbox interference** — Chunk fetches or Worker initialization blocked by sandbox permissions:
+   ```bash
+   flatpak run --command=bash com.protondrive.linux
+   echo "Check /etc/hosts, network access, WebKit permissions"
+   ```
+
+4. **Build consistency** — Identical WebClients source should produce identical chunks, but verify:
+   ```bash
+   sha256sum applications/drive/dist/account/assets/static/runtime.*.js
+   # Compare against a known-good build
+   ```
+
+**Collect on the affected distro:**
+```bash
+# Diagnostic bundle
+echo "=== WebKitGTK ==="
+rpm -q webkit2gtk4.1 2>/dev/null || dpkg -l | grep webkit2gtk
+echo "=== Tauri ==="
+grep 'tauri' src-tauri/Cargo.toml
+echo "=== Build Log (patch section) ==="
+grep -A2 "Applying patch" build.log
+echo "=== Console Errors ==="
+# Capture from Tauri devtools
+```
+
+### Debug Scenario E: SRI Still Present After `--no-sri` Build
+
+**Symptom:** `integrity=` attributes still appear in built HTML even though `--no-sri` was added to build commands.
+
+**Possible causes:**
+1. **`--no-sri` in wrong `package.json` script** — Verify each app's `build:web` script:
+   ```bash
+   grep "build:web" WebClients/applications/drive/package.json
+   grep "build:web" WebClients/applications/account/package.json
+   grep "build:web" WebClients/applications/verify/package.json
+   # Each should contain '--no-sri'
+   ```
+2. **`--no-sri` not passed to all `proton-pack build` calls** — Proton-pack may have multiple invocation patterns in the build script. Check `fix_deps.py` actually hit all three apps.
+3. **Cached webpack build** — Clean dist before rebuilding:
+   ```bash
+   rm -rf applications/drive/dist
+   ```
+
+**Verify post-build:**
+```bash
+# Quick check for integrity attributes
+grep -r "integrity=" applications/drive/dist/ --include="*.html"
+# Should return nothing
+
+# Check runtime.js for sriHashes
+grep "sriHashes" applications/drive/dist/account/assets/static/runtime.*.js
+# Should return nothing
+```
+
+### Debug Scenario F: CI Pipeline Patch Path Drift
+
+**Symptom:** Patch was verified working in local builds but CI releases still exhibit Worker errors.
+
+**Likely Cause:** The CI workflow files reference a different patch path than where the patch actually lives. This already happened once (see "CI Never Applied the Patch" above) and can recur.
+
+**Check all CI workflows:**
+```bash
+# Search for all patch path references across CI configs
+grep -r "patches/" .github/workflows/ .gitlab-ci.yml 2>/dev/null
+
+# Expected output should point to patches/common/ — any reference to
+# patches/webclients/ is stale and must be corrected
+```
+
+**Prevention:** When moving or renaming a patch file, run:
+```bash
+grep -r "old/patch/path" .github/workflows/ .gitlab-ci.yml
+```
+to find and update all stale references before committing.
+
+---
+
+## Test Environment (current)
+
 - **OS:** Fedora 40 (Linux 6.14.5-100.fc40.x86_64)
 - **System WebKitGTK:** webkit2gtk4.1 (system-installed)
 - **Tauri:** 2.0
 - **RAM:** 15GB (expanded from 3.8GB after OOM during parallel webpack builds)
 - **Disk:** 64GB partition (expanded from 15GB via growpart + xfs_growfs)
 
+## Related Files
+
+- `src-tauri/src/main.rs` — DISTRO_TYPE-based init scripts (Worker override removed in v1.1.5+)
+- `patches/common/fix-tauri-worker-protocol.patch` — Worker compat patch (uses `location.protocol`)
+- `scripts/build-webclients.sh` — Applies patches before building, fixes publicPath
+- `scripts/fix_deps.py` — Adds `--no-sri` to build commands for all three apps
+- `WebClients/packages/shared/lib/helpers/setupCryptoWorker.ts` — Proton's fallback logic
+- `WebClients/packages/shared/lib/helpers/browser.ts` — Target file for patch
+- `.github/workflows/build-linux-packages.yml` — CI workflow (must reference `patches/common/`)
+- `.github/workflows/flatpak.yml` — Flatpak CI workflow
+- `.gitlab-ci.yml` — GitLab CI pipeline
+
 ## Related Issues
-- GitHub #34: Chunk loading error after login (Zorin OS/Debian)
-- GitHub #36: date-fns chunk loading failure (Linux Mint, Flatpak/AppImage)
+
+- GitHub #32: "undefined is not a constructor" — Runtime Worker override conflict (fixed v1.1.5)
+- GitHub #34: Chunk loading error after login (Zorin OS/Debian) — Fixed by `--no-sri`
+- GitHub #36: date-fns chunk loading failure (Linux Mint, Flatpak/AppImage) — Fixed by `--no-sri`
 - GitHub #37: Challenge navigation blocked (superseded by v1.1.5 top-level captcha flow)
 - GitHub #39: Checksum mismatch for v1.1.2 deb (filename spacing issue in SHA256SUMS)
 - GitHub #40: Login problem on Debian (likely chunk loading, awaiting confirmation)

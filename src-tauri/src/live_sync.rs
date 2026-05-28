@@ -19,26 +19,46 @@ const ERR_SYNC_INVALID_TARGET: &str = "Invalid sync target path";
 const SUPPRESSION_TTL: Duration = Duration::from_secs(30);
 const SUPPRESSION_CACHE_MAX: usize = 4096;
 
+/// A filesystem change event emitted to the frontend over Tauri's event system.
+///
+/// This is serialized as JSON and sent on the `"live-sync://local-change"` channel
+/// when the file watcher detects a local create, modify, or remove event.
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncEvent {
+    /// One of `"create"`, `"modify"`, or `"remove"`.
     pub kind: String,
+    /// Absolute paths of the affected files, filtered to exclude
+    /// events that originated from remote-applied changes (self-suppression).
     pub paths: Vec<String>,
 }
 
+/// The current sync state, returned to the frontend for display / UI binding.
 #[derive(Debug, Clone, Serialize)]
 pub struct LiveSyncStatus {
+    /// Whether the watcher is currently running.
     pub enabled: bool,
+    /// The root folder being watched, if sync is active.
     pub folder_path: Option<String>,
 }
 
+/// A remote file change sent by the Proton server, to be applied locally.
 #[derive(Debug, Clone, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct RemoteSyncChange {
+    /// Relative path from the sync root (e.g. `"Documents/report.pdf"`).
     pub relative_path: String,
+    /// One of `"create"`, `"update"`, or `"delete"`.
     pub action: String,
+    /// Base64-encoded file content. Required for `"create"` and `"update"` actions;
+    /// ignored for `"delete"`.
     pub content_base64: Option<String>,
 }
 
+/// Stateful manager for the local filesystem watcher and remote-change applicator.
+///
+/// Provides start/stop lifecycle, status queries, and remote change application.
+/// Uses `notify` under the hood for cross-platform file watching. Internal state
+/// is guarded by `Mutex` for thread-safe access from Tauri command handlers.
 pub struct LiveSyncManager {
     watcher: Mutex<Option<RecommendedWatcher>>,
     folder: Mutex<Option<PathBuf>>,
@@ -60,6 +80,12 @@ impl Default for LiveSyncManager {
 }
 
 impl LiveSyncManager {
+    /// Start the file watcher on `folder`.
+    ///
+    /// Spawns a background thread that monitors the directory tree recursively.
+    /// Local changes are emitted to the frontend as `"live-sync://local-change"` events.
+    /// Returns an error if `folder` does not exist, cannot be canonicalized, or the
+    /// watcher fails to initialise (e.g. due to `inotify` limits under Linux).
     pub fn start(&self, app: AppHandle, folder: PathBuf) -> Result<(), String> {
         if !folder.exists() || !folder.is_dir() {
             return Err("Sync path must be a directory".into());
@@ -152,6 +178,7 @@ impl LiveSyncManager {
         Ok(())
     }
 
+    /// Return the current sync status (enabled/disabled and watched folder path).
     pub fn status(&self) -> Result<LiveSyncStatus, String> {
         let folder = self.folder.lock().map_err(|e| {
             eprintln!("[LiveSync] status lock failed: {e}");
@@ -163,6 +190,11 @@ impl LiveSyncManager {
         })
     }
 
+    /// Apply a remote file change (create, update, or delete) to the local sync directory.
+    ///
+    /// Validates the path against the sync root to prevent path traversal,
+    /// decodes base64 content for writes, and marks the target as a known
+    /// file to suppress self-triggered watcher events.
     pub fn apply_remote_change(&self, change: RemoteSyncChange) -> Result<String, String> {
         let root = self
             .folder
@@ -265,6 +297,10 @@ impl LiveSyncManager {
         Ok(target.to_string_lossy().to_string())
     }
 
+    /// Stop the file watcher and clear all sync state.
+    ///
+    /// Drops the `notify` watcher, joins the background worker thread, and clears
+    /// the suppression cache. Safe to call when sync is already stopped.
     pub fn stop(&self) -> Result<(), String> {
         *self.watcher.lock().map_err(|e| {
             eprintln!("[LiveSync] watcher state lock failed on stop: {e}");

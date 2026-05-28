@@ -7,29 +7,57 @@ use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::sync::RwLock;
 
+/// Errors that can occur during authentication.
 #[derive(Error, Debug)]
 pub enum AuthError {
+    /// An HTTP or network-level failure occurred. Wraps a [`reqwest::Error`].
     #[error("Network error: {0}")]
     Network(#[from] reqwest::Error),
+    /// The SRP cryptographic proof exchange failed. The inner string carries
+    /// details from the proton-srp crate.
     #[error("SRP error: {0}")]
     Srp(String),
+    /// The Proton API returned a response that could not be parsed or whose
+    /// error code is unexpected.
     #[error("Invalid response: {0}")]
     InvalidResponse(String),
+    /// The server requires a two-factor authentication (TOTP) code before
+    /// granting access.
     #[error("2FA required")]
     TwoFactorRequired,
+    /// The supplied username/password combination was rejected by the server
+    /// or the SRP server-proof verification failed.
     #[error("Invalid credentials")]
     InvalidCredentials,
+    /// No valid authentication session is held. Call
+    /// [`AuthManager::login`] or restore a session with
+    /// [`AuthManager::set_session`] first.
     #[error("Not authenticated")]
     NotAuthenticated,
+    /// The Proton API triggered a human verification challenge (error 9001).
+    /// Interactive handling via a web view is required before authentication
+    /// can proceed.
     #[error("Human verification required")]
     HumanVerificationRequired,
 }
 
+/// A successful authentication session returned after login or 2FA.
+///
+/// Holds the token triplet (access, refresh, type) scoped to a Proton UID.
+/// Persist this to secure storage so the user does not have to re-authenticate
+/// on every launch.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct AuthSession {
+    /// The Proton user / session identifier (`UID`). Used as a key for all
+    /// subsequent API requests.
     pub uid: String,
+    /// Short-lived bearer token sent as `Authorization` header on API calls.
     pub access_token: String,
+    /// Longer-lived token used with [`AuthManager::refresh_token`] to obtain a
+    /// new `access_token` without re-entering credentials.
     pub refresh_token: String,
+    /// Token type prefix (typically `"Bearer"`) prepended to `access_token` in
+    /// the `Authorization` header.
     pub token_type: String,
 }
 
@@ -92,6 +120,7 @@ struct Pending2FA {
     token_type: String,
 }
 
+/// Manages the full Proton SRP authentication lifecycle.
 pub struct AuthManager {
     client: reqwest::Client,
     base_url: String,
@@ -100,6 +129,7 @@ pub struct AuthManager {
 }
 
 impl AuthManager {
+    /// Create a new AuthManager targeting the given Proton API base URL.
     pub fn new(base_url: &str) -> Self {
         Self {
             client: reqwest::Client::builder()

@@ -50,14 +50,18 @@ repos, and the compatibility map can lag behind reality.
   base.
   - The patch replaces the clean `fn main()` WebKitGTK comment block in
     `src-tauri/src/main.rs` with the target-specific environment variables.
-  - Follow the pattern of existing patches (e.g., `alpine.3.22.patch`,
-    `debian.12.patch`).
+  - Follow the pattern of existing patches (e.g., `apk/alpine.3.22.patch`,
+    `deb/debian.12.patch`, `rpm/opensuse.tumbleweed.patch`).
   - Use the same WebKitGTK conservative path variables for musl targets:
     `WEBKIT_DISABLE_DMABUF_RENDERER=1`,
     `WEBKIT_DISABLE_COMPOSITING_MODE=1`,
     `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`,
     `JSC_useWasmIPInt=false`, `GDK_GL=disable`,
     `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo`.
+  - For musl/Alpine APK targets, the patch must also set up the D-Bus session
+    bus and `AT_SPI_BUS_ADDRESS` workarounds — see the Notes section for
+    details. Alpine's musl lacks systemd's auto-launching, so the patch must
+    auto-launch a user D-Bus session if the inherited bus is not accessible.
 - [ ] Verify the patch applies cleanly: `git apply --check
   patches/<package>/<target>.patch`.
 - [ ] Verify the reverse check works: `git apply --reverse --check
@@ -90,8 +94,16 @@ repos, and the compatibility map can lag behind reality.
   - Install all build dependencies in the container (compiler, WebKitGTK dev
     packages, GTK dev packages, Node.js, etc.).
   - Apply the distro patch.
+  - **For musl (Alpine APK) targets only**: Before the build step, configure
+    `.cargo/config.toml` with `linker = "gcc"` and
+    `target-feature=-crt-static` to allow dynamic linking against shared
+    system libraries. See the Notes section for the exact config and an
+    explanation of the musl self-contained linking issue.
   - Build the frontend (`scripts/build-webclients.sh`).
-  - Build the Tauri binary (`npx tauri build --verbose`).
+  - Build the Tauri binary (`npx tauri build --verbose`). For Alpine APK
+    targets, use `cargo build --release` directly instead — APK packaging is
+    handled in a separate step and the Tauri bundler defaults to deb/rpm
+    targets not available in Alpine containers.
   - Package the output in the correct format (DEB, RPM, APK tarball, etc.).
   - Normalize the artifact filename with the target label.
   - Upload the artifact with a unique name.
@@ -105,11 +117,17 @@ repos, and the compatibility map can lag behind reality.
 - [ ] Verify the entrypoint triggers the job on `push` to `main`, `alpha`,
   package branches, tags, pull requests, and `workflow_dispatch`.
 
-## Step 4: Create the Local CI Build Script
+## Step 4: Create the Local CI Build Script (Optional)
 
-- [ ] Create `scripts/ci/build-<target>-<package>.sh`.
+Local CI build scripts exist only for targets that benefit from local
+iteration (currently Alpine APK and AUR targets). For DEB, RPM, Flatpak, Snap,
+and AppImage targets, CI runs are handled entirely in GitHub Actions.
+
+- [ ] If a local CI script is warranted, create
+  `scripts/ci/build-<target>-<package>.sh`.
   - Use an existing script as a template (e.g.,
-    `build-opensuse-tumbleweed-rpm.sh`).
+    `scripts/ci/build-opensuse-tumbleweed-rpm.sh`,
+    `scripts/ci/build-alpine-322-apk.sh`).
   - The script should create a clean git worktree, apply the patch, build, and
     copy the artifact to an output directory.
   - Make it executable: `chmod +x scripts/ci/build-<target>-<package>.sh`.
@@ -207,6 +225,10 @@ objects on Alpine. The fix requires a `.cargo/config.toml`:
     CRT/unwind from the rust sysroot. The combination of `linker=gcc` +
     `-crt-static` preserves the self-contained CRT/unwind bits while
     allowing dynamic linking for system libraries.
+  - **Note**: This `.cargo/config.toml` is currently documented here but not
+    yet committed to the repository. For CI builds, create it in the container
+    or action step before the build. Consider committing it to the repo if it
+    becomes needed across multiple targets.
 - **Tauri bundler on Alpine**: `npx tauri build` defaults to `deb`, `rpm`,
 `appimage` bundle targets which require `xdg-open` and other tools not
 available in a minimal Alpine container. For APK targets, use `cargo build
@@ -229,3 +251,9 @@ handled in a separate step.
   user. Setting `AT_SPI_BUS_ADDRESS=/dev/null` prevents WebKitWebProcess from
   attempting to connect and crashing. This produces a harmless warning but
   avoids the SIGABRT.
+- **Patch without workflow**: If a target has a patch but no corresponding
+  GitHub Actions workflow (e.g., `patches/rpm/opensuse.leap.16.patch` —
+  existing as of 2026-05-28), note it in the compatibility map as
+  `workflow: null` and set a `before_release_gate` item to create the
+  workflow. For these targets, CI builds and local verification scripts
+  cover testing until the workflow is added.
