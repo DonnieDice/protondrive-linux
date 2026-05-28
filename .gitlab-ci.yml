@@ -13,6 +13,8 @@ stages:
   - publish
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
@@ -21,6 +23,7 @@ workflow:
 # ─── Rule templates ───────────────────────────────────────────────────────────
 
 .rules:build:
+  interruptible: true
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
