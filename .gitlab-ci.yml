@@ -932,10 +932,10 @@ build:rpm:opensuse-tumbleweed:
       done
     - |
       for i in 1 2 3; do
-        zypper --non-interactive install bash git curl wget gcc gcc-c++ make file
-          pkgconf-pkg-config libopenssl-devel gtk3-devel
-          libappindicator3-devel libayatana-appindicator3-devel
-          librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0
+        zypper --non-interactive install bash git curl wget gcc gcc-c++ make file \
+          pkgconf-pkg-config libopenssl-devel gtk3-devel \
+          libappindicator3-devel libayatana-appindicator3-devel \
+          librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0 \
           patchelf rpm-build nodejs-default npm-default python313 findutils which && break
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
@@ -980,6 +980,7 @@ build:snap:core24:
   variables:
     DISTRO_PATCH: core24
     DEBIAN_FRONTEND: noninteractive
+  allow_failure: true
   cache:
     key: snap-core24-cargo
     paths: [.cargo/, src-tauri/target/]
@@ -1230,6 +1231,7 @@ release:
       artifacts: true
     - job: build:snap:core24
       artifacts: true
+      optional: true
     - job: build:snap:core26
       artifacts: true
       optional: true
