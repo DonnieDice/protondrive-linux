@@ -1278,10 +1278,13 @@ release:
         local file="$1"
         local name
         name=$(basename "$file")
-        curl --silent --fail -k \
+        HTTP_CODE=$(curl -k -w "%{http_code}" -o /tmp/curl-response.txt \
           --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$file" \
-          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}"
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}" 2>&1)
+        echo "Upload ${name}: HTTP ${HTTP_CODE} - $(cat /tmp/curl-response.txt)"
+        [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ] || \
+          { echo "ERROR: upload failed with HTTP ${HTTP_CODE}"; exit 1; }
         ASSET_LINKS="${ASSET_LINKS}
           --assets-link '{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}'"
       }
