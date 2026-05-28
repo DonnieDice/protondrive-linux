@@ -1,4 +1,53 @@
 #!/usr/bin/env bash
+# build-opensuse-tumbleweed-rpm.sh
+# ================================
+#
+# Purpose
+# -------
+# Build a Proton Drive RPM package for openSUSE Tumbleweed inside a
+# temporary, clean git worktree.  Applies the opensuse.tumbleweed patch,
+# sets up WebKitGTK overlay support when available, runs `tauri build
+# --bundles rpm`, normalises the RPM filename from "Proton Drive" to
+# "proton-drive", and copies the artifact to the configured output
+# directory.
+#
+# Inputs (environment variables)
+# ------------------------------
+#   OUTPUT_DIR      Destination directory for the built RPM artifact.
+#                   Default: /tmp/protondrive-opensuse-tumbleweed-rpm
+#
+#   WEBKIT_OVERLAY  Optional path to a WebKit overlay directory
+#                   containing libwebkit2gtk-4.1.so.0 and
+#                   libjavascriptcoregtk-4.1.so.0.  When set, the script
+#                   creates symlinks and adjusts LIBRARY_PATH / RUSTFLAGS
+#                   so the linker finds these libraries at build time.
+#
+# Outputs
+# -------
+#   proton-drive_<version>_opensuse.amd64.rpm
+#     Written to OUTPUT_DIR (default above).
+#
+#   Temporary worktree under /tmp/protondrive-opensuse-tumbleweed-XXXXXX
+#     Removed automatically on exit via a trap on EXIT.
+#
+# Usage
+# -----
+#   scripts/ci/build-opensuse-tumbleweed-rpm.sh
+#
+#   Run from the repository root with no arguments.  Both OUTPUT_DIR and
+#   WEBKIT_OVERLAY are optional environment overrides.
+#
+#   Example with custom output directory:
+#     OUTPUT_DIR=/tmp/my-rpms ./scripts/ci/build-opensuse-tumbleweed-rpm.sh
+#
+#   Example with WebKit overlay:
+#     WEBKIT_OVERLAY=/opt/webkit-overlay \
+#       ./scripts/ci/build-opensuse-tumbleweed-rpm.sh
+#
+# Called by
+# ---------
+#   GitLab CI job 'build:rpm:opensuse-tumbleweed' (stage: build).
+#   See .gitlab-ci.yml, approximately line 908.
 set -euo pipefail
 
 usage() {

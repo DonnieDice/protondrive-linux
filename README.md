@@ -9,11 +9,13 @@
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
 
+![Screenshot](screenshots/main.png)
+
 ---
 
 ## About
 
-ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web interface in a native Linux desktop window using [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/). Authentication, encryption, and file operations are handled by Proton's web app - this project provides the native shell, system tray integration, and cross-distro packaging.
+ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web interface in a native Linux desktop window using [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/). Authentication, encryption, and file operations are handled by Proton's web app — this project provides the native shell, system tray integration, and cross-distro packaging.
 
 **Features:**
 
@@ -22,19 +24,37 @@ ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web
 - Proton Drive file browsing and downloads (saved to `~/Downloads`)
 - Experimental 2-way live sync (watch a local folder and apply remote changes)
 - Native packages for most major Linux distributions
-- Built with Rust + Tauri for a small footprint and low resource usage
+- Built with Rust + Tauri 2 for a small footprint and low resource usage
+- Package formats: AppImage (portable), Flatpak (standalone bundle), Snap (standalone), DEB, RPM, APK, and Arch PKGBUILD
 
 > **Packages are not yet available on Flathub, Snap Store, or system repositories.** For now, download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases/latest).
 
+## Quick Install
+
+Download the latest release from the [Releases page](https://github.com/DonnieDice/protondrive-linux/releases/latest).
+
+| Format | Command |
+|--------|---------|
+| **AppImage** (portable) | `chmod +x proton-drive_*.AppImage && ./proton-drive_*.AppImage` |
+| **Debian/Ubuntu** | `sudo apt install ./proton-drive_*_amd64.deb` |
+| **Fedora/RHEL** | `sudo dnf install ./proton-drive-*.rpm` |
+| **openSUSE** | `sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm` |
+| **Arch (AUR PKGBUILD)** | `sudo pacman -U proton-drive-*.pkg.tar.zst` |
+| **Alpine** | `sudo apk add ./proton-drive_*_alpine*_amd64.apk.tar.gz` |
+| **Flatpak** | `flatpak install proton-drive_*_gnome*.flatpak` |
+| **Snap** | `sudo snap install --dangerous protondrive-linux_*.snap` |
+
+SHA256 checksums are provided in the `SHA256SUMS` file attached to each release.
+
 ## 2-Way Live Sync (Experimental)
 
-The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** - the web frontend must call the Tauri commands to use it.
+The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** — the web frontend must call the Tauri commands to use it.
 
 ### How it works
 
-1. **Choose a sync folder** - the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
-2. **Local changes are detected** - a recursive file watcher monitors the folder for creates, modifies, and deletes. Events are emitted as `live-sync://local-change` to the frontend.
-3. **Remote changes are applied** - the frontend calls `handle_remote_update(change)` to write or delete files in the sync folder. Relative paths are validated against the sync root - symlink traversal and path traversal (`../`) are blocked.
+1. **Choose a sync folder** — the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
+2. **Local changes are detected** — a recursive file watcher monitors the folder for creates, modifies, and deletes. Events are emitted as `live-sync://local-change` to the frontend.
+3. **Remote changes are applied** — the frontend calls `handle_remote_update(change)` to write or delete files in the sync folder. Relative paths are validated against the sync root — symlink traversal and path traversal (`../`) are blocked.
 
 ### Tauri commands
 

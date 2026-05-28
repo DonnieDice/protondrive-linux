@@ -1,4 +1,48 @@
 #!/usr/bin/env bash
+# =============================================================================
+# build-aur-package.sh
+# =============================================================================
+# Purpose:
+#   Builds a Proton Drive AUR package (.pkg.tar.zst) from a pre-compiled
+#   binary.  Generates a PKGBUILD dynamically, bundles the binary along with a
+#   desktop entry and application icons, then runs `makepkg` as an unprivileged
+#   'builder' user.  Designed for CI execution in GitLab/GitHub runners where
+#   the binary is already cross-compiled and only packaging remains.
+#
+# Inputs (positional arguments — all optional with defaults):
+#   $1  AUR target          (default: arch-native)
+#   $2  Version string      (default: 1.4.4)
+#   $3  Binary path         (default: src-tauri/target/release/proton-drive)
+#   $4  Icons directory     (default: src-tauri/icons)
+#   $5  Repo root           (default: .)
+#
+# Outputs:
+#   Writes one *.pkg.tar.zst artifact to /tmp/aur-output/.
+#
+# Dependencies (runtime):
+#   - bash, coreutils (cp, mkdir, chmod, chown, ln, rm, mktemp)
+#   - makepkg (from pacman / archlinux-keyring)
+#   - su (shadow-utils or util-linux)
+#   - useradd (shadow-utils) — available on Arch; harmless on other distros
+#
+# Usage (CI):
+#   ./scripts/ci/build-aur-package.sh                 # all defaults
+#   ./scripts/ci/build-aur-package.sh arch-native 1.5.0  ./out/proton-drive
+#
+# Called by:
+#   GitLab CI job 'build:aur' — stage: build (line ~382 of .gitlab-ci.yml)
+#   GitHub Actions job 'aur-package' — reusable workflow
+#
+# Exit codes:
+#   0 — package built successfully
+#   1 — no .pkg.tar.zst found in output directory
+#
+# Metadata:
+#   Author:    DonnieDice / Proton Drive Linux contributors
+#   License:   AGPL-3.0-only
+#   Maintained as part of: github.com/DonnieDice/protondrive-linux
+# =============================================================================
+
 set -euo pipefail
 
 AUR_TARGET="${1:-arch-native}"
@@ -82,22 +126,22 @@ makedepends=('cargo' 'rust' 'nodejs' 'npm' 'git' 'pkg-config' 'patch' 'python')
 conflicts=('proton-drive-bin')
 replaces=('proton-drive-bin')
 options=('!strip')
-${SOURCE_LINE}
-${SHA256_LINE}
+\${SOURCE_LINE}
+\${SHA256_LINE}
 
 package() {
-	install -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
-	install -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
+\tinstall -Dm755 "\${srcdir}/proton-drive" "\${pkgdir}/usr/bin/proton-drive"
+\tinstall -Dm644 "\${srcdir}/com.proton.drive.desktop" "\${pkgdir}/usr/share/applications/com.proton.drive.desktop"
 
-	for size in 32x32 128x128 256x256; do
-		if [ -f "\${srcdir}/icon-\${size}.png" ]; then
-			install -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
-		fi
-	done
+\tfor size in 32x32 128x128 256x256; do
+\t\tif [ -f "\${srcdir}/icon-\${size}.png" ]; then
+\t\t\tinstall -Dm644 "\${srcdir}/icon-\${size}.png" "\${pkgdir}/usr/share/icons/hicolor/\${size}/apps/com.proton.drive.png"
+\t\tfi
+\tdone
 
-	if [ -f "\${srcdir}/proton-drive.svg" ]; then
-		install -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
-	fi
+\tif [ -f "\${srcdir}/proton-drive.svg" ]; then
+\t\tinstall -Dm644 "\${srcdir}/proton-drive.svg" "\${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+\tfi
 }
 PKGBUILD
 

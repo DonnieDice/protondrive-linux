@@ -27,9 +27,13 @@
     "build:web": "./scripts/build-webclients.sh",
     "build:deb": "npm run build:web && tauri build --bundles deb",
     "build:rpm": "npm run build:web && tauri build --bundles rpm",
-    "build:appimage": "npm run build:web && tauri build --bundles appimage"
+    "build:appimage": "npm run build:web && tauri build --bundles appimage",
+    "docs:dev": "vitepress dev docs",
+    "docs:build": "vitepress build docs",
+    "docs:preview": "vitepress preview docs"
   },
   "devDependencies": {
-    "@tauri-apps/cli": "^2.11.2"
+    "@tauri-apps/cli": "^2.11.2",
+    "vitepress": "^1.6.4"
   }
 }

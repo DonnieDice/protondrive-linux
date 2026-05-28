@@ -1,4 +1,43 @@
 #!/usr/bin/env bash
+# build-alpine-320-apk.sh
+# ========================
+# Build a portable APK (.apk.tar.gz) package of Proton Drive for Alpine Linux
+# 3.20 (musl libc). Creates a clean git worktree, applies the Alpine-specific
+# patch set, compiles the Rust/Tauri binary, and packs the result into a
+# stripped, redistributable tar.gz archive.
+#
+# Prerequisites
+#   - Git working tree must be clean (no uncommitted changes).
+#   - Rust toolchain with musl target, Node.js, and npm must be installed.
+#   - Alpine 3.20 patch must exist at patches/apk/alpine.3.20.patch.
+#
+# Flow
+#   1. Validate patch file exists.
+#   2. Create a detached git worktree so the main working tree is untouched.
+#   3. Apply the Alpine 3.20 patch to the worktree.
+#   4. Build WebClients assets (scripts/build-webclients.sh).
+#   5. Build the Tauri release binary with npx tauri build.
+#   6. Stage the binary, .desktop file, and icons into a standard
+#      Alpine package directory layout.
+#   7. Strip debug symbols from the binary.
+#   8. Pack the staging tree into .apk.tar.gz.
+#
+# Environment inputs
+#   OUTPUT_DIR   Destination directory for the artifact.
+#                Default: /tmp/protondrive-alpine320-apk
+#
+# Outputs
+#   <OUTPUT_DIR>/proton-drive_<version>_alpine320_amd64.apk.tar.gz
+#
+# Usage
+#   scripts/ci/build-alpine-320-apk.sh           # build with defaults
+#   scripts/ci/build-alpine-320-apk.sh -h         # print help
+#   OUTPUT_DIR=/artifacts scripts/ci/build-alpine-320-apk.sh
+#
+# CI integration
+#   Called by GitLab CI job 'build:apk:alpine-3.20' (stage: build) and the
+#   GitHub Actions equivalent workflow. Refer to ci-cd-roadmap.md for the
+#   full build matrix.
 set -euo pipefail
 
 usage() {

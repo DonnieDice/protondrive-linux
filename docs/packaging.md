@@ -80,9 +80,9 @@ described above. Both must pass for a target to be `release-gated`.
 | openSUSE Tumbleweed RPM | pass | pass | `rpm/opensuse-tumbleweed` / `rpm-package-opensuse-tumbleweed` | `rpm/opensuse.tumbleweed.patch` | remote artifact pass | openSUSE Tumbleweed | keep in release gate |
 | Flatpak GNOME 49 | runtime | runtime | `flatpak/gnome-49` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
 | Flatpak GNOME 50 | runtime | runtime | `flatpak/gnome-50` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
-| Snap core24 | runtime | runtime | `snap/core24` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | keep in release gate |
-| Snap core26 | runtime | runtime | `snap/core26` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | keep in release gate |
-| AUR Arch package (native build) | pass (glibc 2.39) | pass | `aur/arch-native` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
+|| Snap core24 | runtime | runtime | `snap/core24` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | blocked: Snap Store publishing blocked (issues #83, #19); CI builds continue but artifacts not included in release until unblocked |
+|| Snap core26 | runtime | runtime | `snap/core26` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | blocked: Snap Store publishing blocked (issues #83, #19); CI builds continue on best-effort (`continue-on-error`) until unblocked |
+|| AUR Arch package (native build) | pass (glibc 2.39) | pass | `aur/arch-native` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
 | Alpine 3.20 APK | musl pass | pass | `apk/alpine-3.20` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
 | Alpine 3.22 APK | musl pass | pass | `apk/alpine-3.22` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
 | Alpine 3.23 APK | musl pass | pass | `apk/alpine-3.23` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | local smoke pass | Alpine 3.23 musl; glibc artifacts are not compatible | keep in release gate |
@@ -302,7 +302,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested commits intended for release.
 - Release tag points at `main`.
-- GitHub release contains all 17 release-gated artifacts plus `SHA256SUMS`.
+- GitHub release contains all release-gated artifacts (Snap core24/core26 CI builds continue but publishing is blocked — see issues #83 and #19) plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 
