@@ -395,4 +395,4 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | No VM/integration tests | AppImage/Flatpak/Snap untested in target envs | Roadmap |
 | Snap core26 `allow_failure` | Latest Ubuntu snap base untested | Roadmap |
 | No shared Rust cache between jobs | Each of 17 jobs rebuilds deps independently (~2h each) | Roadmap |
-| `check-login-routing-regressions.sh` | Referenced but does not exist in `scripts/ci/` | Needs creation |
+| `check-login-routing-regressions.sh` | Guards login/2FA routing patterns in `main.rs`, `proton_navigation.rs`, `webview_cookies.rs` | Run as part of `Login/2FA Routing Regression Checks` |
