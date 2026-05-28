@@ -1,111 +1,167 @@
-# live_sync Module — Real-Time Sync Engine
+# `live_sync` Module — Real-Time Sync Engine
 
 > **Status:** Experimental — 2-way live file synchronization between a local folder and Proton Drive.
 >
-> **Source:** `src-tauri/src/live_sync.rs` (425 lines — self-contained, no separate persistence layer)
+> **Source:** `src-tauri/src/live_sync.rs` (941 lines, integrates with `sync_db.rs` for persistent metadata)
 >
-> **Broader architecture:** See [docs/sync.md](sync.md) for system-level diagrams, Tauri command wiring, security origin validation, and lifecycle flows.
+> **Broader architecture:** See [sync-system.md](sync-system.md) for the full live sync architecture overview,
+> including Tauri command wiring, security origin validation, and lifecycle flows.
 
 ---
 
 ## Overview
 
-`live_sync.rs` implements the core Rust engine for real-time bidirectional file sync. It handles two directions of data flow:
+`live_sync.rs` is the core Rust engine for real-time bidirectional file sync. It
+operates three independent threads:
 
-| Direction | Trigger | Mechanism |
-|-----------|---------|-----------|
-| **Local → Remote** | OS-level filesystem events (`notify` crate) | File watcher detects create/modify/remove → emits Tauri event to frontend → frontend uploads to Proton API |
-| **Remote → Local** | Frontend receives Proton API push | Frontend calls `handle_remote_update` Tauri command → Rust decodes and writes/deletes file on disk |
+| Thread | Name | Trigger | Mechanism |
+|--------|------|---------|-----------|
+| **Watcher** | `live-sync-watcher` | OS-level filesystem events | `notify` crate (inotify/FSEvents) → mpsc channel → Tauri event emit |
+| **Poller** | `live-sync-poller` | Timer (default 30s) | Full recursive scan → snapshot diff → Tauri event emit |
+| **Remote Apply** | *(Tauri command thread)* | Frontend calls `handle_remote_update` | Validates, writes/deletes file on disk |
 
-The module is self-contained with no external database or persistence layer — all state is in-memory and managed via `Mutex`-guarded fields on `LiveSyncManager`.
+The dual detection (watcher + poller) provides **near-instant event reporting with
+guaranteed coverage**: the watcher catches changes in milliseconds, and the poller
+fills any gaps from inotify queue overflows, atomic renames, or missed events.
+
+Every detected local change is persisted to the sync database ([`sync_db.rs`](sync-db-module.md))
+as a `LocalPending` item before the event is emitted to the frontend. This means
+sync state survives both `stop()`/`start()` cycles and can be queried for pending
+items after restart.
 
 ---
 
 ## Key Types
 
 ### `LiveSyncManager`
-The central stateful manager. Owns all mutable sync state behind `std::sync::Mutex`:
+
+The central stateful manager. All mutable state is behind `std::sync::Mutex`:
 
 | Field | Type | Purpose |
 |-------|------|---------|
-| `watcher` | `Option<RecommendedWatcher>` | The `notify` filesystem watcher handle |
-| `folder` | `Option<PathBuf>` | The sync root directory path |
-| `root_canonical` | `Option<PathBuf>` | Canonicalized root (for path traversal checks) |
-| `worker` | `Option<JoinHandle<()>>` | Background thread handle (`live-sync-watcher`) |
+| `watcher` | `Mutex<Option<RecommendedWatcher>>` | Active `notify` filesystem watcher handle |
+| `folder` | `Mutex<Option<PathBuf>>` | User-selected sync root directory path |
+| `root_canonical` | `Mutex<Option<PathBuf>>` | Canonicalized root (for path traversal checks) |
+| `worker` | `Mutex<Option<JoinHandle<()>>>` | Watcher background thread handle |
+| `poller` | `Mutex<Option<JoinHandle<()>>>` | Poller background thread handle |
+| `poll_stop` | `Mutex<Option<mpsc::Sender<()>>>` | Channel to signal poller to stop |
 | `known_files` | `Arc<Mutex<HashMap<PathBuf, Instant>>>` | Shared suppression cache (anti-echo) |
 
 **Lifecycle:** `Default::default()` → `start(app, folder)` → (running) → `stop()`.
-Only one sync root at a time — calling `start()` again stops the previous one.
+Only one sync root at a time — calling `start()` again stops the previous one and
+starts fresh.
 
 ### `LiveSyncEvent`
-Serialized as JSON and emitted on the `"live-sync://local-change"` Tauri event channel when the file watcher detects a local change.
+
+Serialized as JSON and emitted on the `"live-sync://local-change"` Tauri event
+channel. The frontend sync engine depends on this exact channel name — changing it
+would break the sync contract.
 
 ```rust
 pub struct LiveSyncEvent {
-    pub kind: String,       // "create" | "modify" | "remove"
-    pub paths: Vec<String>, // Absolute paths, filtered through suppression cache
+    pub kind: String,                // "create" | "modify" | "remove"
+    pub paths: Vec<String>,          // Absolute paths (backward compat)
+    pub root_path: String,           // Sync root path
+    pub relative_paths: Vec<String>, // Root-relative paths (for path mapping)
+    pub source: String,              // "watcher" or "poller"
 }
 ```
 
 ### `LiveSyncStatus`
-Returned to the frontend for UI binding (e.g. displaying current sync state).
+
+Returned to the frontend for UI binding (sync toggle, folder display, interval display).
 
 ```rust
 pub struct LiveSyncStatus {
     pub enabled: bool,
     pub folder_path: Option<String>,
+    pub poll_interval_seconds: u64,  // defaults to 30
 }
 ```
 
 ### `RemoteSyncChange`
+
 Deserialized from the frontend when it pushes a remote change received from Proton Drive.
+Uses `#[serde(rename_all = "camelCase")]` so the frontend sends `relativePath`,
+`contentBase64`, etc.
 
 ```rust
-#[serde(rename_all = "camelCase")]
 pub struct RemoteSyncChange {
-    pub relative_path: String,     // e.g. "Documents/report.pdf"
-    pub action: String,            // "create" | "update" | "delete"
-    pub content_base64: Option<String>, // Base64 content; required for create/update
+    pub relative_path: String,            // e.g. "Documents/report.pdf"
+    pub action: String,                   // "create" | "update" | "delete"
+    pub content_base64: Option<String>,   // Base64 content; required for create/update
 }
 ```
 
 ---
 
-## Sync Flow
+## Change Detection Systems
 
-### Local Change (Create/Modify/Remove)
+### Watcher Thread
 
-```
-User writes file in sync folder
-  → notify::RecommendedWatcher (RecursiveMode::Recursive)
-    → mpsc channel delivers event to worker thread
-      → Worker maps EventKind: Create→"create", Modify→"modify", Remove→"remove"
-      → Worker filters paths through should_ignore_known_file() (anti-echo)
-      → Worker emits Tauri event "live-sync://local-change"
-        → Frontend receives LiveSyncEvent and uploads to Proton API
+Uses the `notify` crate's `RecommendedWatcher` with `RecursiveMode::Recursive`:
+
+```rust
+let (tx, rx) = mpsc::channel();
+let mut watcher = RecommendedWatcher::new(tx, Config::default())?;
+watcher.watch(&folder, RecursiveMode::Recursive)?;
 ```
 
-**Unidirectional at this point:** The Rust engine does not upload files. It emits events and the frontend decides whether/how to upload.
+The worker thread (`live-sync-watcher`) blocks on `rx` and processes each event:
+1. Maps `EventKind::Create(_)` → `"create"`, `Modify(_)` → `"modify"`, `Remove(_)` → `"remove"`
+2. Filters paths through `should_ignore_known_file()` (anti-echo suppression)
+3. Calls `emit_local_change()` which writes to the sync DB then emits the Tauri event
 
-### Remote Change (Create/Update/Delete)
+### Poller Thread
 
+Acts as a safety net for events the watcher might miss:
+
+1. Takes an initial baseline snapshot (`scan_sync_root()`)
+2. Blocks on `poll_stop_rx.recv_timeout(poll_interval)` — this serves as both the stop signal and the timer
+3. When the timeout fires (no stop signal received), takes a new snapshot
+4. Calls `diff_snapshots(previous, next)` to find creates, modifies, and removes
+5. Filters through the suppression cache
+6. Calls `emit_local_change()` for each change
+7. Replaces the baseline with the new snapshot and loops
+
+```rust
+let poller = std::thread::Builder::new()
+    .name("live-sync-poller")
+    .spawn(move || loop {
+        if poll_stop_rx.recv_timeout(poll_interval).is_ok() { break; }
+        scan_sync_root(&poller_root)
+            .and_then(|next| diff_snapshots(&snapshot, &next))
+            .map(|changes| emit_filtered_changes(...));
+        snapshot = next_snapshot;
+    })?;
 ```
-Frontend receives remote change from Proton Drive
-  → Calls handle_remote_update Tauri command
-    → ensure_sync_command_allowed() (origin check)
-    → apply_remote_change(RemoteSyncChange)
-      → Reject "create"/"update" without content_base64
-      → Validate relative_path: no "..", "/", or "Prefix" components
-      → Validate target within canonical root (symlink traversal check)
-      → For create/update: fs::create_dir_all(parent) → mark_known_file(path) → fs::write(path, data)
-      → For delete: mark_known_file(path) → fs::remove_file(path)
+
+### Snapshot Structure
+
+```rust
+struct FileFingerprint {
+    len: u64,                       // File size in bytes
+    modified: Option<u128>,         // mtime in nanoseconds since epoch
+}
+
+type SyncSnapshot = HashMap<PathBuf, FileFingerprint>;
 ```
+
+The recursive scan walks the entire sync root tree, skipping symlinks, and records
+`(size, mtime_ns)` for every file. The diff compares two snapshots using set
+operations on the path keys:
+
+- **Creates:** paths in `next` but not in `previous`
+- **Modifies:** paths in both but fingerprint changed
+- **Removes:** paths in `previous` but not in `next`
 
 ---
 
 ## Anti-Echo / Self-Suppression
 
-A critical challenge in bidirectional sync is the **write-echo loop**: a remote change triggers a local write, which the file watcher detects and re-emits as a local change, which the frontend sends back to Proton as a remote change — looping indefinitely.
+When a remote change is applied to the local filesystem, the local watcher immediately
+detects the write. Without suppression, this would trigger an upload back to Proton,
+creating an infinite loop.
 
 ### Known Files Cache
 
@@ -115,125 +171,148 @@ A critical challenge in bidirectional sync is the **write-echo loop**: a remote 
 | **TTL** | 30 seconds (`SUPPRESSION_TTL`) |
 | **Max entries** | 4096 (`SUPPRESSION_CACHE_MAX`) |
 | **Pruning** | Time-based on every access; capacity-based overflow evicts oldest |
+| **Consumed on read** | `cache.remove(path)` — one suppression per mark |
 
 ### Flow
 
 ```
 apply_remote_change()
-  → mark_known_file(path)    ← inserts path + now
+  → mark_known_file(path)           ← inserts path + Instant::now()
   → fs::write / fs::remove_file
-  → notify watcher fires event (same path)
+  → notify watcher fires (same path)
     → should_ignore_known_file(path)
-      → If found AND age ≤ 30s → SUPPRESS (don't emit)
-      → Otherwise → emit live-sync://local-change
+      → If found AND age ≤ 30s → SUPPRESS (remove entry, return true)
+      → Otherwise → return false → emit event
 ```
 
-### Pruning Logic
-
-1. **Time-based:** On every cache read/write, entries older than `SUPPRESSION_TTL` (30s) are evicted.
-2. **Capacity-based:** If after time-based pruning the cache still exceeds 4096 entries, the oldest entries are sorted by timestamp and removed until under the cap.
-
-This prevents memory leaks during burst operations while keeping suppression effective.
-
----
-
-## State Reconciliation
-
-**Last-write-wins.** The current implementation has no conflict resolution:
-
-| Scenario | Behavior |
-|----------|----------|
-| File modified locally AND remotely simultaneously | Remote action overwrites local state |
-| File deleted locally while being updated remotely | Remote create/update writes the file |
-| File created locally and remotely at the same path | Remote write overwrites local content |
-| Remove of non-existent file | Silently succeeds (only removes if `target.exists()`) |
-
-The anti-echo cache prevents infinite loops but does not detect or resolve true conflicts. Remote changes always take precedence over concurrent local changes.
+The entry is **consumed on first lookup** (`cache.remove()`), not on a timer. This
+means one remote write suppresses exactly one detection event. If the file watcher
+fires multiple times (e.g., create + modify events for the same write), only the
+first is suppressed — but in practice these arrive in the same batch and the
+suppression covers both since the entry has already been consumed.
 
 ---
 
-## Security Model (within the module)
+## Metadata Persistence
 
-The module implements two security checks directly:
+Every local change is recorded in the sync database via `record_local_change_metadata()`:
 
-### 1. Path Traversal (`validate_path_within_root`)
+```rust
+fn record_local_change_metadata(
+    db_path: &Path, root_id: &str, root: &Path, kind: &str, paths: &[String]
+) -> Result<(), String> {
+    for path in paths {
+        if kind == "remove" {
+            db.mark_tombstone(root_id, &relative)?;  // soft-delete, preserves remote ID
+        } else {
+            let metadata = fs::symlink_metadata(path).ok();
+            db.upsert_local_item(root_id, &relative, local_kind, local_size,
+                local_mtime_ns, None, SyncItemState::LocalPending)?;
+        }
+    }
+}
+```
 
-- Rejects explicit traversal: `..`, `/`, and `Prefix` components in `relative_path`
-- Rejects symlinks: iterates every component in the target path, checks `symlink_metadata()` for symlinks
-- Canonical root check: resolves the target (or its nearest existing ancestor) to a canonical path and verifies it starts with the sync root
-- For non-existent targets, walks ancestors to find one that exists for canonical comparison
+This is what connects the live sync engine to the persistent metadata layer. Without
+it, changes would be ephemeral — the frontend would receive events but there'd be no
+record of what needs uploading.
 
-### 2. Audit Logging
+---
 
-All security events log with `[LiveSync][AUDIT]` prefix:
-- Rejected remote write: `action={} path={} reason={}`
-- Rejected remote delete: `path={} reason={}`
-- Successful remote action: `action={} result=success path={}`
+## Remote Change Application
 
-The origin validation (`ensure_sync_command_allowed`) and home-directory scoping (`validate_sync_root_path`) live in `main.rs`, not in this module.
+The frontend calls `handle_remote_update` (a Tauri command) when Proton pushes a
+file change:
+
+```
+Frontend receives remote change from Proton
+  → invoke('handle_remote_update', { change: RemoteSyncChange })
+    → ensure_sync_command_allowed()    (origin check: must be tauri://localhost)
+    → apply_remote_change(change)
+      → Reject "create"/"update" without content_base64
+      → Validate relative_path: no "..", "/", or Prefix components
+      → Validate target within canonical root (symlink traversal check)
+      → For create/update: fs::create_dir_all(parent) → mark_known_file → fs::write
+      → For delete: mark_known_file → fs::remove_file (if exists)
+```
+
+### Path Validation
+
+`validate_path_within_root` provides three-layer protection:
+
+1. **Component-level symlink check** — walks each path component and rejects any symlink
+2. **Canonicalization** — resolves the target (or nearest ancestor) and checks it starts with the sync root
+3. **Non-existent path handling** — when the target doesn't exist (pending remote create), walks ancestors to find one for canonical comparison
+
+```rust
+pub fn validate_path_within_root(root_canonical: &Path, target: &Path) -> Result<(), String> {
+    let mut cur = PathBuf::new();
+    for component in target.components() {
+        cur.push(component.as_os_str());
+        if let Ok(meta) = fs::symlink_metadata(&cur) {
+            if meta.file_type().is_symlink() {
+                return Err("symlink traversal is not allowed".into());
+            }
+        }
+    }
+    // ... canonicalization check for root escape ...
+}
+```
+
+---
+
+## Sync Command Authorization
+
+All sync commands (`start_sync`, `stop_sync`, `get_sync_status`,
+`handle_remote_update`, `read_sync_file`, `set_sync_root`) are gated behind an
+origin check in `main.rs`:
+
+```rust
+fn ensure_sync_command_allowed(window: &WebviewWindow) -> Result<(), String> {
+    let current_url = window.url()?;
+    let host = current_url.host_str().unwrap_or_default();
+    let is_allowed = current_url.scheme() == "tauri"
+        && (host == "localhost" || host == "tauri.localhost");
+    if !is_allowed {
+        return Err("Sync operation is not allowed in this context".into());
+    }
+    Ok(())
+}
+```
+
+This prevents the CAPTCHA verification page (`verify.proton.me`) from invoking sync
+commands while the user is mid-authentication.
 
 ---
 
 ## Error Handling
 
-All user-facing error strings are compile-time constants:
+All user-facing error strings are compile-time constants with `[LiveSync]` log prefixes:
 
-| Constant | Value | Triggers |
-|----------|-------|----------|
-| `ERR_SYNC_SETUP_FAILED` | `"Failed to start live sync"` | Watcher init, path canonicalization, thread spawn |
-| `ERR_SYNC_STATE_UNAVAILABLE` | `"Live sync is temporarily unavailable"` | Any mutex lock failure |
-| `ERR_SYNC_NOT_ACTIVE` | `"Live sync is not active"` | Remote change while sync not running |
-| `ERR_SYNC_INVALID_REMOTE_CONTENT` | `"Invalid remote file content"` | Base64 decode failure |
-| `ERR_SYNC_WRITE_FAILED` | `"Failed to apply remote file update"` | `fs::write` or `fs::create_dir_all` failure |
-| `ERR_SYNC_DELETE_FAILED` | `"Failed to apply remote file deletion"` | `fs::remove_file` failure |
-| `ERR_SYNC_INVALID_TARGET` | `"Invalid sync target path"` | Path traversal or symlink in path |
+| Constant | Message | Triggers |
+|----------|---------|----------|
+| `ERR_SYNC_SETUP_FAILED` | "Failed to start live sync" | Watcher init, path canonicalization, thread spawn |
+| `ERR_SYNC_STATE_UNAVAILABLE` | "Live sync is temporarily unavailable" | Any mutex lock failure |
+| `ERR_SYNC_NOT_ACTIVE` | "Live sync is not active" | Remote change while sync not running |
+| `ERR_SYNC_INVALID_REMOTE_CONTENT` | "Invalid remote file content" | Base64 decode failure |
+| `ERR_SYNC_WRITE_FAILED` | "Failed to apply remote file update" | fs::write or fs::create_dir_all failure |
+| `ERR_SYNC_DELETE_FAILED` | "Failed to apply remote file deletion" | fs::remove_file failure |
+| `ERR_SYNC_INVALID_TARGET` | "Invalid sync target path" | Path traversal or symlink in path |
 
-All errors are logged with `[LiveSync]` prefix via `eprintln!`. Mutex poisoning is handled by mapping to error constants rather than panicking.
-
----
-
-## Relationship to Persistence Layer
-
-**There is no separate `sync_db.rs` or persistence layer.** The `live_sync` module writes directly to the filesystem via `std::fs`:
-
-- `apply_remote_change` calls `fs::create_dir_all`, `fs::write`, and `fs::remove_file` directly
-- No database, no journal, no write-ahead log
-- No retry queue — failures are returned to the frontend immediately
-
-This means:
-- All sync state is ephemeral — if the app restarts, sync must be re-enabled and no in-flight changes are queued
-- No conflict history — last write wins without any record of what was overwritten
-- No offline queue — remote changes can only be applied while the app is running with sync active
-
----
-
-## Helper Functions
-
-### `should_ignore_known_file(known_files, path) -> bool`
-Checks the suppression cache. If the path was recently written by `apply_remote_change` (within `SUPPRESSION_TTL`), returns `true` so the worker thread skips emitting a Tauri event. Prunes expired entries on access.
-
-### `prune_known_files(cache, now)`
-Removes entries older than `SUPPRESSION_TTL`. Then, if the cache still exceeds `SUPPRESSION_CACHE_MAX`, sorts remaining entries by timestamp and drops the oldest.
-
-### `validate_path_within_root(root_canonical, target) -> Result<(), String>`
-Performs three-layer path traversal protection:
-1. Walks every component checking for symlinks (using `symlink_metadata`)
-2. Canonicalizes the target (or its nearest existing ancestor) 
-3. Verifies the canonical path starts with the canonical sync root
-
-### `find_existing_ancestor(path) -> Option<PathBuf>`
-Walks up the directory tree from `path` until it finds a component that exists on disk. Used by `validate_path_within_root` when the target file doesn't exist yet (e.g., pending a remote create).
+All audit-relevant events (remote write/delete accepted or rejected) are logged with
+`[LiveSync][AUDIT]` prefix.
 
 ---
 
 ## Configuration Constants
 
-All hardcoded at the top of `live_sync.rs`:
+Hardcoded at the top of `live_sync.rs`:
 
 | Constant | Value | Purpose |
 |----------|-------|---------|
-| `SUPPRESSION_TTL` | `Duration::from_secs(30)` | How long to suppress echo events after remote write |
-| `SUPPRESSION_CACHE_MAX` | `4096` | Maximum suppression cache entries |
+| `SUPPRESSION_TTL` | `Duration::from_secs(30)` | Suppression window after remote write |
+| `SUPPRESSION_CACHE_MAX` | `4096` | Maximum entries before oldest evicted |
+| `DEFAULT_SYNC_POLL_INTERVAL` | `Duration::from_secs(30)` | Poller check interval |
 
 No runtime configuration is exposed — these are compile-time constants.
 
@@ -241,12 +320,11 @@ No runtime configuration is exposed — these are compile-time constants.
 
 ## Limitations
 
-1. **No conflict resolution** — last-write-wins, remote always overrides local
-2. **No retry queue** — transient write/decode failures are surfaced immediately
-3. **No partial sync** — entire folder is watched recursively, no exclusion patterns
-4. **No file size limits** — large files block the Tauri command thread during base64 decode and write
-5. **Unidirectional local events** — Rust emits events but doesn't upload; frontend must handle upload
-6. **Blocking Mutex** — `std::sync::Mutex` can block the async Tauri runtime under contention
-7. **No initial reconciliation** — sync only tracks changes after `start()`; existing files are not compared
-8. **Single sync root** — only one folder at a time
-9. **No persistence** — all state is in-memory; restart loses any in-flight sync state
+1. **No conflict resolution** — last-write-wins, remote always overrides local when both change
+2. **No retry queue** — transient write/decode failures are returned to the frontend immediately
+3. **No file exclusion patterns** — entire folder is watched recursively
+4. **No initial state reconciliation at start** — sync only tracks changes after `start()`. The persistent DB records changes but the engine does not yet compare local files against remote on startup.
+5. **Blocking Mutex** — `std::sync::Mutex` can block the async Tauri runtime under contention
+6. **Single sync root** — only one folder at a time
+7. **Unidirectional local events** — Rust emits events and records metadata; the frontend is responsible for upload
+8. **File size limit for sync bridge** — Files over 100 MB (`MAX_SYNC_BRIDGE_FILE_BYTES`) are rejected by `read_sync_file` (the Tauri command that reads local files for upload)

@@ -270,7 +270,7 @@ A subtle but important fix: Proton's SPA occasionally emits protocol-relative UR
 
 | Parameter | Value | Applies to |
 |-----------|-------|------------|
-| `PROXY_CONNECT_TIMEOUT` | 60s | TCP connection to Proton API |
-| `PROXY_REQUEST_TIMEOUT` | 180s | Entire request-response cycle |
+| `PROXY_CONNECT_TIMEOUT` | 15s | TCP connection to Proton API |
+| `PROXY_REQUEST_TIMEOUT` | 45s | Entire request-response cycle |
 
 There is **no automatic retry** in the proxy layer. If a request fails with 502/504, the SPA's own retry logic (if any) handles it. The proxy returns the error and moves on.

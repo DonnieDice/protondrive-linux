@@ -78,55 +78,58 @@ system notifications.
 
 ## Cookie Handling
 
-Proton Drive's session management relies on cookies set during the SRP authentication
-flow. Because the WebView's built-in cookie jar is separate from the Rust backend's
-HTTP client, cookies are injected manually.
+Proton Drive's session management relies on session cookies (AUTH-*, REFRESH-*)
+set during the SRP authentication flow. The Rust proxy reads and writes these
+cookies directly to/from WebKit's **native cookie manager**, so WebKit handles
+all cookie lifecycle — expiry, domain matching, Secure/HttpOnly flags — exactly
+as a browser would.
 
 ### How it works
 
-1. **Backend** — The Rust `reqwest::Client` is created with
-   `cookie_store(true)`, so it automatically manages a cookie jar for all API
-   requests sent through the `proxy_request` Tauri command.
+1. **On every proxied request**, `combined_cookie_header()` merges cookies from
+   two sources:
+   - **WebKit's native jar** via `webview.cookies_for_url(url)` — this is where
+     session cookies live after login
+   - **reqwest's in-process cookie jar** via `client_cookie_jar.cookies(url)` —
+     used as a secondary source for freshly-set cookies that haven't been persisted
+     to WebKit yet
+   
+   Client-jar cookies take precedence (last-write-wins) because they contain the
+   freshest auth state immediately after login/2FA responses.
 
-2. **Proxy intercept** — When the frontend makes an API call (e.g.
-   `/api/core/v4/auth`), the injected initialization script intercepts
-   `window.fetch` and `XMLHttpRequest`, then sends the request through the
-   backend via `window.__TAURI__.core.invoke('proxy_request', ...)`.
+2. **On every proxied response**, `store_webview_cookie()` routes each
+   `Set-Cookie` header into WebKit's native cookie manager via
+   `window.set_cookie(cookie)`. It handles:
+   - **Missing Path** — computes RFC-6265 §5.1.4 default-path (longest prefix of
+     the request URI path ending in `/`)
+   - **Missing Domain** — scopes the cookie to the response host so it survives
+     app restarts (Tauri's `set_cookie` API doesn't receive the response URL
+     separately; without an explicit domain a host-only cookie can't be matched on
+     the next launch)
+   - **Legacy cleanup** — when a correctly-scoped AUTH/REFRESH cookie is stored on
+     `mail.proton.me`, older builds' blank-domain and host-only cookies are deleted
+     to prevent ambiguous cookie state on restart
 
-3. **Set-Cookie forwarding** — The backend's `proxy_request` function collects
-   all `Set-Cookie` response headers into a list, joins them with the `|||`
-   delimiter, and returns them as a single custom `x-set-cookie` header:
+3. **The cookie header is excluded** from forwarded request headers
+   (`k != "cookie"`) — the proxy injects its own merged cookie header instead,
+   ensuring the correct auth context.
 
-   ```rust
-   let mut set_cookies: Vec<String> = Vec::new();
-   for (name, value) in resp.headers().iter() {
-       if name.as_str().eq_ignore_ascii_case("set-cookie") {
-           set_cookies.push(v.to_string());
-       }
-   }
-   resp_headers.insert("x-set-cookie".to_string(), set_cookies.join("|||"));
-   ```
+This means cookies live entirely in WebKit, not in Rust. The reqwest cookie jar
+serves as a transient cache for the hot path (immediately after Set-Cookie
+arrives), but WebKit is the source of truth.
 
-4. **Frontend injection** — The fetch proxy checks `response.headers['x-set-cookie']`,
-   splits on `|||`, and writes each cookie into the WebView's `document.cookie`
-   with `path=/; SameSite=Lax`:
+### Module: `webview_cookies.rs`
 
-   ```javascript
-   if (response.headers && response.headers['x-set-cookie']) {
-       const cookies = response.headers['x-set-cookie'].split('|||');
-       for (const cookie of cookies) {
-           const cookiePart = cookie.split(';')[0];
-           document.cookie = cookiePart + '; path=/; SameSite=Lax';
-       }
-   }
-   ```
+The cookie integration is implemented in its own dedicated module (329 lines):
 
-5. **Cookie header is excluded** — The proxy deliberately skips the `cookie`
-   header from forwarded requests (`k != "cookie"`), relying on the reqwest
-   cookie jar to handle it automatically.
-
-This approach ensures the WebView's `document.cookie` stays in sync with the
-backend's cookie jar, which is essential for Proton's session decryption flow.
+| Function | Purpose |
+|----------|---------|
+| `webview_cookie_header()` | Reads cookies from WebKit's native jar for a URL |
+| `combined_cookie_header()` | Merges WebKit + reqwest cookies; client-jar wins on conflict |
+| `store_webview_cookie()` | Routes a Set-Cookie header to WebKit, with domain/path fixing and legacy cleanup |
+| `apply_default_cookie_scope()` | Sets Path (RFC-6265) and Domain (restart-persistence fix) |
+| `legacy_blank_domain_delete_cookies()` | Identifies and deletes stale blank-domain AUTH/REFRESH cookies |
+| `merge_cookie_headers()` | Merges two Cookie header strings, deduplicating by cookie name |
 
 ## Storage Bridge
 
@@ -319,14 +322,21 @@ process isolation.
 | `start_sync` | `path` | Starts live-syncing a local directory with Proton Drive |
 | `stop_sync` | — | Stops the active live-sync operation |
 | `get_sync_status` | — | Returns the current sync manager status |
+| `set_sync_root` | `path` | Sets the sync root and starts (or restarts) sync |
 | `handle_remote_update` | `change` | Applies a remote Proton Drive change to the local sync root |
+| `read_sync_file` | `{root_path, relative_path}` | Reads a file from the sync root for upload (base64 payload) |
+| `get_sync_device_name` | — | Returns the sanitized machine hostname for Proton's Computers section |
 
 ## Source Files
 
 | File | Purpose |
 |---|---|
 | `src-tauri/src/main.rs` | Tauri app entry point, WebView setup, proxy, commands, initialization script |
-| `src-tauri/src/auth.rs` | SRP authentication manager (login, 2FA, token refresh) |
-| `src-tauri/src/live_sync.rs` | Live filesystem sync manager |
+| `src-tauri/src/auth.rs` | SRP authentication manager (login, 2FA, token refresh, session management) |
+| `src-tauri/src/live_sync.rs` | Live filesystem sync manager (watcher, poller, remote apply, suppression) |
+| `src-tauri/src/sync_db.rs` | SQLite-backed sync metadata store (privacy-hashed, WAL mode) |
+| `src-tauri/src/webview_cookies.rs` | WebKit cookie integration (read, merge, store, legacy cleanup) |
+| `src-tauri/src/proton_navigation.rs` | URL rewriting (SSO, CAPTCHA completion, unsupported app redirects) |
+| `src-tauri/src/webview_storage.rs` | Persistent WebView data directory |
+| `src-tauri/src/url_log.rs` | URL sanitization for log output |
 | `src-tauri/tauri.conf.json` | Tauri app configuration (window, build, bundle, plugins) |
-| `src-tauri/src/index.html` | WebView entry point — loads the React SPA |
