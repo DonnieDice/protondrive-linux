@@ -90,10 +90,10 @@ export default defineConfig({
       {
         text: 'Contributing & Community',
         items: [
-          { text: 'Contributing Guide', link: '/community/CONTRIBUTING' },
-          { text: 'Code of Conduct', link: '/community/CODE_OF_CONDUCT' },
-          { text: 'Security Policy', link: '/community/SECURITY' },
-          { text: 'Contributors', link: '/community/contributors' },
+          { text: 'Contributing Guide', link: '/CONTRIBUTING' },
+          { text: 'Code of Conduct', link: '/CODE_OF_CONDUCT' },
+          { text: 'Security Policy', link: '/SECURITY' },
+          { text: 'Contributors', link: '/CONTRIBUTORS' },
         ],
       },
       {
