@@ -2,11 +2,13 @@ include:
   - local: .gitlab/workflows/_shared.yml
   - local: .gitlab/workflows/tests.yml
   - local: .gitlab/workflows/builds.yml
+  - local: .gitlab/workflows/deploy.yml
   - local: .gitlab/workflows/release.yml
 
 stages:
   - test
   - build
+  - verify
   - spec
   - release
   - publish
