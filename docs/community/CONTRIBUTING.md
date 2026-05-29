@@ -166,7 +166,7 @@ cargo build --release
 The package workflow implementations under `.github/workflows/` are retained for
 manual compatibility checks and maintenance, but release artifacts should be
 produced and published by GitLab CI unless the CI authority is intentionally
-changed. See `docs/packaging.md` for the release gate.
+changed. See `docs/build-packaging/packaging.md` for the release gate.
 
 ## Packaging Rules
 
@@ -178,7 +178,7 @@ changed. See `docs/packaging.md` for the release gate.
   `packaging/compatibility-map.yml`.
 - Promote a roadmap patch-ready target to release-gated only after a package
   workflow, artifact upload, release integration, and runtime smoke test exist.
-- See `docs/packaging.md` for the full compatibility gate model (glibc +
+- See `docs/build-packaging/packaging.md` for the full compatibility gate model (glibc +
   WebKitGTK) and support matrix.
 - See `docs/new-build-checklist.md` for the step-by-step process of adding
   a new package target.
@@ -254,7 +254,7 @@ release packaging, and publishing. Workflows trigger on pushes to `main`,
 `feature/**`, `fix/**`, `chore/**` branches, tags, and PRs targeting `main`.
 
 Package implementations live as local composite actions under
-`.github/workflows/<package>/<target>/action.yml`. See `docs/packaging.md`
+`.github/workflows/<package>/<target>/action.yml`. See `docs/build-packaging/packaging.md`
 for the full layout.
 
 ### GitLab CI (mirrored)
@@ -368,7 +368,7 @@ Closes #42
 
 - `.github/workflows/package-workflows.yml`
 - `.github/workflows/deb/debian-12/action.yml`
-- `docs/packaging.md`
+- `docs/build-packaging/packaging.md`
 
 ## Testing
 

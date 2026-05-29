@@ -380,7 +380,7 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | View issue/PR sync rules | GitHub Actions | `/.github/workflows/sync-to-gitlab.yml` |
 | View auto-label rules | GitHub Actions | `/.github/workflows/maintenance/` |
 | Add a new build target | Both | `docs/new-build-checklist.md` |
-| Understand packaging conventions | Docs | `docs/packaging.md` |
+| Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |
 | Inspect CI build scripts | GitLab CI | `scripts/ci/*.sh` |
 | Check CI sync health | Both | `scripts/ci/check-sync-regressions.sh` |
 | Generate artifact manifest | Both | `scripts/ci/write-artifact-manifest.sh` |

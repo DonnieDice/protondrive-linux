@@ -317,8 +317,8 @@ All package builds run in CI through two parallel CI systems:
 
 The CI pipeline is defined in:
 - [`docs/ci-cd-roadmap.md`](ci-cd-roadmap.md) — Pipeline architecture and target matrix
-- [`docs/ci-pipeline-reference.md`](ci-pipeline-reference.md) — Per-job reference
-- [`docs/ci-authority-and-mirroring.md`](ci-authority-and-mirroring.md) — Dual-CI policy
+- [`docs/ci-cd/ci-pipeline-reference.md`](ci-pipeline-reference.md) — Per-job reference
+- [`docs/ci-cd/ci-authority-and-mirroring.md`](ci-authority-and-mirroring.md) — Dual-CI policy
 
 ---
 

@@ -1859,7 +1859,7 @@ fn main() {
             // read_sync_file/get_sync_device_name are the zero-trust local-to-remote
             // upload bridge used by the WebClients sync listener.
             // The frontend owns Proton Drive upload/download semantics and must keep
-            // these command names in sync with docs/sync.md and CI regression checks.
+            // these command names in sync with docs/sync/sync.md and CI regression checks.
             start_sync,
             stop_sync,
             get_sync_status,

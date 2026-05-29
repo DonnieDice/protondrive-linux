@@ -4,31 +4,25 @@ export default defineConfig({
   title: 'ProtonDrive Linux',
   description: 'An unofficial desktop client for Proton Drive on Linux',
 
-  // Clean URLs without .html extension
   cleanUrls: true,
-
-  // Base URL for GitHub Pages deployment
   base: '/protondrive-linux/',
 
   themeConfig: {
-    // Project branding
     logo: '/proton-drive.svg',
     siteTitle: 'ProtonDrive Linux',
 
-    // Social links
     socialLinks: [
       { icon: 'github', link: 'https://github.com/DonnieDice/protondrive-linux' }
     ],
 
-    // Top navigation
     nav: [
       { text: 'Home', link: '/' },
       { text: 'About', link: '/about' },
-      { text: 'Contributing', link: '/CONTRIBUTING' },
-      { text: 'Packaging', link: '/packaging' },
+      { text: 'Architecture', link: '/architecture/architecture' },
+      { text: 'Sync', link: '/sync/sync' },
+      { text: 'CI/CD', link: '/ci-cd/ci-pipeline' },
     ],
 
-    // Sidebar — mirrors the project's documentation structure
     sidebar: [
       {
         text: 'Getting Started',
@@ -38,18 +32,68 @@ export default defineConfig({
         ],
       },
       {
-        text: 'Contributing',
+        text: 'Architecture',
         items: [
-          { text: 'Workflow Guide', link: '/workflow' },
-          { text: 'Build & Packaging', link: '/CONTRIBUTING' },
+          { text: 'Architecture', link: '/architecture/architecture' },
+          { text: 'Build System', link: '/architecture/build-system' },
+          { text: 'Proxy System', link: '/architecture/proxy-system' },
+          { text: 'App Navigation', link: '/architecture/proton-navigation' },
         ],
       },
       {
-        text: 'Packaging & Release',
+        text: 'Sync',
         items: [
-          { text: 'Support Matrix & Policy', link: '/packaging' },
-          { text: 'Release Checklist', link: '/release-checklist' },
-          { text: 'New Package Checklist', link: '/new-build-checklist' },
+          { text: 'Two-Way Sync Notes', link: '/sync/sync' },
+          { text: 'Sync System', link: '/sync/sync-system' },
+          { text: 'Sync Database', link: '/sync/sync-database' },
+          { text: 'Sync-DB Module', link: '/sync/sync-db-module' },
+          { text: 'Live Sync Module', link: '/sync/live-sync-module' },
+          { text: 'Login/Sync Runbook', link: '/sync/login-sync-regression-runbook' },
+        ],
+      },
+      {
+        text: 'Auth & WebView',
+        items: [
+          { text: 'Auth Module', link: '/auth/auth-module' },
+          { text: 'SSO Authentication', link: '/auth/sso-authentication' },
+          { text: 'WebView Configuration', link: '/webview/webview-configuration' },
+          { text: 'WebView Integration', link: '/webview/webview-integration' },
+          { text: 'URL Log & Storage', link: '/webview/url-log-webview-storage' },
+        ],
+      },
+      {
+        text: 'CI/CD',
+        items: [
+          { text: 'CI Pipeline', link: '/ci-cd/ci-pipeline' },
+          { text: 'CI Pipeline Reference', link: '/ci-cd/ci-pipeline-reference' },
+          { text: 'CI Authority & Mirroring', link: '/ci-cd/ci-authority-and-mirroring' },
+          { text: 'CI/CD Roadmap', link: '/ci-cd/ci-cd-roadmap' },
+        ],
+      },
+      {
+        text: 'Build & Packaging',
+        items: [
+          { text: 'Packaging Overview', link: '/build-packaging/packaging' },
+          { text: 'Build & Packaging Guide', link: '/build-packaging/build-packaging' },
+          { text: 'New Package Checklist', link: '/build-packaging/new-build-checklist' },
+        ],
+      },
+      {
+        text: 'Reference',
+        items: [
+          { text: 'Workflow Guide', link: '/reference/workflow' },
+          { text: 'Release Checklist', link: '/reference/release-checklist' },
+          { text: 'Configuration', link: '/reference/configuration-reference' },
+          { text: 'Blob Downloads', link: '/reference/blob-downloads' },
+        ],
+      },
+      {
+        text: 'Contributing & Community',
+        items: [
+          { text: 'Contributing Guide', link: '/community/CONTRIBUTING' },
+          { text: 'Code of Conduct', link: '/community/CODE_OF_CONDUCT' },
+          { text: 'Security Policy', link: '/community/SECURITY' },
+          { text: 'Contributors', link: '/community/contributors' },
         ],
       },
       {
@@ -58,29 +102,18 @@ export default defineConfig({
           { text: 'Worker Login / SRI', link: '/debugging/worker-login-sri' },
         ],
       },
-      {
-        text: 'Community',
-        items: [
-          { text: 'Code of Conduct', link: '/CODE_OF_CONDUCT' },
-          { text: 'Security Policy', link: '/SECURITY' },
-          { text: 'Contributors', link: '/contributors' },
-        ],
-      },
     ],
 
-    // Footer
     footer: {
       message: 'This project is not affiliated with, endorsed by, or connected to Proton AG.',
       copyright: 'Released under the AGPL-3.0 license',
     },
 
-    // Edit link — points to the GitHub source
     editLink: {
       pattern: 'https://github.com/DonnieDice/protondrive-linux/edit/main/docs/:path',
       text: 'Edit this page on GitHub',
     },
 
-    // Search — built-in full-text search
     search: {
       provider: 'local',
     },
