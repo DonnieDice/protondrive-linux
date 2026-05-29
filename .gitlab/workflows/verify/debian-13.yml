@@ -1,0 +1,6 @@
+# verify: install + smoke-test the debian13 package on its VM.
+verify:debian-13:
+  extends: .verify:base
+  needs: ["build:deb:debian-13"]
+  script:
+    - bash scripts/ci/deploy-and-test-vm.sh debian13

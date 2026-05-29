@@ -27,7 +27,7 @@ as their package is ready. Failures are surfaced per-distro.
 
 The build matrix has two packages with no dedicated VM yet (alpine-3.23,
 fedora-44) and the universal bundles (appimage/flatpak/snap) are not VM-verified
-here — add jobs to `deploy.yml` if/when target VMs exist.
+here — add a file under `.gitlab/workflows/verify/` if/when target VMs exist.
 
 ## How a job works
 

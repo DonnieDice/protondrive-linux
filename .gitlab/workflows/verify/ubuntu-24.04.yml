@@ -1,0 +1,6 @@
+# verify: install + smoke-test the ubuntu2404 package on its VM.
+verify:ubuntu-24.04:
+  extends: .verify:base
+  needs: ["build:deb:ubuntu-24.04"]
+  script:
+    - bash scripts/ci/deploy-and-test-vm.sh ubuntu2404

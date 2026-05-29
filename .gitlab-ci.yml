@@ -2,7 +2,18 @@ include:
   - local: .gitlab/workflows/_shared.yml
   - local: .gitlab/workflows/tests.yml
   - local: .gitlab/workflows/builds.yml
-  - local: .gitlab/workflows/deploy.yml
+  # ─── verify stage: one granular file per distro/VM ───────────────────────
+  - local: .gitlab/workflows/verify/_base.yml
+  - local: .gitlab/workflows/verify/alpine-3.20.yml
+  - local: .gitlab/workflows/verify/alpine-3.22.yml
+  - local: .gitlab/workflows/verify/debian-12.yml
+  - local: .gitlab/workflows/verify/debian-13.yml
+  - local: .gitlab/workflows/verify/ubuntu-24.04.yml
+  - local: .gitlab/workflows/verify/ubuntu-26.04.yml
+  - local: .gitlab/workflows/verify/el10.yml
+  - local: .gitlab/workflows/verify/fedora-43.yml
+  - local: .gitlab/workflows/verify/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/verify/arch.yml
   - local: .gitlab/workflows/release.yml
 
 stages:
