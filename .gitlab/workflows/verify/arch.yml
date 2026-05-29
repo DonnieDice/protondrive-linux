@@ -1,0 +1,6 @@
+# verify: install + smoke-test the arch package on its VM.
+verify:aur:
+  extends: .verify:base
+  needs: ["build:aur"]
+  script:
+    - bash scripts/ci/deploy-and-test-vm.sh arch

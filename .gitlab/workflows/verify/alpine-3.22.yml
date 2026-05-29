@@ -1,0 +1,6 @@
+# verify: install + smoke-test the alpine322 package on its VM.
+verify:alpine-3.22:
+  extends: .verify:base
+  needs: ["build:apk:alpine-3.22"]
+  script:
+    - bash scripts/ci/deploy-and-test-vm.sh alpine322

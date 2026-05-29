@@ -5,6 +5,10 @@ variables:
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
+  # Cap cargo parallelism per job so concurrent builds don't oversubscribe the
+  # runner's CPU set. Runner cpuset = 12 cores (6-17); with concurrent=4 that's
+  # 4 jobs x 3 cores = 12 threads, a clean 1:1 with the cores (no thrash).
+  CARGO_BUILD_JOBS: "3"
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 

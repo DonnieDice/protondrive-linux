@@ -1,0 +1,6 @@
+# verify: install + smoke-test the el10 package on its VM.
+verify:rpm-el10:
+  extends: .verify:base
+  needs: ["build:rpm:el10"]
+  script:
+    - bash scripts/ci/deploy-and-test-vm.sh el10
