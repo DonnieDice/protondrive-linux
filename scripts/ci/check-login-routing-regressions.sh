@@ -4,7 +4,7 @@ set -euo pipefail
 main_rs="src-tauri/src/main.rs"
 nav_rs="src-tauri/src/proton_navigation.rs"
 cookies_rs="src-tauri/src/webview_cookies.rs"
-runbook="docs/login-sync-regression-runbook.md"
+runbook="docs/sync/login-sync-regression-runbook.md"
 
 required_patterns=(
   "tauri://localhost/account/?hv_token="

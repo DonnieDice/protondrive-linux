@@ -286,7 +286,7 @@ All navigation-related Tauri commands are registered via `generate_handler!`:
 | `get_and_clear_login_credentials` | Single-use credential retrieval |
 | `save_download` | Write blob data to `~/Downloads` |
 
-*Sync commands (`start_sync`, `stop_sync`, etc.) are documented in `docs/sync.md`.*
+*Sync commands (`start_sync`, `stop_sync`, etc.) are documented in `docs/sync/sync.md`.*
 
 ## See Also
 

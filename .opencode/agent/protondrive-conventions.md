@@ -144,7 +144,7 @@ Closes #42
 ## Changed Areas
 
 - `README.md`
-- `docs/packaging.md`
+- `docs/build-packaging/packaging.md`
 
 ## Testing
 
@@ -173,7 +173,7 @@ When merging meaningful changes, bump the version in all three files:
 
 ## Packaging State
 
-- `compatibility-map.yml` must stay in sync with actual workflows and `docs/packaging.md`.
+- `compatibility-map.yml` must stay in sync with actual workflows and `docs/build-packaging/packaging.md`.
 - AUR package is `proton-drive` (native build), not `proton-drive-bin`.
 
 ## Review Bot Feedback
@@ -195,7 +195,7 @@ Before merging **any** PR, all automated review bot findings must be addressed:
 
 - `docs/workflow.md` - full workflow guide with step-by-step protocol.
 - `docs/CONTRIBUTING.md` - detailed build, packaging, development rules.
-- `docs/packaging.md` - canonical human-readable packaging policy.
+- `docs/build-packaging/packaging.md` - canonical human-readable packaging policy.
 - `packaging/compatibility-map.yml` - machine-readable target metadata.
 - `docs/release-checklist.md` - pre-release checklist.
 - `docs/new-build-checklist.md` - adding new package targets.

@@ -146,7 +146,7 @@ and AppImage targets, CI runs are handled entirely in GitHub Actions.
 
 ## Step 6: Update Documentation
 
-- [ ] Update `docs/packaging.md`:
+- [ ] Update `docs/build-packaging/packaging.md`:
   - Add or move the target in the support matrix tables.
   - Update the patch tree diagram.
   - Update compatibility notes and rules.
@@ -175,7 +175,7 @@ and AppImage targets, CI runs are handled entirely in GitHub Actions.
 
 - [ ] Update `packaging/compatibility-map.yml`: change status to
   `release-gated`, set `runtime_smoke.status: pass`, add evidence.
-- [ ] Update `docs/packaging.md`: move the target to the release-gated table.
+- [ ] Update `docs/build-packaging/packaging.md`: move the target to the release-gated table.
 - [ ] Update `patches/README.md`: move the patch to the release-gated list.
 - [ ] Update `docs/release-checklist.md` if needed.
 - [ ] Merge the promotion through a pull request into `main`.

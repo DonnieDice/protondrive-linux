@@ -113,7 +113,7 @@ Closes #42
 
 - `.github/workflows/package-workflows.yml`
 - `.github/workflows/deb/debian-12/action.yml`
-- `docs/packaging.md`
+- `docs/build-packaging/packaging.md`
 
 ## Testing
 
