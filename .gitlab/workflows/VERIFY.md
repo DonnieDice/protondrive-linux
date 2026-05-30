@@ -31,7 +31,7 @@ here — add a file under `.gitlab/workflows/verify/` if/when target VMs exist.
 
 ## How a job works
 
-`scripts/ci/deploy-and-test-vm.sh <DISTRO_KEY>`:
+Each `scripts/ci/deploy/<distro>/deploy.sh` (sourcing `_common.sh`):
 1. Resolves `DISTRO_KEY` → `IP | package-glob | package-family`.
 2. Finds the package in `artifacts/` (the build job's output).
 3. `scp`s it to the VM and installs with the native tool

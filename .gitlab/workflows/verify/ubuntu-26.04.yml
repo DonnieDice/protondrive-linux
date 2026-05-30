@@ -1,6 +1,6 @@
-# verify: install + smoke-test the ubuntu2604 package on its VM.
+# verify: install + smoke-test on the matching VM via the per-distro script.
 verify:ubuntu-26.04:
   extends: .verify:base
   needs: ["build:deb:ubuntu-26.04"]
   script:
-    - bash scripts/ci/deploy-and-test-vm.sh ubuntu2604
+    - bash scripts/ci/deploy/ubuntu-26.04/deploy.sh
