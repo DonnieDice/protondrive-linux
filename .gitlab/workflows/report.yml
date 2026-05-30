@@ -1,0 +1,41 @@
+# ─── Deployment / verification tracking matrix ───────────────────────────────
+# Remote tracking management (enterprise): aggregates every verify:<distro> job's
+# per-VM result record (version + sha256 + install/smoke outcome) into a single
+# deployment matrix + JUnit report. Runs even when some verify jobs fail, so the
+# matrix always shows the full fleet state. Renders in the GitLab MR via JUnit.
+
+report:verify-matrix:
+  stage: spec
+  image: python:3.12-slim
+  # Pull every verify job's verify-results/ artifact (saved when:always).
+  dependencies:
+    - verify:alpine-3.20
+    - verify:alpine-3.22
+    - verify:debian-12
+    - verify:debian-13
+    - verify:ubuntu-24.04
+    - verify:ubuntu-26.04
+    - verify:rpm-el10
+    - verify:rpm-fedora-43
+    - verify:rpm-opensuse-tumbleweed
+    - verify:aur
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: always
+    - if: $CI_COMMIT_BRANCH
+      when: always
+    - if: $CI_COMMIT_TAG
+      when: always
+  script:
+    - python3 scripts/ci/lib/verify-matrix.py verify-results
+        --md deployment-matrix.md
+        --junit verify-junit.xml
+        --json deployment-matrix.json
+  artifacts:
+    when: always
+    paths:
+      - deployment-matrix.md
+      - deployment-matrix.json
+    reports:
+      junit: verify-junit.xml
+    expire_in: 90 days
