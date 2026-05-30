@@ -2,28 +2,55 @@ include:
   - local: .gitlab/workflows/_shared.yml
   - local: .gitlab/workflows/tests.yml
   - local: .gitlab/workflows/builds.yml
-  # ─── verify stage: one granular file per distro/VM ───────────────────────
-  - local: .gitlab/workflows/verify/_base.yml
-  - local: .gitlab/workflows/verify/alpine-3.20.yml
-  - local: .gitlab/workflows/verify/alpine-3.22.yml
-  - local: .gitlab/workflows/verify/debian-12.yml
-  - local: .gitlab/workflows/verify/debian-13.yml
-  - local: .gitlab/workflows/verify/ubuntu-24.04.yml
-  - local: .gitlab/workflows/verify/ubuntu-26.04.yml
-  - local: .gitlab/workflows/verify/el10.yml
-  - local: .gitlab/workflows/verify/fedora-43.yml
-  - local: .gitlab/workflows/verify/opensuse-tumbleweed.yml
-  - local: .gitlab/workflows/verify/arch.yml
+  # ─── transfer stage: one file per distro, SCPs artifact to VM ────────────────
+  - local: .gitlab/workflows/transfer/_base.yml
+  - local: .gitlab/workflows/transfer/alpine-3.20.yml
+  - local: .gitlab/workflows/transfer/alpine-3.22.yml
+  - local: .gitlab/workflows/transfer/debian-12.yml
+  - local: .gitlab/workflows/transfer/debian-13.yml
+  - local: .gitlab/workflows/transfer/ubuntu-24.04.yml
+  - local: .gitlab/workflows/transfer/ubuntu-26.04.yml
+  - local: .gitlab/workflows/transfer/el10.yml
+  - local: .gitlab/workflows/transfer/fedora-43.yml
+  - local: .gitlab/workflows/transfer/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/transfer/arch.yml
+  # ─── install stage: distro-specific package manager install ──────────────────
+  - local: .gitlab/workflows/install/_base.yml
+  - local: .gitlab/workflows/install/alpine-3.20.yml
+  - local: .gitlab/workflows/install/alpine-3.22.yml
+  - local: .gitlab/workflows/install/debian-12.yml
+  - local: .gitlab/workflows/install/debian-13.yml
+  - local: .gitlab/workflows/install/ubuntu-24.04.yml
+  - local: .gitlab/workflows/install/ubuntu-26.04.yml
+  - local: .gitlab/workflows/install/el10.yml
+  - local: .gitlab/workflows/install/fedora-43.yml
+  - local: .gitlab/workflows/install/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/install/arch.yml
+  # ─── vmtest stage: regression + GUI load tests on each VM ────────────────────
+  - local: .gitlab/workflows/vmtest/_base.yml
+  - local: .gitlab/workflows/vmtest/alpine-3.20.yml
+  - local: .gitlab/workflows/vmtest/alpine-3.22.yml
+  - local: .gitlab/workflows/vmtest/debian-12.yml
+  - local: .gitlab/workflows/vmtest/debian-13.yml
+  - local: .gitlab/workflows/vmtest/ubuntu-24.04.yml
+  - local: .gitlab/workflows/vmtest/ubuntu-26.04.yml
+  - local: .gitlab/workflows/vmtest/el10.yml
+  - local: .gitlab/workflows/vmtest/fedora-43.yml
+  - local: .gitlab/workflows/vmtest/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/vmtest/arch.yml
+  # ─── report + release ────────────────────────────────────────────────────────
   - local: .gitlab/workflows/report.yml
   - local: .gitlab/workflows/release.yml
 
 stages:
-  - test
-  - build
-  - verify
-  - spec
-  - release
-  - publish
+  - test      # unit tests, shellcheck, lint
+  - build     # per-distro package builds
+  - transfer  # SCP artifacts to target VMs
+  - install   # distro-specific package manager install on each VM
+  - vmtest    # regression + GUI load tests on each VM
+  - report    # aggregate deployment matrix + JUnit report
+  - release   # tag-gated release jobs
+  - publish   # publish to registries / stores
 
 workflow:
   auto_cancel:

@@ -1,0 +1,14 @@
+transfer:debian-13:
+  extends: .transfer:base
+  needs:
+    - job: "build:deb:debian-13"
+      artifacts: true
+  artifacts:
+    name: "transfer-results-debian-13"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/debian13.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/debian-13/transfer.sh

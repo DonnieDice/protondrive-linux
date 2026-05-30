@@ -1,0 +1,14 @@
+transfer:ubuntu-26.04:
+  extends: .transfer:base
+  needs:
+    - job: "build:deb:ubuntu-26.04"
+      artifacts: true
+  artifacts:
+    name: "transfer-results-ubuntu-26.04"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/ubuntu26.04.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/ubuntu-26.04/transfer.sh

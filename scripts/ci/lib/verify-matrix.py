@@ -1,18 +1,20 @@
 #!/usr/bin/env python3
-"""Aggregate per-VM verify result records into a deployment tracking matrix.
+"""Aggregate per-VM result records from all three pipeline stages into a deployment matrix.
 
-Enterprise "remote tracking management": instead of a file share, the verify
-stage records what version+sha of each package was deployed to which VM and the
-outcome. This collects every verify-results/*.json (emitted by deploy_run) into:
+Each stage emits one JSON file per distro under its results directory:
+  transfer-results/<label>.json  — artifact found, VM reachable, SCP transfer
+  install-results/<label>.json   — package manager install outcome
+  test-results/<label>.json      — regression + GUI load test pass/fail
 
-  - a human-readable Markdown matrix   (--md   out.md)
-  - a JUnit XML report                 (--junit out.xml)  -> rendered in the GitLab MR
-  - a machine-readable combined JSON    (--json out.json)
+Records are merged by distro label into a single row per VM, producing:
+  --md   deployment-matrix.md    human-readable matrix
+  --junit verify-junit.xml       JUnit XML rendered in the GitLab MR widget
+  --json deployment-matrix.json  machine-readable combined record
 
-Exit code is non-zero if any VM's status is FAIL (so the report job reflects it).
+Exit code is non-zero if any VM's overall status is FAIL.
 
 Usage:
-  verify-matrix.py RESULTS_DIR [--md FILE] [--junit FILE] [--json FILE]
+  verify-matrix.py RESULTS_DIR [RESULTS_DIR ...] [--md FILE] [--junit FILE] [--json FILE]
 """
 import argparse
 import glob
@@ -22,18 +24,38 @@ import sys
 import xml.sax.saxutils as xml
 
 
-def load(results_dir):
-    rows = []
-    for path in sorted(glob.glob(os.path.join(results_dir, "*.json"))):
-        try:
-            rows.append(json.load(open(path)))
-        except Exception as e:  # noqa: BLE001
-            print(f"warning: skipping {path}: {e}", file=sys.stderr)
-    return rows
+def load_all(dirs):
+    """Load and merge per-stage result records by distro label."""
+    by_distro = {}
+    for d in dirs:
+        if not os.path.isdir(d):
+            print(f"warning: results dir not found: {d}", file=sys.stderr)
+            continue
+        for path in sorted(glob.glob(os.path.join(d, "*.json"))):
+            try:
+                r = json.load(open(path))
+                label = r.get("distro", "?")
+                if label not in by_distro:
+                    by_distro[label] = {}
+                by_distro[label].update(r)
+            except Exception as e:  # noqa: BLE001
+                print(f"warning: skipping {path}: {e}", file=sys.stderr)
+    return sorted(by_distro.values(), key=lambda r: r.get("distro", ""))
 
 
 def mark(v):
-    return {"pass": "✅", "fail": "❌"}.get(v, v or "—")
+    return {"pass": "✅", "fail": "❌"}.get(str(v).lower() if v else "", v or "—")
+
+
+def overall_status(r):
+    """Derive overall PASS/FAIL from the merged record (any stage FAIL = overall FAIL)."""
+    stages = [r.get("status")]
+    for key in ("artifact_found", "reachable", "transferred", "installed"):
+        if key in r and r[key] == "fail":
+            return "FAIL"
+    if r.get("tests_failed", 0):
+        return "FAIL"
+    return "PASS" if all(s == "PASS" for s in stages if s) else "FAIL"
 
 
 def to_markdown(rows):
@@ -41,30 +63,46 @@ def to_markdown(rows):
     if rows:
         out.append(f"_pipeline {rows[0].get('ci_pipeline','?')} · commit "
                    f"{rows[0].get('ci_commit','?')} · {rows[0].get('timestamp','')}_\n")
-    out += ["| Distro | VM | Version | sha256 | Found | Reachable | Installed | Smoke | Status |",
-            "|---|---|---|---|:--:|:--:|:--:|:--:|:--:|"]
+    out += [
+        "| Distro | VM | Version | sha256 | Transfer | Install | Tests | Status |",
+        "|---|---|---|---|:--:|:--:|:--:|:--:|",
+    ]
     for r in rows:
-        out.append("| {distro} | {ip} | {ver} | `{sha}` | {a} | {re} | {ins} | {sm} | {st} |".format(
-            distro=r.get("distro", "?"), ip=r.get("vm_ip", "?"),
-            ver=r.get("version") or "—", sha=(r.get("sha256") or "")[:12] or "—",
-            a=mark(r.get("artifact_found")), re=mark(r.get("reachable")),
-            ins=mark(r.get("installed")), sm=mark(r.get("smoke")),
-            st=("✅ PASS" if r.get("status") == "PASS" else "❌ FAIL")))
-    passed = sum(1 for r in rows if r.get("status") == "PASS")
+        st = overall_status(r)
+        xfer = mark("pass" if r.get("transferred") == "pass" else "fail") \
+            if "transferred" in r else "—"
+        tests_run = r.get("tests_run", "")
+        tests_fail = r.get("tests_failed", "")
+        tests_cell = (f"✅ {tests_run - tests_fail}/{tests_run}"
+                      if tests_run and not tests_fail
+                      else f"❌ {tests_run - tests_fail}/{tests_run}"
+                      if tests_run else "—")
+        out.append("| {d} | {ip} | {v} | `{sha}` | {xfer} | {ins} | {tests} | {st} |".format(
+            d=r.get("distro", "?"), ip=r.get("vm_ip", "?"),
+            v=r.get("version") or "—", sha=(r.get("sha256") or "")[:12] or "—",
+            xfer=xfer,
+            ins=mark(r.get("installed")),
+            tests=tests_cell,
+            st="✅ PASS" if st == "PASS" else "❌ FAIL"))
+    passed = sum(1 for r in rows if overall_status(r) == "PASS")
     out += ["", f"**{passed}/{len(rows)} VMs verified.**"]
     return "\n".join(out) + "\n"
 
 
 def to_junit(rows):
-    fails = sum(1 for r in rows if r.get("status") != "PASS")
+    fails = sum(1 for r in rows if overall_status(r) != "PASS")
     lines = ['<?xml version="1.0" encoding="UTF-8"?>',
              f'<testsuite name="vm-deployment-verify" tests="{len(rows)}" failures="{fails}">']
     for r in rows:
         name = xml.quoteattr(f"verify {r.get('distro','?')} ({r.get('vm_ip','?')})")
         cls = xml.quoteattr("deployment.verify")
         lines.append(f'  <testcase classname={cls} name={name}>')
-        if r.get("status") != "PASS":
-            steps = ", ".join(f"{k}={r.get(k)}" for k in ("artifact_found", "reachable", "installed", "smoke"))
+        if overall_status(r) != "PASS":
+            steps = ", ".join(
+                f"{k}={r.get(k)}" for k in
+                ("artifact_found", "reachable", "transferred", "installed", "tests_failed")
+                if k in r
+            )
             lines.append(f'    <failure message={xml.quoteattr("verify failed: " + steps)}/>')
         lines.append("  </testcase>")
     lines.append("</testsuite>")
@@ -73,14 +111,16 @@ def to_junit(rows):
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument("results_dir")
+    ap.add_argument("results_dirs", nargs="+",
+                    help="One or more stage result directories (transfer-results/, install-results/, test-results/)")
     ap.add_argument("--md")
     ap.add_argument("--junit")
     ap.add_argument("--json")
     a = ap.parse_args()
-    rows = load(a.results_dir)
+    rows = load_all(a.results_dirs)
     if not rows:
-        print("ERROR: no verify-results/*.json found", file=sys.stderr)
+        print("ERROR: no result JSON files found in any of: " + " ".join(a.results_dirs),
+              file=sys.stderr)
         return 2
     if a.md:
         open(a.md, "w").write(to_markdown(rows))
@@ -89,7 +129,7 @@ def main():
     if a.json:
         json.dump(rows, open(a.json, "w"), indent=2)
     print(to_markdown(rows))
-    return 0 if all(r.get("status") == "PASS" for r in rows) else 1
+    return 0 if all(overall_status(r) == "PASS" for r in rows) else 1
 
 
 if __name__ == "__main__":

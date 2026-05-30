@@ -1,0 +1,14 @@
+transfer:aur:
+  extends: .transfer:base
+  needs:
+    - job: "build:aur"
+      artifacts: true
+  artifacts:
+    name: "transfer-results-aur"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/arch.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/arch/transfer.sh
