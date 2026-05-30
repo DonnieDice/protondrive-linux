@@ -2,8 +2,8 @@
 Documentation     Acceptance: a built proton-drive package installs and runs on its
 ...               target distro VM. Parametrized — CI passes one VM's variables per run:
 ...                 robot -v VM_IP:.. -v VM_KEY:.. -v PKG_FAMILY:deb -v LOCAL_PKG:artifacts/x.deb \
-...                       tests/robot/suites/install_verify.robot
-Resource          ../resources/proton_drive.resource
+...                       tests/robot/suites/smoke/install_verify.robot
+Resource          ../../resources/proton_drive.resource
 Suite Setup       Connect To Test VM    ${VM_IP}    ${VM_KEY}
 Suite Teardown    Close All Connections
 Force Tags        acceptance    install

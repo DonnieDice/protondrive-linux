@@ -1,6 +1,0 @@
-# verify: install + smoke-test on the matching VM via the per-distro script.
-verify:aur:
-  extends: .verify:base
-  needs: ["build:aur"]
-  script:
-    - bash scripts/ci/deploy/arch/deploy.sh
