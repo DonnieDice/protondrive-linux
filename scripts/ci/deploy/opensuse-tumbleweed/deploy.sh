@@ -12,7 +12,7 @@ PKG_GLOB="*.rpm"
 
 # install_pkg <ip> <remote-package-path>
 install_pkg() {
-  run_on_vm "$1" "zypper --non-interactive install --allow-unsigned-rpm $2 || rpm -i --force $2"
+  run_on_vm "$1" "rpm -i --force $2 || zypper --non-interactive --no-gpg-checks install -y --allow-unsigned-rpm $2"
 }
 
 deploy_run "opensuse-tw" "$VM_IP" "$PKG_GLOB" install_pkg
