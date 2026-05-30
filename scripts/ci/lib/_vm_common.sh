@@ -165,7 +165,20 @@ test_run() {
 
   install_test_deps "$ip" "$family"
   regression_checks "$ip"
+
+  # gui_load_test: process + compositor window check (fast baseline)
   gui_load_test "$ip"
+
+  # ui_compositor_test: full visual suite — screenshot + OCR + xdotool interaction.
+  # smoke: login screen OCR, no crash dialog, Proton branding
+  # ui:    form fields visible, sidebar hidden pre-login
+  # sidebar/menus: skipped automatically if no credentials
+  local ui_artifact_dir="${VERIFY_RESULTS_DIR:-verify-results}/ui-screenshots/${label}"
+  ui_compositor_test "$ip" smoke  "$ui_artifact_dir"
+  ui_compositor_test "$ip" ui     "$ui_artifact_dir"
+  # Credential-gated suites — skip automatically if env vars absent
+  ui_compositor_test "$ip" sidebar "$ui_artifact_dir"
+  ui_compositor_test "$ip" menus   "$ui_artifact_dir"
 
   local status=FAIL
   test_summary && status=PASS
