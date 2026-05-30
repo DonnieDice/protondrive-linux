@@ -166,6 +166,12 @@ test_run() {
   install_test_deps "$ip" "$family"
   regression_checks "$ip"
 
+  # Per-distro hook — define distro_checks() in the vmtest/<distro>/test.sh script.
+  # Called here so results are included in the same JSON record and test counters.
+  if declare -f distro_checks >/dev/null 2>&1; then
+    distro_checks "$ip"
+  fi
+
   # gui_load_test: process + compositor window check (fast baseline)
   gui_load_test "$ip"
 
