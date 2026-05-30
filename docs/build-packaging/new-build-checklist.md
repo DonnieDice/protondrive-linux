@@ -120,18 +120,27 @@ repos, and the compatibility map can lag behind reality.
 
 ## Step 4: Create the Local CI Build Script (Optional)
 
-Local CI build scripts exist only for targets that benefit from local
-iteration (currently Alpine APK and AUR targets). For DEB, RPM, Flatpak, Snap,
-and AppImage targets, CI runs are handled entirely in GitHub Actions.
+Local CI build scripts (`scripts/ci/build/...`) exist only for targets that
+benefit from a dedicated local packaging step (currently AUR only). For most
+targets, local CI is handled by the standard pipeline:
+`scripts/ci/install/<target>/install.sh` → `scripts/ci/transfer/<target>/transfer.sh`
+→ `scripts/ci/vmtest/<target>/test.sh`.
 
-- [ ] If a local CI script is warranted, create
-  `scripts/ci/build-<target>-<package>.sh`.
-  - Use an existing script as a template (e.g.,
-    `scripts/ci/build-opensuse-tumbleweed-rpm.sh`,
-    `scripts/ci/build-alpine-322-apk.sh`).
+- [ ] If a local build/packaging script is warranted, create
+  `scripts/ci/build/<target>-<package>.sh`.
+  - Use the existing script as a template: `scripts/ci/build/aur-package.sh`.
   - The script should create a clean git worktree, apply the patch, build, and
     copy the artifact to an output directory.
-  - Make it executable: `chmod +x scripts/ci/build-<target>-<package>.sh`.
+  - Make it executable: `chmod +x scripts/ci/build/<target>-<package>.sh`.
+
+- [ ] For CI pipeline scripts, create the per-target install/transfer/vmtest
+  stubs in the standard locations:
+  - `scripts/ci/install/<target>/install.sh` — installs the build container
+  - `scripts/ci/transfer/<target>/transfer.sh` — transfers the artifact to the
+    test host
+  - `scripts/ci/vmtest/<target>/test.sh` — runs runtime smoke tests in a VM
+  - Use an existing target as a template (e.g., `scripts/ci/install/debian-12/`,
+    `scripts/ci/vmtest/arch/`).
 
 ## Step 5: Integrate with Release
 

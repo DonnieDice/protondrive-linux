@@ -196,29 +196,34 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 The CI uses two systems:
 - **GitHub Actions** (`.github/workflows/package-workflows.yml`) — primary packaging pipeline
-- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → verify → spec → release → publish on self-hosted GitLab at `192.168.1.31:8929`
+- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → transfer → install → vmtest → report → spec → release → publish on self-hosted GitLab at `192.168.1.31:8929`
 
-The GitLab `.gitlab-ci.yml` is a thin 33-line entrypoint that includes workflows from `.gitlab/workflows/`:
+The GitLab `.gitlab-ci.yml` is a 62-line entrypoint that includes workflows from `.gitlab/workflows/`:
 - `_shared.yml` — shared job templates
 - `tests.yml` — unit and integration tests
 - `builds.yml` — per-distro build jobs
-- `verify/*.yml` — per-distro VM verification (alpine, debian, ubuntu, fedora, opensuse, arch)
-- `release.yml` — GitHub release creation
+- `transfer/*.yml` — SCP build artifacts to target VMs (alpine, debian, ubuntu, fedora, el10, opensuse, arch)
+- `install/*.yml` — distro-specific package manager install on each VM
+- `vmtest/*.yml` — regression + GUI load tests on each VM
+- `report.yml` — aggregate deployment matrix + JUnit report
+- `release.yml` — spec generation + GitHub release creation
 
 ### Stages
 
 ```
-test → build → verify → spec → release → publish
+test → build → transfer → install → vmtest → report → spec → release → publish
 ```
 
 ### Rules
 
-| Pipeline source | Test | Build | Verify | Spec | Release | Publish |
-|-----------------|------|-------|--------|------|---------|---------|
-| Merge request | ✅ (auto) | ✅ (auto) | ❌ | ❌ | ❌ | ❌ |
-| Branch push | ✅ (auto) | ✅ (auto) | ❌ | ❌ | ❌ | ❌ |
-| `main` push | ✅ (auto) | ✅ (auto) | ✅ (auto) | ✅ (auto) | ✅ (auto) | ❌ |
-| `v*` tag | ✅ (auto) | ✅ (auto) | ✅ (auto) | ✅ (auto) | ✅ (auto) | ✅ (manual) |
+The workflow entrypoint runs on merge requests, branch pushes, and tag pushes. Per-job rules in individual workflow files determine which stages run in each context.
+
+| Pipeline source | Pipelines |
+|-----------------|-----------|
+| Merge request | Full pipeline (test through report) |
+| Branch push | Full pipeline (test through report) |
+| `main` push | Full pipeline (test through publish) |
+| `v*` tag | Full pipeline with publish (manual) |
 
 ### Per-platform build jobs
 
@@ -229,15 +234,30 @@ Each platform has its own Docker-based build job with:
 - Cargo build with correct `DISTRO_TYPE`
 - Artifact packaging (APK, DEB, RPM, AppImage, Flatpak)
 
-### Verify stage
+### Transfer stage
 
-The `verify` stage spins up VMs matching each target distro to test the pre-built binary in an environment that matches end-user systems. Each distro has its own workflow file in `.gitlab/workflows/verify/`.
+The `transfer` stage SCPs build artifacts from the build job to matching target VMs. Each target distro has its own workflow file in `.gitlab/workflows/transfer/`.
+
+### Install stage
+
+The `install` stage runs distro-specific package manager commands (apt, dnf, apk, pacman) to install the built package on each target VM, using workflow files from `.gitlab/workflows/install/`.
+
+### VM test stage
+
+The `vmtest` stage runs regression and GUI load tests on each target VM, using workflow files from `.gitlab/workflows/vmtest/`. Tests cover sync commands, SSO login routing, and basic application lifecycle.
+
+### Report stage
+
+The `report` stage aggregates test results into a deployment matrix and JUnit report, surfacing pass/fail per distro.
 
 ### Spec stage
 
-The `spec` stage runs regression checks:
-- `check-sync-regressions.sh` — Verifies sync command contract is intact
-- `check-login-routing-regressions.sh` — Verifies SSO routing is intact
+The `spec` stage generates package specifications:
+- **PKGBUILD** — AUR packaging metadata
+- **RPM spec** — Fedora/EL/openSUSE `.spec` files
+- **Source distribution** — tarballs and checksums for source-based distros
+
+This is implemented in `.gitlab/workflows/release.yml`.
 
 ### Release stage
 

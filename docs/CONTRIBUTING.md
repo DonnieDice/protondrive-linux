@@ -39,7 +39,7 @@ protondrive-linux/
 ### Node.js
 
 Node.js **20+** is required. The build scripts enforce this automatically —
-running `npm install` or any `npm run` command will fail with a clear message
+running `npm run build` (or any build variant) will fail with a clear message
 if your Node.js is too old.
 
 ```bash

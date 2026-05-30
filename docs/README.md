@@ -31,7 +31,7 @@ These pages document the internals of how the native client works:
 - **[New Build/Package Checklist](new-build-checklist.md)** — Step-by-step build verification guide
 - **[CI Pipeline Reference](ci-pipeline-reference.md)** — CI job matrix, artifact naming, release workflow
 - **[CI Authority & Mirroring](ci-authority-and-mirroring.md)** — CI authority model and mirror strategy
-- **[CI/CD Roadmap](ci-cd-roadmap.md)** — Planned CI improvements
+- **[CI/CD Roadmap](ci-cd/ci-cd-roadmap.md)** — Planned CI improvements
 - **[Release Checklist](release-checklist.md)** — Release process checklist
 
 ## Configuration & Utilities

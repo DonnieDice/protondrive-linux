@@ -10,7 +10,7 @@ The project runs **two CI systems** in parallel:
 
 | System | Entrypoint | Role |
 |--------|-----------|------|
-| **GitLab CI** | `.gitlab-ci.yml` (33 lines, includes `.gitlab/workflows/*.yml` ~1,704 lines total) | **Authoritative** — build, spec, release, and publish originate here |
+| **GitLab CI** | `.gitlab-ci.yml` (62 lines, includes `.gitlab/workflows/*.yml` ~1,686 lines across 5 files) | **Authoritative** — build, spec, release, and publish originate here |
 | **GitHub Actions** | `.github/workflows/package-workflows.yml` (588 lines) | **Mirror** — same build matrix on GitHub, triggerable via `workflow_dispatch` only |
 
 **GitLab CI is the source of truth** for all builds, releases, and publishes.
@@ -61,18 +61,19 @@ flowchart TD
 
 ## Pipeline Stages
 
-### Test — 4 jobs (GitLab CI only)
+### Test — 5 jobs (GitLab CI only)
 
 Lightweight pre-flight checks that run before builds:
 
 | Job | Container | Timeout | Purpose |
 |-----|-----------|---------|---------|
 | `test:login-routing-regression` | `alpine:latest` | 10m | Guards login/2FA routing invariants in `main.rs`, `proton_navigation.rs`, `webview_cookies.rs` |
-| `test:sync-regression` | `alpine:latest` | 10m | Detects drift between GitLab and GitHub CI configs via `scripts/ci/check-sync-regressions.sh` |
+| `test:sync-regression` | `alpine:latest` | 10m | Detects drift between GitLab and GitHub CI configs via `scripts/ci/regression/sync.sh` |
 | `test:fmt` | `debian:12` | 10m | `cargo fmt --check` |
 | `test:clippy` | `debian:12` | 30m | `cargo clippy` lint checks |
+| `test:rust` | `debian:12` | 30m | `cargo test` — unit tests for login routing, webview cookies, and live sync |
 
-The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), but no package building occurs there.
+The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), covering login-routing regression, sync regression, and Rust unit tests — but no `fmt` or `clippy` checks on GitHub. No package building occurs there.
 
 ### Verify — VM smoke tests (GitLab CI only)
 
@@ -163,15 +164,15 @@ Aggregates artifacts from all 17 build jobs and creates a release.
   `.apk.tar.gz` from every job's `artifacts/` directory
 
 **GitHub Actions** (`release` job in `package-workflows.yml`):
-- Triggered on push to `main` or `v*` tags
+- Triggered only via `workflow_dispatch` with `workflow: release` input
 - Has `needs:` on all 17 build jobs (must all complete)
-- Creates a GitHub Release via `.github/workflows/maintenance/release`
+- Creates a GitHub Release via `.github/workflows/maintenance/release/action.yml`
 - 360-minute timeout (accounts for waiting on all builds)
 
 ### Publish
 
-Manual step for tag pushes only (`.rules:publish` in GitLab, `release`
-event + `workflow_dispatch` in GitHub).
+Manual step for tag pushes only (`.rules:publish` in GitLab, `workflow_dispatch`
+with specific `publish-*` input in GitHub).
 
 | Channel | GitLab job | GitHub job | Mechanism | Secrets |
 |---------|-----------|-----------|-----------|---------|
@@ -209,13 +210,13 @@ Concurrency is grouped by workflow name + branch/ref, cancelling in-progress run
 
 | Event | GitLab CI | GitHub Actions |
 |-------|-----------|----------------|
-| PR / MR | All build jobs + spec jobs | All build jobs + package-spec generation |
-| Branch push | All build jobs + spec jobs | All build jobs + package-spec generation |
-| Tag push (`v*`) | All build + spec + release + publish (manual) | All build + release + publish (on `release` event) |
-| Main branch push | Build + spec + release (no publish) | Build + release (no publish) |
+| PR / MR | All build jobs + spec jobs | Regression checks only (sanity.yml) + auto-label |
+| Branch push | All build jobs + spec jobs | Regression checks only (sanity.yml) |
+| Tag push (`v*`) | All build + spec + release + publish (manual) | Manual `workflow_dispatch` only |
+| Main branch push | Build + spec + release (no publish) | Regression checks only (sanity.yml) |
 | Manual dispatch | Via pipeline UI / API | Via `workflow_dispatch` input params |
 | Issues opened | — | Auto-label |
-| Release published | — | AUR/Flatpak/Snap publish |
+| Release published | — | Manual `workflow_dispatch` only |
 
 ## Build Matrix — GitLab ↔ GitHub Mirror
 
@@ -253,7 +254,7 @@ GitLab release stage's `needs:` list.
 
 ## CI Scripts
 
-### `scripts/ci/check-sync-regressions.sh`
+### `scripts/ci/regression/sync.sh`
 
 A pre-flight gate that detects drift between the dual CI configurations.
 Compares the GitLab build stage against GitHub workflows and exits non-zero
@@ -315,7 +316,6 @@ targets have extracted scripts:
 | Script | Purpose | GitLab job |
 |--------|---------|-----------|
 | `scripts/ci/build-alpine-320-apk.sh` | Alpine 3.20 APK build | `build:apk:alpine-3.20` |
-| `scripts/ci/build-alpine-322-apk.sh` | Alpine 3.22 APK build | `build:apk:alpine-3.22` |
 | `scripts/ci/build-alpine-323-apk.sh` | Alpine 3.23 APK build | `build:apk:alpine-3.23` |
 | `scripts/ci/build-aur-package.sh` | AUR package build | `build:aur` |
 | `scripts/ci/build-opensuse-tumbleweed-rpm.sh` | openSUSE Tumbleweed RPM | `build:rpm:opensuse-tumbleweed` |
@@ -373,7 +373,7 @@ You can reproduce most CI build steps locally:
 | Version sync | Inline sed commands | Same sed commands |
 | Rust build | `cargo build --release` | `cd src-tauri && cargo build --release` |
 | Patch application | `git apply patches/<type>/<variant>.patch` | Same |
-| Sync check | `scripts/ci/check-sync-regressions.sh` | Same script (needs `yq`, `jq`) |
+| Sync check | `scripts/ci/regression/sync.sh` | Same script (needs `yq`, `jq`) |
 | Artifact manifest | `scripts/ci/write-artifact-manifest.sh` | Same script |
 | DEB package | `npx tauri build --bundles deb` | Same (needs system deps) |
 | RPM package | `npx tauri build --bundles rpm` | Same (needs system deps) |
@@ -394,7 +394,7 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 
 1. **GitLab CI first** — add the job to `.gitlab-ci.yml` using the
    `.rules:build` template, distro-specific container image, and version/patch
-   extraction logic. See `docs/new-build-checklist.md`.
+   extraction logic. See `docs/build-packaging/new-build-checklist.md`.
 2. **GitHub mirror** — create a composite action at
    `.github/workflows/<type>/<variant>/action.yml` and register it in
    `package-workflows.yml`.
@@ -412,20 +412,17 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | Inspect a specific build action | GitHub Actions | `/.github/workflows/<type>/<variant>/action.yml` |
 | View issue/PR sync rules | GitHub Actions | `/.github/workflows/sync-to-gitlab.yml` |
 | View auto-label rules | GitHub Actions | `/.github/workflows/maintenance/` |
-| Add a new build target | Both | `docs/new-build-checklist.md` |
+| Add a new build target | Both | `docs/build-packaging/new-build-checklist.md` |
 | Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |
 | Inspect CI build scripts | GitLab CI | `scripts/ci/*.sh` |
-| Check CI sync health | Both | `scripts/ci/check-sync-regressions.sh` |
+| Check CI sync health | Both | `scripts/ci/regression/sync.sh` |
 | Generate artifact manifest | Both | `scripts/ci/write-artifact-manifest.sh` |
 
 ## Known Gaps
 
 | Gap | Impact | Tracked in |
 |-----|--------|-----------|
-| No unit tests in CI | Silent regressions in Rust/JS code | Roadmap |
 | No artifact signing | Users cannot verify download provenance | Roadmap |
 | No SBOM | Downstream packagers cannot validate deps | Roadmap |
-| No VM/integration tests | AppImage/Flatpak/Snap untested in target envs | Roadmap |
 | Snap core26 `allow_failure` | Latest Ubuntu snap base untested | Roadmap |
 | No shared Rust cache between jobs | Each of 17 jobs rebuilds deps independently (~2h each) | Roadmap |
-| `check-login-routing-regressions.sh` | Guards login/2FA routing patterns in `main.rs`, `proton_navigation.rs`, `webview_cookies.rs` | Run as part of `Login/2FA Routing Regression Checks` |
