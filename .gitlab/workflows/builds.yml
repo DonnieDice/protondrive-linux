@@ -20,7 +20,7 @@ build:apk:alpine-3.20:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -88,7 +88,7 @@ build:apk:alpine-3.22:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -156,7 +156,7 @@ build:apk:alpine-3.23:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -224,7 +224,7 @@ build:appimage:
         librsvg2-dev libsoup-3.0-dev patchelf fuse libfuse2 python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
@@ -307,7 +307,7 @@ build:aur:
         webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3
         nodejs npm python rustup base-devel patch
     - rustup default "${RUST_VERSION}"
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
       git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
@@ -326,7 +326,7 @@ build:aur:
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm install
     - cargo build --manifest-path src-tauri/Cargo.toml --release
-    - scripts/ci/build-aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
+    - scripts/ci/build/aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
     - |
       cd aur
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
@@ -360,7 +360,7 @@ build:deb:debian-12:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
@@ -406,7 +406,7 @@ build:deb:debian-13:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
@@ -453,7 +453,7 @@ build:deb:ubuntu-24.04:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
@@ -500,7 +500,7 @@ build:deb:ubuntu-26.04:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
@@ -551,7 +551,7 @@ build:flatpak:gnome-49:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
@@ -649,7 +649,7 @@ build:flatpak:gnome-50:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
@@ -749,7 +749,7 @@ build:rpm:el10:
         pkgconf-pkg-config openssl-devel gtk3-devel libappindicator-gtk3-devel
         librsvg2-devel libsoup3-devel webkit2gtk4.1-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
@@ -791,7 +791,7 @@ build:rpm:fedora-43:
         file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
@@ -833,7 +833,7 @@ build:rpm:fedora-44:
         file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
@@ -886,7 +886,7 @@ build:rpm:opensuse-tumbleweed:
           patchelf rpm-build nodejs-default npm-default python313 findutils which && break
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
@@ -938,7 +938,7 @@ build:snap:core24:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
@@ -997,7 +997,7 @@ build:snap:core26:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
