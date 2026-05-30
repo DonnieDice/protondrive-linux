@@ -171,6 +171,7 @@ page navigations. Every navigation event is logged to stdout with the
 | `hcaptcha.com/*` | Allowed | Required for CAPTCHA widget |
 | `verify.proton.me/*` | Allowed | CAPTCHA top-level page |
 | `mail.proton.me/captcha/*` | Allowed | Legacy CAPTCHA pages |
+| `verify-api.proton.me/*` | Allowed | CAPTCHA API content serving |
 
 ### Navigation-inferred CAPTCHA lifecycle
 
@@ -242,7 +243,8 @@ handles this at build time via the `DISTRO_TYPE` environment variable:
 |---|---|---|
 | `appimage`, `aur` | No override | Bundled WebKitGTK supports Workers |
 | `rpm`, `deb`, `flatpak`, `snap` | Set `Worker = undefined` | System WebKitGTK throws "operation is insecure" |
-| Unknown / unset | Stub Worker constructors that throw | Safe default for untested distros |
+| Not set (unset) | Same as rpm/deb — `Worker = undefined` | Default safe fallback |
+| Unknown (any other value) | Stub Worker constructors that throw | Safe default for untested distros |
 
 When Workers are disabled, Proton WebClients automatically falls back to
 main-thread crypto (detected in
