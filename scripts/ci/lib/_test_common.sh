@@ -9,9 +9,11 @@
 #   assert <desc> -- <cmd...>       — run a local command, record pass/fail
 #   assert_on_vm <ip> <desc> <cmd> — assert a remote command succeeds
 #   test_summary                    — print totals; non-zero if any failure
-#   install_test_deps <ip> <family> — install headless display + tools on VM
-#   regression_checks <ip>          — baseline suite every package must pass
-#   gui_load_test <ip>              — CI-micro-compositor GUI load check
+#   install_test_deps <ip> <family> — install headless display + OCR/xdotool tools on VM
+#   regression_checks <ip>          — baseline packaging assertions
+#   gui_load_test <ip>              — CI-micro-compositor: process + window check
+#   ui_compositor_test <ip> <suite> — full visual test suite (screenshot + OCR + xdotool)
+#                                     suites: smoke | ui | sidebar | menus | functional | all
 
 _PD_TEST_FAILS=0
 _PD_TEST_RUN=0
@@ -40,29 +42,32 @@ test_summary() {
 }
 
 # install_test_deps <ip> <family>
-# Ensures a headless display server and introspection tools exist on the VM.
-# Failures are non-fatal — gui-load-check degrades gracefully when missing.
+# Installs Xvfb, xdotool, scrot, tesseract (OCR) on the VM for visual testing.
+# Failures are non-fatal — tests degrade gracefully when tools are missing.
 install_test_deps() {
   local ip="$1" family="$2"
-  echo "--- installing test deps (compositor + tools) on $ip ---"
+  echo "--- installing test deps (Xvfb + xdotool + scrot + tesseract OCR) on $ip ---"
   case "$family" in
     apk)
-      run_on_vm "$ip" 'apk add --no-cache xvfb xdotool 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'apk add --no-cache xvfb xdotool scrot tesseract-ocr imagemagick wmctrl python3 py3-pip 2>/dev/null || true
+        pip3 install --quiet pyotp 2>/dev/null || true' ;;
     deb)
       run_on_vm "$ip" \
-        'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb x11-utils xdotool weston 2>/dev/null \
-         || apt-get install -y -q xvfb x11-utils 2>/dev/null || true' ;;
+        'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb x11-utils xdotool scrot tesseract-ocr imagemagick wmctrl python3-pip 2>/dev/null || true
+         pip3 install --quiet pyotp 2>/dev/null || true' ;;
     rpm-dnf)
       run_on_vm "$ip" \
-        'dnf install -y xorg-x11-server-Xvfb xorg-x11-utils xdotool weston 2>/dev/null \
+        'dnf install -y xorg-x11-server-Xvfb xorg-x11-utils xdotool scrot tesseract imagemagick wmctrl python3-pip 2>/dev/null \
          || dnf install -y xorg-x11-server-Xvfb 2>/dev/null || true' ;;
     rpm-zypper)
       run_on_vm "$ip" \
-        'zypper --non-interactive install xvfb-run xdotool weston 2>/dev/null \
-         || zypper --non-interactive install xorg-x11-server 2>/dev/null || true' ;;
+        'zypper --non-interactive install xvfb-run xdotool scrot tesseract-ocr imagemagick wmctrl python3-pip 2>/dev/null \
+         || zypper --non-interactive install xorg-x11-server 2>/dev/null || true
+         pip3 install --quiet pyotp 2>/dev/null || true' ;;
     aur)
       run_on_vm "$ip" \
-        'pacman -S --noconfirm --needed xorg-server-xvfb xorg-xwininfo xdotool cage 2>/dev/null || true' ;;
+        'pacman -S --noconfirm --needed xorg-server-xvfb xorg-xwininfo xdotool scrot tesseract imagemagick wmctrl python-pip 2>/dev/null || true
+         pip install --quiet pyotp 2>/dev/null || true' ;;
   esac
   return 0
 }
@@ -84,8 +89,8 @@ regression_checks() {
 }
 
 # gui_load_test <ip>
-# Copies the CI-micro-compositor checker to the VM and runs it.
-# Uses weston-headless → cage → Xvfb in order of availability.
+# Basic compositor check: window appears + process survives.
+# Use ui_compositor_test for full visual (OCR) assertions.
 gui_load_test() {
   local ip="$1"
   local checker; checker="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/gui-load-check.sh"
@@ -102,6 +107,47 @@ gui_load_test() {
     echo "  ✓ GUI loads under CI-micro-compositor"
   else
     echo "  ✗ FAIL: GUI did not load"
+    _PD_TEST_FAILS=$((_PD_TEST_FAILS+1)); return 1
+  fi
+}
+
+# ui_compositor_test <ip> <suite> [artifact_dir_on_runner]
+# Full visual test suite: screenshot + OCR + xdotool interaction.
+# Copies ui-test-compositor.sh to the VM, runs the named suite, fetches screenshots.
+# Suites: smoke | ui | sidebar | menus | functional | all
+# Credentials (optional, set as CI variables): PROTON_TEST_EMAIL / PASSWORD / TOTP_SECRET
+ui_compositor_test() {
+  local ip="$1" suite="${2:-smoke}" local_artifact_dir="${3:-ui-artifacts}"
+  local script; script="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/ui-test-compositor.sh"
+  _PD_TEST_RUN=$((_PD_TEST_RUN+1))
+  if [ ! -f "$script" ]; then
+    echo "  ✗ FAIL: ui-test-compositor.sh not found"
+    _PD_TEST_FAILS=$((_PD_TEST_FAILS+1)); return 1
+  fi
+  # Deploy script
+  scp -i "$_PD_KEYFILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
+      "$script" "$VM_SSH_USER@$ip:/tmp/pd-ui-test.sh" 2>/dev/null
+  run_on_vm "$ip" 'chmod +x /tmp/pd-ui-test.sh'
+  # Pass optional credential env vars
+  local env_prefix=""
+  [ -n "${PROTON_TEST_EMAIL:-}" ]        && env_prefix+=" PROTON_TEST_EMAIL='${PROTON_TEST_EMAIL}'"
+  [ -n "${PROTON_TEST_PASSWORD:-}" ]     && env_prefix+=" PROTON_TEST_PASSWORD='${PROTON_TEST_PASSWORD}'"
+  [ -n "${PROTON_TEST_TOTP_SECRET:-}" ]  && env_prefix+=" PROTON_TEST_TOTP_SECRET='${PROTON_TEST_TOTP_SECRET}'"
+  [ -n "${PROTON_SYNC_LOCAL_DIR:-}" ]    && env_prefix+=" PROTON_SYNC_LOCAL_DIR='${PROTON_SYNC_LOCAL_DIR}'"
+  local out rc=0
+  out="$(run_on_vm "$ip" "env $env_prefix bash /tmp/pd-ui-test.sh $suite /tmp/pd-ui-artifacts" 2>&1)" || rc=$?
+  echo "$out" | sed 's/^/    /'
+  # Fetch screenshots back to runner as CI artifacts
+  mkdir -p "$local_artifact_dir"
+  scp -i "$_PD_KEYFILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+      -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 -r \
+      "$VM_SSH_USER@$ip:/tmp/pd-ui-artifacts/" "$local_artifact_dir/" 2>/dev/null || true
+  local fails; fails="$(echo "$out" | grep -c '✗ FAIL' || true)"
+  if [ "$rc" -eq 0 ] && [ "$fails" -eq 0 ]; then
+    echo "  ✓ UI suite '$suite' passed"
+  else
+    echo "  ✗ FAIL: UI suite '$suite' had $fails failure(s)"
     _PD_TEST_FAILS=$((_PD_TEST_FAILS+1)); return 1
   fi
 }

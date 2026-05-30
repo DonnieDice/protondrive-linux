@@ -15,6 +15,7 @@
       - transfer-results/
       - install-results/
       - test-results/
+      - verify-results/ui-screenshots/       # compositor test screenshots (OCR debug)
     when: always
     expire_in: 30 days
   rules:

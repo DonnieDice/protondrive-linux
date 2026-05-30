@@ -13,3 +13,6 @@ robotframework-sshlibrary==3.8.0   # SSH/SCP keywords for the test VMs
 
 # ─ SSH transport used by pytest acceptance helpers ─
 paramiko==3.5.1
+
+# ─ Functional test helpers ─
+pyotp==2.9.0          # TOTP generation for 2FA login tests (also installed on VMs via pip)
