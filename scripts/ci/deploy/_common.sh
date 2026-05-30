@@ -103,16 +103,40 @@ smoke_test() {
 }
 
 # deploy_run <distro-label> <ip> <glob> <install-fn>
-# Orchestrates: locate artifact -> reachability -> copy -> install (callback) -> smoke test.
+# Orchestrates locate->reachability->copy->install->smoke, and emits a structured
+# result record to ${VERIFY_RESULTS_DIR}/<label>.json for the deployment matrix
+# (remote tracking management). Records on success AND failure; returns non-zero
+# if any step failed so the CI job still fails.
 deploy_run() {
   local label="$1" ip="$2" glob="$3" install_fn="$4"
+  local results_dir="${VERIFY_RESULTS_DIR:-verify-results}"
+  mkdir -p "$results_dir"
+  local pkg="" base="" version="" sha=""
+  local r_artifact=fail r_reach=fail r_install=fail r_smoke=fail remote=""
   echo "=== deploy+test: $label -> $ip ==="
-  local pkg remote
-  pkg="$(find_artifact "$glob")"; echo "artifact: $pkg"
-  vm_reachable "$ip"
-  remote="$(copy_to_vm "$ip" "$pkg")"
-  echo "--- installing on $ip ---"
-  "$install_fn" "$ip" "$remote"
-  smoke_test "$ip"
-  echo "=== $label: install + smoke test PASSED on $ip ==="
+
+  set +e
+  pkg="$(find_artifact "$glob")" && r_artifact=pass
+  if [ "$r_artifact" = pass ]; then
+    base="$(basename "$pkg")"
+    sha="$(sha256sum "$pkg" 2>/dev/null | cut -d' ' -f1)"
+    version="$(printf '%s' "$base" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+    echo "artifact: $pkg (sha256 ${sha:0:12}…)"
+    vm_reachable "$ip" && r_reach=pass
+    if [ "$r_reach" = pass ]; then
+      remote="$(copy_to_vm "$ip" "$pkg")"
+      echo "--- installing on $ip ---"
+      "$install_fn" "$ip" "$remote" && r_install=pass
+      [ "$r_install" = pass ] && { smoke_test "$ip" && r_smoke=pass; }
+    fi
+  fi
+  set -e
+
+  local status=PASS
+  { [ "$r_artifact" = pass ] && [ "$r_reach" = pass ] && [ "$r_install" = pass ] && [ "$r_smoke" = pass ]; } || status=FAIL
+  cat > "$results_dir/${label}.json" <<JSON
+{"distro":"$label","vm_ip":"$ip","package":"$base","version":"$version","sha256":"$sha","artifact_found":"$r_artifact","reachable":"$r_reach","installed":"$r_install","smoke":"$r_smoke","status":"$status","timestamp":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","ci_commit":"${CI_COMMIT_SHORT_SHA:-local}","ci_pipeline":"${CI_PIPELINE_ID:-0}"}
+JSON
+  echo "=== $label: $status  (artifact=$r_artifact reach=$r_reach install=$r_install smoke=$r_smoke) -> $results_dir/${label}.json ==="
+  [ "$status" = PASS ]
 }
