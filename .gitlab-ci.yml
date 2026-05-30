@@ -48,10 +48,13 @@ stages:
   - transfer  # SCP artifacts to target VMs
   - install   # distro-specific package manager install on each VM
   - vmtest    # regression + GUI load tests on each VM
-  - report    # aggregate deployment matrix + JUnit report
+  - report    # deployment-matrix | robot-html | pytest-html | ui-screenshots | pages
   - spec      # package spec generation (PKGBUILD, rpm spec, source dist)
   - release   # tag-gated release jobs
   - publish   # publish to registries / stores
+  # Note: 'pages' job name is special in GitLab — it publishes to GitLab Pages.
+  # Pages URL: http://pages.dicematrix.cloud/donniedice/protondrive-linux
+  # Requires wildcard DNS *.pages.dicematrix.cloud → 192.168.1.31 + gitlab.rb config.
 
 workflow:
   auto_cancel:
