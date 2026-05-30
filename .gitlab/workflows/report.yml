@@ -1,40 +1,41 @@
-# ─── Report stage — granular, one job per report type ────────────────────────
+# ─── Report stage — one job per report type ──────────────────────────────────
 #
-# Viewing reports:
-#   MR Tests tab    — JUnit XML (report:deployment-matrix) shows inline in every MR
-#   Artifact viewer — CI/CD → Jobs → <job> → Browse → click any .html file
-#                     GitLab renders HTML artifacts directly in the browser
-#   Pages URL       — https://pages.dicematrix.cloud/donniedice/protondrive-linux
-#                     (requires *.pages.dicematrix.cloud wildcard DNS → 192.168.1.31)
+# Viewing reports (no extra infrastructure needed):
+#   MR Tests tab     -- JUnit appears inline in every MR (report:deployment-matrix)
+#   Artifact browser -- CI/CD -> Jobs -> <job name> -> Browse -> click any .html
 #
-# Each job is independent and named for what it produces.
-# All run with when: always so reports exist even when upstream jobs fail.
+# GitLab Pages (persistent URL after merging to main):
+#   URL: http://pages.dicematrix.cloud/donniedice/protondrive-linux
+#   Requires: wildcard DNS *.pages.dicematrix.cloud -> 192.168.1.31
+#             + gitlab.rb: pages_external_url / gitlab_pages[enable]=true
+#
+# All jobs use when:always so reports exist even when upstream stages fail.
 
 
-# ── 1. Deployment matrix + JUnit (MR Tests tab) ───────────────────────────────
+# ── 1. Deployment matrix + JUnit → MR Tests tab ───────────────────────────────
 report:deployment-matrix:
   stage: report
   image: python:3.12-slim
   needs:
-    - { job: "vmtest:alpine-3.20",            artifacts: true }
-    - { job: "vmtest:alpine-3.22",            artifacts: true }
-    - { job: "vmtest:debian-12",              artifacts: true }
-    - { job: "vmtest:debian-13",              artifacts: true }
-    - { job: "vmtest:ubuntu-24.04",           artifacts: true }
-    - { job: "vmtest:ubuntu-26.04",           artifacts: true }
-    - { job: "vmtest:rpm-el10",               artifacts: true }
-    - { job: "vmtest:rpm-fedora-43",          artifacts: true }
-    - { job: "vmtest:rpm-opensuse-tumbleweed",artifacts: true }
-    - { job: "vmtest:aur",                    artifacts: true }
+    - { job: "vmtest:alpine-3.20",             artifacts: true }
+    - { job: "vmtest:alpine-3.22",             artifacts: true }
+    - { job: "vmtest:debian-12",               artifacts: true }
+    - { job: "vmtest:debian-13",               artifacts: true }
+    - { job: "vmtest:ubuntu-24.04",            artifacts: true }
+    - { job: "vmtest:ubuntu-26.04",            artifacts: true }
+    - { job: "vmtest:rpm-el10",                artifacts: true }
+    - { job: "vmtest:rpm-fedora-43",           artifacts: true }
+    - { job: "vmtest:rpm-opensuse-tumbleweed", artifacts: true }
+    - { job: "vmtest:aur",                     artifacts: true }
   rules:
     - when: always
   script:
+    - mkdir -p reports
     - python3 scripts/ci/lib/verify-matrix.py
         transfer-results install-results test-results
         --md  reports/deployment-matrix.md
         --json reports/deployment-matrix.json
         --junit reports/deployment-matrix.junit.xml
-    - echo "=== Deployment Matrix ==="
     - cat reports/deployment-matrix.md
   artifacts:
     name: "report-deployment-matrix-$CI_COMMIT_SHORT_SHA"
@@ -43,43 +44,23 @@ report:deployment-matrix:
       - reports/deployment-matrix.md
       - reports/deployment-matrix.json
     reports:
-      junit: reports/deployment-matrix.junit.xml    # → MR Tests tab
+      junit: reports/deployment-matrix.junit.xml
     expire_in: 90 days
 
 
-# ── 2. Robot Framework HTML report (artifact browser) ─────────────────────────
+# ── 2. Robot Framework HTML report ────────────────────────────────────────────
 report:robot-html:
   stage: report
   image: python:3.12-slim
   needs:
-    - { job: "vmtest:debian-12", artifacts: true }    # representative VM for smoke
+    - { job: "vmtest:debian-12", artifacts: true }
   rules:
     - when: always
   before_script:
-    - pip install --quiet robotframework==7.2.2 robotframework-sshlibrary==3.8.0 paramiko==3.5.1
+    - pip install --quiet robotframework==7.2.2
   script:
-    - mkdir -p reports/robot
-    # Re-run Robot smoke suite against test results XML if available,
-    # or generate a report from the existing output XML if present.
-    # In CI, Robot was run on the VM — we aggregate its output XML here.
-    - |
-      if ls test-results/*.xml 2>/dev/null | head -1 | grep -q xml; then
-        python3 -m robot.rebot \
-          --outputdir reports/robot \
-          --output  output.xml \
-          --log     log.html \
-          --report  report.html \
-          --name    "Proton Drive VM Tests" \
-          test-results/*.xml 2>/dev/null || true
-      else
-        # No XML from vmtest yet — generate placeholder report
-        echo "<html><body><h1>Robot Framework Report</h1><p>No output.xml from vmtest stage yet. Run Robot suites to populate.</p></body></html>" \
-          > reports/robot/report.html
-        echo "<html><body><h1>Robot Framework Log</h1><p>No test execution log yet.</p></body></html>" \
-          > reports/robot/log.html
-      fi
-    - echo "Robot HTML report ready at reports/robot/report.html"
-    - echo "View: CI/CD → Jobs → this job → Browse artifacts → reports/robot/report.html"
+    - python3 scripts/ci/lib/generate-robot-report.py test-results reports/robot
+    - echo "Robot report ready -- Browse -> reports/robot/report.html"
   artifacts:
     name: "report-robot-html-$CI_COMMIT_SHORT_SHA"
     when: always
@@ -88,7 +69,7 @@ report:robot-html:
     expire_in: 90 days
 
 
-# ── 3. pytest HTML report (unit tests) ────────────────────────────────────────
+# ── 3. pytest HTML report ─────────────────────────────────────────────────────
 report:pytest-html:
   stage: report
   image: python:3.12-slim
@@ -99,18 +80,12 @@ report:pytest-html:
     - pip install --quiet pytest pytest-html pytest-timeout paramiko pyotp
   script:
     - mkdir -p reports/pytest
-    - |
-      if ls tests/unit/test_*.py 2>/dev/null | head -1 | grep -q py; then
-        python -m pytest tests/unit/ \
-          --html=reports/pytest/report.html \
-          --self-contained-html \
-          --tb=short \
-          -q 2>&1 || true
-      else
-        echo "<html><body><h1>pytest Report</h1><p>No unit tests found.</p></body></html>" \
-          > reports/pytest/report.html
-      fi
-    - echo "pytest HTML report ready at reports/pytest/report.html"
+    - python3 -m pytest tests/unit/
+        --html=reports/pytest/report.html
+        --self-contained-html
+        --junit-xml=reports/pytest/junit.xml
+        --tb=short -q 2>&1 || true
+    - echo "pytest report ready -- Browse -> reports/pytest/report.html"
   artifacts:
     name: "report-pytest-html-$CI_COMMIT_SHORT_SHA"
     when: always
@@ -121,45 +96,20 @@ report:pytest-html:
     expire_in: 90 days
 
 
-# ── 4. UI Screenshots report (visual test evidence) ───────────────────────────
+# ── 4. UI Screenshots gallery ─────────────────────────────────────────────────
 report:ui-screenshots:
   stage: report
   image: python:3.12-slim
   needs:
-    - { job: "vmtest:debian-12",  artifacts: true }
+    - { job: "vmtest:debian-12",    artifacts: true }
     - { job: "vmtest:ubuntu-24.04", artifacts: true }
   rules:
     - when: always
   script:
-    - mkdir -p reports/screenshots
-    - |
-      # Build a simple HTML gallery of all compositor test screenshots
-      echo '<!DOCTYPE html><html><head><meta charset="utf-8">
-      <title>UI Test Screenshots — Proton Drive CI</title>
-      <style>
-        body{font-family:sans-serif;background:#1a1a2e;color:#eee;padding:20px}
-        h1{color:#e94560} h2{color:#aaa;font-size:14px}
-        .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:16px}
-        .card{background:#16213e;border-radius:8px;padding:12px;overflow:hidden}
-        .card img{width:100%;border-radius:4px;cursor:pointer}
-        .card .label{margin-top:8px;font-size:12px;color:#0f3460}
-        .pass{border-left:3px solid #0f0} .fail{border-left:3px solid #f00}
-      </style></head><body>
-      <h1>Proton Drive — UI Compositor Test Evidence</h1>
-      <h2>Pipeline '"$CI_PIPELINE_ID"' · Commit '"$CI_COMMIT_SHORT_SHA"' · '"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'</h2>
-      <div class="grid">' > reports/screenshots/index.html
-      find verify-results/ui-screenshots -name "*.png" 2>/dev/null | sort | while read -r img; do
-        distro=$(echo "$img" | cut -d/ -f3)
-        label=$(basename "$img" .png)
-        cp "$img" "reports/screenshots/${distro}_${label}.png"
-        cls=$(echo "$label" | grep -qi "FAIL" && echo "fail" || echo "pass")
-        echo "<div class='card $cls'><img src='${distro}_${label}.png' alt='$label'><div class='label'>$distro / $label</div></div>" \
-          >> reports/screenshots/index.html
-      done
-      echo '</div></body></html>' >> reports/screenshots/index.html
-    - TOTAL=$(find reports/screenshots -name "*.png" | wc -l)
-    - echo "$TOTAL screenshots collected"
-    - echo "View: CI/CD → Jobs → this job → Browse → reports/screenshots/index.html"
+    - python3 scripts/ci/lib/generate-screenshot-gallery.py
+        verify-results/ui-screenshots
+        reports/screenshots
+    - echo "Screenshot gallery -- Browse -> reports/screenshots/index.html"
   artifacts:
     name: "report-ui-screenshots-$CI_COMMIT_SHORT_SHA"
     when: always
@@ -168,12 +118,9 @@ report:ui-screenshots:
     expire_in: 90 days
 
 
-# ── 5. Pages — aggregate all reports into a single browsable site ──────────────
-# Requires wildcard DNS: *.pages.dicematrix.cloud → 192.168.1.31
-# Enable in gitlab.rb:
-#   pages_external_url 'http://pages.dicematrix.cloud'
-#   gitlab_pages['enable'] = true
-# Reports will be at: http://pages.dicematrix.cloud/donniedice/protondrive-linux
+# ── 5. GitLab Pages -- aggregates all reports into a single browsable site ─────
+# Job name must be exactly 'pages' -- GitLab recognises it and serves public/.
+# Only runs on main branch merges or tags (not on every branch push).
 pages:
   stage: report
   image: python:3.12-slim
@@ -183,69 +130,21 @@ pages:
     - { job: "report:pytest-html",       artifacts: true }
     - { job: "report:ui-screenshots",    artifacts: true }
   rules:
-    - if: $CI_COMMIT_BRANCH == "main"
+    - if: '$CI_COMMIT_BRANCH == "main"'
       when: always
     - if: $CI_COMMIT_TAG
       when: always
   script:
-    - mkdir -p public
-    # Copy all reports into public/
-    - cp -r reports/pytest         public/pytest         2>/dev/null || true
-    - cp -r reports/robot          public/robot          2>/dev/null || true
-    - cp -r reports/screenshots    public/screenshots    2>/dev/null || true
-    - cp    reports/deployment-matrix.md   public/       2>/dev/null || true
-    - cp    reports/deployment-matrix.json public/       2>/dev/null || true
-    # Build the index page
-    - |
-      python3 - <<'PYEOF'
-      import json, os, datetime
-      matrix = {}
-      try:
-          matrix = json.load(open("reports/deployment-matrix.json"))
-      except Exception:
-          pass
-      passed = sum(1 for r in matrix if r.get("status") == "PASS")
-      total  = len(matrix)
-      color  = "#0f0" if passed == total else "#f90" if passed > 0 else "#f00"
-      badge  = f'<span style="color:{color}">{passed}/{total} VMs</span>'
-      ts     = datetime.datetime.utcnow().strftime("%Y-%m-%d %H:%M UTC")
-      pipeline = os.environ.get("CI_PIPELINE_ID", "?")
-      commit   = os.environ.get("CI_COMMIT_SHORT_SHA", "?")
-      html = f"""<!DOCTYPE html>
-      <html><head><meta charset="utf-8">
-      <title>Proton Drive CI Reports</title>
-      <style>
-        body{{font-family:sans-serif;background:#0d1117;color:#c9d1d9;max-width:960px;margin:40px auto;padding:0 20px}}
-        h1{{color:#58a6ff}} a{{color:#58a6ff}} .badge{{font-size:1.2em;font-weight:bold}}
-        .card{{background:#161b22;border:1px solid #30363d;border-radius:8px;padding:20px;margin:16px 0}}
-        .card h2{{margin:0 0 8px;color:#e6edf3}} .card p{{margin:0;color:#8b949e}}
-      </style></head>
-      <body>
-      <h1>Proton Drive — CI Report Dashboard</h1>
-      <p>Pipeline #{pipeline} · {commit} · {ts}</p>
-      <p class="badge">Fleet status: {badge}</p>
-      <div class="card">
-        <h2><a href="deployment-matrix.md">📊 Deployment Matrix</a></h2>
-        <p>Transfer → install → test results across all 10 distro VMs. Also in MR Tests tab as JUnit.</p>
-      </div>
-      <div class="card">
-        <h2><a href="robot/report.html">🤖 Robot Framework Report</a></h2>
-        <p>Keyword-driven acceptance tests: install verification, UI smoke, sidebar regression.</p>
-        <p><a href="robot/log.html">Detailed execution log →</a></p>
-      </div>
-      <div class="card">
-        <h2><a href="pytest/report.html">🧪 pytest Unit Test Report</a></h2>
-        <p>Unit tests: VM matrix validation, bash key normalization, script helpers.</p>
-      </div>
-      <div class="card">
-        <h2><a href="screenshots/index.html">📸 UI Screenshots</a></h2>
-        <p>Compositor test evidence — OCR assertions, login screen, sidebar, menus. Every FAIL saves a screenshot.</p>
-      </div>
-      </body></html>"""
-      open("public/index.html", "w").write(html)
-      print("index.html written")
-      PYEOF
-    - echo "Pages site ready — enable GitLab Pages (wildcard DNS) to publish"
+    - mkdir -p public/robot public/pytest public/screenshots
+    - cp -r reports/robot/*       public/robot/       2>/dev/null || true
+    - cp -r reports/pytest/*      public/pytest/      2>/dev/null || true
+    - cp -r reports/screenshots/* public/screenshots/ 2>/dev/null || true
+    - cp reports/deployment-matrix.md   public/ 2>/dev/null || true
+    - cp reports/deployment-matrix.json public/ 2>/dev/null || true
+    - python3 scripts/ci/lib/generate-pages-index.py
+        reports/deployment-matrix.json
+        public/index.html
+    - echo "Pages site built in public/"
     - ls -la public/
   artifacts:
     paths: [public]
