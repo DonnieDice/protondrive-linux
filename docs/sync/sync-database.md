@@ -1,3 +1,14 @@
+---
+title: "Sync Database"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [database, sync]
+sources:
+  - src-tauri/src/sync_db.rs
+---
+
+
 # Sync Database
 
 The sync database is a SQLite file at `{app_data_dir}/sync-state.sqlite3` that tracks every file in the sync root, its sync state, and its relationship to remote Proton Drive items. All sensitive data (paths, remote IDs, device names) is stored as SHA-256 hashes.

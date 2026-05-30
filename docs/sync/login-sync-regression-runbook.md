@@ -1,3 +1,14 @@
+---
+title: "Login And Sync Regression Runbook"
+created: 2026-05-28
+updated: 2026-05-28
+type: runbook
+tags: [troubleshooting, auth, sync]
+sources:
+  - []
+---
+
+
 # Login And Sync Regression Runbook
 
 This runbook covers the recurring regressions that cannot be fully proven in

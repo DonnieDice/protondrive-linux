@@ -1,3 +1,14 @@
+---
+title: "Proxy System"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [proxy, webview, auth, navigation]
+sources:
+  - src-tauri/src/main.rs
+---
+
+
 # Proxy System
 
 The proxy system is the most critical component — every API call from the Proton Drive SPA passes through it. Without it, the SPA cannot authenticate, list files, download, or sync anything.

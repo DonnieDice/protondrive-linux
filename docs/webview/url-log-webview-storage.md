@@ -1,3 +1,14 @@
+---
+title: "URL Logging & WebView Storage"
+created: 2026-05-28
+updated: 2026-05-28
+type: utility
+tags: [storage, configuration, webview]
+sources:
+  - src-tauri/src/url_log.rs
+  - src-tauri/src/webview_storage.rs
+---
+
 # URL Logging & WebView Storage
 
 Two small utility modules that handle logging hygiene and persistent storage.

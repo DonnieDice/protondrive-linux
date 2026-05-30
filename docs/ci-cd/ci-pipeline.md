@@ -1,3 +1,14 @@
+---
+title: "CI/CD Pipeline"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [ci, build, packaging, release]
+sources:
+  - .gitlab-ci.yml
+---
+
+
 # CI/CD Pipeline — proton-drive-linux
 
 > Canonical documentation for the CI/CD pipeline architecture.

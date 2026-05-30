@@ -1,3 +1,14 @@
+---
+title: "CI Pipeline Reference"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [ci, build, packaging, release]
+sources:
+  - .gitlab-ci.yml
+---
+
+
 # CI Pipeline Reference — GitLab CI
 
 > Companion document to `.gitlab-ci.yml`. Describes all stages, jobs, rules,

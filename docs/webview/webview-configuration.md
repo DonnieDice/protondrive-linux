@@ -1,3 +1,15 @@
+---
+title: "WebView Configuration & Init Script"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [webview, configuration, build]
+sources:
+  - src-tauri/src/main.rs
+  - patches/
+---
+
+
 # WebView Configuration & Init Script
 
 The WebView initialization is a ~1,500-line JavaScript string embedded in `main.rs` and injected via `WebviewWindowBuilder::initialization_script()`. It runs **before any SPA code** and installs all the native integration hooks.

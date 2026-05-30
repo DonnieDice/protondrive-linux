@@ -1,3 +1,14 @@
+---
+title: "Contributing Workflow"
+created: 2026-05-28
+updated: 2026-05-28
+type: meta
+tags: [contributing, build]
+sources:
+  - []
+---
+
+
 # Contributing to Proton Drive Linux
 
 Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](CONTRIBUTING.md).

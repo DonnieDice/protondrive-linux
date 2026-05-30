@@ -1,3 +1,14 @@
+---
+title: "Sync Database Module (sync_db.rs)"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [database, sync, architecture]
+sources:
+  - src-tauri/src/sync_db.rs
+---
+
+
 # Sync Database Module (`sync_db.rs`)
 
 > **Source:** `src-tauri/src/sync_db.rs` — 839 lines. A SQLite-backed metadata store

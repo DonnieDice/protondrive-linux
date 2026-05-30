@@ -1,3 +1,14 @@
+---
+title: "Build System"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [build, configuration]
+sources:
+  - []
+---
+
+
 # Build System
 
 ## Overview

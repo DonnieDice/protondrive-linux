@@ -1,3 +1,15 @@
+---
+title: "SSO & Authentication Flow"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [sso, auth, navigation, webview]
+sources:
+  - src-tauri/src/main.rs
+  - src-tauri/src/proton_navigation.rs
+---
+
+
 # SSO & Authentication Flow
 
 Proton uses a centralized single sign-on system: `account.proton.me` handles login, two-factor authentication, and CAPTCHA for all Proton services. The native client rewrites this entire flow to local URLs while preserving all security properties.

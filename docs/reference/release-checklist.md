@@ -1,3 +1,14 @@
+---
+title: "Release Checklist"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [release, packaging]
+sources:
+  - []
+---
+
+
 # Release Checklist
 
 Use this checklist before every release deployment.

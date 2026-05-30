@@ -1,3 +1,14 @@
+---
+title: "Web Worker Debugging Log"
+created: 2026-05-28
+updated: 2026-05-28
+type: runbook
+tags: [troubleshooting, webview, build]
+sources:
+  - patches/
+---
+
+
 # Web Worker Debugging Log - RPM/deb Build Issues
 
 ## Current Status (v1.1.5)

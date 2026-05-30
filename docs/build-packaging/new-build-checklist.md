@@ -1,3 +1,14 @@
+---
+title: "New Build/Package Checklist"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [build, packaging, release]
+sources:
+  - []
+---
+
+
 # New Build/Package Checklist
 
 Use this checklist when adding a new package target to the ProtonDrive Linux

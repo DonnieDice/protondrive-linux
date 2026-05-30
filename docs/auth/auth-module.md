@@ -1,3 +1,14 @@
+---
+title: "Authentication Module"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [auth, sso, webview]
+sources:
+  - src-tauri/src/auth.rs
+---
+
+
 # Authentication Module
 
 The protondrive-linux authentication system is split into two cooperating layers:

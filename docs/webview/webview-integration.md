@@ -1,3 +1,15 @@
+---
+title: "WebView Integration"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [webview, architecture, proxy, auth, sso, download, storage]
+sources:
+  - src-tauri/src/main.rs
+  - src-tauri/src/webview_cookies.rs
+---
+
+
 # WebView Integration
 
 > How the Tauri v2 native shell integrates with Proton's web application (WebClients

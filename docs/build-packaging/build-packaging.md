@@ -1,3 +1,14 @@
+---
+title: "Build System & Packaging"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [build, packaging, ci]
+sources:
+  - []
+---
+
+
 # Build System & Packaging
 
 ## Build overview
