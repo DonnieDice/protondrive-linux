@@ -119,9 +119,21 @@ def main():
     a = ap.parse_args()
     rows = load_all(a.results_dirs)
     if not rows:
-        print("ERROR: no result JSON files found in any of: " + " ".join(a.results_dirs),
-              file=sys.stderr)
-        return 2
+        # No results yet (builds canceled or vmtest skipped) — write empty artifacts and exit 0
+        # so the report job doesn't fail the pipeline when upstream was canceled.
+        msg = "No VM result data yet (builds/vmtest may have been canceled or skipped)."
+        print(f"WARNING: {msg}", file=sys.stderr)
+        if a.md:
+            open(a.md, "w").write(f"# Proton Drive VM Deployment Matrix\n\n_{msg}_\n")
+        if a.junit:
+            open(a.junit, "w").write(
+                '<?xml version="1.0" encoding="UTF-8"?>'
+                f'<testsuite name="vm-deployment-verify" tests="0" failures="0">'
+                f'<properties><property name="note" value="{msg}"/></properties>'
+                '</testsuite>\n')
+        if a.json:
+            json.dump([], open(a.json, "w"), indent=2)
+        return 0
     if a.md:
         open(a.md, "w").write(to_markdown(rows))
     if a.junit:

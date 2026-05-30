@@ -60,6 +60,9 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
+    # MR pipeline takes priority — skip branch pipeline when MR is open (prevents duplicates)
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
     - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG
