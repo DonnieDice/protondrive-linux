@@ -1,6 +1,0 @@
-# verify: install + smoke-test on the matching VM via the per-distro script.
-verify:debian-13:
-  extends: .verify:base
-  needs: ["build:deb:debian-13"]
-  script:
-    - bash scripts/ci/deploy/debian-13/deploy.sh

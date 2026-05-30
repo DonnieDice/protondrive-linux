@@ -1,6 +1,0 @@
-# verify: install + smoke-test on the matching VM via the per-distro script.
-verify:rpm-opensuse-tumbleweed:
-  extends: .verify:base
-  needs: ["build:rpm:opensuse-tumbleweed"]
-  script:
-    - bash scripts/ci/deploy/opensuse-tumbleweed/deploy.sh

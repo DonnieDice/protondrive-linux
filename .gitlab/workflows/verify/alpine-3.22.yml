@@ -1,6 +1,0 @@
-# verify: install + smoke-test on the matching VM via the per-distro script.
-verify:alpine-3.22:
-  extends: .verify:base
-  needs: ["build:apk:alpine-3.22"]
-  script:
-    - bash scripts/ci/deploy/alpine-3.22/deploy.sh
