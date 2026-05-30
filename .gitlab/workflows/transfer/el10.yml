@@ -1,0 +1,14 @@
+transfer:rpm-el10:
+  extends: .transfer:base
+  needs:
+    - job: "build:rpm:el10"
+      artifacts: true
+  artifacts:
+    name: "transfer-results-rpm-el10"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/el10.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/el10/transfer.sh

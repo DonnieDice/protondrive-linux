@@ -1,0 +1,14 @@
+transfer:alpine-3.22:
+  extends: .transfer:base
+  needs:
+    - job: "build:apk:alpine-3.22"
+      artifacts: true
+  artifacts:
+    name: "transfer-results-alpine-3.22"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/alpine322.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/alpine-3.22/transfer.sh
