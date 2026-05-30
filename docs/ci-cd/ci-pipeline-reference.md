@@ -8,13 +8,18 @@
 
 ## Pipeline Overview
 
-The pipeline runs in **four sequential stages**:
+The pipeline runs in **nine sequential stages**:
 
 ```
-build  →  spec  →  release  →  publish
+test  →  build  →  transfer  →  install  →  vmtest  →  report  →  spec  →  release  →  publish
 ```
 
+- **test** — pre-build regression checks (login/routing, sync, Rust formatting, Clippy lints, unit tests).
 - **build** — compiles the Tauri app and packages it for every supported distribution format.
+- **transfer** — SCPs the build artifact to each target VM in the LAN test matrix.
+- **install** — installs the package on each VM using the distro-specific package manager.
+- **vmtest** — runs regression checks and GUI load tests on each VM.
+- **report** — aggregates deployment/verification results into a matrix (Markdown + JUnit).
 - **spec** — generates distro-specific package metadata files (PKGBUILD, .spec, source tarball).
 - **release** — aggregates all build artifacts and creates a GitLab Release with tagged assets.
 - **publish** — pushes artifacts to external distribution channels (AUR, Flathub, Snap Store).
@@ -25,10 +30,10 @@ The pipeline is triggered for:
 
 | Event | Runs? |
 |---|---|
-| Merge request (`merge_request_event`) | Yes — all build & spec jobs |
-| Branch push (any branch) | Yes — all build & spec jobs |
+| Merge request (`merge_request_event`) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
+| Branch push (any branch) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
 | Tag push (`CI_COMMIT_TAG`) | Yes — full pipeline including release & publish |
-| Manual trigger | Yes — build & spec jobs, publish jobs |
+| Manual trigger | Yes — any jobs with `when: manual` fallthrough |
 
 ---
 
@@ -84,6 +89,61 @@ A `before_script` block reused by every build job. Installs the Rust toolchain v
 Like `.install_rust` but also installs full GTK/WebKit development dependencies
 (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`,
 `librsvg2-dev`, `libsoup-3.0-dev`, etc.) required by Tauri builds.
+
+---
+
+## Stage: `test`
+
+> Pre-build regression checks. All test jobs extend `.rules:test` and share
+> `interruptible: true`. They run on every MR, branch push, and tag push.
+> Timeout: 10–30 minutes.
+
+### `test:login-routing-regression`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:latest` | 10m | None |
+
+Runs `scripts/ci/regression/login-routing.sh` — checks that login/session
+routing logic hasn't regressed.
+
+### `test:sync-regression`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:latest` | 10m | None |
+
+Runs `scripts/ci/regression/sync.sh` — validates sync functionality against
+synthetic state.
+
+### `test:fmt`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `debian:12` | 10m | None |
+
+Runs `cargo fmt -- --check` on the `src-tauri` crate. Has its own cargo cache
+(`test-fmt-cargo`) separate from build caches.
+
+### `test:clippy`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `debian:12` | 30m | None |
+
+Runs `cargo clippy` with `-W clippy::all -W clippy::pedantic`. Requires the
+full GTK/WebKit toolchain for dependency resolution. Stubs `WebClients/`
+with a minimal HTML fixture before linting.
+
+### `test:rust`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `debian:12` | 30m | None |
+
+Runs `cargo test -- --nocapture` on the `src-tauri` crate. Has its own cargo
+cache (`test-rust-cargo`) and stubs `WebClients/` with a minimal HTML fixture
+before running tests.
 
 ---
 
@@ -182,6 +242,126 @@ Docker container (`ghcr.io/canonical/snapcraft:8_core24`) for the final `.snap`
 packaging step.
 Core26 also patches snapcraft.yaml to `base: core26`, `grade: devel`,
 `build-base: devel`.
+
+---
+
+## Stage: `transfer`
+
+> SCPs the build artifact to each target VM. One job per distro.
+> All jobs extend `.transfer:base` with shared rules (MR, branch push, tag push, or manual).
+> Image: `alpine:latest`. Artifacts include a JSON result record and a dotenv file (`REMOTE_PKG_PATH`)
+> consumed by the `install` stage.
+
+### Jobs
+
+| Job | VM |
+|---|---|
+| `transfer:alpine-3.20` | Alpine 3.20 (192.168.1.x) |
+| `transfer:alpine-3.22` | Alpine 3.22 |
+| `transfer:debian-12` | Debian 12 |
+| `transfer:debian-13` | Debian 13 |
+| `transfer:ubuntu-24.04` | Ubuntu 24.04 |
+| `transfer:ubuntu-26.04` | Ubuntu 26.04 |
+| `transfer:el10` | CentOS Stream 10 (EPEL+CRB enabled) |
+| `transfer:fedora-43` | Fedora 43 |
+| `transfer:opensuse-tumbleweed` | openSUSE Tumbleweed |
+| `transfer:arch` | Arch Linux |
+
+Each job locates the build artifact by distro, SCPs it to the target VM, and emits
+`transfer-results/<label>.json` + `transfer-results/<label>.env` dotenv with the
+remote package path for the downstream `install` job.
+
+---
+
+## Stage: `install`
+
+> Installs the package on each VM using distro-specific package managers.
+> One job per distro. Reads `REMOTE_PKG_PATH` from the transfer stage dotenv artifact.
+> Re-exports `transfer-results/` so the report stage can aggregate all three result sets.
+> Image: `alpine:latest`. Rules: MR, branch push, tag push, or manual.
+
+### Jobs
+
+| Job | Package Manager |
+|---|---|
+| `install:alpine-3.20` | `apk` |
+| `install:alpine-3.22` | `apk` |
+| `install:debian-12` | `apt` |
+| `install:debian-13` | `apt` |
+| `install:ubuntu-24.04` | `apt` |
+| `install:ubuntu-26.04` | `apt` |
+| `install:el10` | `dnf` |
+| `install:fedora-43` | `dnf` |
+| `install:opensuse-tumbleweed` | `zypper` |
+| `install:arch` | `pacman` |
+
+Install scripts live under `scripts/ci/install/<distro>/install.sh`. Each is a
+minimal distro-specific script — dependency resolution is delegated to the
+package manager. After install, the job writes `install-results/<label>.json`.
+
+---
+
+## Stage: `vmtest`
+
+> Runs regression checks and GUI load tests on each VM after the install stage.
+> One job per distro. Re-exports all three result directories (`transfer-results/`,
+> `install-results/`, `test-results/`) so the `report` stage only depends on vmtest
+> jobs to get the full picture.
+>
+> Image: `alpine:latest`. Rules: MR, branch push, tag push, or manual.
+> Artifacts expire in **30 days** and also include compositor test screenshots
+> (`verify-results/ui-screenshots/`) for OCR debugging.
+
+### Jobs
+
+| Job | VM |
+|---|---|
+| `vmtest:alpine-3.20` | Alpine 3.20 |
+| `vmtest:alpine-3.22` | Alpine 3.22 |
+| `vmtest:debian-12` | Debian 12 |
+| `vmtest:debian-13` | Debian 13 |
+| `vmtest:ubuntu-24.04` | Ubuntu 24.04 |
+| `vmtest:ubuntu-26.04` | Ubuntu 26.04 |
+| `vmtest:rpm-el10` | CentOS Stream 10 |
+| `vmtest:rpm-fedora-43` | Fedora 43 |
+| `vmtest:rpm-opensuse-tumbleweed` | openSUSE Tumbleweed |
+| `vmtest:aur` | Arch Linux |
+
+Test scripts live under `scripts/ci/vmtest/<distro>/test.sh` and run both
+regression checks (handled by `scripts/ci/lib/_test_common.sh`) and a GUI load
+test via `xdotool` + screenshot OCR.
+
+---
+
+## Stage: `report`
+
+> Aggregates deployment and verification results from all three VM pipeline stages
+> into a single Markdown deployment matrix + JUnit report (rendered in the GitLab MR widget).
+> Runs even when some upstream jobs fail (`when: always`) so the matrix always reflects
+> the full fleet state.
+
+### `report:verify-matrix`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | All 10 vmtest jobs (artifacts: true) |
+
+**What it does:**
+
+1. Collects `transfer-results/`, `install-results/`, `test-results/` from all
+   vmtest job artifacts.
+2. Runs `scripts/ci/lib/verify-matrix.py` to produce:
+   - `deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
+   - `deployment-matrix.json` — structured JSON for downstream tooling
+   - `verify-junit.xml` — JUnit XML report surfaced in the GitLab MR widget
+
+**Output artifacts** (expire in 90 days):
+
+| Artifact | Always? |
+|---|---|
+| `deployment-matrix.md` | Yes (`when: always`) |
+| `deployment-matrix.json` | Yes (`when: always`) |
+| `verify-junit.xml` | Yes (via `reports: junit`) |
 
 ---
 
@@ -302,8 +482,8 @@ Requires Docker-in-Docker service.
 
 | Condition | Jobs |
 |---|---|
-| **Merge request** | All build jobs + all spec jobs |
-| **Branch push** | All build jobs + all spec jobs |
-| **Tag push (`v*`)** | All build jobs + all spec jobs + release + publish:aur + publish:flatpak + publish:snap |
-| **Main branch push** | All build jobs + all spec jobs + **release** (creates GitLab Release) |
-| **Manual trigger** | Any build/spec/publish job |
+| **Merge request** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
+| **Branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
+| **Tag push (`v*`)** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + release + publish:aur + publish:flatpak + publish:snap |
+| **Main branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + **release** (creates GitLab Release) |
+| **Manual trigger** | Any job with `when: manual` fallthrough |

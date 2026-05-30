@@ -1,8 +1,8 @@
 # Proton Drive Navigation / Routing
 
-> **Location:** `src-tauri/src/main.rs` — the navigation/routing logic is embedded in the `setup()` closure of the Tauri builder, not in a separate `proton_navigation.rs` module.
+> **Location:** `src-tauri/src/main.rs` (`on_navigation` closure) and `src-tauri/src/proton_navigation.rs` (helper functions for SSO redirects and CAPTCHA token extraction).
 >
-> **Why not a separate file:** Navigation interception is intrinsic to Tauri's window lifecycle. It lives in `main.rs` alongside the window builder, the initialization script injection, and the download event handler because all four (navigation, initialization, downloads, window config) are configured together on the same `WebviewWindowBuilder`.
+> **Architecture:** The `on_navigation` callback lives in `main.rs` because it is intrinsic to Tauri's window lifecycle, configured directly on the `WebviewWindowBuilder` alongside initialization, downloads, and window config. However, the navigation helper functions — `unsupported_app_redirect_url()`, `account_login_complete_redirect_url()`, and `captcha_completion_token()` — are extracted into `proton_navigation.rs` for testability.
 
 ## Overview
 
@@ -31,7 +31,7 @@ WebView (Proton Web Client)
 
 ## 1. URL Routing (`on_navigation` callback)
 
-The `on_navigation` closure (lines 1597–1803) is called by Tauri for **every URL the WebView attempts to navigate to**. It returns `true` to allow the navigation or `false` to block it (optionally redirecting elsewhere).
+The `on_navigation` closure (lines 1602–1808) is called by Tauri for **every URL the WebView attempts to navigate to**. It returns `true` to allow the navigation or `false` to block it (optionally redirecting elsewhere).
 
 ### 1.1 Blob URL Interception (Downloads)
 
@@ -83,13 +83,17 @@ if url.host_str() == Some("drive.proton.me") { ... }
 ### 1.5 Post-Login Redirect (`account.localhost` → Drive)
 
 ```rust
-if url.host_str() == Some("account.localhost") { ... }
+if let Some(drive_url) = account_login_complete_redirect_url(url) { ... }
 ```
 
-**What:** After a successful SSO login, the account app navigates to `account.localhost/u/X/drive/account`. This handler:
-1. Extracts the user path segment (`/u/X/`)
-2. Navigates to `tauri://localhost/u/X/` (the Drive app)
-3. Adds a 300ms delay to let cookies propagate before navigation
+> **Helper:** [`account_login_complete_redirect_url()`](https://github.com/.../proton_navigation.rs) in `proton_navigation.rs`
+
+**What:** After a successful SSO login or 2FA, the account app navigates to `account.localhost/u/X/drive/account`. This handler delegates to the `account_login_complete_redirect_url()` helper which:
+
+1. Extracts the user path segment (`/u/X/`) from the account URL
+2. Returns `"tauri://localhost/"` (Drive root) — **not** `/u/X/` — because deep `tauri://localhost` paths break the WebKitGTK asset protocol and IPC bridge, freezing the app
+3. Forces the account page to `about:blank` first to ensure the old document is gone, then navigates to Drive root after a 250ms delay
+4. The Drive init script restores the user route from persisted auth/session state
 
 ### 1.6 CAPTCHA / Verfication Domains
 
@@ -112,7 +116,7 @@ match url.host_str() {
 - **verify-api.proton.me** — CAPTCHA content API
 - **mail.proton.me/api/core/v4/captcha** — legacy captcha endpoints
 
-Additionally, when the WebView navigates **away** from a captcha page, the handler redirects back to `tauri://localhost/account/` to retry authentication with the stored verification token.
+Additionally, when the WebView lands back on `tauri://localhost/account/` after CAPTCHA, the handler checks for `hv_token`/`hv_type` query params via `captcha_completion_token()`. If present, it stores the verification token and navigates to the account app to retry authentication. Navigations to `tauri://localhost/account/` without a verification token are blocked to prevent the account app from loading without the stored session.
 
 ### 1.7 API Navigation Blocking
 
@@ -122,7 +126,23 @@ if url.path().starts_with("/api/") { return false; }
 
 **What:** Prevents the WebView from navigating to API endpoints directly (e.g. if an iframe tries to load `/api/core/v4/*`). API calls should go through the `fetch`/`XHR` proxy, not through URL navigation.
 
-### 1.8 Default Allow Rules
+### 1.8 Unsupported Proton App Redirect
+
+```rust
+if let Some(local_url) = unsupported_app_redirect_url(url) { ... }
+```
+
+> **Helper:** [`unsupported_app_redirect_url()`](https://github.com/.../proton_navigation.rs) in `proton_navigation.rs`
+
+**What:** When the WebView navigates to another Proton app (e.g. `mail.proton.me`, `calendar.proton.me`, `docs.proton.me`, `pass.proton.me`, `vpn.proton.me`, `wallet.proton.me`, `contacts.proton.me`), this handler redirects back to Drive. These apps don't make sense inside the Drive desktop app.
+
+**How it works:**
+1. Checks if the host matches a known unsupported Proton app
+2. Extracts any user path (`/u/X/`) from the URL
+3. Redirects to `tauri://localhost/u/X/` if a user context exists, or `tauri://localhost/` otherwise
+4. API and CAPTCHA paths (`/api/`, `/captcha/`) are explicitly skipped — they pass through to the fetch proxy
+
+### 1.9 Default Allow Rules
 
 ```rust
 url.scheme() == "tauri"
@@ -165,7 +185,7 @@ Same pattern as fetch but for XHR-based API calls. API calls are redirected thro
 
 ### 2.3 `proxy_request` Rust Command
 
-> **File:** `main.rs`, lines 386–510
+> **File:** `main.rs`, lines 388–510
 
 ```rust
 #[tauri::command]
@@ -201,17 +221,16 @@ Proton may require human verification (CAPTCHA / hCaptcha) during login or sensi
 
 ### 3.2 Navigation
 
-The `navigate_to_captcha` Rust command (lines 143–166):
+The `navigate_to_captcha` Rust command (lines 145–166):
 1. Stores the return URL in `CAPTCHA_RETURN_URL`
 2. Navigates the main WebView window to the CAPTCHA URL (e.g., `https://verify.proton.me/...`)
 
 ### 3.3 Verification
 
 1. The CAPTCHA page fires a `postMessage` with `type: 'HUMAN_VERIFICATION_SUCCESS'` (or `'pm_captcha'`) containing the verification token
-2. The `message` event listener stores the token via `store_verification_token`
-3. The listener navigates back to `tauri://localhost/account/`
-4. The `on_navigation` callback detects the CAPTCHA page exit and ensures redirection back to the account app
-5. The `fetch` proxy attaches `x-pm-human-verification-token` and `x-pm-human-verification-token-type` headers to the next auth request
+2. The `message` event listener (in the init script) navigates the WebView to `tauri://localhost/account/?hv_token=TOKEN&hv_type=TYPE` — tokens are passed through the URL because external verify pages cannot use Tauri IPC reliably
+3. The `on_navigation` callback calls `captcha_completion_token()` which extracts `hv_token` and `hv_type` from the URL query params, stores them in `PENDING_VERIFICATION`, and navigates to `tauri://localhost/account/`
+4. The `fetch` proxy attaches `x-pm-human-verification-token` and `x-pm-human-verification-token-type` headers to the next auth request
 
 ### 3.4 Credential Restoration
 
@@ -290,7 +309,6 @@ All navigation-related Tauri commands are registered via `generate_handler!`:
 
 ## See Also
 
-- **[SSO Authentication](sso-authentication.md)** — URL flow through SSO, CAPTCHA integration
+- **[SSO Authentication](../auth/sso-authentication.md)** — URL flow through SSO, CAPTCHA integration
 - **[Proxy System](proxy-system.md)** — How navigation decisions interact with the fetch proxy
-- **[WebView Integration](webview-integration.md)** — Tauri plugin wiring, IPC commands
-- **[Architecture](ARCHITECTURE.md)** — How navigation fits into the AppState
+- **[WebView Integration](../webview/webview-integration.md)** — Tauri plugin wiring, IPC commands

@@ -1,7 +1,7 @@
 # Proton Drive for Linux — Architecture
 
 > **Version:** 1.4.4  
-> **Last updated:** 2026-05-28  
+> **Last updated:** 2026-05-30  
 > **License:** AGPL-3.0
 
 ---
@@ -64,8 +64,8 @@ All four are deliberately **in-memory-only** with zero-trust semantics — clear
 
 Owns:
 - `fn main()` — sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITING_MODE`, `WEBKIT_FORCE_SANDBOX`, `GDK_GL`, `GSK_RENDERER` env vars for WebKitGTK compatibility; builds `AppState`; registers Tauri plugins (shell, dialog, notification); runs the builder
-- **16 Tauri commands** (registered via `generate_handler!` at line 1846)
-- **The WebView initialization script** (~762 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, iframe behavior, and Worker compatibility)
+- **16 Tauri commands** (registered via `generate_handler!` at line 1851)
+- **The WebView initialization script** (~688 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, iframe behavior, and Worker compatibility)
 - The **`on_navigation` callback** that rewrites Proton URLs to local `tauri://localhost/...` paths
 
 ### 2.4 Module: `auth.rs`
@@ -161,7 +161,7 @@ User enters credentials in WebView
 
 1. The WebView's initialization script patches `window.fetch` and `window.XMLHttpRequest`
 2. For any URL containing `/api/`, the request is redirected to the `proxy_request` Tauri command instead of making a real HTTP request
-3. The Rust `proxy_request` handler (main.rs:386-510):
+3. The Rust `proxy_request` handler (main.rs:391-514):
    - Rewrites URLs: `localhost/api/...` → `https://mail.proton.me/api/...`, resolves `tauri://` scheme URLs, handles relative paths
    - Creates a `reqwest::Request` with the forwarded headers (except `Host` and `Cookie` — cookies are merged from both WebKit's native jar and the reqwest jar via `combined_cookie_header()`)
    - Sends the request through the shared `AppState.client` (which has an automatic cookie jar)
@@ -252,15 +252,15 @@ WebClients detect remote change (via polling or push)
 
 ### 5.3 Sync command security
 
-The `ensure_sync_command_allowed` function (main.rs:512-531) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
+The `ensure_sync_command_allowed` function (main.rs:517-538) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
 
-The `validate_sync_root_path` function (main.rs:535-550) ensures the sync root is a subdirectory of the user's home directory.
+The `validate_sync_root_path` function (main.rs:540-556) ensures the sync root is a subdirectory of the user's home directory.
 
 ---
 
 ## 6. Navigation Routing (SSO / Login / Captcha)
 
-The `on_navigation` callback (main.rs:1597-1803) intercepts all WebView navigations and rewrites them:
+The `on_navigation` callback (main.rs:1602-1808) intercepts all WebView navigations and rewrites them:
 
 | Incoming URL | Action |
 |--------------|--------|
