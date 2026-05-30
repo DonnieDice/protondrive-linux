@@ -1,6 +1,6 @@
-# verify: install + smoke-test the debian12 package on its VM.
+# verify: install + smoke-test on the matching VM via the per-distro script.
 verify:debian-12:
   extends: .verify:base
   needs: ["build:deb:debian-12"]
   script:
-    - bash scripts/ci/deploy-and-test-vm.sh debian12
+    - bash scripts/ci/deploy/debian-12/deploy.sh

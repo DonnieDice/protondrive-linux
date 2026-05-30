@@ -1,6 +1,6 @@
-# verify: install + smoke-test the fedora43 package on its VM.
+# verify: install + smoke-test on the matching VM via the per-distro script.
 verify:rpm-fedora-43:
   extends: .verify:base
   needs: ["build:rpm:fedora-43"]
   script:
-    - bash scripts/ci/deploy-and-test-vm.sh fedora43
+    - bash scripts/ci/deploy/fedora-43/deploy.sh

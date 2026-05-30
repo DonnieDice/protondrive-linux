@@ -1,6 +1,6 @@
-# verify: install + smoke-test the alpine320 package on its VM.
+# verify: install + smoke-test on the matching VM via the per-distro script.
 verify:alpine-3.20:
   extends: .verify:base
   needs: ["build:apk:alpine-3.20"]
   script:
-    - bash scripts/ci/deploy-and-test-vm.sh alpine320
+    - bash scripts/ci/deploy/alpine-3.20/deploy.sh
