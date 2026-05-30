@@ -12,12 +12,13 @@ The release version is tracked in three files — all must be updated to match.
 
 - [ ] `package.json` — update `version` field to the new version.
 - [ ] `src-tauri/Cargo.toml` — update `[package].version` to match.
-- [ ] `src-tauri/tauri.conf.json` — update `version` field in the `app` section.
+- [ ] `src-tauri/tauri.conf.json` — update the top-level `version` field to match.
 - [ ] Verify the version string matches across all three files.
 - [ ] Commit version bump with message: `chore: bump version to v<x.y.z>`.
 
-> **Note:** Tauri v2 uses an `identifier` in `tauri.conf.json` under `app` (e.g. `com.proton.drive`).
-> Do not change the identifier between releases — only the `version` field.
+> **Note:** Both `version` and `identifier` (e.g. `com.proton.drive`) are **top-level** fields
+> in `tauri.conf.json`, not nested under `app`. Do not change the identifier between
+> releases — only the `version` field.
 
 ---
 
@@ -46,8 +47,9 @@ Build all native bundles locally to catch compile errors before CI.
       ```bash
       npm run build
       ```
-      This runs `npx tauri build` (Tauri v2), which compiles the Rust backend,
-      bundles the frontend, and produces native packages.
+      This runs `./scripts/build-webclients.sh` (bundles the frontend) followed by
+      `tauri build --bundles deb,rpm,appimage`, which compiles the Rust backend and
+      produces native packages.
 - [ ] Verify the generated bundles exist in `src-tauri/target/release/bundle/`.
 - [ ] Smoke-test the AppImage on a clean Linux environment.
 
@@ -167,7 +169,7 @@ Per-target builds (check on either CI system, both must be green):
       The release is **automatic** — pushing the tag triggers the release job,
       which collects artifacts, creates a GitHub Release, and uploads assets.
       Only intervene if the job failed.
-- [ ] Verify the GitLab CI release pipeline (if applicable): check
+- [ ] Verify the GitLab CI release pipeline — check
       **CI/CD > Pipelines** on GitLab for the tag pipeline and confirm the
       `release` stage completed.
 - [ ] Verify published artifacts on each distribution channel:

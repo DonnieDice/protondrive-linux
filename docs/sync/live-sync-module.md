@@ -2,7 +2,7 @@
 
 > **Status:** Experimental — 2-way live file synchronization between a local folder and Proton Drive.
 >
-> **Source:** `src-tauri/src/live_sync.rs` (941 lines, integrates with `sync_db.rs` for persistent metadata)
+> **Source:** `src-tauri/src/live_sync.rs` (944 lines, integrates with `sync_db.rs` for persistent metadata)
 >
 > **Broader architecture:** See [sync-system.md](sync-system.md) for the full live sync architecture overview,
 > including Tauri command wiring, security origin validation, and lifecycle flows.
@@ -363,12 +363,12 @@ No runtime configuration is exposed — these are compile-time constants.
 **Symptoms:** You modify a file locally, but it doesn't upload. Console shows no `ChangeDetected` event.
 
 **Causes:**
-- The suppression cache still holds the file's hash from the last remote download
-- The file was downloaded <60s ago and the suppression window hasn't expired
-- The file content hasn't actually changed (same hash)
+- The suppression cache still holds the file's entry from the last remote download (keyed by path, not content hash)
+- The file was downloaded <30s ago and the suppression window hasn't expired
+- The file content hasn't actually changed (same mtime and size)
 
 **Fix:**
-1. Wait 60s for the suppression cache entry to expire
+1. Wait 30s for the suppression cache entry to expire
 2. Force a change: `touch` the file and append a byte: `echo " " >> file.txt`
 3. Restart the app to flush the suppression cache
 
@@ -378,7 +378,7 @@ No runtime configuration is exposed — these are compile-time constants.
 
 **Causes:**
 - The file's modification time is in the future (Proton API returns future timestamps)
-- The suppression cache hash calculation is non-deterministic
+- The FileFingerprint comparison (len + mtime) is non-deterministic due to concurrent writes
 - The file is being modified by an external process at the same time the poller reads it
 
 **Fix:**
@@ -390,7 +390,7 @@ No runtime configuration is exposed — these are compile-time constants.
 - **[Sync System](sync-system.md)** — Full sync architecture: Tauri command wiring, lifecycle flows, startup path, device name resolution
 - **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing, migration strategy
 - **[Sync DB Module](sync-db-module.md)** — The `sync_db.rs` integration: AppState wiring, SyncKeyring decryption, debounce/persistence constants
-- **[WebView Integration](webview-integration.md)** — How the frontend connects to sync commands, origin gating
+- **[WebView Integration](../webview/webview-integration.md)** — How the frontend connects to sync commands, origin gating
 
 ---
 
