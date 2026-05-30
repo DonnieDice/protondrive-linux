@@ -9,7 +9,7 @@ test:login-routing-regression:
   cache: []
   script:
     - apk add --no-cache bash
-    - bash scripts/ci/check-login-routing-regressions.sh
+    - bash scripts/ci/regression/login-routing.sh
 
 # ─── Test: Sync Regression ───────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ test:sync-regression:
   cache: []
   script:
     - apk add --no-cache bash
-    - bash scripts/ci/check-sync-regressions.sh
+    - bash scripts/ci/regression/sync.sh
 
 # ─── Test: Rust Format Check ──────────────────────────────────────────────────
 
@@ -41,7 +41,7 @@ test:fmt:
     when: always
   before_script:
     - apt-get update && apt-get install -y bash curl
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - rustup component add rustfmt
   script:
     - cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
@@ -66,7 +66,7 @@ test:clippy:
     - apt-get update && apt-get install -y bash curl build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - rustup component add clippy
   script:
     - mkdir -p WebClients/applications/drive/dist
@@ -95,7 +95,7 @@ test:rust:
     - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
   script:
     - mkdir -p WebClients/applications/drive/dist
     - |
