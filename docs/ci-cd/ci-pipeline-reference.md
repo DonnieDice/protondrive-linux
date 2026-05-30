@@ -32,7 +32,10 @@ The pipeline is triggered for:
 
 ---
 
-## Variables (Top-Level)
+## Variables
+
+All shared variables are defined in `.gitlab/workflows/_shared.yml` and sourced into
+the pipeline via the `include:` directive at the top of `.gitlab-ci.yml`.
 
 | Variable | Value | Purpose |
 |---|---|---|
@@ -42,10 +45,14 @@ The pipeline is triggered for:
 | `CARGO_HOME` | `${CI_PROJECT_DIR}/.cargo` | Local cargo cache path |
 | `DOCKER_HOST` | `tcp://docker:2375` | Docker daemon endpoint (for DinD services) |
 | `DOCKER_TLS_CERTDIR` | `""` | Disables TLS for DinD |
+| `CARGO_BUILD_JOBS` | `"4"` | Caps `cargo` parallelism so concurrent builds don't oversubscribe the runner's 12-core CPU set — 3 concurrent jobs x 4 parallel compiler threads = 12 threads, a clean 1:1 ratio with no thrash |
 
 ---
 
 ## Rule Templates (YAML Anchors)
+
+All rule templates below are defined in `.gitlab/workflows/_shared.yml` and shared
+across all workflow files via `include:`.
 
 ### `.rules:build`
 Applied to all **build** and **spec** jobs.
@@ -64,12 +71,19 @@ Applied to all **publish** jobs.
 
 ---
 
-## Reusable Script Fragment
+## Reusable Script Fragments
 
-### `&install_rust`
-A YAML anchor reused by every build job. Installs the Rust toolchain via rustup if
+The following YAML anchors are defined in `.gitlab/workflows/_shared.yml`.
+
+### `.install_rust`
+A `before_script` block reused by every build job. Installs the Rust toolchain via rustup if
 `$CARGO_HOME/bin/rustup` doesn't already exist, then prints `rustc --version` and
 `cargo --version`.
+
+### `.install_rust_full`
+Like `.install_rust` but also installs full GTK/WebKit development dependencies
+(`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`,
+`librsvg2-dev`, `libsoup-3.0-dev`, etc.) required by Tauri builds.
 
 ---
 

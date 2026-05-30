@@ -10,8 +10,8 @@ The project runs **two CI systems** in parallel:
 
 | System | Entrypoint | Role |
 |--------|-----------|------|
-| **GitLab CI** | `.gitlab-ci.yml` (1,492 lines) | **Authoritative** — build, spec, release, and publish originate here |
-| **GitHub Actions** | `.github/workflows/package-workflows.yml` (601 lines) | **Mirror** — same build matrix on GitHub for contributor feedback |
+| **GitLab CI** | `.gitlab-ci.yml` (33 lines, includes `.gitlab/workflows/*.yml` ~1,704 lines total) | **Authoritative** — build, spec, release, and publish originate here |
+| **GitHub Actions** | `.github/workflows/package-workflows.yml` (588 lines) | **Mirror** — same build matrix on GitHub, triggerable via `workflow_dispatch` only |
 
 **GitLab CI is the source of truth** for all builds, releases, and publishes.
 GitHub Actions mirrors the build matrix so that GitHub-based contributors get CI
@@ -40,7 +40,7 @@ flowchart TD
         GL_PUB["Publish Stage\nAUR, Flathub, Snap Store"]
     end
 
-    subgraph GitHub_Actions["GitHub Actions (mirror)"]
+    subgraph GitHub_Actions["GitHub Actions (manual dispatch only)"]
         direction LR
         GH_BUILD["Build 17 jobs\n(composite actions)"]
         GH_MISC["Auto-label,\nsync-to-gitlab,\nmaintenance"]
@@ -48,11 +48,11 @@ flowchart TD
         GH_PUB["Publish\nAUR, Flathub, Snap"]
     end
 
-    PUSH --> GL_BUILD & GH_BUILD
+    GR_TRIGGER["workflow_dispatch"] --> GH_BUILD
+    PUSH --> GL_BUILD
     TAG --> GL_BUILD & GL_SPEC & GL_REL & GL_PUB
-    TAG --> GH_BUILD & GH_REL & GH_PUB
-    PR --> GL_BUILD & GH_BUILD
-    SCHED --> GH_BUILD
+    PR --> GL_BUILD
+    GR_TRIGGER --> GH_REL & GH_PUB
 
     GL_BUILD --> GL_SPEC --> GL_REL --> GL_PUB
     GH_BUILD --> GH_REL --> GH_PUB
@@ -60,6 +60,38 @@ flowchart TD
 ```
 
 ## Pipeline Stages
+
+### Test — 4 jobs (GitLab CI only)
+
+Lightweight pre-flight checks that run before builds:
+
+| Job | Container | Timeout | Purpose |
+|-----|-----------|---------|---------|
+| `test:login-routing-regression` | `alpine:latest` | 10m | Guards login/2FA routing invariants in `main.rs`, `proton_navigation.rs`, `webview_cookies.rs` |
+| `test:sync-regression` | `alpine:latest` | 10m | Detects drift between GitLab and GitHub CI configs via `scripts/ci/check-sync-regressions.sh` |
+| `test:fmt` | `debian:12` | 10m | `cargo fmt --check` |
+| `test:clippy` | `debian:12` | 30m | `cargo clippy` lint checks |
+
+The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), but no package building occurs there.
+
+### Verify — VM smoke tests (GitLab CI only)
+
+Installs the built package on a real distro VM and runs smoke tests. One job per distro, each extends `.verify:base`:
+
+| Job | Container | Needs | Script |
+|-----|-----------|-------|--------|
+| `verify:debian-12` | `alpine:latest` | `build:deb:debian-12` | `scripts/ci/deploy-and-test-vm.sh debian12` |
+| `verify:debian-13` | `alpine:latest` | `build:deb:debian-13` | `scripts/ci/deploy-and-test-vm.sh debian13` |
+| `verify:ubuntu-24.04` | `alpine:latest` | `build:deb:ubuntu-24.04` | `scripts/ci/deploy-and-test-vm.sh ubuntu2404` |
+| `verify:ubuntu-26.04` | `alpine:latest` | `build:deb:ubuntu-26.04` | `scripts/ci/deploy-and-test-vm.sh ubuntu2604` |
+| `verify:alpine-3.20` | `alpine:latest` | `build:apk:alpine-3.20` | `scripts/ci/deploy-and-test-vm.sh alpine320` |
+| `verify:alpine-3.22` | `alpine:latest` | `build:apk:alpine-3.22` | `scripts/ci/deploy-and-test-vm.sh alpine322` |
+| `verify:el10` | `alpine:latest` | `build:rpm:el10` | `scripts/ci/deploy-and-test-vm.sh el10` |
+| `verify:fedora-43` | `alpine:latest` | `build:rpm:fedora-43` | `scripts/ci/deploy-and-test-vm.sh fedora43` |
+| `verify:opensuse-tumbleweed` | `alpine:latest` | `build:rpm:opensuse-tumbleweed` | `scripts/ci/deploy-and-test-vm.sh opensusetw` |
+| `verify:arch` | `alpine:latest` | `build:aur` | `scripts/ci/deploy-and-test-vm.sh arch` |
+
+`allow_failure: true` for manual runs. Requires a runners VM network (192.168.1.0/24) and pre-configured `VM_SSH_KEY`.
 
 ### Build — 17 distro packages
 
@@ -160,17 +192,18 @@ These workflows run only on GitHub and have no GitLab equivalent:
 
 ### GitHub Workflow Triggers
 
-The `package-workflows.yml` workflow triggers on:
+The `package-workflows.yml` workflow (the package-build mirror) triggers only on:
 
-- `push` to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**`, and `v*` tags
-- `pull_request` to `main`
-- `pull_request_target` (opened)
-- `issues` (opened)
-- `release` (published)
-- `workflow_dispatch` (manual with input parameters)
+- `pull_request_target` (opened) — auto-label only
+- `issues` (opened) — auto-label only
+- `workflow_dispatch` — manual invocation with input parameters (`workflow`, `distro_patch`, `tag`, `version`, `snap_base`, `channel`)
 
-Concurrency is grouped by workflow name + branch/ref, cancelling in-progress
-runs on duplicates.
+There is **no push, pull_request, schedule, or release trigger** on the package workflow.
+All build jobs require `workflow_dispatch`, gated by an `if: github.event_name == 'workflow_dispatch'` condition.
+
+A separate **`sanity.yml`** workflow runs on `push` (to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**`) and `pull_request` (to `main`), but only performs regression checks — it does **not** build packages.
+
+Concurrency is grouped by workflow name + branch/ref, cancelling in-progress runs on duplicates.
 
 ## Trigger Rules
 

@@ -139,9 +139,11 @@ directory differ):
 
 **Alpine-specific concerns:**
 
-- **musl linking:** Alpine uses musl libc. The `.cargo/config.toml` must set
-  `linker = "gcc"` and `target-feature=-crt-static` so the binary dynamically links
-  against system `.so` files (GTK, WebKit).
+- **musl linking:** Alpine uses musl libc. A `.cargo/config.toml` must be
+  generated (e.g. via the `cargo_config` entries in
+  [`packaging/compatibility-map.yml`](../../packaging/compatibility-map.yml)) with
+  `linker = "gcc"` and `rustflags = ["-C", "target-feature=-crt-static"]` so the
+  binary dynamically links against system `.so` files (GTK, WebKit).
 - **D-Bus:** Alpine lacks systemd's auto-launch. The patch must auto-launch a user DBus
   session (`dbus-launch --sh-syntax`) and set `AT_SPI_BUS_ADDRESS=/dev/null` to prevent
   WebKit crashes.
@@ -149,9 +151,11 @@ directory differ):
   `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`,
   `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, `GDK_GL=disable`,
   `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo`.
-- Rust compilation uses `cargo build --release` directly (not `npx tauri build`) in
-  Alpine containers because the Tauri bundler defaults to `deb`/`rpm`/`appimage`
-  targets unavailable on Alpine.
+- Rust compilation uses `npx tauri build --verbose` for all Alpine targets
+  (same as openSUSE RPM). Earlier versions of the pipeline used `cargo build --release`
+  directly because the Tauri bundler defaults to `deb`/`rpm`/`appimage` targets
+  unavailable on Alpine, but the current pipeline has resolved this — `npx tauri build`
+  works correctly on Alpine without a `--bundles` flag.
 
 ---
 
@@ -316,16 +320,16 @@ All package builds run in CI through two parallel CI systems:
   and openSUSE Tumbleweed RPM in dedicated containers
 
 The CI pipeline is defined in:
-- [`docs/ci-cd-roadmap.md`](ci-cd-roadmap.md) — Pipeline architecture and target matrix
-- [`docs/ci-cd/ci-pipeline-reference.md`](ci-pipeline-reference.md) — Per-job reference
-- [`docs/ci-cd/ci-authority-and-mirroring.md`](ci-authority-and-mirroring.md) — Dual-CI policy
+- [`docs/ci-cd/ci-cd-roadmap.md`](../ci-cd/ci-cd-roadmap.md) — Pipeline architecture and target matrix
+- [`docs/ci-cd/ci-pipeline-reference.md`](../ci-cd/ci-pipeline-reference.md) — Per-job reference
+- [`docs/ci-cd/ci-authority-and-mirroring.md`](../ci-cd/ci-authority-and-mirroring.md) — Dual-CI policy
 
 ---
 
 ## Adding a New Target
 
 To add a new distro/package format, follow the checklist in
-[`docs/new-build-checklist.md`](new-build-checklist.md). The high-level steps:
+[`docs/build-packaging/new-build-checklist.md`](../build-packaging/new-build-checklist.md). The high-level steps:
 
 1. Verify compatibility gates (libc ≥ 2.35 or musl; WebKitGTK 4.1 installed)
 2. Create distro patch under `patches/<package>/<target>.patch`

@@ -31,14 +31,15 @@ target:
   - WebKitGTK 4.1 version (or "not available"):
   - Both gates pass? (yes / no):
 
-### Example: Alpine 3.20 reclassification (2026-05-15)
+### Example: Alpine 3.20 reclassification (2026-05-15 → 2026-05-28)
 
 The compatibility map originally listed Alpine 3.20 as `not-primary` with
 `webkitgtk: fail`. On inspection of an actual Alpine 3.20 host, WebKitGTK 4.1
 v2.44.1 was both available in repos and installed at
 `/usr/lib/libwebkit2gtk-4.1.so.0.13.5`. The gate was corrected from `fail` to
-`pass`, and Alpine 3.20 was reclassified from `not-primary` to
-`roadmap-patch-ready`.
+`pass`, and Alpine 3.20 was reclassified from `not-primary` through
+`roadmap-patch-ready` to **`release-gated`** after the APK workflow, artifact
+upload, and runtime smoke test were completed.
 
 This is why the "installed, not just available" check matters: a repo search
 may miss packages that are already shipped in the base install or community
@@ -48,8 +49,8 @@ repos, and the compatibility map can lag behind reality.
 
 - [ ] Create `patches/<package>/<target>.patch` against the clean repository
   base.
-  - The patch replaces the clean `fn main()` WebKitGTK comment block in
-    `src-tauri/src/main.rs` with the target-specific environment variables.
+  - The patch replaces the clean `fn main()` WebKitGTK environment variables
+    block in `src-tauri/src/main.rs` with target-specific overrides.
   - Follow the pattern of existing patches (e.g., `apk/alpine.3.22.patch`,
     `deb/debian.12.patch`, `rpm/opensuse.tumbleweed.patch`).
   - Use the same WebKitGTK conservative path variables for musl targets:
@@ -155,7 +156,7 @@ and AppImage targets, CI runs are handled entirely in GitHub Actions.
   - Add the new patch to the full patch tree diagram.
   - Add the patch to the roadmap patch-ready table (or move it to
     release-gated if fully promoted).
-- [ ] Update `docs/release-checklist.md`:
+- [ ] Update `docs/reference/release-checklist.md`:
   - Add the new package target to the "All builds are green" checklist.
 
 ## Step 7: Push and Validate
@@ -177,7 +178,7 @@ and AppImage targets, CI runs are handled entirely in GitHub Actions.
   `release-gated`, set `runtime_smoke.status: pass`, add evidence.
 - [ ] Update `docs/build-packaging/packaging.md`: move the target to the release-gated table.
 - [ ] Update `patches/README.md`: move the patch to the release-gated list.
-- [ ] Update `docs/release-checklist.md` if needed.
+- [ ] Update `docs/reference/release-checklist.md` if needed.
 - [ ] Merge the promotion through a pull request into `main`.
 
 ## Notes and Lessons Learned

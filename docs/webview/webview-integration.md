@@ -434,9 +434,9 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_GL=disable GSK_RENDERER=cairo ./proton-dri
 
 ## See Also
 
-- **[Proxy System](proxy-system.md)** — Fetch/XHR proxy layer, request interception, error handling
-- **[Auth Module](auth-module.md)** — Session lifecycle, cookie management, logout flow
-- **[SSO Authentication](sso-authentication.md)** — End-to-end SSO, CAPTCHA, cookie bridge protocol
-- **[Proton Navigation](proton-navigation.md)** — URL rewriting, SSO routing
-- **[Blob Downloads](blob-downloads.md)** — File download pipeline through the WebView bridge
-- **[Architecture](ARCHITECTURE.md)** — How the WebView fits into the overall AppState
+- **[Proxy System](../architecture/proxy-system.md)** — Fetch/XHR proxy layer, request interception, error handling
+- **[Auth Module](../auth/auth-module.md)** — Session lifecycle, cookie management, logout flow
+- **[SSO Authentication](../auth/sso-authentication.md)** — End-to-end SSO, CAPTCHA, cookie bridge protocol
+- **[Proton Navigation](../architecture/proton-navigation.md)** — URL rewriting, SSO routing
+- **[Blob Downloads](../reference/blob-downloads.md)** — File download pipeline through the WebView bridge
+- **[Architecture](../architecture/architecture.md)** — How the WebView fits into the overall AppState
