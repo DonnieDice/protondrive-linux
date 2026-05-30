@@ -332,9 +332,13 @@ build:aur:
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
-    - mkdir -p artifacts
-    - cp /tmp/aur-output/*.pkg.tar.zst artifacts/ 2>/dev/null || true
-    - cp aur/.SRCINFO artifacts/ 2>/dev/null || true
+      cd "${CI_PROJECT_DIR}"
+    # NOTE: the block above cd's into aur/; return to project root so artifacts/
+    # is created at the repo root where GitLab collects it (was silently
+    # landing in aur/artifacts/ → "No files to upload" → verify:aur got nothing).
+    - mkdir -p "${CI_PROJECT_DIR}/artifacts"
+    - cp /tmp/aur-output/*.pkg.tar.zst "${CI_PROJECT_DIR}/artifacts/"
+    - cp aur/.SRCINFO "${CI_PROJECT_DIR}/artifacts/" 2>/dev/null || true
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
