@@ -1,3 +1,15 @@
+---
+title: "Configuration Reference"
+created: 2026-05-28
+updated: 2026-05-28
+type: reference
+tags: [configuration, build, proxy, sync, database, webview]
+sources:
+  - src-tauri/src/main.rs
+  - src-tauri/src/sync_db.rs
+  - src-tauri/src/live_sync.rs
+  - src-tauri/tauri.conf.json
+---
 # Configuration Reference
 
 Reference for every constant, environment variable, timeout, and file path

@@ -1,3 +1,14 @@
+---
+title: "Contributors"
+created: 2026-05-28
+updated: 2026-05-28
+type: meta
+tags: [contributing]
+sources:
+  - []
+---
+
+
 # Contributors
 
 This project includes community contributions that were later carried through

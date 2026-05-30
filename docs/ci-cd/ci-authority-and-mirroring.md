@@ -1,3 +1,14 @@
+---
+title: "CI Authority and GitHub Mirroring"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [ci]
+sources:
+  - []
+---
+
+
 # CI Authority and GitHub Mirroring
 
 `protondrive-linux` is designed to keep one authoritative CI/CD system.

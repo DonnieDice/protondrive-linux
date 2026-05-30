@@ -1,3 +1,14 @@
+---
+title: "Contributor Covenant Code of Conduct"
+created: 2026-05-28
+updated: 2026-05-28
+type: meta
+tags: [contributing]
+sources:
+  - []
+---
+
+
 # Contributor Covenant Code of Conduct
 
 ## Our Pledge

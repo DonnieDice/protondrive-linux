@@ -1,3 +1,14 @@
+---
+title: "Proton Drive Navigation / Routing"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [navigation, sso, proxy]
+sources:
+  - src-tauri/src/proton_navigation.rs
+---
+
+
 # Proton Drive Navigation / Routing
 
 > **Location:** `src-tauri/src/main.rs` — the navigation/routing logic is embedded in the `setup()` closure of the Tauri builder, not in a separate `proton_navigation.rs` module.

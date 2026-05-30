@@ -1,3 +1,14 @@
+---
+title: "live_sync Module — Real-Time Sync Engine"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [sync, architecture]
+sources:
+  - src-tauri/src/live_sync.rs
+---
+
+
 # `live_sync` Module — Real-Time Sync Engine
 
 > **Status:** Experimental — 2-way live file synchronization between a local folder and Proton Drive.

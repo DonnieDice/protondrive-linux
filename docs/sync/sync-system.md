@@ -1,3 +1,14 @@
+---
+title: "Live Sync System"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [sync, architecture, database, configuration]
+sources:
+  - src-tauri/src/main.rs
+---
+
+
 # Live Sync System
 
 The sync system watches a local folder for changes and synchronizes them with Proton Drive. It has two independent change detection mechanisms, a suppression cache to prevent feedback loops, a remote-apply pipeline, and a SQLite-backed state tracker.

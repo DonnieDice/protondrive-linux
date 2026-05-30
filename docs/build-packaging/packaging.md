@@ -1,3 +1,14 @@
+---
+title: "Packaging, Compatibility, And Release"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [packaging, build, release]
+sources:
+  - []
+---
+
+
 # Packaging, Compatibility, And Release
 
 This is the canonical human-readable Linux packaging policy. Machine-readable

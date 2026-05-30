@@ -1,3 +1,14 @@
+---
+title: "Blob Download System"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [download, webview, auth]
+sources:
+  - src-tauri/src/main.rs
+---
+
+
 # Blob Download System
 
 Proton Drive serves files through encrypted "block" downloads. The SPA decrypts blocks in JavaScript and constructs a Blob, then triggers a download. On Linux, we intercept this entire chain and route it to the native filesystem.

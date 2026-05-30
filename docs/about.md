@@ -1,5 +1,11 @@
 ---
-title: About ProtonDrive Linux
+title: "About ProtonDrive Linux"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [architecture, sync, auth]
+sources:
+  - []
 editLink: true
 ---
 

@@ -1,3 +1,14 @@
+---
+title: "Proton Drive for Linux — Architecture"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [architecture, webview, sync, auth, proxy, sso, navigation]
+sources:
+  - src-tauri/src/main.rs
+---
+
+
 # Proton Drive for Linux — Architecture
 
 > **Version:** 1.4.4  

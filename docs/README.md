@@ -1,3 +1,11 @@
+---
+title: "Documentation"
+created: 2025-11-30
+updated: 2026-05-28
+type: index
+tags: [architecture]
+sources: []
+---
 # Documentation
 
 Project documentation lives here. The root `README.md` is kept as the GitHub landing page.

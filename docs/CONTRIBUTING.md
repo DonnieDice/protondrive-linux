@@ -1,3 +1,14 @@
+---
+title: "Contributing to Proton Drive Linux"
+created: 2026-05-28
+updated: 2026-05-28
+type: meta
+tags: [contributing, build]
+sources:
+  - []
+---
+
+
 # Contributing to Proton Drive Linux
 
 Thank you for your interest in contributing. This guide covers the current repo
