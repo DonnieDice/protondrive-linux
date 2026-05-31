@@ -70,10 +70,16 @@ copy_to_vm() {
   local ip="$1" file="$2" base; base="$(basename "$file")"
   _pd_ssh_init
   run_on_vm "$ip" 'rm -rf /tmp/pd-deploy && mkdir -p /tmp/pd-deploy'
-  scp -i "$_PD_KEYFILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
+  # -O forces legacy SCP protocol (not SFTP subsystem) for compatibility with
+  # openSUSE and other sshd configs that don't advertise the sftp subsystem.
+  if scp -O -i "$_PD_KEYFILE" -o IdentitiesOnly=yes -o StrictHostKeyChecking=no \
       -o UserKnownHostsFile=/dev/null -o ConnectTimeout=10 \
-      "$file" "$VM_SSH_USER@$ip:/tmp/pd-deploy/$base"
-  echo "/tmp/pd-deploy/$base"
+      "$file" "$VM_SSH_USER@$ip:/tmp/pd-deploy/$base"; then
+    echo "/tmp/pd-deploy/$base"
+  else
+    echo "ERROR: scp failed transferring $base to $ip" >&2
+    return 1
+  fi
 }
 
 # vm_reachable <ip>

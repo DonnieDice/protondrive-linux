@@ -153,11 +153,17 @@ type_into_focused() {
 start_xvfb() {
   have Xvfb || { echo "ERROR: Xvfb not installed" >&2; exit 2; }
   pkill -f "Xvfb $DISPLAY_NUM" 2>/dev/null || true
+  sleep 0.5
   Xvfb "$DISPLAY_NUM" -screen 0 1280x900x24 -ac >"$LOG_DIR/xvfb.log" 2>&1 &
   XVFB_PID=$!
-  for i in 1 2 3 4 5; do
-    DISPLAY="$DISPLAY_NUM" xdpyinfo >/dev/null 2>&1 && return 0
+  for i in 1 2 3 4 5 6; do
     sleep 1
+    # Prefer xdpyinfo; fall back to lock-file check (works when xdpyinfo absent)
+    if have xdpyinfo; then
+      DISPLAY="$DISPLAY_NUM" xdpyinfo >/dev/null 2>&1 && return 0
+    elif [ -e "/tmp/.X${DISPLAY_NUM#:}-lock" ]; then
+      return 0
+    fi
   done
   echo "ERROR: Xvfb did not start" >&2; exit 2
 }
@@ -168,7 +174,10 @@ launch_app() {
   LIBGL_ALWAYS_SOFTWARE=1 \
   WEBKIT_DISABLE_COMPOSITING_MODE=1 \
   WEBKIT_DISABLE_DMABUF_RENDERER=1 \
+  WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1 \
   GDK_BACKEND=x11 \
+  GDK_GL=software \
+  GSK_RENDERER=cairo \
   NO_AT_BRIDGE=1 \
     "$BIN" >"$LOG_DIR/app.log" 2>&1 &
   APP_PID=$!
