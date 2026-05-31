@@ -45,6 +45,7 @@ include:
 stages:
   - test      # unit tests, shellcheck, lint
   - build     # per-distro package builds
+  - gate      # build:gate — confirms all distro builds passed before deploy stages
   - transfer  # SCP artifacts to target VMs
   - install   # distro-specific package manager install on each VM
   - vmtest    # regression + GUI load tests on each VM

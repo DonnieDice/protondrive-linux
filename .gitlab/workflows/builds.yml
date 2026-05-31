@@ -1134,9 +1134,12 @@ build:snap:core26:
 # Report jobs do NOT need this gate and always run.
 
 build:gate:
-  extends: .rules:build
-  stage: build
+  stage: gate
   image: alpine:latest
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
   needs:
     - "build:apk:alpine-3.20"
     - "build:apk:alpine-3.22"
