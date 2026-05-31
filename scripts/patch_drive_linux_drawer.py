@@ -26,6 +26,12 @@ def replace_once(content: str, old: str, new: str, label: str) -> str:
 
 
 def main() -> None:
+    # The upstream drawerSidebarButtons already includes:
+    #   - ContactDrawerAppButton  (contacts: true for all users)
+    #   - CalendarDrawerAppButton (patched to local /calendar/ by patch_drive_linux_calendar.py)
+    #   - ReferralAppButton       (DRAWER_NATIVE_APPS.REFERRAL, native React, feature-flag gated)
+    # This script prepends the Linux button to that array; the above entries are
+    # preserved unmodified.  DrawerReferralView renders when appInView===REFERRAL.
     drive_window = next((path for path in DRIVE_WINDOW_CANDIDATES if path.exists()), None)
     if drive_window is None:
         fail("Unable to find DriveWindow.tsx in current WebClients layout")
