@@ -1,8 +1,11 @@
 transfer:ubuntu-24.04:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:deb:ubuntu-24.04"
   needs:
     - job: "build:deb:ubuntu-24.04"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-ubuntu-24.04"
     paths: [transfer-results/]

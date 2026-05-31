@@ -1,8 +1,11 @@
 transfer:aur:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:aur"
   needs:
     - job: "build:aur"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-aur"
     paths: [transfer-results/]

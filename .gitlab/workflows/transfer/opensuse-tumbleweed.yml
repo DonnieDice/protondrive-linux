@@ -1,8 +1,11 @@
 transfer:rpm-opensuse-tumbleweed:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:rpm:opensuse-tumbleweed"
   needs:
     - job: "build:rpm:opensuse-tumbleweed"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-rpm-opensuse-tumbleweed"
     paths: [transfer-results/]
