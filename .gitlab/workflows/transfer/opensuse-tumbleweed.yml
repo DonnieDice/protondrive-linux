@@ -3,6 +3,7 @@ transfer:rpm-opensuse-tumbleweed:
   variables:
     BUILD_JOB_NAME: "build:rpm:opensuse-tumbleweed"
   needs:
+    - job: "build:gate"
     - job: "build:rpm:opensuse-tumbleweed"
       artifacts: true
       optional: true

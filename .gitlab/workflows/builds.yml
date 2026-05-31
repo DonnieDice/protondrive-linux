@@ -791,6 +791,7 @@ build:rpm:el10:
   stage: build
   image: quay.io/centos/centos:stream10
   timeout: 2h
+  retry: 1
   variables:
     DISTRO_PATCH: el10
   cache:
@@ -1046,7 +1047,7 @@ build:snap:core24:
       sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
       docker run --rm --entrypoint "" \
         -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
+        ghcr.io/canonical/snapcraft:stable \
         snapcraft pack --destructive-mode --output /project
       SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
       [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
@@ -1113,7 +1114,7 @@ build:snap:core26:
             -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
       docker run --rm --entrypoint "" \
         -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
+        ghcr.io/canonical/snapcraft:stable \
         snapcraft pack --destructive-mode --output /project
       SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
       [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
@@ -1123,3 +1124,29 @@ build:snap:core26:
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
+
+# ─── Build gate ────────────────────────────────────────────────────────────────
+# Waits for all distro builds that feed into transfer/install/vmtest.
+# If any of those builds fails this job is skipped, which cascades:
+#   transfer/* (all needs build:gate) → skipped
+#   install/*  (needs transfer)       → skipped
+#   vmtest/*   (needs install)        → skipped
+# Report jobs do NOT need this gate and always run.
+
+build:gate:
+  extends: .rules:build
+  stage: build
+  image: alpine:latest
+  needs:
+    - "build:apk:alpine-3.20"
+    - "build:apk:alpine-3.22"
+    - "build:aur"
+    - "build:deb:debian-12"
+    - "build:deb:debian-13"
+    - "build:deb:ubuntu-24.04"
+    - "build:deb:ubuntu-26.04"
+    - "build:rpm:el10"
+    - "build:rpm:fedora-43"
+    - "build:rpm:opensuse-tumbleweed"
+  script:
+    - echo "All distro builds passed — transfer/install/vmtest stages are cleared to run"
