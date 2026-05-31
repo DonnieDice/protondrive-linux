@@ -75,24 +75,52 @@ Lightweight pre-flight checks that run before builds:
 
 The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), covering login-routing regression, sync regression, and Rust unit tests — but no `fmt` or `clippy` checks on GitHub. No package building occurs there.
 
-### Verify — VM smoke tests (GitLab CI only)
+### Transfer, Install, Vmtest, Report — VM verification chain (GitLab CI only)
 
-Installs the built package on a real distro VM and runs smoke tests. One job per distro, each extends `.verify:base`:
+The old monolithic `verify` stage is replaced by four granular stages so failures
+are pinpointed and reports are separated from test execution.
 
-| Job | Container | Needs | Script |
-|-----|-----------|-------|--------|
-| `verify:debian-12` | `alpine:latest` | `build:deb:debian-12` | `scripts/ci/deploy-and-test-vm.sh debian12` |
-| `verify:debian-13` | `alpine:latest` | `build:deb:debian-13` | `scripts/ci/deploy-and-test-vm.sh debian13` |
-| `verify:ubuntu-24.04` | `alpine:latest` | `build:deb:ubuntu-24.04` | `scripts/ci/deploy-and-test-vm.sh ubuntu2404` |
-| `verify:ubuntu-26.04` | `alpine:latest` | `build:deb:ubuntu-26.04` | `scripts/ci/deploy-and-test-vm.sh ubuntu2604` |
-| `verify:alpine-3.20` | `alpine:latest` | `build:apk:alpine-3.20` | `scripts/ci/deploy-and-test-vm.sh alpine320` |
-| `verify:alpine-3.22` | `alpine:latest` | `build:apk:alpine-3.22` | `scripts/ci/deploy-and-test-vm.sh alpine322` |
-| `verify:el10` | `alpine:latest` | `build:rpm:el10` | `scripts/ci/deploy-and-test-vm.sh el10` |
-| `verify:fedora-43` | `alpine:latest` | `build:rpm:fedora-43` | `scripts/ci/deploy-and-test-vm.sh fedora43` |
-| `verify:opensuse-tumbleweed` | `alpine:latest` | `build:rpm:opensuse-tumbleweed` | `scripts/ci/deploy-and-test-vm.sh opensusetw` |
-| `verify:arch` | `alpine:latest` | `build:aur` | `scripts/ci/deploy-and-test-vm.sh arch` |
+**Transfer** — SCPs the built artifact to each target VM. Emits a dotenv
+(`REMOTE_PKG_PATH`) consumed by the install stage.
 
-`allow_failure: true` for manual runs. Requires a runners VM network (192.168.1.0/24) and pre-configured `VM_SSH_KEY`.
+**Install** — SSHes into each VM and runs the distro-native package manager
+install (`dnf`, `apt`, `pacman`, `apk`, `zypper`).
+
+**Vmtest** — Runs regression checks and compositor-confirmed visual tests on each
+VM. Visual tests use Xvfb + xdotool + scrot + tesseract OCR to confirm the UI
+actually appears on screen (process-alive is not sufficient). Each distro defines
+a `distro_checks()` hook for package-manager-level assertions (architecture,
+SELinux audit log, EPEL status, etc.).
+
+**Report** — Five separate jobs aggregate results without blocking on each other:
+
+| Job | Output | Viewing |
+|-----|--------|---------|
+| `report:deployment-matrix` | JUnit + Markdown matrix | MR Tests tab |
+| `report:robot-html` | Robot Framework HTML | Artifact browser |
+| `report:pytest-html` | pytest HTML | Artifact browser |
+| `report:ui-screenshots` | Compositor screenshot gallery | Artifact browser |
+| `pages` | Aggregated dashboard | GitLab Pages (requires DNS) |
+
+**Build deduplication:** builds are skipped when no source file changed. Transfer
+still runs using the last successful artifact from this branch. See
+[Build Deduplication and Artifact Reuse](./build-deduplication.md) for the full
+mechanism including `fetch-latest-artifact.sh` and `optional: true` semantics.
+
+**VM inventory** (10 VMs, 192.168.1.0/24 network, SSH via deploy key):
+
+| Job prefix | Distro | Package format |
+|------------|--------|----------------|
+| `*:debian-12` | Debian 12 | `.deb` |
+| `*:debian-13` | Debian 13 | `.deb` |
+| `*:ubuntu-24.04` | Ubuntu 24.04 | `.deb` |
+| `*:ubuntu-26.04` | Ubuntu 26.04 | `.deb` |
+| `*:alpine-3.20` | Alpine 3.20 | `.apk.tar.gz` |
+| `*:alpine-3.22` | Alpine 3.22 | `.apk.tar.gz` |
+| `*:rpm-el10` | CentOS Stream 10 | `.rpm` |
+| `*:rpm-fedora-43` | Fedora 43 | `.rpm` |
+| `*:rpm-opensuse-tumbleweed` | openSUSE Tumbleweed | `.rpm` |
+| `*:aur` | Arch Linux | `.pkg.tar.zst` |
 
 ### Build — 17 distro packages
 
@@ -425,4 +453,6 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | No artifact signing | Users cannot verify download provenance | Roadmap |
 | No SBOM | Downstream packagers cannot validate deps | Roadmap |
 | Snap core26 `allow_failure` | Latest Ubuntu snap base untested | Roadmap |
-| No shared Rust cache between jobs | Each of 17 jobs rebuilds deps independently (~2h each) | Roadmap |
+| First-build cliff on new branches | CI-only change on a brand-new branch fails artifact fetch (404) | fetch-latest-artifact.sh error message guides fix |
+| No artifact source-state cross-check | Fetched artifact is not verified against current Cargo.lock hash | Low risk; only affects CI-only commits |
+| Docs commits run vmtest | Only builds have `changes:` gates; vmtest runs on all commits conservatively | Acceptable; add `changes:` to transfer base if runner cost grows |
