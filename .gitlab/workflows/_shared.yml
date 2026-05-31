@@ -15,10 +15,26 @@ variables:
 .rules:build:
   interruptible: true
   rules:
+    # Only rebuild when source or build config actually changed.
+    # Docs, test scripts, CI report/transfer/install/vmtest yml changes skip builds.
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      changes: &src_globs
+        - src/**/*
+        - src-tauri/**/*
+        - patches/**/*
+        - package.json
+        - package-lock.json
+        - Cargo.toml
+        - Cargo.lock
+        - scripts/build-*.sh
+        - scripts/ci/lib/install-rust.sh
+        - scripts/ci/lib/fetch-webclients.sh
+        - .gitlab/workflows/builds.yml
+        - .gitlab/workflows/_shared.yml
     - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-    - when: manual
+      changes: *src_globs
+    - if: $CI_COMMIT_TAG   # release tags always build
+    - when: manual          # manual override to force a rebuild
       allow_failure: true
 
 .rules:release:
