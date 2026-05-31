@@ -119,18 +119,25 @@ cd "$REPO_ROOT"
 python3 scripts/create_stubs.py
 cd WebClients
 
-# 4. Build all three apps in parallel (saves ~4-6 minutes vs sequential)
-echo "🔨 Building Drive, Account, and Verify apps in parallel..."
-$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
-DRIVE_PID=$!
-$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log &
-ACCOUNT_PID=$!
-$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log &
-VERIFY_PID=$!
+# 4. Build three apps sequentially to avoid OOM under concurrent CI jobs.
+# Each webpack instance peaks at ~4-6 GB; running all three in parallel inside
+# one job (plus neighbouring jobs on the shared runner) exhausted the 48 GB
+# host RAM and triggered kernel OOM kills. Sequential costs ~4 min extra per
+# job but is stable regardless of runner concurrency.
+echo "🔨 Building Drive app..."
+$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log \
+  || { echo "❌ Drive build failed"; exit 1; }
+echo "✅ Drive build complete"
 
-wait $DRIVE_PID   && echo "✅ Drive build complete"   || { echo "❌ Drive build failed"; exit 1; }
-wait $ACCOUNT_PID && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
-wait $VERIFY_PID  && echo "✅ Verify build complete"  || echo "⚠️  Verify build failed (captcha optional)"
+echo "🔨 Building Account app..."
+$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log \
+  || echo "⚠️  Account build failed (login may not work)"
+echo "✅ Account build complete"
+
+echo "🔨 Building Verify app..."
+$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log \
+  || echo "⚠️  Verify build failed (captcha optional)"
+echo "✅ Verify build complete"
 
 # 4d. Copy account app to drive dist and fix paths
 echo "📦 Copying account app to drive dist..."
