@@ -1,8 +1,11 @@
 transfer:alpine-3.22:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:apk:alpine-3.22"
   needs:
     - job: "build:apk:alpine-3.22"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-alpine-3.22"
     paths: [transfer-results/]

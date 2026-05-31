@@ -1,8 +1,11 @@
 transfer:debian-12:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:deb:debian-12"
   needs:
     - job: "build:deb:debian-12"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-debian-12"
     paths: [transfer-results/]

@@ -7,7 +7,10 @@
   image: alpine:latest
   interruptible: true
   before_script:
-    - apk add --no-cache bash openssh-client coreutils
+    - apk add --no-cache bash openssh-client coreutils curl unzip
+    # If build was skipped (no source change), restore artifact from the last
+    # successful pipeline on this branch so transfer/install/vmtest still run.
+    - bash scripts/ci/lib/fetch-latest-artifact.sh "${BUILD_JOB_NAME}"
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH

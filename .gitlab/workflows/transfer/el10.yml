@@ -1,8 +1,11 @@
 transfer:rpm-el10:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:rpm:el10"
   needs:
     - job: "build:rpm:el10"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-rpm-el10"
     paths: [transfer-results/]

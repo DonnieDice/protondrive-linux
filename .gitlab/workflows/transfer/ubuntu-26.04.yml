@@ -1,8 +1,11 @@
 transfer:ubuntu-26.04:
   extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:deb:ubuntu-26.04"
   needs:
     - job: "build:deb:ubuntu-26.04"
       artifacts: true
+      optional: true
   artifacts:
     name: "transfer-results-ubuntu-26.04"
     paths: [transfer-results/]
