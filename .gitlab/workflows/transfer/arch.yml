@@ -3,6 +3,7 @@ transfer:aur:
   variables:
     BUILD_JOB_NAME: "build:aur"
   needs:
+    - job: "build:gate"
     - job: "build:aur"
       artifacts: true
       optional: true

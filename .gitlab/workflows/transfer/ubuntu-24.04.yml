@@ -3,6 +3,7 @@ transfer:ubuntu-24.04:
   variables:
     BUILD_JOB_NAME: "build:deb:ubuntu-24.04"
   needs:
+    - job: "build:gate"
     - job: "build:deb:ubuntu-24.04"
       artifacts: true
       optional: true

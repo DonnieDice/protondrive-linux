@@ -3,6 +3,7 @@ transfer:rpm-fedora-43:
   variables:
     BUILD_JOB_NAME: "build:rpm:fedora-43"
   needs:
+    - job: "build:gate"
     - job: "build:rpm:fedora-43"
       artifacts: true
       optional: true

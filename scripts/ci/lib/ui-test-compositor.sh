@@ -198,8 +198,15 @@ suite_smoke() {
     return 1
   fi
 
-  # T2: login screen visible — OCR must find expected text, not just process alive
-  sleep 3  # allow WebKit to render
+  # T2: login screen visible — poll until WebKit renders content (up to 15s)
+  local render_deadline=$(( SECONDS + 15 )) ocr_text_found=""
+  while [ $SECONDS -lt $render_deadline ]; do
+    local probe_img; probe_img="$(screenshot "smoke_login_probe" 2>/dev/null)"
+    [ -n "$probe_img" ] && ocr_text_found="$(ocr_text "$probe_img")"
+    [ -n "$ocr_text_found" ] && break
+    sleep 2
+  done
+  [ -z "$ocr_text_found" ] && echo "  [warn] WebKit still blank after 15s — OCR will likely fail"
   screen_contains "login screen: 'Sign in' rendered" "sign.in\|sign in\|log.in\|proton" "smoke_login_screen"
 
   # T3: email field label visible
@@ -216,7 +223,7 @@ suite_ui() {
   echo "=== [ui] login screen + sidebar pre-login + menus ==="
   local wid; wid="$(wait_for_window 25)"
   [ -n "$wid" ] || { record "window appeared" fail "no window"; return 1; }
-  sleep 3
+  local _d=$(( SECONDS + 15 )); until [ $SECONDS -ge $_d ] || [ -n "$(ocr_text "$(screenshot "ui_render_probe" 2>/dev/null)")" ]; do sleep 2; done
 
   # Login screen structure
   screen_contains "email input field visible"    "email\|username" "ui_email"

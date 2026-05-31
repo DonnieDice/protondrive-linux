@@ -3,6 +3,7 @@ transfer:alpine-3.22:
   variables:
     BUILD_JOB_NAME: "build:apk:alpine-3.22"
   needs:
+    - job: "build:gate"
     - job: "build:apk:alpine-3.22"
       artifacts: true
       optional: true

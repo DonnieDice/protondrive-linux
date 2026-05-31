@@ -3,6 +3,7 @@ transfer:rpm-el10:
   variables:
     BUILD_JOB_NAME: "build:rpm:el10"
   needs:
+    - job: "build:gate"
     - job: "build:rpm:el10"
       artifacts: true
       optional: true

@@ -3,6 +3,7 @@ transfer:debian-12:
   variables:
     BUILD_JOB_NAME: "build:deb:debian-12"
   needs:
+    - job: "build:gate"
     - job: "build:deb:debian-12"
       artifacts: true
       optional: true
