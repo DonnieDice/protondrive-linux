@@ -97,14 +97,27 @@ All CI builds must be green before proceeding. The project uses **two CI systems
 
 Per-target builds (check on either CI system, both must be green):
 
+GitLab CI runs eight stages — confirm each in sequence:
+
+- [ ] **`test` stage** — all 5 jobs pass (fmt, clippy, rust, login-routing, sync).
+- [ ] **`build` stage** — all distro builds pass.
+- [ ] **`gate` stage** — `build:gate` passes. A skipped gate means a build failed; do not proceed.
+- [ ] **`transfer` stage** — artifact SCPed to all 10 VMs.
+- [ ] **`install` stage** — package installed on all 10 VMs.
+- [ ] **`vmtest` stage** — GUI loads, OCR confirms login screen, regression checks clean on all VMs.
+- [ ] **`report` stage** — deployment matrix report generated.
+
+Per-target build checks (both CI systems):
+
 - [ ] **AppImage** — linux-baseline job is passing.
 - [ ] **DEB** — Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 jobs passing.
 - [ ] **RPM** — Fedora 43, Fedora 44, EL10, openSUSE Tumbleweed jobs passing.
 - [ ] **Flatpak** — GNOME 49 and GNOME 50 jobs passing.
-- [ ] **Snap** — core24 and core26 jobs passing.
+- [ ] **Snap** — core24 passing; core26 is `allow_failure` (non-blocking).
 - [ ] **AUR** — Arch Native job is passing.
 - [ ] **APK (Alpine)** — 3.20, 3.22, and 3.23 jobs passing.
 - [ ] **Release job** — final release pipeline job is passing.
+- [ ] **GitHub Actions** — confirm all jobs pass in the `package-workflows.yml` run.
 
 > **CI tip:** The tag pipeline (`v*` tag) is what triggers the final release
 > job on both CI systems. Always check the tag-specific pipeline, not a
