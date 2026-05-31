@@ -47,27 +47,49 @@ test_summary() {
 install_test_deps() {
   local ip="$1" family="$2"
   echo "--- installing test deps (Xvfb + xdotool + scrot + tesseract OCR) on $ip ---"
+  # Install each tool individually so one unavailable package does not block the rest.
+  # All failures are non-fatal; compositor tests degrade gracefully on missing tools.
   case "$family" in
     apk)
-      run_on_vm "$ip" 'apk add --no-cache xvfb xdotool scrot tesseract-ocr imagemagick wmctrl python3 py3-pip 2>/dev/null || true
-        pip3 install --quiet pyotp 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'apk add --no-cache xvfb       2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache xdotool     2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache scrot        2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache tesseract-ocr 2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache imagemagick  2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache python3 py3-pip 2>/dev/null || true'
+      run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     deb)
-      run_on_vm "$ip" \
-        'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb x11-utils xdotool scrot tesseract-ocr imagemagick wmctrl python3-pip 2>/dev/null || true
-         pip3 install --quiet pyotp 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb       2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q x11-utils   2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xdotool     2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q scrot       2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q tesseract-ocr 2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q imagemagick  2>/dev/null || true'
+      run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || pip install --quiet pyotp 2>/dev/null || true' ;;
     rpm-dnf)
-      run_on_vm "$ip" \
-        'dnf install -y xorg-x11-server-Xvfb xorg-x11-utils xdotool scrot tesseract imagemagick wmctrl python3-pip 2>/dev/null \
-         || dnf install -y xorg-x11-server-Xvfb 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'dnf install -y xorg-x11-server-Xvfb  2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y xorg-x11-utils         2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y xorg-x11-apps          2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y xdotool                2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y scrot                   2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y tesseract tesseract-langpack-eng 2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y ImageMagick             2>/dev/null || true'
+      run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     rpm-zypper)
-      run_on_vm "$ip" \
-        'zypper --non-interactive install xvfb-run xdotool scrot tesseract-ocr imagemagick wmctrl python3-pip 2>/dev/null \
-         || zypper --non-interactive install xorg-x11-server 2>/dev/null || true
-         pip3 install --quiet pyotp 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'zypper --non-interactive install xvfb-run    2>/dev/null || zypper --non-interactive install xorg-x11-server 2>/dev/null || true'
+      run_on_vm "$ip" 'zypper --non-interactive install xdotool      2>/dev/null || true'
+      run_on_vm "$ip" 'zypper --non-interactive install scrot         2>/dev/null || true'
+      run_on_vm "$ip" 'zypper --non-interactive install tesseract-ocr 2>/dev/null || true'
+      run_on_vm "$ip" 'zypper --non-interactive install ImageMagick   2>/dev/null || true'
+      run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     aur)
-      run_on_vm "$ip" \
-        'pacman -S --noconfirm --needed xorg-server-xvfb xorg-xwininfo xdotool scrot tesseract imagemagick wmctrl python-pip 2>/dev/null || true
-         pip install --quiet pyotp 2>/dev/null || true' ;;
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed xorg-server-xvfb 2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed xorg-xwininfo     2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed xdotool            2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed scrot              2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed tesseract          2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed imagemagick        2>/dev/null || true'
+      run_on_vm "$ip" 'pip install --quiet pyotp 2>/dev/null || true' ;;
   esac
   return 0
 }
@@ -100,8 +122,8 @@ gui_load_test() {
     _PD_TEST_FAILS=$((_PD_TEST_FAILS+1)); return 1
   fi
   copy_to_vm "$ip" "$checker" >/dev/null
-  local out
-  out="$(run_on_vm "$ip" 'bash /tmp/pd-deploy/gui-load-check.sh proton-drive 12' 2>&1)"
+  local out rc=0
+  out="$(run_on_vm "$ip" 'bash /tmp/pd-deploy/gui-load-check.sh proton-drive 12' 2>&1)" || rc=$?
   echo "$out" | sed 's/^/    /'
   if echo "$out" | grep -q 'GUI_LOAD_RESULT=PASS'; then
     echo "  ✓ GUI loads under CI-micro-compositor"

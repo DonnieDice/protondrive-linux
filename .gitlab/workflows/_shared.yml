@@ -9,6 +9,9 @@ variables:
   # runner's CPU set. Runner cpuset = 12 cores (6-17); with concurrent=3 that is
   # 3 jobs x 4 cores = 12 threads, a clean 1:1 with the cores (no thrash).
   CARGO_BUILD_JOBS: "4"
+  # Cap Node/webpack heap per job. Webpack OOMs at 8 concurrent builds without
+  # this limit. 4 GB x 8 jobs = 32 GB peak Node usage, leaving headroom in 48 GB.
+  NODE_OPTIONS: "--max-old-space-size=4096"
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 
