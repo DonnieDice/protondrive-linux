@@ -17,6 +17,7 @@ variables:
 
 .rules:build:
   interruptible: true
+  retry: 1   # webpack OOM (SIGKILL) is intermittent under parallel runner load
   rules:
     # Only rebuild when source or build config actually changed.
     # Docs, test scripts, CI report/transfer/install/vmtest yml changes skip builds.
