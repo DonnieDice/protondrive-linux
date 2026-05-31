@@ -791,7 +791,6 @@ build:rpm:el10:
   stage: build
   image: quay.io/centos/centos:stream10
   timeout: 2h
-  retry: 1
   variables:
     DISTRO_PATCH: el10
   cache:
