@@ -34,10 +34,16 @@ flowchart TD
 
     subgraph GitLab_CI["GitLab CI (authoritative)"]
         direction LR
-        GL_BUILD["Build Stage\n17 jobs"]
-        GL_SPEC["Spec Stage\nPKGBUILD, .spec, source tarball"]
-        GL_REL["Release Stage\nupload to Package Registry\ncreate GitLab Release"]
-        GL_PUB["Publish Stage\nAUR, Flathub, Snap Store"]
+        GL_TEST["Test Stage\n5 jobs"]
+        GL_BUILD["Build Stage\n17+ jobs"]
+        GL_GATE["Gate Stage\nbuild:gate\n(fail-fast sentinel)"]
+        GL_TRANSFER["Transfer Stage\n10 VMs"]
+        GL_INSTALL["Install Stage\n10 VMs"]
+        GL_VMTEST["Vmtest Stage\n10 VMs"]
+        GL_REPORT["Report Stage\n5 jobs (always runs)"]
+        GL_SPEC["Spec Stage"]
+        GL_REL["Release Stage"]
+        GL_PUB["Publish Stage"]
     end
 
     subgraph GitHub_Actions["GitHub Actions (manual dispatch only)"]
@@ -49,17 +55,30 @@ flowchart TD
     end
 
     GR_TRIGGER["workflow_dispatch"] --> GH_BUILD
-    PUSH --> GL_BUILD
-    TAG --> GL_BUILD & GL_SPEC & GL_REL & GL_PUB
-    PR --> GL_BUILD
-    GR_TRIGGER --> GH_REL & GH_PUB
+    PUSH --> GL_TEST --> GL_BUILD
+    TAG --> GL_BUILD
+    PR --> GL_TEST
 
+    GL_BUILD --> GL_GATE
+    GL_GATE -->|"all builds passed"| GL_TRANSFER --> GL_INSTALL --> GL_VMTEST --> GL_REPORT
+    GL_GATE -->|"any build failed: skip"| GL_REPORT
     GL_BUILD --> GL_SPEC --> GL_REL --> GL_PUB
     GH_BUILD --> GH_REL --> GH_PUB
     GH_MISC -.->|"issues / PRs / labels"| GH_BUILD
 ```
 
 ## Pipeline Stages
+
+GitLab CI runs eight sequential stages. The `gate` stage acts as a fail-fast
+sentinel between the build compilers and the VM deployment chain:
+
+```
+test → build → gate → transfer → install → vmtest → report → spec/release/publish
+```
+
+If any build job fails, `build:gate` is skipped. Every `transfer/*` job needs
+`build:gate`, so a single build failure cascades silently through transfer,
+install, and vmtest (all skipped). The `report` stage always runs regardless.
 
 ### Test — 5 jobs (GitLab CI only)
 
@@ -74,6 +93,24 @@ Lightweight pre-flight checks that run before builds:
 | `test:rust` | `debian:12` | 30m | `cargo test` — unit tests for login routing, webview cookies, and live sync |
 
 The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), covering login-routing regression, sync regression, and Rust unit tests — but no `fmt` or `clippy` checks on GitHub. No package building occurs there.
+
+### Gate — 1 job (GitLab CI only)
+
+`build:gate` is a lightweight Alpine job that sits between the build and
+transfer stages. It declares `needs:` for all 10 distro build jobs that feed
+into the VM deploy chain:
+
+- `build:apk:alpine-3.20`, `build:apk:alpine-3.22`, `build:aur`
+- `build:deb:debian-12`, `build:deb:debian-13`
+- `build:deb:ubuntu-24.04`, `build:deb:ubuntu-26.04`
+- `build:rpm:el10`, `build:rpm:fedora-43`, `build:rpm:opensuse-tumbleweed`
+
+If any of those jobs fail, GitLab skips `build:gate`. Because every
+`transfer/*` job also declares `needs: ["build:gate"]`, they are all skipped
+too — and the skip propagates through install and vmtest automatically.
+
+The `report` stage does **not** depend on `build:gate` and always runs,
+producing a deployment-matrix report even for failed pipelines.
 
 ### Transfer, Install, Vmtest, Report — VM verification chain (GitLab CI only)
 
@@ -90,7 +127,9 @@ install (`dnf`, `apt`, `pacman`, `apk`, `zypper`).
 VM. Visual tests use Xvfb + xdotool + scrot + tesseract OCR to confirm the UI
 actually appears on screen (process-alive is not sufficient). Each distro defines
 a `distro_checks()` hook for package-manager-level assertions (architecture,
-SELinux audit log, EPEL status, etc.).
+SELinux audit log, EPEL status, etc.). After a window is confirmed the test polls
+OCR output for up to 15 s before asserting login-screen text, allowing the Tauri
+WebKit renderer time to hydrate the React app on the VM.
 
 **Report** — Five separate jobs aggregate results without blocking on each other:
 
@@ -158,11 +197,13 @@ output. The common flow is:
 | `build:snap:core24` | `ubuntu:24.04` + `docker:dind` | `.snap` |
 | `build:snap:core26` | `ubuntu:24.04` + `docker:dind` | `.snap` |
 
-**Known issues:**
-- Snap `core26` is marked `allow_failure: true` (GitLab) /
-  `continue-on-error: true` (GitHub) because Canonical does not yet publish a
-  Snapcraft rock for `core26`. The build attempts to adapt the `core24` config
-  with devel grade.
+**Known issues and workarounds:**
+- `build:rpm:el10` carries `retry: 1` — the parallel webpack phase can exhaust
+  shared runner RAM and get SIGKILL'd; a single automatic retry recovers reliably.
+- `build:snap:core26` uses `ghcr.io/canonical/snapcraft:stable` (snapcraft 9.x)
+  because the older `8_core24` image returns `Unknown base 'core26'`. The job is
+  still marked `allow_failure: true` / `continue-on-error: true` while the
+  Canonical snap ecosystem for core26 matures.
 - All build jobs have a 2-hour timeout and per-job Rust caches (`.cargo/` +
   `src-tauri/target/`) with a 2-hour TTL.
 
@@ -302,7 +343,7 @@ when a target is missing in one system or misaligned.
 
 **Dependencies:** `bash >= 4.0`, `yq v4+`, `jq >= 1.6`
 
-### `scripts/ci/write-artifact-manifest.sh`
+### `scripts/ci/lib/write-artifact-manifest.sh`
 
 Scans a build output directory and writes a JSON manifest listing every
 artifact (filename, size, SHA256, MIME type). Consumed by release/publish
@@ -310,7 +351,7 @@ steps to verify all expected artifacts are present before signing or uploading.
 
 **Usage:**
 ```bash
-./scripts/ci/write-artifact-manifest.sh target/release/ manifest.json
+./scripts/ci/lib/write-artifact-manifest.sh target/release/ manifest.json
 ```
 
 **Exit codes:**
@@ -336,17 +377,25 @@ steps to verify all expected artifacts are present before signing or uploading.
 }
 ```
 
-### Other CI Build Scripts
+### Other CI Scripts
 
-Most build logic is defined inline in `.gitlab-ci.yml`. Only the following
-targets have extracted scripts:
+Build logic is defined inline in `.gitlab/workflows/builds.yml`. The remaining
+CI scripts are split into subdirectories under `scripts/ci/`:
 
-| Script | Purpose | GitLab job |
-|--------|---------|-----------|
-| `scripts/ci/build-alpine-320-apk.sh` | Alpine 3.20 APK build | `build:apk:alpine-3.20` |
-| `scripts/ci/build-alpine-323-apk.sh` | Alpine 3.23 APK build | `build:apk:alpine-3.23` |
-| `scripts/ci/build-aur-package.sh` | AUR package build | `build:aur` |
-| `scripts/ci/build-opensuse-tumbleweed-rpm.sh` | openSUSE Tumbleweed RPM | `build:rpm:opensuse-tumbleweed` |
+| Directory | Contents |
+|-----------|---------|
+| `scripts/ci/build/` | `aur-package.sh` — AUR package build |
+| `scripts/ci/install/<distro>/` | Per-distro install scripts run on VMs |
+| `scripts/ci/transfer/<distro>/` | Per-distro SCP transfer scripts |
+| `scripts/ci/vmtest/<distro>/` | Per-distro GUI load + regression test scripts |
+| `scripts/ci/lib/` | Shared helpers: `_vm_common.sh`, `_test_common.sh`, `gui-load-check.sh`, `ui-test-compositor.sh`, `install-rust.sh`, `fetch-latest-artifact.sh`, `write-artifact-manifest.sh` |
+| `scripts/ci/regression/` | `sync.sh` (CI drift check), `login-routing.sh`, `sync.sh` (regression suite) |
+
+**openSUSE Tumbleweed install note:** The RPM package declares
+`Requires: libayatana-appindicator-gtk3` (the Fedora capability name). openSUSE
+packages the same library under a different name, causing `zypper` to reject the
+install. The install script uses `rpm -i --nodeps --force` instead — the library
+is present at runtime on openSUSE TW despite the capability name mismatch.
 
 ## Cross-Distro Patch System
 
@@ -435,16 +484,17 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 
 | Need | System | File |
 |------|--------|------|
-| Review build pipeline definition | GitLab CI | `/.gitlab-ci.yml` |
+| Review build pipeline definition | GitLab CI | `/.gitlab-ci.yml` + `.gitlab/workflows/builds.yml` |
 | Review GitHub mirror of build matrix | GitHub Actions | `/.github/workflows/package-workflows.yml` |
 | Inspect a specific build action | GitHub Actions | `/.github/workflows/<type>/<variant>/action.yml` |
 | View issue/PR sync rules | GitHub Actions | `/.github/workflows/sync-to-gitlab.yml` |
 | View auto-label rules | GitHub Actions | `/.github/workflows/maintenance/` |
+| Understand the fail-fast gate | GitLab CI | `build:gate` job in `.gitlab/workflows/builds.yml` |
 | Add a new build target | Both | `docs/build-packaging/new-build-checklist.md` |
 | Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |
-| Inspect CI build scripts | GitLab CI | `scripts/ci/*.sh` |
+| Inspect CI VM scripts | GitLab CI | `scripts/ci/{install,transfer,vmtest,lib}/` |
 | Check CI sync health | Both | `scripts/ci/regression/sync.sh` |
-| Generate artifact manifest | Both | `scripts/ci/write-artifact-manifest.sh` |
+| Generate artifact manifest | Both | `scripts/ci/lib/write-artifact-manifest.sh` |
 
 ## Known Gaps
 
@@ -452,7 +502,8 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 |-----|--------|-----------|
 | No artifact signing | Users cannot verify download provenance | Roadmap |
 | No SBOM | Downstream packagers cannot validate deps | Roadmap |
-| Snap core26 `allow_failure` | Latest Ubuntu snap base untested | Roadmap |
-| First-build cliff on new branches | CI-only change on a brand-new branch fails artifact fetch (404) | fetch-latest-artifact.sh error message guides fix |
+| Snap core26 `allow_failure` | Builds with `ghcr.io/canonical/snapcraft:stable`; marked non-blocking while core26 ecosystem stabilises | Roadmap |
+| First-build cliff on new branches | CI-only change on a brand-new branch fails artifact fetch (404) | `fetch-latest-artifact.sh` error message guides fix |
 | No artifact source-state cross-check | Fetched artifact is not verified against current Cargo.lock hash | Low risk; only affects CI-only commits |
 | Docs commits run vmtest | Only builds have `changes:` gates; vmtest runs on all commits conservatively | Acceptable; add `changes:` to transfer base if runner cost grows |
+| openSUSE RPM dependency mismatch | `libayatana-appindicator-gtk3` capability name differs on TW; install uses `--nodeps` workaround | Fix RPM spec to use conditional `%if` for openSUSE |
