@@ -58,14 +58,12 @@ fn persistent_webview_data_dir(app_data_dir: PathBuf) -> PathBuf {
     app_data_dir.join("webview")
 }
 
-fn ensure_webview_data_dir(path: &Path) -> Result<(), String> {
-    fs::create_dir_all(path)?;
-    set_private_dir_permissions(path)?;  // 0o700
-    Ok(())
+fn ensure_webview_data_dir(dir: &Path) -> std::io::Result<()> {
+    std::fs::create_dir_all(dir)
 }
 ```
 
-The WebView data directory stores cookies, localStorage, IndexedDB, and cache. Without persistence, every app restart would require re-authentication. The directory is created with `0o700` permissions.
+The WebView data directory stores cookies, localStorage, IndexedDB, and cache. Without persistence, every app restart would require re-authentication.
 
 ## The initialization script (full breakdown)
 
@@ -139,11 +137,11 @@ try {
 
 ### 3. Blob download interception
 
-(Covered in detail in [Blob Downloads](blob-downloads.md))
+(Covered in detail in [Blob Downloads](../reference/blob-downloads.md))
 
 ### 4. CAPTCHA handling
 
-(Covered in detail in [SSO & Authentication](sso-authentication.md))
+(Covered in detail in [SSO & Authentication](../auth/sso-authentication.md))
 
 ### 5. Console-to-Rust bridge
 
@@ -193,11 +191,11 @@ window.onunhandledrejection = (e) => {
 
 ### 7. Startup diagnostics
 
-(Covered in [Architecture](architecture.md#startup-diagnostics))
+(Covered in [Architecture](../architecture/architecture.md#startup-diagnostics))
 
 ### 8. Fetch/XHR proxy (the hot path)
 
-(Covered in [Proxy System](proxy-system.md))
+(Covered in [Proxy System](../architecture/proxy-system.md))
 
 ### 9. Script load error tracking
 

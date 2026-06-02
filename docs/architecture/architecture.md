@@ -12,7 +12,7 @@ sources:
 # Proton Drive for Linux — Architecture
 
 > **Version:** 1.4.4  
-> **Last updated:** 2026-05-28  
+> **Last updated:** 2026-05-30  
 > **License:** AGPL-3.0
 
 ---
@@ -36,11 +36,14 @@ The frontend is **Proton's own web application** built from the `WebClients` mon
 
 ```
 src-tauri/src/
-├── main.rs             # Entry point, AppState, all Tauri commands, navigation routing,
-│                       #   WebView initialization script (fetch/XHR proxy, blob download
-│                       #   interception, captcha handling, console bridge, Worker override)
+├── main.rs             # Entry point, AppState, all Tauri commands, WebView init script
 ├── auth.rs             # AuthManager — SRP authentication, token refresh, 2FA
-└── live_sync.rs        # LiveSyncManager — filesystem watcher, remote change application
+├── live_sync.rs        # LiveSyncManager — filesystem watcher, remote change application
+├── proton_navigation.rs # URL rewriting: SSO redirects, CAPTCHA detection, unsupported app redirects
+├── sync_db.rs          # SQLite schema, migrations, item tracking
+├── webview_cookies.rs  # WebKit cookie jar integration: read, merge, store
+├── webview_storage.rs  # Persistent WebView data directory provisioning
+└── url_log.rs          # URL sanitization for log output
 ```
 
 ### 2.1 `AppState` (main.rs:51-55)
@@ -72,8 +75,8 @@ All four are deliberately **in-memory-only** with zero-trust semantics — clear
 
 Owns:
 - `fn main()` — sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITING_MODE`, `WEBKIT_FORCE_SANDBOX`, `GDK_GL`, `GSK_RENDERER` env vars for WebKitGTK compatibility; builds `AppState`; registers Tauri plugins (shell, dialog, notification); runs the builder
-- **16 Tauri commands** (registered via `generate_handler!` at line 1846)
-- **The WebView initialization script** (~700 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, and iframe behavior)
+- **16 Tauri commands** (registered via `generate_handler!` at line 1851)
+- **The WebView initialization script** (~688 lines of injected JS that patches `fetch`, `XMLHttpRequest`, `console`, `URL.createObjectURL`, `window.open`, `document.createElement`, anchors, iframe behavior, and Worker compatibility)
 - The **`on_navigation` callback** that rewrites Proton URLs to local `tauri://localhost/...` paths
 
 ### 2.4 Module: `auth.rs`
@@ -169,7 +172,7 @@ User enters credentials in WebView
 
 1. The WebView's initialization script patches `window.fetch` and `window.XMLHttpRequest`
 2. For any URL containing `/api/`, the request is redirected to the `proxy_request` Tauri command instead of making a real HTTP request
-3. The Rust `proxy_request` handler (main.rs:386-510):
+3. The Rust `proxy_request` handler (main.rs:391-514):
    - Rewrites URLs: `localhost/api/...` → `https://mail.proton.me/api/...`, resolves `tauri://` scheme URLs, handles relative paths
    - Creates a `reqwest::Request` with the forwarded headers (except `Host` and `Cookie` — cookies are merged from both WebKit's native jar and the reqwest jar via `combined_cookie_header()`)
    - Sends the request through the shared `AppState.client` (which has an automatic cookie jar)
@@ -260,15 +263,15 @@ WebClients detect remote change (via polling or push)
 
 ### 5.3 Sync command security
 
-The `ensure_sync_command_allowed` function (main.rs:512-531) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
+The `ensure_sync_command_allowed` function (main.rs:517-538) verifies the WebView's current URL origin is `tauri://localhost` or `tauri://tauri.localhost` before allowing any sync operation. This prevents sync commands from being invoked from arbitrary web pages loaded in the WebView.
 
-The `validate_sync_root_path` function (main.rs:535-550) ensures the sync root is a subdirectory of the user's home directory.
+The `validate_sync_root_path` function (main.rs:540-556) ensures the sync root is a subdirectory of the user's home directory.
 
 ---
 
 ## 6. Navigation Routing (SSO / Login / Captcha)
 
-The `on_navigation` callback (main.rs:1597-1803) intercepts all WebView navigations and rewrites them:
+The `on_navigation` callback (main.rs:1602-1808) intercepts all WebView navigations and rewrites them:
 
 | Incoming URL | Action |
 |--------------|--------|
@@ -276,9 +279,9 @@ The `on_navigation` callback (main.rs:1597-1803) intercepts all WebView navigati
 | `/login?...` | Rewrites to `tauri://localhost/account/?product=drive`, filters `reason=`/`type=` params |
 | `account.proton.me/...` | Rewrites to `tauri://localhost/account/...` |
 | `drive.proton.me/...` | Rewrites to `tauri://localhost/...` |
-| `account.localhost/u/X/drive/...` | Post-login redirect to `tauri://localhost/u/X/` (with 300ms delay) |
+| `account.localhost/u/X/drive/...` / `localhost/account/u/X/drive/...` | Post-login redirect to `tauri://localhost/` (root, 250ms delay via about:blank) — deep `/u/X/` paths break WebKitGTK asset protocol/IPC |
 | `hcaptcha.com` / `*.hcaptcha.com` | Allowed through (captcha widget resources) |
-| `mail.proton.me/api/core/v4/captcha` / `verify.proton.me` / `verify-api.proton.me` | Allowed (captcha flow), sets `ON_CAPTCHA_PAGE` |
+| `mail.proton.me/api/core/v4/captcha` / `mail.proton.me/captcha/...` / `verify.proton.me` / `verify-api.proton.me` | Allowed (captcha flow), sets `ON_CAPTCHA_PAGE` |
 | Any `/api/...` path | **Blocked** — API calls should use `fetch`, not navigation |
 | All others | Allowed only if scheme is `tauri` or `about`, or host is `localhost`/`tauri.localhost` |
 
@@ -287,8 +290,8 @@ The SSO flow works as follows:
 2. Navigation is rewritten to `tauri://localhost/account/?product=drive`
 3. Account WebClient handles login (SRP via the proxy, since `fetch` is intercepted)
 4. After login, the account app redirects to `account.localhost/u/0/drive/account`
-5. The `on_navigation` callback intercepts this, extracts the user path (`/u/0/`), and redirects to `tauri://localhost/u/0/` — the Drive app
-6. The Drive WebClient is at `http://localhost/u/0/` where it loads the main Drive UI
+5. The `on_navigation` callback intercepts this and navigates to `about:blank` (killing the account document), then after 250ms redirects to `tauri://localhost/` — the Drive app root
+6. The Drive init script's SSO guard detects a persisted `ps-<localID>` session in localStorage and uses `history.replaceState` to restore the `/u/<localID>/` route without a full WebView reload, avoiding the WebKitGTK asset protocol/IPC freeze bug
 
 ---
 
@@ -302,8 +305,8 @@ When the Proton API returns error code `9001` (HumanVerificationRequired), the s
 4. Calls `navigate_to_captcha(captcha_url, return_url)` — navigates the **entire window** to `verify.proton.me` (top-level navigation, not an iframe — captcha only works as top-level in WebKitGTK)
 5. User completes captcha/hCaptcha on the external page
 6. The page sends a `postMessage` with type `HUMAN_VERIFICATION_SUCCESS` (or `pm_captcha`) containing the verification token
-7. JS calls `store_verification_token(token, tokenType)` and navigates back to `tauri://localhost/account/`
-8. The `on_navigation` callback detects leaving the captcha page (`ON_CAPTCHA_PAGE`), navigates back to `tauri://localhost/account/`
+7. JS navigates the window to `tauri://localhost/account/?hv_token=...&hv_type=...` — the token is carried through URL query params because external verify pages cannot reliably use Tauri IPC
+8. The `on_navigation` callback's captcha completion handler (via `captcha_completion_token()`) extracts the token and type from the URL query params, stores them in `PENDING_VERIFICATION`, then navigates to `tauri://localhost/account/`
 9. On the account page, the initialization script restores saved credentials via `get_and_clear_login_credentials()` and auto-fills/submits the login form
 10. The auth request goes through the proxy again, which now includes `x-pm-human-verification-token` and `x-pm-human-verification-token-type` headers (retrieved via `get_and_clear_verification_token()`)
 
@@ -415,10 +418,10 @@ This is where Proton WebClients store their encrypted session state (`ps-*` keys
 
 ## See Also
 
-- **[WebView Integration](webview-integration.md)** — How the WebView connects to all subsystems
-- **[Sync System](sync-system.md)** — Full sync pipeline from kernel events to remote apply
-- **[SSO Authentication](sso-authentication.md)** — End-to-end auth flow and cookie bridge
+- **[WebView Integration](../webview/webview-integration.md)** — How the WebView connects to all subsystems
+- **[Sync System](../sync/sync-system.md)** — Full sync pipeline from kernel events to remote apply
+- **[SSO Authentication](../auth/sso-authentication.md)** — End-to-end auth flow and cookie bridge
 - **[Proxy System](proxy-system.md)** — Fetch/XHR interception architecture
 - **[Build System](build-system.md)** — Cargo features, platform build matrix
-- **[CI Pipeline Reference](ci-pipeline-reference.md)** — CI jobs, artifacts, release workflow
-- **[Sync DB Module](sync-db-module.md)** — AppState wiring, SyncKeyring, persistence
+- **[CI Pipeline Reference](../ci-cd/ci-pipeline-reference.md)** — CI jobs, artifacts, release workflow
+- **[Sync DB Module](../sync/sync-db-module.md)** — AppState wiring, SyncKeyring, persistence

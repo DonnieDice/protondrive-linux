@@ -246,6 +246,6 @@ Proton SPA decrypts block
 
 ## See Also
 
-- **[WebView Integration](webview-integration.md)** — How the download pipeline connects to the WebView bridge
-- **[Auth Module](auth-module.md)** — The blob download intercept and `save_download` command
-- **[Architecture](ARCHITECTURE.md)** — How downloads fit into the AppState
+- **[WebView Integration](../webview/webview-integration.md)** — How the download pipeline connects to the WebView bridge
+- **[Auth Module](../auth/auth-module.md)** — The blob download intercept and `save_download` command
+- **[Architecture](../architecture/architecture.md)** — How downloads fit into the AppState

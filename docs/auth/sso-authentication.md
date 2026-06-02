@@ -140,18 +140,39 @@ if let Some(drive_url) = account_login_complete_redirect_url(url) {
 
 ### 5. Unsupported app redirects
 
-If the user somehow navigates to other Proton apps (Calendar, Mail, VPN, Pass), they get redirected back to Drive:
+If the user somehow navigates to other Proton apps, they get redirected back to a user-scoped Drive root:
 
 ```rust
-fn unsupported_app_redirect_url(url: &Url) -> Option<String> {
-    let unsupported_hosts = ["calendar.proton.me", "mail.proton.me", "vpn.proton.me", "pass.proton.me"];
-    if unsupported_hosts.contains(&url.host_str()?) {
-        Some("tauri://localhost/".to_string())
-    } else {
-        None
+fn unsupported_app_redirect_url(url: &tauri::Url) -> Option<String> {
+    let host = url.host_str()?;
+    if !is_unsupported_proton_app_host(host)
+        || url.path().starts_with("/api/")
+        || url.path().starts_with("/captcha/")
+    {
+        return None;
     }
+
+    Some(format!(
+        "tauri://localhost{}",
+        drive_root_for_user_path(url.path())
+    ))
+}
+
+fn is_unsupported_proton_app_host(host: &str) -> bool {
+    matches!(
+        host,
+        "calendar.proton.me"
+            | "contacts.proton.me"
+            | "docs.proton.me"
+            | "mail.proton.me"
+            | "pass.proton.me"
+            | "wallet.proton.me"
+            | "vpn.proton.me"
+    )
 }
 ```
+
+The redirect preserves the user path segment (e.g., `/u/7/`) so the Drive SPA lands on the correct user scope. API requests (`/api/`) and captcha paths (`/captcha/`) to these hosts are allowed through rather than redirected.
 
 ## CAPTCHA / Human Verification
 
@@ -402,6 +423,6 @@ This means WebKit handles all cookie lifecycle (expiry, domain matching, secure 
 ## See Also
 
 - **[Auth Module](auth-module.md)** — Session lifecycle, general cookie management, logout flow
-- **[Proton Navigation](proton-navigation.md)** — SSO URL routing, CAPTCHA lifecycle states
-- **[WebView Integration](webview-integration.md)** — Cookie handling details, IPC commands
-- **[Login/Sync Regression Runbook](login-sync-regression-runbook.md)** — Manual testing procedures
+- **[Proton Navigation](../architecture/proton-navigation.md)** — SSO URL routing, CAPTCHA lifecycle states
+- **[WebView Integration](../webview/webview-integration.md)** — Cookie handling details, IPC commands
+- **[Login/Sync Regression Runbook](../sync/login-sync-regression-runbook.md)** — Manual testing procedures

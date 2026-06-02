@@ -183,6 +183,7 @@ page navigations. Every navigation event is logged to stdout with the
 | `hcaptcha.com/*` | Allowed | Required for CAPTCHA widget |
 | `verify.proton.me/*` | Allowed | CAPTCHA top-level page |
 | `mail.proton.me/captcha/*` | Allowed | Legacy CAPTCHA pages |
+| `verify-api.proton.me/*` | Allowed | CAPTCHA API content serving |
 
 ### Navigation-inferred CAPTCHA lifecycle
 
@@ -254,7 +255,8 @@ handles this at build time via the `DISTRO_TYPE` environment variable:
 |---|---|---|
 | `appimage`, `aur` | No override | Bundled WebKitGTK supports Workers |
 | `rpm`, `deb`, `flatpak`, `snap` | Set `Worker = undefined` | System WebKitGTK throws "operation is insecure" |
-| Unknown / unset | Stub Worker constructors that throw | Safe default for untested distros |
+| Not set (unset) | Same as rpm/deb — `Worker = undefined` | Default safe fallback |
+| Unknown (any other value) | Stub Worker constructors that throw | Safe default for untested distros |
 
 When Workers are disabled, Proton WebClients automatically falls back to
 main-thread crypto (detected in
@@ -446,9 +448,9 @@ WEBKIT_DISABLE_COMPOSITING_MODE=1 GDK_GL=disable GSK_RENDERER=cairo ./proton-dri
 
 ## See Also
 
-- **[Proxy System](proxy-system.md)** — Fetch/XHR proxy layer, request interception, error handling
-- **[Auth Module](auth-module.md)** — Session lifecycle, cookie management, logout flow
-- **[SSO Authentication](sso-authentication.md)** — End-to-end SSO, CAPTCHA, cookie bridge protocol
-- **[Proton Navigation](proton-navigation.md)** — URL rewriting, SSO routing
-- **[Blob Downloads](blob-downloads.md)** — File download pipeline through the WebView bridge
-- **[Architecture](ARCHITECTURE.md)** — How the WebView fits into the overall AppState
+- **[Proxy System](../architecture/proxy-system.md)** — Fetch/XHR proxy layer, request interception, error handling
+- **[Auth Module](../auth/auth-module.md)** — Session lifecycle, cookie management, logout flow
+- **[SSO Authentication](../auth/sso-authentication.md)** — End-to-end SSO, CAPTCHA, cookie bridge protocol
+- **[Proton Navigation](../architecture/proton-navigation.md)** — URL rewriting, SSO routing
+- **[Blob Downloads](../reference/blob-downloads.md)** — File download pipeline through the WebView bridge
+- **[Architecture](../architecture/architecture.md)** — How the WebView fits into the overall AppState

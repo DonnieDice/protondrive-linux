@@ -2,19 +2,68 @@ include:
   - local: .gitlab/workflows/_shared.yml
   - local: .gitlab/workflows/tests.yml
   - local: .gitlab/workflows/builds.yml
+  # ─── transfer stage: one file per distro, SCPs artifact to VM ────────────────
+  - local: .gitlab/workflows/transfer/_base.yml
+  - local: .gitlab/workflows/transfer/alpine-3.20.yml
+  - local: .gitlab/workflows/transfer/alpine-3.22.yml
+  - local: .gitlab/workflows/transfer/debian-12.yml
+  - local: .gitlab/workflows/transfer/debian-13.yml
+  - local: .gitlab/workflows/transfer/ubuntu-24.04.yml
+  - local: .gitlab/workflows/transfer/ubuntu-26.04.yml
+  - local: .gitlab/workflows/transfer/el10.yml
+  - local: .gitlab/workflows/transfer/fedora-43.yml
+  - local: .gitlab/workflows/transfer/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/transfer/arch.yml
+  # ─── install stage: distro-specific package manager install ──────────────────
+  - local: .gitlab/workflows/install/_base.yml
+  - local: .gitlab/workflows/install/alpine-3.20.yml
+  - local: .gitlab/workflows/install/alpine-3.22.yml
+  - local: .gitlab/workflows/install/debian-12.yml
+  - local: .gitlab/workflows/install/debian-13.yml
+  - local: .gitlab/workflows/install/ubuntu-24.04.yml
+  - local: .gitlab/workflows/install/ubuntu-26.04.yml
+  - local: .gitlab/workflows/install/el10.yml
+  - local: .gitlab/workflows/install/fedora-43.yml
+  - local: .gitlab/workflows/install/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/install/arch.yml
+  # ─── vmtest stage: regression + GUI load tests on each VM ────────────────────
+  - local: .gitlab/workflows/vmtest/_base.yml
+  - local: .gitlab/workflows/vmtest/alpine-3.20.yml
+  - local: .gitlab/workflows/vmtest/alpine-3.22.yml
+  - local: .gitlab/workflows/vmtest/debian-12.yml
+  - local: .gitlab/workflows/vmtest/debian-13.yml
+  - local: .gitlab/workflows/vmtest/ubuntu-24.04.yml
+  - local: .gitlab/workflows/vmtest/ubuntu-26.04.yml
+  - local: .gitlab/workflows/vmtest/el10.yml
+  - local: .gitlab/workflows/vmtest/fedora-43.yml
+  - local: .gitlab/workflows/vmtest/opensuse-tumbleweed.yml
+  - local: .gitlab/workflows/vmtest/arch.yml
+  # ─── report + release ────────────────────────────────────────────────────────
+  - local: .gitlab/workflows/report.yml
   - local: .gitlab/workflows/release.yml
 
 stages:
-  - test
-  - build
-  - spec
-  - release
-  - publish
+  - test      # unit tests, shellcheck, lint
+  - build     # per-distro package builds
+  - gate      # build:gate — confirms all distro builds passed before deploy stages
+  - transfer  # SCP artifacts to target VMs
+  - install   # distro-specific package manager install on each VM
+  - vmtest    # regression + GUI load tests on each VM
+  - report    # deployment-matrix | robot-html | pytest-html | ui-screenshots | pages
+  - spec      # package spec generation (PKGBUILD, rpm spec, source dist)
+  - release   # tag-gated release jobs
+  - publish   # publish to registries / stores
+  # Note: 'pages' job name is special in GitLab — it publishes to GitLab Pages.
+  # Pages URL: http://pages.dicematrix.cloud/donniedice/protondrive-linux
+  # Requires wildcard DNS *.pages.dicematrix.cloud → 192.168.1.31 + gitlab.rb config.
 
 workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
+    # MR pipeline takes priority — skip branch pipeline when MR is open (prevents duplicates)
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH && $CI_OPEN_MERGE_REQUESTS
+      when: never
     - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG

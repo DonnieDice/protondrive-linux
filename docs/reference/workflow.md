@@ -11,7 +11,7 @@ sources:
 
 # Contributing to Proton Drive Linux
 
-Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](../CONTRIBUTING.md).
 
 ## Workflow
 
@@ -219,16 +219,26 @@ kicks off the package workflows.
 
 ### CI Systems
 
-This project uses **two CI systems** that mirror each other:
+This project uses **two CI systems**:
 
 | System | Entrypoint | Purpose |
 |--------|-----------|---------|
-| **GitHub Actions** | `.github/workflows/package-workflows.yml` | Primary CI — build, package, release on GitHub |
-| **GitLab CI** | `.gitlab-ci.yml` (in repo root) | Mirror — same package builds on GitLab infrastructure |
+| **GitLab CI** | `.gitlab-ci.yml` (in repo root) | **Authoritative** — build, test, VM verification, spec, release, publish |
+| **GitHub Actions** | `.github/workflows/package-workflows.yml` | Mirror — same build matrix on GitHub; manual dispatch only |
 
-Both systems run the same build logic against the same branch patterns. The
-GitLab pipeline mirrors the GitHub Actions workflow for redundancy. Status
-on either system is sufficient to block or unblock a merge.
+GitLab CI is the source of truth. The GitLab pipeline runs eight stages:
+
+```
+test → build → gate → transfer → install → vmtest → report → spec/release/publish
+```
+
+The `gate` stage (`build:gate` job) is a fail-fast sentinel: if any distro build
+fails, the gate is skipped and all transfer, install, and vmtest jobs cascade-skip
+automatically. The `report` stage always runs regardless, so you always get a
+deployment-matrix summary even on failed pipelines.
+
+See [docs/ci-cd/ci-pipeline.md](../ci-cd/ci-pipeline.md) for the full pipeline
+reference.
 
 ### Troubleshooting CI Failures
 

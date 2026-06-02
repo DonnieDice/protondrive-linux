@@ -334,7 +334,7 @@ There is **no automatic retry** in the proxy layer. If a request fails with 502/
 
 ## See Also
 
-- **[WebView Integration](webview-integration.md)** — How the proxy is injected and configured in the WebView
+- **[WebView Integration](../webview/webview-integration.md)** — How the proxy is injected and configured in the WebView
 - **[Proton Navigation](proton-navigation.md)** — URL rewriting decisions that route requests through vs. around the proxy
-- **[Auth Module](auth-module.md)** — Cookie/header injection at the proxy boundary
-- **[Architecture](ARCHITECTURE.md)** — How the proxy fits into the AppState
+- **[Auth Module](../auth/auth-module.md)** — Cookie/header injection at the proxy boundary
+- **[Architecture](architecture.md)** — How the proxy fits into the AppState

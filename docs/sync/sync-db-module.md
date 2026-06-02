@@ -406,4 +406,4 @@ mediated by the Rust backend.
 - **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing, migration strategy
 - **[Sync System](sync-system.md)** — Full sync architecture, change detection, Tauri command wiring
 - **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, event contract
-- **[Architecture](ARCHITECTURE.md)** — How `sync_db` fits into the overall AppState
+- **[Architecture](../architecture/architecture.md)** — How `sync_db` fits into the overall AppState

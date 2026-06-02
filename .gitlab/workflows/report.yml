@@ -1,0 +1,151 @@
+# ─── Report stage — one job per report type ──────────────────────────────────
+#
+# Viewing reports (no extra infrastructure needed):
+#   MR Tests tab     -- JUnit appears inline in every MR (report:deployment-matrix)
+#   Artifact browser -- CI/CD -> Jobs -> <job name> -> Browse -> click any .html
+#
+# GitLab Pages (persistent URL after merging to main):
+#   URL: http://pages.dicematrix.cloud/donniedice/protondrive-linux
+#   Requires: wildcard DNS *.pages.dicematrix.cloud -> 192.168.1.31
+#             + gitlab.rb: pages_external_url / gitlab_pages[enable]=true
+#
+# All jobs use when:always so reports exist even when upstream stages fail.
+
+
+# ── 1. Deployment matrix + JUnit → MR Tests tab ───────────────────────────────
+report:deployment-matrix:
+  stage: report
+  image: python:3.12-slim
+  needs:
+    - { job: "vmtest:alpine-3.20",             artifacts: true }
+    - { job: "vmtest:alpine-3.22",             artifacts: true }
+    - { job: "vmtest:debian-12",               artifacts: true }
+    - { job: "vmtest:debian-13",               artifacts: true }
+    - { job: "vmtest:ubuntu-24.04",            artifacts: true }
+    - { job: "vmtest:ubuntu-26.04",            artifacts: true }
+    - { job: "vmtest:rpm-el10",                artifacts: true }
+    - { job: "vmtest:rpm-fedora-43",           artifacts: true }
+    - { job: "vmtest:rpm-opensuse-tumbleweed", artifacts: true }
+    - { job: "vmtest:aur",                     artifacts: true }
+  rules:
+    - when: always
+  script:
+    - mkdir -p reports
+    - python3 scripts/ci/lib/verify-matrix.py
+        transfer-results install-results test-results
+        --md  reports/deployment-matrix.md
+        --json reports/deployment-matrix.json
+        --junit reports/deployment-matrix.junit.xml
+    - cat reports/deployment-matrix.md
+  artifacts:
+    name: "report-deployment-matrix-$CI_COMMIT_SHORT_SHA"
+    when: always
+    paths:
+      - reports/deployment-matrix.md
+      - reports/deployment-matrix.json
+    reports:
+      junit: reports/deployment-matrix.junit.xml
+    expire_in: 90 days
+
+
+# ── 2. Robot Framework HTML report ────────────────────────────────────────────
+report:robot-html:
+  stage: report
+  image: python:3.12-slim
+  needs:
+    - { job: "vmtest:debian-12", artifacts: true }
+  rules:
+    - when: always
+  before_script:
+    - pip install --quiet robotframework==7.2.2
+  script:
+    - python3 scripts/ci/lib/generate-robot-report.py test-results reports/robot
+    - echo "Robot report ready -- Browse -> reports/robot/report.html"
+  artifacts:
+    name: "report-robot-html-$CI_COMMIT_SHORT_SHA"
+    when: always
+    paths:
+      - reports/robot/
+    expire_in: 90 days
+
+
+# ── 3. pytest HTML report ─────────────────────────────────────────────────────
+report:pytest-html:
+  stage: report
+  image: python:3.12-slim
+  needs: []
+  rules:
+    - when: always
+  before_script:
+    - pip install --quiet pytest pytest-html pytest-timeout paramiko pyotp
+  script:
+    - mkdir -p reports/pytest
+    - python3 -m pytest tests/unit/
+        --html=reports/pytest/report.html
+        --self-contained-html
+        --junit-xml=reports/pytest/junit.xml
+        --tb=short -q 2>&1 || true
+    - echo "pytest report ready -- Browse -> reports/pytest/report.html"
+  artifacts:
+    name: "report-pytest-html-$CI_COMMIT_SHORT_SHA"
+    when: always
+    paths:
+      - reports/pytest/
+    reports:
+      junit: reports/pytest/junit.xml
+    expire_in: 90 days
+
+
+# ── 4. UI Screenshots gallery ─────────────────────────────────────────────────
+report:ui-screenshots:
+  stage: report
+  image: python:3.12-slim
+  needs:
+    - { job: "vmtest:debian-12",    artifacts: true }
+    - { job: "vmtest:ubuntu-24.04", artifacts: true }
+  rules:
+    - when: always
+  script:
+    - python3 scripts/ci/lib/generate-screenshot-gallery.py
+        verify-results/ui-screenshots
+        reports/screenshots
+    - echo "Screenshot gallery -- Browse -> reports/screenshots/index.html"
+  artifacts:
+    name: "report-ui-screenshots-$CI_COMMIT_SHORT_SHA"
+    when: always
+    paths:
+      - reports/screenshots/
+    expire_in: 90 days
+
+
+# ── 5. GitLab Pages -- aggregates all reports into a single browsable site ─────
+# Job name must be exactly 'pages' -- GitLab recognises it and serves public/.
+# Only runs on main branch merges or tags (not on every branch push).
+pages:
+  stage: report
+  image: python:3.12-slim
+  needs:
+    - { job: "report:deployment-matrix", artifacts: true }
+    - { job: "report:robot-html",        artifacts: true }
+    - { job: "report:pytest-html",       artifacts: true }
+    - { job: "report:ui-screenshots",    artifacts: true }
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+    - if: $CI_COMMIT_TAG
+      when: always
+  script:
+    - mkdir -p public/robot public/pytest public/screenshots
+    - cp -r reports/robot/*       public/robot/       2>/dev/null || true
+    - cp -r reports/pytest/*      public/pytest/      2>/dev/null || true
+    - cp -r reports/screenshots/* public/screenshots/ 2>/dev/null || true
+    - cp reports/deployment-matrix.md   public/ 2>/dev/null || true
+    - cp reports/deployment-matrix.json public/ 2>/dev/null || true
+    - python3 scripts/ci/lib/generate-pages-index.py
+        reports/deployment-matrix.json
+        public/index.html
+    - echo "Pages site built in public/"
+    - ls -la public/
+  artifacts:
+    paths: [public]
+    expire_in: 30 days

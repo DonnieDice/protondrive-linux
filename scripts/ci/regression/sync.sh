@@ -116,7 +116,7 @@ require_pattern patches/common/add-drive-linux-drawer-rail.patch "protondrive-li
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "applications/drive/src/app/components/layout/DriveWindow\\.tsx" "Linux drawer patch must target current DriveWindow location"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "brand-linux" "Linux drawer rail entry must use the Linux icon"
 require_pattern patches/common/add-drive-linux-drawer-rail.patch "Proton Drive Linux" "Linux drawer rail entry must expose a product label"
-require_pattern patches/common/add-drive-linux-drawer-rail.patch "DRAWER_NATIVE_APPS\\.QUICK_SETTINGS" "Linux drawer rail entry must open the native Drive settings drawer until dedicated sync UI exists"
+require_pattern patches/common/add-drive-linux-drawer-rail.patch "DRAWER_NATIVE_APPS\\.QUICK_SETTINGS" "Linux button must use QUICK_SETTINGS slot — DriveLinuxPanel is injected as customAppSettings"
 require_pattern scripts/patch_drive_linux_drawer.py "drawer-visibility-control flex" "drawer chevron must be visible in the desktop shell"
 require_pattern scripts/patch_drive_linux_drawer.py "drawer-sidebar inline" "drawer rail must not be hidden by responsive web breakpoints in the desktop shell"
 require_pattern scripts/patch_drive_linux_drawer.py "showDrawerSidebar: true" "Linux desktop build must show the drawer rail by default"

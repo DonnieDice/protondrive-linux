@@ -305,26 +305,26 @@ WAL mode allows concurrent reads while a write is in progress, which is importan
 
 **Causes:**
 - `app_data_dir` is on a read-only filesystem
-- Another process holds an exclusive lock on `sync-metadata.db`
+- Another process holds an exclusive lock on `sync-state.sqlite3`
 - Permission denied on the app data directory
 
 **Fix:**
 ```bash
 # Check file permissions
-ls -la ~/.local/share/com.proton.drive/sync-metadata.db
+ls -la ~/.local/share/com.proton.drive/sync-state.sqlite3
 
 # Check for stale WAL/SHM files (leftover from crashed process)
-ls -la ~/.local/share/com.proton.drive/sync-metadata.db-wal
-ls -la ~/.local/share/com.proton.drive/sync-metadata.db-shm
+ls -la ~/.local/share/com.proton.drive/sync-state.sqlite3-wal
+ls -la ~/.local/share/com.proton.drive/sync-state.sqlite3-shm
 
 # Remove stale WAL artifacts if the app is not running
-rm ~/.local/share/com.proton.drive/sync-metadata.db-wal
-rm ~/.local/share/com.proton.drive/sync-metadata.db-shm
+rm ~/.local/share/com.proton.drive/sync-state.sqlite3-wal
+rm ~/.local/share/com.proton.drive/sync-state.sqlite3-shm
 ```
 
 ### WAL Checkpoint Growth
 
-**Symptoms:** `sync-metadata.db-wal` grows to hundreds of MB. Sync operations slow down.
+**Symptoms:** `sync-state.sqlite3-wal` grows to hundreds of MB. Sync operations slow down.
 
 **Cause:** The WAL file accumulates un-checkpointed frames when the app crashes or is killed without clean shutdown. WAL mode checkpoints on close, but SIGKILL bypasses this.
 
@@ -338,7 +338,7 @@ rm ~/.local/share/com.proton.drive/sync-metadata.db-shm
 
 **Fix:** Delete the database and let it rebuild:
 ```bash
-rm ~/.local/share/com.proton.drive/sync-metadata.db*
+rm ~/.local/share/com.proton.drive/sync-state.sqlite3*
 ```
 This resets all sync state — files will re-sync from scratch on next launch.
 
