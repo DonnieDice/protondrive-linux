@@ -16,13 +16,16 @@ stages:
   - publish
 
 workflow:
+  auto_cancel:
+    on_new_commit: interruptible
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-
-# ─── Rule templates ───────────────────────────────────────────────────────────
-
+    # Enterprise release gating: do not create pipelines for ordinary branch
+    # pushes or merge requests. Release builds are created by protected v* tags.
+    # Manual/API pipelines are allowed only for explicit release-test runs.
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_RELEASE_TESTS == "true"'
+    - when: never
 .rules:build:
   rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
