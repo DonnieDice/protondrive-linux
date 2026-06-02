@@ -28,7 +28,9 @@ report:deployment-matrix:
     - { job: "vmtest:rpm-opensuse-tumbleweed", artifacts: true }
     - { job: "vmtest:aur",                     artifacts: true }
   rules:
-    - when: always
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+      when: always
+    - when: never
   script:
     - mkdir -p reports
     - python3 scripts/ci/lib/verify-matrix.py
@@ -55,7 +57,9 @@ report:robot-html:
   needs:
     - { job: "vmtest:debian-12", artifacts: true }
   rules:
-    - when: always
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+      when: always
+    - when: never
   before_script:
     - pip install --quiet robotframework==7.2.2
   script:
@@ -104,7 +108,9 @@ report:ui-screenshots:
     - { job: "vmtest:debian-12",    artifacts: true }
     - { job: "vmtest:ubuntu-24.04", artifacts: true }
   rules:
-    - when: always
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+      when: always
+    - when: never
   script:
     - python3 scripts/ci/lib/generate-screenshot-gallery.py
         verify-results/ui-screenshots
@@ -130,10 +136,9 @@ pages:
     - { job: "report:pytest-html",       artifacts: true }
     - { job: "report:ui-screenshots",    artifacts: true }
   rules:
-    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
       when: always
-    - if: $CI_COMMIT_TAG
-      when: always
+    - when: never
   script:
     - mkdir -p public/robot public/pytest public/screenshots
     - cp -r reports/robot/*       public/robot/       2>/dev/null || true
