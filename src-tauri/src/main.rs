@@ -753,12 +753,15 @@ mod tests {
 
 /// Application entry point — sets up WebKitGTK workarounds, initializes state, and launches the Tauri window.
 fn main() {
-    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
-    std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
-    std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
-    std::env::set_var("WEBKIT_FORCE_SANDBOX", "0");
-    std::env::set_var("GDK_GL", "disable");
-    std::env::set_var("GSK_RENDERER", "cairo");
+ // Universal WebKitGTK environment — applies to all Linux package targets.
+ // Distro/runtime-specific overrides (GDK_GL, LIBGL_ALWAYS_SOFTWARE,
+ // GSK_RENDERER, JSC_useWasmIPInt) are applied via
+ // patches/<package>/<target>.patch.
+ // Alpine APK patches also add D-Bus/XDG/AT-SPI workarounds.
+ // AUR native keeps hardware rendering (no GDK_GL/GSK overrides).
+ std::env::set_var("WEBKIT_DISABLE_DMABUF_RENDERER", "1");
+ std::env::set_var("WEBKIT_DISABLE_COMPOSITING_MODE", "1");
+ std::env::set_var("WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS", "1");
 
     // Create shared client with cookie jar
     let cookie_jar = Arc::new(Jar::default());

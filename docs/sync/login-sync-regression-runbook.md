@@ -1,14 +1,3 @@
----
-title: "Login And Sync Regression Runbook"
-created: 2026-05-28
-updated: 2026-05-28
-type: runbook
-tags: [troubleshooting, auth, sync]
-sources:
-  - []
----
-
-
 # Login And Sync Regression Runbook
 
 This runbook covers the recurring regressions that cannot be fully proven in
@@ -21,9 +10,9 @@ listed here so risky changes are visible before manual acceptance testing.
 Run these checks before packaging or manual acceptance:
 
 ```bash
-bash scripts/ci/regression/login-routing.sh
-bash scripts/ci/regression/sync.sh
-cd src-tauri && cargo test proton_navigation::tests webview_cookies::tests live_sync::tests
+bash scripts/ci/check-login-routing-regressions.sh
+bash scripts/ci/check-sync-regressions.sh
+cd src-tauri && cargo test proton_navigation::tests && cargo test webview_cookies::tests && cargo test live_sync::tests
 ```
 
 The CI checks do not use real Proton credentials. They guard:
@@ -62,10 +51,10 @@ Expected positive markers:
 - `window.location.replace('about:blank')` exists in the handoff code path.
 - `[SSO] Restored Drive user route before app init: /u/<localID>/`
 - `[STORAGE] pathname: /u/<localID>/ ... sessions: ps-<localID>`
-- `[Cookie] stored name=AUTH-... domain=mail.proton.me path=/api/...`
-- `[Cookie] stored name=REFRESH-... domain=mail.proton.me path=/api/auth/refresh...`
-- `[Proxy][<id>] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key elapsed_ms=...`
-- `[STARTUP_DIAG] [StartupDiag] startup watchdog 8s` if startup is still loading.
+- `[Cookie] stored name=AUTH-... domain=mail.proton.me path=/api/... source=...`
+- `[Cookie] stored name=REFRESH-... domain=mail.proton.me path=/api/auth/refresh... source=...`
+- `[Proxy][id] 200 <- https://mail.proton.me/api/auth/v4/sessions/local/key elapsed_ms=... body=...`
+- `[StartupDiag] startup watchdog 8s` if startup is still loading (sent via `STARTUP_DIAG` IPC to Rust).
 - A visible `protondrive-startup-diagnostics` panel appears if API proxy calls remain pending.
 
 Expected negative markers:
@@ -101,7 +90,7 @@ route.
 
 1. Confirm the native watcher and poll reconciler are active for `~/ProtonDrive`.
 2. Create `local-create.txt` in the staged folder.
-3. Confirm the local create event includes `relativePaths` for future remote-root mapping.
+3. Confirm the local create event includes `relative_paths` for future remote-root mapping. (Note: `LiveSyncEvent` serializes as snake_case; `RemoteSyncChange` uses `#[serde(rename_all = "camelCase")]` but `LiveSyncEvent` does not — the JS consumer must match `relative_paths`, not `relativePaths`.)
 4. Modify `local-create.txt`.
 5. Confirm the local modify event includes `source=watcher` or `source=poller`.
 6. Delete `local-create.txt`.
@@ -115,7 +104,7 @@ route.
 
 Expected positive markers:
 
-- `[Sync] selected root requested source=default` on normal startup.
+- `[Sync] selected root requested source=default` on normal startup (source value from `start_selected_sync_root`).
 - `[Sync] PROTONDRIVE_AUTO_SYNC_PATH requested` when using env override for extra mapping tests.
 - `[Sync] selected root requested source=env` when using env override.
 - `[Sync] auto-start active enabled=true folder=... poll_interval_seconds=...`.
@@ -123,9 +112,9 @@ Expected positive markers:
 - `[Sync] get_sync_status enabled=true folder=...`.
 - `[LiveSync] watcher active root=... mode=recursive`.
 - `[LiveSync] poller active root=... interval_seconds=...`.
-- `[LiveSync] local-change kind=create paths=... source=watcher` or `source=poller`.
-- `[LiveSync] local-change kind=modify paths=... source=watcher` or `source=poller`.
-- `[LiveSync] local-change kind=remove paths=... source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=create paths=<count> source=watcher` or `source=poller` (paths is the change count; individual paths logged on subsequent lines).
+- `[LiveSync] local-change kind=modify paths=<count> source=watcher` or `source=poller`.
+- `[LiveSync] local-change kind=remove paths=<count> source=watcher` or `source=poller`.
 - `live-sync://local-change` is observed by frontend handling.
 - `[LiveSync][AUDIT] remote action=create result=success path=...` or `remote action=update`.
 - `[LiveSync][AUDIT] remote action=delete result=success path=...`.

@@ -1,17 +1,6 @@
----
-title: "Contributing Workflow"
-created: 2026-05-28
-updated: 2026-05-28
-type: meta
-tags: [contributing, build]
-sources:
-  - []
----
-
-
 # Contributing to Proton Drive Linux
 
-Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and pull requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](../CONTRIBUTING.md).
+Thanks for your interest in contributing! This guide covers the workflow we use for issues, branches, and merge requests. For detailed build, packaging, and development rules, see [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Workflow
 
@@ -22,9 +11,9 @@ Step 1: Create Issue
   ↓
 Step 2: Create Branch
   ↓
-Step 3: Create Pull Request
+Step 3: Create Merge Request
   ↓
-Step 4: PR Refinement Loop (review, iterate, fix)
+Step 4: MR Refinement Loop (review, iterate, fix)
   ↓
 Step 5: Verify CI → Merge → Close Issue
 ```
@@ -34,59 +23,47 @@ Step 5: Verify CI → Merge → Close Issue
 Open an issue for every bug, feature request, or task. Issues:
 
 - Track what's open/done
-- Link commits and PRs back to intent (`Closes #42` auto-closes the issue on merge)
+- Link commits and MRs back to intent (`Closes #42` auto-closes the issue on merge)
 - Discuss the *why* before touching code
 
 **Issue titles are plain text** — do NOT add `(#N)` syntax to issue titles.
-
-Labels are applied automatically based on the branch prefix (see Step 2).
 
 ## Step 2: Create Branch
 
 One branch per issue, named to make the connection explicit:
 
-| Prefix     | Use case                        | Example                        | Auto-label     |
-|------------|---------------------------------|--------------------------------|----------------|
-| `feature/` | New functionality               | `feature/42-add-login-page`    | `enhancement`  |
-| `fix/`     | Bug fixes                       | `fix/87-broken-csv-export`     | `bug`          |
-| `chore/`   | Non-code work (docs, deps, CI)  | `chore/103-update-dependencies`| `chore`        |
+| Prefix     | Use case                        | Example                        |
+|------------|---------------------------------|--------------------------------|
+| `feature/` | New functionality               | `feature/42-add-login-page`    |
+| `fix/`     | Bug fixes                       | `fix/87-broken-csv-export`     |
+| `chore/`   | Non-code work (docs, deps, CI)  | `chore/103-update-dependencies`|
 
-**Never work directly on `main`.** Even for a one-line fix, create a branch and open a PR.
+**Never work directly on `main`.** Even for a one-line fix, create a branch and open an MR.
 
-**No intermediate branches** (no `alpha`, `beta`, `staging`). All feature branches merge directly to `main`.
+**No intermediate branches** (no `alpha`). All feature branches merge directly to `main`.
 
 All development work stays strictly isolated within its branch.
 
-### Local Verification Before Pushing
+## Step 3: Create Merge Request
 
-Before pushing your branch, run the local checks appropriate for your change:
+Open a merge request (MR) on GitLab when your branch is ready for review. An MR:
 
-- **Formatting / linting**: If a `Makefile` or `justfile` target exists (e.g. `make lint`, `just format`), run it first.
-- **Build verification**: Build the component you changed if a local build target exists.
-- **Unit tests**: Run `make test` or the project's test runner if one is configured.
-
-CI will run a full suite regardless, but catching issues locally saves time.
-
-## Step 3: Create Pull Request
-
-Open a PR when your branch is ready for review. A PR:
-
-- Triggers CI (all build workflows run automatically on push)
+- Triggers CI (all build workflows run automatically)
 - Lets reviewers check the diff
 - Creates a record of *why* code changed
 - Must be explicitly linked to the original issue
-- Labels are applied automatically based on the branch prefix (see Step 2)
+- Should have appropriate tracking tags/labels applied
 
-### PR Title Format
+### MR Title Format
 
 ```
-(#PR-number) Descriptive title starting with uppercase
+(#MR-number) Descriptive title starting with uppercase
 ```
 
-The PR title must match: `^\(\#\d+\)\s[A-Z].{9,}$`
+The MR title must match: `^\(#\d+\)\s[A-Z].{9,}$`
 
-The number in the PR title is the **PR** number, not the tracked issue number.
-If GitHub has not assigned the PR number yet, create the PR first, then edit the
+The number in the MR title is the **MR** number, not the tracked issue number.
+If the MR number is not yet assigned, create the MR first, then edit the
 title once the number exists.
 Open an issue first when work does not already have one.
 
@@ -96,7 +73,7 @@ Open an issue first when work does not already have one.
 (#ISSUE-number) Description starting with uppercase
 ```
 
-The number in the commit title is the **issue** number, not the PR number. Example:
+The number in the commit title is the **issue** number, not the MR number. Example:
 
 ```bash
 git commit -m "(#92) Fix flatpak YAML generation printf indentation"
@@ -107,9 +84,9 @@ Rules:
 - Be at least 10 characters long (after the issue number prefix)
 - Use `Closes #N` in the body/footer when the commit fully resolves the issue
 
-### PR Body Format
+### MR Body Format
 
-Reference the tracked issue at the top. Use `Closes #N` when the PR fully
+Reference the tracked issue at the top. Use `Closes #N` when the MR fully
 resolves the issue, or `Refs #N` for partial work:
 
 ```markdown
@@ -124,52 +101,34 @@ Closes #42
 
 - `.github/workflows/package-workflows.yml`
 - `.github/workflows/deb/debian-12/action.yml`
-- `docs/build-packaging/packaging.md`
+- `docs/packaging.md`
 
 ## Testing
 
-- List local commands or GitHub Actions runs used to verify the change
+- List local commands or CI runs used to verify the change
 ```
 
-Do not add handcrafted GitHub `#diff-` anchors to PR bodies. Plain repository
+Do not add handcrafted GitHub `#diff-` anchors to MR bodies. Plain repository
 paths are stable, and reviewers can use the Files changed tab for exact diffs.
 
-## Step 4: The PR Refinement Loop
+## Step 4: The MR Refinement Loop
 
 Before any merge, enforce a strict code review and metadata loop:
 
-1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`
-2. **Issue Link:** Confirm the PR body includes `Closes #N` or `Refs #N`
+1. **Edit Title:** Set MR title to `(#MR-number) Descriptive title`
+2. **Issue Link:** Confirm the MR body includes `Closes #N` or `Refs #N`
 3. **Context:** Provide a detailed summary answering **WHY** the changes were made
 4. **CR Feedback:** If a code review requires changes, iterate within the same branch
 
 ### Review Bot Feedback
 
-Before merging **any** PR, all automated review bot findings must be addressed:
+Before merging **any** MR, all automated review bot findings must be addressed:
 
-- Check CodeRabbit, Qodo, and any other review bot comments on the PR
+- Check CodeRabbit, Qodo, and any other review bot comments on the MR
 - Every actionable comment must be either **fixed** or explicitly **dismissed with justification**
 - Do not merge with unresolved bot review items — even if CI passes
-- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented
+- If a bot comment is a false positive, dismiss it on the MR conversation so it is documented
 - Re-request review after pushing fixes to ensure bots re-evaluate
-
-### Merge Strategy
-
-All PRs merge to `main` using **squash merge**. This keeps the commit history
-on `main` clean — one merge per PR with a single commit message. The squash
-commit message should follow the PR title format:
-
-```
-(#PR-number) Descriptive title starting with uppercase
-```
-
-After the PR is merged, GitHub automatically deletes the branch (configured at
-the repository level). Clean up your local copy with:
-
-```bash
-git fetch --prune
-git branch -d <branch-name>
-```
 
 ## Step 5: Conditional Verification & Closure
 
@@ -179,8 +138,8 @@ Evaluate the automated status checks and tests.
 
 1. Confirm passing status
 2. Close the original tracking issue
-3. Merge the PR into `main` (squash merge)
-4. Clean up: remote branch is deleted automatically; delete the local branch
+3. Merge the MR into `main`
+4. Delete the remote and local branch
 
 ### IF ANY CHECKER FAILS:
 
@@ -192,84 +151,53 @@ Evaluate the automated status checks and tests.
 The visible GitHub Actions entrypoint is
 `.github/workflows/package-workflows.yml`. It calls package-specific
 implementations from subfolders such as `.github/workflows/deb/debian-12/` and
-`.github/workflows/rpm/fedora-43/`.
+`.github/workflows/rpm/fedora-43/`. These jobs run via `workflow_dispatch`
+(manual trigger) on GitHub.
+
+On GitLab, the equivalent pipeline is defined in `.gitlab-ci.yml` and runs
+automatically on push to feature branches and MR events. GitLab CI is the
+authoritative build and release system — see
+`docs/ci-authority-and-mirroring.md`.
 
 Package jobs trigger on pushes to `feature/**`, `fix/**`, and `chore/**`
 branches. To test a build:
 
+**On GitLab:**
+1. Push your branch to the GitLab remote
+2. Check the pipeline status in GitLab CI/CD > Pipelines
+3. Download build artifacts from the pipeline
+
+**On GitHub:**
 1. Push your branch
 2. Go to the **Actions** tab on GitHub
-3. Find the workflow run for your push
+3. Run the package workflow via `workflow_dispatch`
 4. Download the build artifact from the run summary
 
-Artifacts are retained for 30 days and include the branch name for easy
-identification.
-
-Job triggers for PRs to `main` follow the same rules — every push to an open PR
-kicks off the package workflows.
+Artifacts are retained for 30 days and include the branch name for easy identification.
 
 ## CI Workflows
 
 | Job group | Triggers on |
 |-----------|-------------|
-| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | Push to `main`, `feature/**`, `fix/**`, `chore/**` + tags + PRs to `main` |
+| Package builds (AppImage, Flatpak, Snap, DEB, RPM, APK, AUR) | GitLab: push/MR to `main`, `feature/**`, `fix/**`, `chore/**` + tags; GitHub: `workflow_dispatch` only |
 | Generate package specs | Same as package builds |
-| Release | Release publication and release-tag flow through `package-workflows.yml` |
-| Publish AUR, Snap, Flatpak | Release events and manual dispatch through `package-workflows.yml` |
-
-### CI Systems
-
-This project uses **two CI systems**:
-
-| System | Entrypoint | Purpose |
-|--------|-----------|---------|
-| **GitLab CI** | `.gitlab-ci.yml` (in repo root) | **Authoritative** — build, test, VM verification, spec, release, publish |
-| **GitHub Actions** | `.github/workflows/package-workflows.yml` | Mirror — same build matrix on GitHub; manual dispatch only |
-
-GitLab CI is the source of truth. The GitLab pipeline runs eight stages:
-
-```
-test → build → gate → transfer → install → vmtest → report → spec/release/publish
-```
-
-The `gate` stage (`build:gate` job) is a fail-fast sentinel: if any distro build
-fails, the gate is skipped and all transfer, install, and vmtest jobs cascade-skip
-automatically. The `report` stage always runs regardless, so you always get a
-deployment-matrix summary even on failed pipelines.
-
-See [docs/ci-cd/ci-pipeline.md](../ci-cd/ci-pipeline.md) for the full pipeline
-reference.
-
-### Troubleshooting CI Failures
-
-If CI fails:
-
-1. Check the **Actions** tab (GitHub) or **CI/CD > Pipelines** (GitLab) for the failed run
-2. Click on the failed job to see the build log
-3. Common failure modes:
-   - **Network timeout** — retry the job (GitHub: rerun from Actions tab; GitLab: click the retry icon)
-   - **Missing artifact** — ensure your branch is up to date with `main`; rebase if stale
-   - **Build error** — check the compile output; verify locally with `make` or the project's build command
-
-If the failure is a known intermittent issue, note it in the PR and retry. If CI
-passes on a subsequent retry without code changes, leave a comment documenting
-the transient failure.
+| Release | GitLab: push to `main` and tags matching `v*`; GitHub: manual only |
+| Publish AUR, Snap, Flatpak | GitLab: tag events; GitHub: `workflow_dispatch` only |
 
 ## Branch Protection
 
 `main` is the production-ready branch with protection rules:
 
-- Require PR before merging
+- Require MR before merging
 - Require status checks to pass
 - Require branches to be up to date before merging
-- Automatically delete head branches after merge
 
 ## Quick Decision Guide
 
 | Situation              | What to create                                      |
 |------------------------|-----------------------------------------------------|
-| Bug found              | Issue + `fix/N-description` branch + PR             |
-| New feature            | Issue + `feature/N-description` branch + PR         |
-| Tiny typo fix          | Branch + PR (skip the issue if truly trivial)       |
+| Bug found              | Issue + `fix/N-description` branch + MR             |
+| New feature            | Issue + `feature/N-description` branch + MR         |
+| Tiny typo fix          | Branch + MR (skip the issue if truly trivial)       |
 | Want to test a build   | Push to feature branch → Actions tab → download artifact |
-| Ready to ship          | PR → CI passes → review → squash merge to main      |
+| Ready to ship          | MR → CI passes → review → merge to main             |
