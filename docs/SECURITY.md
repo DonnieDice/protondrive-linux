@@ -1,3 +1,14 @@
+---
+title: "Security Policy"
+created: 2026-05-28
+updated: 2026-05-28
+type: meta
+tags: [security]
+sources:
+  - []
+---
+
+
 # Security Policy
 
 The security of the ProtonDrive Linux client is a top priority. We appreciate your efforts to responsibly disclose your findings, and we will make every effort to acknowledge your contributions.

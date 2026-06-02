@@ -1,0 +1,7 @@
+vmtest:rpm-fedora-43:
+  extends: .vmtest:base
+  needs:
+    - job: "install:rpm-fedora-43"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/fedora-43/test.sh

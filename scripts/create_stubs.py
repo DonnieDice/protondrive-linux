@@ -1,5 +1,19 @@
 #!/usr/bin/env python3
-"""Create stub packages for private Proton modules not available on public npm."""
+"""
+create_stubs.py — Create stub npm packages for private Proton modules.
+
+When building WebClients, yarn resolves npm packages from the public registry. Some
+Proton packages (e.g. @proton/collect-metrics, @proton/proton-foundation-search) are
+private and never published there. This script creates minimal stub packages under
+WebClients/node_modules/ so yarn resolves them locally instead of failing.
+
+Each stub consists of:
+  - package.json  — identity and version (0.0.0-stub)
+  - index.js      — no-op JS exports matching the real API surface
+
+Run this AFTER `yarn install` in WebClients so the stubs are in place before the build step.
+Requires WebClients/ to exist with a completed yarn install.
+"""
 
 import json
 from pathlib import Path

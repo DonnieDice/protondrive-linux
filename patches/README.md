@@ -6,7 +6,7 @@ contains both release-gated targets and roadmap patch-ready targets.
 A patch file is not a binary package. A target becomes release-supported only
 after it has a package workflow, artifact upload, release workflow integration,
 and a runtime smoke test. The current target verification checklist lives in
-[`docs/packaging.md`](../docs/packaging.md) and
+[`docs/build-packaging/packaging.md`](../docs/build-packaging/packaging.md) and
 [`packaging/compatibility-map.yml`](../packaging/compatibility-map.yml).
 
 ## Full Patch Tree
@@ -102,6 +102,6 @@ GTK/WebKitGTK-based.
 4. For `common/` patches that apply to cloned WebClients, test after
    `scripts/build-webclients.sh` has cloned WebClients.
 5. Add the target to `packaging/compatibility-map.yml`.
-6. Add or update documentation in `docs/packaging.md`.
+6. Add or update documentation in `docs/build-packaging/packaging.md`.
 7. Promote to release-gated only after a workflow, artifact upload, release
    integration, and runtime smoke test exist.

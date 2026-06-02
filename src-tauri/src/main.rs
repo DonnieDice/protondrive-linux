@@ -16,6 +16,7 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 use tauri::{Manager, WebviewUrl, WebviewWindowBuilder};
 
+/// Live sync module — monitors local filesystem changes and syncs with Proton Drive.
 mod live_sync;
 mod proton_navigation;
 mod sync_db;
@@ -30,7 +31,10 @@ use url_log::sanitize_url_for_log;
 use webview_cookies::{combined_cookie_header, store_webview_cookie};
 use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
+/// Base URL for the Proton API.
 const PROTON_API_BASE: &str = "https://mail.proton.me";
+
+/// Error message shown when a sync command is invoked from an untrusted origin.
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
 const SYNC_ROOT_CONFIG_FILE: &str = "sync-root.txt";
 const DEFAULT_SYNC_ROOT_DIR: &str = "ProtonDrive";
@@ -42,6 +46,7 @@ const PROXY_CONNECT_TIMEOUT: Duration = Duration::from_secs(15);
 
 static PROXY_REQUEST_ID: AtomicU64 = AtomicU64::new(1);
 
+/// Shared application state, holding the HTTP client and sync manager.
 // Shared HTTP client with cookie jar
 struct AppState {
     client: Client,
@@ -49,6 +54,7 @@ struct AppState {
     sync_manager: live_sync::LiveSyncManager,
 }
 
+/// An HTTP request to proxy through the Tauri backend to Proton.
 #[derive(Debug, Deserialize)]
 struct ProxyRequest {
     method: String,
@@ -57,6 +63,7 @@ struct ProxyRequest {
     body: Option<String>,
 }
 
+/// The response returned after proxying a request through the backend.
 #[derive(Debug, Serialize)]
 struct ProxyResponse {
     status: u16,
@@ -79,26 +86,32 @@ fn js_log(msg: String) {
     println!("[JS] {}", msg);
 }
 
+/// The URL to return to after CAPTCHA verification completes.
 // Store the return URL when navigating to captcha
 static CAPTCHA_RETURN_URL: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
 
+/// Whether the WebView is currently on a CAPTCHA page.
 // Track if we're currently on a captcha page
 static ON_CAPTCHA_PAGE: std::sync::atomic::AtomicBool = std::sync::atomic::AtomicBool::new(false);
 
+/// In-memory store for a human-verification token (cleared after first use — zero trust).
 // Store verification token in memory only (zero trust - cleared after use)
 static PENDING_VERIFICATION: std::sync::Mutex<Option<(String, String)>> =
     std::sync::Mutex::new(None);
 
+/// In-memory store for login credentials during CAPTCHA flow (cleared after use).
 // Store login credentials during captcha flow (zero trust - cleared after use)
 static PENDING_CREDENTIALS: std::sync::Mutex<Option<(String, String)>> =
     std::sync::Mutex::new(None);
 
+/// Stores a human-verification token received from the CAPTCHA flow.
 #[tauri::command]
 fn store_verification_token(token: String, token_type: String) {
     println!("[CAPTCHA] Storing verification token in memory");
     *PENDING_VERIFICATION.lock().unwrap() = Some((token, token_type));
 }
 
+/// Retrieves and clears the stored verification token (single-use).
 #[tauri::command]
 fn get_and_clear_verification_token() -> Option<(String, String)> {
     let result = PENDING_VERIFICATION.lock().unwrap().take();
@@ -108,12 +121,14 @@ fn get_and_clear_verification_token() -> Option<(String, String)> {
     result
 }
 
+/// Stores login credentials temporarily during the CAPTCHA flow.
 #[tauri::command]
 fn store_login_credentials(username: String, password: String) {
     println!("[CAPTCHA] Storing login credentials temporarily");
     *PENDING_CREDENTIALS.lock().unwrap() = Some((username, password));
 }
 
+/// Retrieves and clears stored login credentials after CAPTCHA completes.
 #[tauri::command]
 fn get_and_clear_login_credentials() -> Option<(String, String)> {
     let result = PENDING_CREDENTIALS.lock().unwrap().take();
@@ -123,6 +138,7 @@ fn get_and_clear_login_credentials() -> Option<(String, String)> {
     result
 }
 
+/// Navigates the main WebView window to a CAPTCHA verification URL.
 #[tauri::command]
 async fn navigate_to_captcha(
     app: tauri::AppHandle,
@@ -149,11 +165,13 @@ async fn navigate_to_captcha(
     Ok(())
 }
 
+/// Returns the URL the application should return to after CAPTCHA completes.
 #[tauri::command]
 fn get_captcha_return_url() -> Option<String> {
     CAPTCHA_RETURN_URL.lock().unwrap().take()
 }
 
+/// Saves a downloaded file (blob) to the user's Downloads folder.
 #[tauri::command]
 async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String> {
     let downloads_dir = dirs::download_dir()
@@ -180,6 +198,7 @@ async fn save_download(filename: String, data: Vec<u8>) -> Result<String, String
     Ok(file_path.to_string_lossy().to_string())
 }
 
+/// Starts live-syncing a local directory with Proton Drive.
 #[tauri::command]
 fn start_sync(
     window: tauri::WebviewWindow,
@@ -207,6 +226,7 @@ fn start_sync(
     Ok(status)
 }
 
+/// Stops the active live-sync operation.
 #[tauri::command]
 fn stop_sync(
     window: tauri::WebviewWindow,
@@ -220,6 +240,7 @@ fn stop_sync(
     Ok(status)
 }
 
+/// Returns the current status of the live-sync manager.
 #[tauri::command]
 fn get_sync_status(
     window: tauri::WebviewWindow,
@@ -263,6 +284,7 @@ fn set_sync_root(
     Ok(status)
 }
 
+/// Applies a remote change received from the Proton Drive server to the local sync root.
 #[tauri::command]
 fn handle_remote_update(
     window: tauri::WebviewWindow,
@@ -359,6 +381,7 @@ fn read_sync_file(
     })
 }
 
+/// Proxies an HTTP request from the WebView through the shared cookie-authenticated client.
 #[tauri::command]
 async fn proxy_request(
     window: tauri::WebviewWindow,
@@ -485,6 +508,7 @@ async fn proxy_request(
     })
 }
 
+/// Checks that a sync command originated from the `tauri://localhost` origin.
 fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), String> {
     let current_url = window.url().map_err(|e| {
         eprintln!("[Sync] failed to read window URL: {e}");
@@ -507,6 +531,7 @@ fn ensure_sync_command_allowed(window: &tauri::WebviewWindow) -> Result<(), Stri
     Ok(())
 }
 
+/// Validates that a sync root path is absolute and resides under the user's home directory.
 fn validate_sync_root_path(path: &str) -> Result<PathBuf, String> {
     let canonical = PathBuf::from(path).canonicalize().map_err(|e| {
         eprintln!("[Sync] invalid sync root path '{}': {e}", path);
@@ -726,6 +751,7 @@ mod tests {
     }
 }
 
+/// Application entry point — sets up WebKitGTK workarounds, initializes state, and launches the Tauri window.
 fn main() {
  // Universal WebKitGTK environment — applies to all Linux package targets.
  // Distro/runtime-specific overrides (GDK_GL, LIBGL_ALWAYS_SOFTWARE,
@@ -1417,7 +1443,7 @@ fn main() {
                         captchaPending = true;
                         const token = data.Details.HumanVerificationToken;
                         // Use the WebUrl provided by Proton (points to verify.proton.me)
-                        const captchaUrl = data.Details.WebUrl || ('https://verify.proton.me/?methods=captcha&token=' + encodeURIComponent(token));
+                        const captchaUrl = data.Details.WebUrl || ('https://verify.proton.me/?methods=captcha&token=*** + encodeURIComponent(token));
                         console.log('[CAPTCHA] Detected 9001, navigating to:', captchaUrl);
 
                         // Try to capture current login credentials from form before navigating
@@ -1836,7 +1862,7 @@ fn main() {
             // read_sync_file/get_sync_device_name are the zero-trust local-to-remote
             // upload bridge used by the WebClients sync listener.
             // The frontend owns Proton Drive upload/download semantics and must keep
-            // these command names in sync with docs/sync.md and CI regression checks.
+            // these command names in sync with docs/sync/sync.md and CI regression checks.
             start_sync,
             stop_sync,
             get_sync_status,

@@ -1,0 +1,14 @@
+install:debian-12:
+  extends: .install:base
+  needs:
+    - job: "transfer:debian-12"
+      artifacts: true
+  artifacts:
+    name: "install-results-debian-12"
+    paths:
+      - transfer-results/
+      - install-results/
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/install/debian-12/install.sh

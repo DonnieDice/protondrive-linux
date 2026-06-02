@@ -1,10 +1,8 @@
-diff --git a/src-tauri/src/main.rs b/src-tauri/src/main.rs
-index 246078bb..630209f8 100644
---- a/src-tauri/src/main.rs
-+++ b/src-tauri/src/main.rs
-@@ -320,11 +320,43 @@ fn sanitize_url_for_log(url: &str) -> String {
- }
+--- a/src-tauri/src/main.rs	2026-05-28 11:10:16.943666714 +0000
++++ b/src-tauri/src/main.rs	2026-05-28 11:10:16.949666788 +0000
+@@ -753,11 +753,43 @@
  
+ /// Application entry point — sets up WebKitGTK workarounds, initializes state, and launches the Tauri window.
  fn main() {
 -    // Fix WebKitGTK EGL/GPU issues on various Linux configurations
 +    // WebKitGTK environment for Alpine 3.23 (musl) APK builds.
