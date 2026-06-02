@@ -7,8 +7,6 @@
 
 An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
 
-![Screenshot](screenshots/main.png)
-
 ---
 
 ## About
