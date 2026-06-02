@@ -82,6 +82,10 @@ TASKS.md
 # WebClients
 WebClients/
 
+# VitePress docs build output
+/docs/.vitepress/dist
+/docs/.vitepress/cache
+
 # Debug files
 DEBUGGING.md
 WebClients-test
