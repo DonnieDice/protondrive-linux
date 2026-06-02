@@ -282,7 +282,9 @@ The `package-workflows.yml` workflow (the package-build mirror) triggers only on
 There is **no push, pull_request, schedule, or release trigger** on the package workflow.
 All build jobs require `workflow_dispatch`, gated by an `if: github.event_name == 'workflow_dispatch'` condition.
 
-A separate **`sanity.yml`** workflow runs on `push` (to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**`) and `pull_request` (to `main`), but only performs regression checks — it does **not** build packages.
+The GitHub `sanity.yml` workflow is manual-only. It no longer runs on every branch push or PR.
+
+Package, spec, release, and publish work is release-gated. GitLab only creates pipelines for semantic `v*` release tags or explicit release-test web/API pipelines with `RUN_RELEASE_TESTS=true`. GitHub package workflows run on `v*` tag pushes or manual dispatch on a `v*` tag ref.
 
 Concurrency is grouped by workflow name + branch/ref, cancelling in-progress runs on duplicates.
 
@@ -290,13 +292,13 @@ Concurrency is grouped by workflow name + branch/ref, cancelling in-progress run
 
 | Event | GitLab CI | GitHub Actions |
 |-------|-----------|----------------|
-| PR / MR | All build jobs + spec jobs | Regression checks only (sanity.yml) + auto-label |
-| Branch push | All build jobs + spec jobs | Regression checks only (sanity.yml) |
-| Tag push (`v*`) | All build + spec + release + publish (manual) | Manual `workflow_dispatch` only |
-| Main branch push | Build + spec + release (no publish) | Regression checks only (sanity.yml) |
-| Manual dispatch | Via pipeline UI / API | Via `workflow_dispatch` input params |
-| Issues opened | — | Auto-label |
-| Release published | — | Manual `workflow_dispatch` only |
+| PR / MR | No pipeline | No workflow |
+| Branch push | No pipeline | No workflow |
+| Tag push (`v*`) | Build + spec + release + publish (manual) | Package workflow runs on the tag |
+| Main branch push | No pipeline | No workflow |
+| Manual dispatch | Release-test pipeline only when `RUN_RELEASE_TESTS=true`; tests only unless the ref is a `v*` tag | Manual workflows only; package/spec/release/publish require a `v*` tag ref |
+| Issues opened | — | No workflow |
+| Release published | — | No workflow; use tag push/manual dispatch |
 
 ## Build Matrix — GitLab ↔ GitHub Mirror
 
