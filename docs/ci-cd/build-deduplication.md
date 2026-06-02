@@ -22,6 +22,33 @@ and wasteful.
 
 ## Implementation
 
+### 0. Content-addressed build keys
+
+The pipeline is moving from branch-scoped artifact reuse to content-addressed
+artifact reuse. Every package target computes a deterministic build key from the
+tracked Git blobs, file modes, and build-affecting environment values that can
+change the packaged output.
+
+The key is produced by `scripts/ci/lib/compute-build-key.sh` and has this shape:
+
+```text
+<package-type>-<target-label>-<sha256>
+```
+
+The script intentionally uses `git ls-files -s` instead of filesystem traversal.
+That hashes Git blob IDs and executable bits in a deterministic order, avoiding
+accidental cache misses caused by runner-dependent `find` ordering.
+
+Build-affecting environment values included in the hash stream include
+`WEBCLIENTS_COMMIT`, `WEBCLIENTS_REF`, `RUST_VERSION`, `RUSTFLAGS`,
+`CARGO_BUILD_JOBS`, `NODE_OPTIONS`, `TARGET_TRIPLE`, `DISTRO_TYPE`,
+`DISTRO_PATCH`, `APPIMAGE_TARGET`, `FLATPAK_TARGET`, `SNAP_BASE`, and
+`CI_RUNNER_EXECUTABLE_ARCH`.
+
+This MR only adds the deterministic key and manifest metadata foundation. The
+follow-up registry MR will use the key to download/upload package files from the
+GitLab Generic Package Registry before running expensive compiles.
+
 ### 1. `changes:` rules on `.rules:build`
 
 Defined in `.gitlab/workflows/_shared.yml`:
