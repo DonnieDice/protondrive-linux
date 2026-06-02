@@ -23,6 +23,8 @@ calc_cache_key() {
             "$REPO_ROOT/scripts/create_stubs.py" \
             "$REPO_ROOT/scripts/patch_drive_linux_drawer.py" \
             "$REPO_ROOT/scripts/patch_drive_linux_sync_bridge.py" \
+            "$REPO_ROOT/scripts/patch_drive_linux_calendar.py" \
+            "$REPO_ROOT/scripts/patch_drive_linux_panel.py" \
             "$WEBCLIENTS_DIR/package.json" \
             "$WEBCLIENTS_DIR/yarn.lock" \
             "$WEBCLIENTS_DIR/.yarnrc.yml"
@@ -101,6 +103,8 @@ if [ -d "$PATCHES_DIR" ]; then
 fi
 cd "$REPO_ROOT"
 python3 scripts/patch_drive_linux_sync_bridge.py
+python3 scripts/patch_drive_linux_calendar.py
+python3 scripts/patch_drive_linux_panel.py
 cd "$WEBCLIENTS_DIR"
 
 # 3. Install dependencies in WebClients
@@ -119,18 +123,30 @@ cd "$REPO_ROOT"
 python3 scripts/create_stubs.py
 cd WebClients
 
-# 4. Build all three apps in parallel (saves ~4-6 minutes vs sequential)
-echo "🔨 Building Drive, Account, and Verify apps in parallel..."
-$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
-DRIVE_PID=$!
-$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log &
-ACCOUNT_PID=$!
-$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log &
-VERIFY_PID=$!
+# 4. Build three apps sequentially to avoid OOM under concurrent CI jobs.
+# Each webpack instance peaks at ~4-6 GB; running all three in parallel inside
+# one job (plus neighbouring jobs on the shared runner) exhausted the 48 GB
+# host RAM and triggered kernel OOM kills. Sequential costs ~4 min extra per
+# job but is stable regardless of runner concurrency.
+echo "🔨 Building Drive app..."
+$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log \
+  || { echo "❌ Drive build failed"; exit 1; }
+echo "✅ Drive build complete"
 
-wait $DRIVE_PID   && echo "✅ Drive build complete"   || { echo "❌ Drive build failed"; exit 1; }
-wait $ACCOUNT_PID && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
-wait $VERIFY_PID  && echo "✅ Verify build complete"  || echo "⚠️  Verify build failed (captcha optional)"
+echo "🔨 Building Account app..."
+$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log \
+  || echo "⚠️  Account build failed (login may not work)"
+echo "✅ Account build complete"
+
+echo "🔨 Building Verify app..."
+$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log \
+  || echo "⚠️  Verify build failed (captcha optional)"
+echo "✅ Verify build complete"
+
+echo "🔨 Building Calendar app..."
+$YARN workspace proton-calendar build:web 2>&1 | tee /tmp/calendar-build.log \
+  || echo "⚠️  Calendar build failed (drawer calendar will not work)"
+echo "✅ Calendar build complete"
 
 # 4d. Copy account app to drive dist and fix paths
 echo "📦 Copying account app to drive dist..."
@@ -201,7 +217,39 @@ for p in sys.argv[1:]:
   echo "✅ Verify app copied and paths fixed"
 fi
 
-# Strip SRI from all dist files — drive, account, verify
+# 4f. Copy calendar app to drive dist and fix paths
+echo "📦 Copying calendar app to drive dist..."
+if [ -d "applications/calendar/dist" ]; then
+  cp -r applications/calendar/dist applications/drive/dist/calendar
+  echo "🔧 Fixing calendar app paths for nested deployment..."
+  find applications/drive/dist/calendar -name "*.html" -exec sed -i \
+    -e 's|<base href="/">|<base href="/calendar/">|g' \
+    -e 's|href="/assets/|href="/calendar/assets/|g' \
+    -e 's|src="/assets/|src="/calendar/assets/|g' \
+    -e 's|content="/assets/|content="/calendar/assets/|g' \
+    -e 's| integrity="[^"]*"||g' \
+    -e 's| crossorigin="anonymous"||g' {} \;
+  find applications/drive/dist/calendar -name "*.js" -exec sed -i \
+    -e 's|"//assets/static/|"/calendar/assets/static/|g' \
+    -e 's|"assets/static/|"/calendar/assets/static/|g' \
+    -e 's|"/assets/static/|"/calendar/assets/static/|g' \
+    -e 's|"//assets/|"/calendar/assets/|g' {} \;
+  find applications/drive/dist/calendar -name "runtime*.js" -exec sed -i \
+    's/\.p="\/"/.p=""/g' {} \;
+  find applications/drive/dist/calendar -name "runtime*.js" -exec python3 -c "
+import re, sys
+for p in sys.argv[1:]:
+    c = open(p).read()
+    c = re.sub(r'\.sriHashes=\{[^}]*\}', '.sriHashes={}', c)
+    c = re.sub(r'[a-z]\.integrity=[a-z]\.sriHashes\[[a-z]\],', '', c)
+    open(p,'w').write(c)
+" {} \;
+  echo "✅ Calendar app copied and paths fixed"
+else
+  echo "⚠️  applications/calendar/dist not found — calendar drawer will be unavailable"
+fi
+
+# Strip SRI from all dist files — drive, account, verify, calendar
 # 1. Remove integrity/crossorigin from drive's own index.html (SRI hashes become invalid after
 #    we modify runtime.js, so the browser rejects the modified file)
 find applications/drive/dist -maxdepth 1 -name "*.html" -exec sed -i \

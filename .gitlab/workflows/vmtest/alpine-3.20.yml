@@ -1,0 +1,7 @@
+vmtest:alpine-3.20:
+  extends: .vmtest:base
+  needs:
+    - job: "install:alpine-3.20"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/alpine-3.20/test.sh

@@ -1,0 +1,18 @@
+transfer:rpm-fedora-43:
+  extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:rpm:fedora-43"
+  needs:
+    - job: "build:gate"
+    - job: "build:rpm:fedora-43"
+      artifacts: true
+      optional: true
+  artifacts:
+    name: "transfer-results-rpm-fedora-43"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/fedora43.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/fedora-43/transfer.sh

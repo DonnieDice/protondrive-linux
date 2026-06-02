@@ -17,73 +17,67 @@ sources:
 flowchart LR
     subgraph "Source"
         RUST[src-tauri/ *.rs]
-        SPINIT[Init Script in main.rs]
-        ASSETS[src-tauri/assets/ Account app]
+        MAINRS[Init Script in main.rs]
+        WEB_CLIENTS["WebClients/ local checkout"]
     end
 
-    subgraph "Web Clients (build step)"
-        DRIVE[protonme/web-drive SPA]
-        WEBCLIENTS["scripts/build-webclients.sh\n→ cdn/ directory"]
+    subgraph "Build Script"
+        SCRIPT["scripts/build-webclients.sh\nClone from GitHub → patch →\nbuild 3 SPAs in parallel"]
+        CDN["applications/drive/dist/\n(Drive + Account + Verify)"]
     end
 
     subgraph "Patches"
         COMMON[patches/common/]
+        PYSCRIPTS["scripts/fix_deps.py +\nscripts/patch_drive_linux_drawer.py +\nscripts/patch_drive_linux_sync_bridge.py"]
         DISTRO[patches/{deb,rpm,apk,...}/]
     end
 
     subgraph "CI/CD"
-        APK[Alpine APK]
-        DEB[Debian/Ubuntu DEB]
-        RPM[Fedora/RHEL RPM]
-        APPIMAGE[AppImage]
-        AUR[Arch AUR]
-        FLATPAK[Flatpak]
-        SNAP[Snap]
+        TEST[test stage]
+        BUILD_BUILD[build stage]
+        VERIFY[verify stage]
+        SPEC[spec stage]
+        RELEASE[release stage]
+        PUBLISH[publish stage]
     end
 
-    DRIVE --> WEBCLIENTS
-    WEBCLIENTS --> RUST
-    RUST -->|cargo build| APK
-    RUST -->|cargo build| DEB
-    RUST -->|cargo build| RPM
-    RUST -->|cargo build| APPIMAGE
-    RUST -->|cargo build| AUR
-    RUST -->|cargo build| FLATPAK
-    RUST -->|cargo build| SNAP
-    COMMON --> APK
-    COMMON --> DEB
-    DISTRO --> APK
-    DISTRO --> DEB
+    WEB_CLIENTS --> SCRIPT
+    COMMON --> SCRIPT
+    PYSCRIPTS --> SCRIPT
+    SCRIPT --> CDN
+    CDN --> RUST
+    RUST -->|cargo build| TEST
+    TEST --> BUILD_BUILD
+    BUILD_BUILD --> VERIFY
+    VERIFY --> SPEC
+    SPEC --> RELEASE
+    RELEASE --> PUBLISH
 ```
 
 ## Two-part build
 
 ### Part 1: Web Clients
 
-The Proton Drive SPA is NOT part of this repository. It comes from `gitlab.com/protonme/web-drive`.
+The Proton web SPA is NOT part of this repository. It comes from `github.com/ProtonMail/WebClients` (the private `gitlab.com/protonme/web-drive` was migrated).
 
-```bash
-# scripts/build-webclients.sh
-# Clones web-drive at a pinned commit, builds Drive + Account SPAs
-git clone https://gitlab.com/protonme/web-drive.git
-cd web-drive
-git checkout $WEBCLIENTS_COMMIT   # bbad1a0a482227b93a2e963a232463aede9b8abf
+`scripts/build-webclients.sh` (282 lines) orchestrates the full build:
 
-# Build Drive SPA
-yarn install
-yarn workspace @proton/drive build
+1. **Cache-aware** — computes a cache key from WebClients HEAD + build script hashes + patch hashes; reuses `WebClients/applications/drive/dist/` when unchanged
+2. **Clone or use local checkout** — checks `WebClients/` directory first; if missing, does `git clone --depth=1 github.com/ProtonMail/WebClients.git` using `$WEBCLIENTS_REF` (default: `main`)
+3. **Patches dependencies** — runs `scripts/fix_deps.py` to patch `package.json` dependencies for CJS/ESM compat
+4. **Applies common patches** — applies patch files from `patches/common/` and runs Python scripts (`patch_drive_linux_drawer.py`, `patch_drive_linux_sync_bridge.py`)
+5. **Creates stubs** — runs `scripts/create_stubs.py` for private Proton npm packages
+6. **Parallel build** — builds THREE apps concurrently via yarn workspaces:
+   - `proton-drive build:web` — main Drive SPA
+   - `proton-account build:web` — SSO/Account app
+   - `proton-verify build:web` — Captcha/Verify app
+7. **Copies and fixes paths** — Account and Verify apps are copied into `applications/drive/dist/account/` and `applications/drive/dist/verify/` respectively, with asset paths rewritten (`/assets/` → `/account/assets/`, base href fixed, SRI integrity stripped for tauri:// protocol compat)
 
-# Copy output to cdn/
-cp -r packages/drive/dist/* cdn/
-
-# Build Account app for SSO
-yarn workspace @proton/account build
-cp -r packages/account/dist/* src-tauri/assets/account/
-```
+Output directory: `WebClients/applications/drive/dist/` containing Drive, Account, and Verify SPAs.
 
 ### Part 2: Rust + Tauri
 
-The `cdn/` directory content is bundled into the Tauri binary at compile time. The `build.rs` is minimal:
+The `WebClients/applications/drive/dist/` directory content is bundled into the Tauri binary at compile time via the Tauri asset system. The `build.rs` is minimal:
 
 ```rust
 fn main() {
@@ -97,7 +91,7 @@ Tauri's build process scans for assets and embeds them. The `protocol-asset` fea
 tauri = { version = "2.0", features = ["protocol-asset"] }
 ```
 
-The `src-tauri/assets/account/` directory contains the Account app for SSO. When the WebView navigates to `tauri://localhost/account/`, Tauri serves files from this directory.
+Account, Drive, and Verify SPAs are all served from `tauri://localhost/` with paths like `tauri://localhost/account/` and `tauri://localhost/verify/` mapped to their respective build output directories.
 
 ## Patch system
 
@@ -106,9 +100,8 @@ The `patches/` directory contains organized patches applied during CI builds:
 ```
 patches/
 ├── common/
-│   ├── show-drive-drawer-rail-in-desktop-shell.patch  # UI adaptation
-│   ├── fix-tauri-worker-protocol.patch                  # Worker protocol fix
-│   └── add-drive-linux-drawer-rail.patch                # Native sidebar
+│   ├── add-drive-linux-drawer-rail.patch      # Native sidebar (applied via Python script)
+│   └── fix-tauri-worker-protocol.patch        # Worker protocol fix
 ├── deb/
 │   ├── debian.12.patch
 │   ├── debian.13.patch
@@ -136,9 +129,10 @@ patches/
     └── core26.patch
 ```
 
-Patches serve two purposes:
+Patches serve several purposes:
 1. **Common patches** — modify the built SPA to work in the desktop shell (UI changes, protocol fixes)
-2. **Distro patches** — distro-specific packaging metadata, dependency declarations, and build flags
+2. **Python patch scripts** — `scripts/patch_drive_linux_drawer.py`, `scripts/patch_drive_linux_sync_bridge.py` — applied after common patches for complex transformations
+3. **Distro patches** — distro-specific packaging metadata, dependency declarations, and build flags
 
 ## DISTRO_TYPE build variable
 
@@ -211,53 +205,74 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 ## CI/CD Pipeline
 
-The CI is on self-hosted GitLab at `192.168.1.31:8929`. The pipeline file is `.gitlab-ci.yml` (1,492 lines).
+The CI uses two systems:
+- **GitHub Actions** (`.github/workflows/package-workflows.yml`) — primary packaging pipeline
+- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → transfer → install → vmtest → report → spec → release → publish on self-hosted GitLab at `192.168.1.31:8929`
+
+The GitLab `.gitlab-ci.yml` is a 62-line entrypoint that includes workflows from `.gitlab/workflows/`:
+- `_shared.yml` — shared job templates
+- `tests.yml` — unit and integration tests
+- `builds.yml` — per-distro build jobs
+- `transfer/*.yml` — SCP build artifacts to target VMs (alpine, debian, ubuntu, fedora, el10, opensuse, arch)
+- `install/*.yml` — distro-specific package manager install on each VM
+- `vmtest/*.yml` — regression + GUI load tests on each VM
+- `report.yml` — aggregate deployment matrix + JUnit report
+- `release.yml` — spec generation + GitHub release creation
 
 ### Stages
 
 ```
-build → spec → release → publish
+test → build → transfer → install → vmtest → report → spec → release → publish
 ```
 
 ### Rules
 
-| Pipeline source | Build | Release | Publish |
-|-----------------|-------|---------|---------|
-| Merge request | ✅ (auto) | ❌ | ❌ |
-| Branch push | ✅ (auto) | ❌ | ❌ |
-| `main` push | ✅ (auto) | ✅ (auto) | ❌ |
-| `v*` tag | ✅ (auto) | ✅ (auto) | ✅ (manual) |
+The workflow entrypoint runs on merge requests, branch pushes, and tag pushes. Per-job rules in individual workflow files determine which stages run in each context.
+
+| Pipeline source | Pipelines |
+|-----------------|-----------|
+| Merge request | Full pipeline (test through report) |
+| Branch push | Full pipeline (test through report) |
+| `main` push | Full pipeline (test through publish) |
+| `v*` tag | Full pipeline with publish (manual) |
 
 ### Per-platform build jobs
 
 Each platform has its own Docker-based build job with:
 - Distro-specific base image (e.g., `alpine:3.20`, `fedora:44`)
 - Distro-specific dependencies (WebKitGTK 4.1 dev, Rust toolchain, build tools)
-- Patch application
+- Python patch scripts applied via `scripts/fix_deps.py`, `scripts/patch_drive_linux_drawer.py`
 - Cargo build with correct `DISTRO_TYPE`
 - Artifact packaging (APK, DEB, RPM, AppImage, Flatpak)
 
-### Common CI build script anchors
+### Transfer stage
 
-```yaml
-.install_rust: &install_rust |
-  export PATH="$CARGO_HOME/bin:$PATH"
-  if [ ! -f "$CARGO_HOME/bin/rustup" ]; then
-    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
-      sh -s -- -y --default-toolchain "${RUST_VERSION}" --no-modify-path
-  fi
-  rustc --version && cargo --version
-```
+The `transfer` stage SCPs build artifacts from the build job to matching target VMs. Each target distro has its own workflow file in `.gitlab/workflows/transfer/`.
+
+### Install stage
+
+The `install` stage runs distro-specific package manager commands (apt, dnf, apk, pacman) to install the built package on each target VM, using workflow files from `.gitlab/workflows/install/`.
+
+### VM test stage
+
+The `vmtest` stage runs regression and GUI load tests on each target VM, using workflow files from `.gitlab/workflows/vmtest/`. Tests cover sync commands, SSO login routing, and basic application lifecycle.
+
+### Report stage
+
+The `report` stage aggregates test results into a deployment matrix and JUnit report, surfacing pass/fail per distro.
 
 ### Spec stage
 
-The `spec` stage runs regression checks:
-- `check-sync-regressions.sh` — Verifies sync command contract is intact
-- `check-login-routing-regressions.sh` — Verifies SSO routing is intact
+The `spec` stage generates package specifications:
+- **PKGBUILD** — AUR packaging metadata
+- **RPM spec** — Fedora/EL/openSUSE `.spec` files
+- **Source distribution** — tarballs and checksums for source-based distros
+
+This is implemented in `.gitlab/workflows/release.yml`.
 
 ### Release stage
 
-The `release` stage in `.gitlab-ci.yml` creates GitHub releases with per-platform artifacts. This runs automatically on `main` pushes and `v*` tags.
+The `release` stage creates GitHub releases with per-platform artifacts. This runs automatically on `main` pushes and `v*` tags.
 
 ### Publish stage
 
@@ -291,7 +306,7 @@ Output binary: `src-tauri/target/release/proton-drive`
 
 ## See Also
 
-- **[Build System](build-system.md)** — Cargo feature flags, platform-specific notes, Tauri CLI
+- **[Build System](../architecture/build-system.md)** — Cargo feature flags, platform-specific notes, Tauri CLI
 - **[Packaging](packaging.md)** — AppImage, deb, rpm packaging details
-- **[CI Pipeline Reference](ci-pipeline-reference.md)** — CI job matrix, artifact naming, release workflow
+- **[CI Pipeline Reference](../ci-cd/ci-pipeline-reference.md)** — CI job matrix, artifact naming, release workflow
 - **[New Build Checklist](new-build-checklist.md)** — Step-by-step build verification guide

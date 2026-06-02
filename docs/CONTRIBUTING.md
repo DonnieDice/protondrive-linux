@@ -50,7 +50,7 @@ protondrive-linux/
 ### Node.js
 
 Node.js **20+** is required. The build scripts enforce this automatically —
-running `npm install` or any `npm run` command will fail with a clear message
+running `npm run build` (or any build variant) will fail with a clear message
 if your Node.js is too old.
 
 ```bash
@@ -92,7 +92,7 @@ sudo apk add webkit2gtk-4.1-dev gtk+3.0-dev libayatana-appindicator-dev
 ```
 
 > **Note:** Alpine requires additional transitive dev packages. See
-> `docs/new-build-checklist.md` for the full Alpine dependency list including
+> `docs/build-packaging/new-build-checklist.md` for the full Alpine dependency list including
 > `glib-dev`, `harfbuzz-dev`, `cairo-dev`, `pango-dev`, `gdk-pixbuf-dev`,
 > `wayland-dev`, `zlib-dev`, `libintl`, `musl-dev`, and `libsoup3-dev`.
 
@@ -191,7 +191,7 @@ changed. See `docs/build-packaging/packaging.md` for the release gate.
   workflow, artifact upload, release integration, and runtime smoke test exist.
 - See `docs/build-packaging/packaging.md` for the full compatibility gate model (glibc +
   WebKitGTK) and support matrix.
-- See `docs/new-build-checklist.md` for the step-by-step process of adding
+- See `docs/build-packaging/new-build-checklist.md` for the step-by-step process of adding
   a new package target.
 
 ## Adding a Desktop Command
@@ -255,27 +255,42 @@ applicable GitHub Actions composite actions.
 
 ## CI / Build Pipelines
 
-This project runs **two CI systems** in parallel:
+This project runs **two CI systems** with different responsibilities:
 
-### GitHub Actions (primary)
+### GitLab CI (authoritative)
 
-The main CI system at `.github/workflows/package-workflows.yml` handles all
-package builds (AppImage, DEB, RPM, Flatpak, Snap, APK, AUR), spec generation,
-release packaging, and publishing. Workflows trigger on pushes to `main`,
-`feature/**`, `fix/**`, `chore/**` branches, tags, and PRs targeting `main`.
+The authoritative CI/CD system is defined at `.gitlab-ci.yml` and the included
+workflows under `.gitlab/workflows/`. GitLab CI handles:
 
-Package implementations live as local composite actions under
-`.github/workflows/<package>/<target>/action.yml`. See `docs/build-packaging/packaging.md`
-for the full layout.
+- Full build matrix (AppImage, DEB, RPM, Flatpak, Snap, APK, AUR)
+- VM-based install and runtime verification across multiple distros
+- Package signing, release creation, and publishing
+- Spec generation and artifact management
 
-### GitLab CI (mirrored)
+### GitHub Actions (public sanity checks)
 
-A parallel pipeline at `.gitlab-ci.yml` provides identical build jobs for the
-mirrored repository. It is kept in sync with the GitHub Actions workflow.
-Changes to the build process should be mirrored in both CI configurations.
+The GitHub repository is a public mirror and community contribution surface.
+GitHub Actions runs lightweight sanity checks — not full package builds.
 
-The `.github/workflows/sync-to-gitlab.yml` workflow mirrors GitHub to GitLab
-on every push to `main`.
+The auto-triggering workflow at `.github/workflows/sanity.yml` runs on pushes to
+`main`, `feature/**`, `fix/**`, `chore/**`, and PRs targeting `main`. It validates:
+
+- Login/2FA routing invariants
+- Sync bridge invariants
+- Rust regression tests (navigation, cookie persistence, live sync)
+
+Package workflows under `.github/workflows/package-workflows.yml` exist for
+manual `workflow_dispatch` compatibility checks and maintenance, but do not
+trigger on routine pushes or PRs.
+
+GitHub / GitLab metadata sync is handled by `.github/workflows/sync-to-gitlab.yml`,
+which mirrors issues, pull requests, and issue comments to GitLab — not code
+pushes.
+
+### Authority
+
+See `docs/ci-cd/ci-authority-and-mirroring.md` for the full CI governance model,
+release policy, and disaster recovery plan.
 
 ### CI Jobs
 
@@ -289,7 +304,7 @@ on every push to `main`.
 
 ### Release Checklist
 
-See `docs/release-checklist.md` for the full release process including version
+See `docs/reference/release-checklist.md` for the full release process including version
 bumps, build verification, CI checks, publishing secrets, and post-release
 verification.
 
@@ -411,7 +426,7 @@ GitHub's private vulnerability reporting feature:
 2. Click **Report a Vulnerability** in the left sidebar.
 3. Fill out the form with as much detail as possible.
 
-See `docs/SECURITY.md` for the full security policy, including response
+See `SECURITY.md` for the full security policy, including response
 commitments and the known upstream Dependabot alert.
 
 ## Code of Conduct

@@ -1,0 +1,7 @@
+vmtest:alpine-3.22:
+  extends: .vmtest:base
+  needs:
+    - job: "install:alpine-3.22"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/alpine-3.22/test.sh

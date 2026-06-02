@@ -21,8 +21,8 @@ listed here so risky changes are visible before manual acceptance testing.
 Run these checks before packaging or manual acceptance:
 
 ```bash
-bash scripts/ci/check-login-routing-regressions.sh
-bash scripts/ci/check-sync-regressions.sh
+bash scripts/ci/regression/login-routing.sh
+bash scripts/ci/regression/sync.sh
 cd src-tauri && cargo test proton_navigation::tests webview_cookies::tests live_sync::tests
 ```
 

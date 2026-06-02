@@ -250,7 +250,7 @@ Regression guards:
   host-only Proton auth cookies are scoped to the response host.
 - `host_only_cookies_are_scoped_to_response_host_for_restart_persistence` covers
   the restart-persistence behavior.
-- `scripts/ci/check-login-routing-regressions.sh` fails if that guard is
+- `scripts/ci/regression/login-routing.sh` fails if that guard is
   removed.
 
 ### Worker Error Location
@@ -633,7 +633,7 @@ Checked all 21 forks via GitHub API. Summary:
 - `proton_navigation::tests::rejects_account_return_without_captcha_token` verifies account returns without the token are not treated as CAPTCHA completion.
 - `proton_navigation::tests::rejects_captcha_internal_navigation_as_completion` verifies `about:blank` and `verify-api` CAPTCHA internals do not complete verification.
 - `proton_navigation::tests::redirects_account_proton_drive_handoff_to_local_drive_root` and `redirects_local_account_drive_handoff_to_local_drive_root` verify post-login account handoff lands on `tauri://localhost/`, not `/u/<id>/`.
-- `scripts/ci/check-login-routing-regressions.sh` is run by the `Login/2FA Routing Regression Checks` workflow job and fails if the broad "left captcha page" completion path, the deep `/u/<id>/` redirect pattern, removal of the `about:blank` hard handoff, or removal of the pre-init Drive user route restore is reintroduced.
+- `scripts/ci/regression/login-routing.sh` is run by the `Login/2FA Routing Regression Checks` workflow job and fails if the broad "left captcha page" completion path, the deep `/u/<id>/` redirect pattern, removal of the `about:blank` hard handoff, or removal of the pre-init Drive user route restore is reintroduced.
 
 **Validated Result:**
 - Fedora local release binary launched successfully.
