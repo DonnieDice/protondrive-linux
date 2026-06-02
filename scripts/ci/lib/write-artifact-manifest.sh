@@ -88,9 +88,19 @@ const fileEntries = files
 const manifest = {
   arch,
   artifact_name: artifactName,
+  build_key: process.env.BUILD_KEY || "",
+  build_key_schema: process.env.BUILD_KEY_SCHEMA || "proton-drive-build-key-v1",
   distro,
   files: fileEntries,
   generated_at: new Date().toISOString(),
+  gitlab: {
+    job_id: process.env.CI_JOB_ID || "",
+    job_name: process.env.CI_JOB_NAME || "",
+    pipeline_id: process.env.CI_PIPELINE_ID || "",
+    pipeline_url: process.env.CI_PIPELINE_URL || "",
+    project_id: process.env.CI_PROJECT_ID || "",
+    project_path: process.env.CI_PROJECT_PATH || "",
+  },
   github: {
     event_name: process.env.GITHUB_EVENT_NAME || "",
     job: process.env.GITHUB_JOB || "",
