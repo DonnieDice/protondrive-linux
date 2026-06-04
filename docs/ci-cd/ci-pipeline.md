@@ -273,17 +273,19 @@ All build jobs require `workflow_dispatch`, gated by an `if: github.event_name =
 
 A separate **`sanity.yml`** workflow runs on `push` (to `main`, `alpha`, `feature/**`, `fix/**`, `chore/**`) and `pull_request` (to `main`), but only performs regression checks — it does **not** build packages.
 
+Package, spec, release, and publish jobs are tag-only. In GitLab they require a `v*` tag pipeline. In GitHub, `package-workflows.yml` remains manually dispatched, but package/spec/release/publish jobs additionally require the selected dispatch ref to be a `v*` tag (`refs/tags/v*`).
+
 Concurrency is grouped by workflow name + branch/ref, cancelling in-progress runs on duplicates.
 
 ## Trigger Rules
 
 | Event | GitLab CI | GitHub Actions |
 |-------|-----------|----------------|
-| PR / MR | All build jobs + spec jobs | Regression checks only (sanity.yml) + auto-label |
-| Branch push | All build jobs + spec jobs | Regression checks only (sanity.yml) |
-| Tag push (`v*`) | All build + spec + release + publish (manual) | Manual `workflow_dispatch` only |
-| Main branch push | Build + spec + release (no publish) | Regression checks only (sanity.yml) |
-| Manual dispatch | Via pipeline UI / API | Via `workflow_dispatch` input params |
+| PR / MR | Test jobs only — no package/spec builds | Regression checks only (sanity.yml) + auto-label |
+| Branch push | Test jobs only — no package/spec builds | Regression checks only (sanity.yml) |
+| Tag push (`v*`) | Build + spec + release + publish (manual) | Package workflow may be manually dispatched on the tag ref only |
+| Main branch push | Test jobs only — no package/spec builds/release | Regression checks only (sanity.yml) |
+| Manual dispatch | Tests only unless the ref is a `v*` tag | Package/spec/release/publish jobs require manual dispatch on a `v*` tag ref |
 | Issues opened | — | Auto-label |
 | Release published | — | Manual `workflow_dispatch` only |
 
