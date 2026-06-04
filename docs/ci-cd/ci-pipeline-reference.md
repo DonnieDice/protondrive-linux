@@ -8,18 +8,19 @@
 
 ## Pipeline Overview
 
-The pipeline runs in **nine sequential stages**:
+The pipeline runs in **ten sequential stages**:
 
 ```
-test  →  build  →  transfer  →  install  →  vmtest  →  report  →  spec  →  release  →  publish
+test  →  build  →  gate  →  transfer  →  install  →  vmtest  →  report  →  spec  →  release  →  publish
 ```
 
 - **test** — pre-build regression checks (login/routing, sync, Rust formatting, Clippy lints, unit tests).
 - **build** — compiles the Tauri app and packages it for every supported distribution format.
+- **gate** — confirms all distro builds passed before deploying to VMs; transfer/install/vmtest depend on it.
 - **transfer** — SCPs the build artifact to each target VM in the LAN test matrix.
 - **install** — installs the package on each VM using the distro-specific package manager.
 - **vmtest** — runs regression checks and GUI load tests on each VM.
-- **report** — aggregates deployment/verification results into a matrix (Markdown + JUnit).
+- **report** — aggregates deployment/verification results, generates HTML reports, screenshots gallery, and GitLab Pages.
 - **spec** — generates distro-specific package metadata files (PKGBUILD, .spec, source tarball).
 - **release** — aggregates all build artifacts and creates a GitLab Release with tagged assets.
 - **publish** — pushes artifacts to external distribution channels (AUR, Flathub, Snap Store).
@@ -30,10 +31,15 @@ The pipeline is triggered for:
 
 | Event | Runs? |
 |---|---|
-| Merge request (`merge_request_event`) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
-| Branch push (any branch) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
+| Merge request (`merge_request_event`) | Yes — all test, build, gate, transfer, install, vmtest, report & spec jobs |
+| Branch push (any branch, no open MR) | Yes — all test, build, gate, transfer, install, vmtest, report & spec jobs |
+| Branch push with open MR | **No** — skipped to prevent duplicate pipelines (MR pipeline takes priority) |
 | Tag push (`CI_COMMIT_TAG`) | Yes — full pipeline including release & publish |
 | Manual trigger | Yes — any jobs with `when: manual` fallthrough |
+
+> **Duplicate pipeline prevention:** When a branch has an open merge request, the
+> branch pipeline is automatically skipped (`when: never`). Only the MR pipeline
+> runs, avoiding redundant builds.
 
 ---
 
@@ -245,6 +251,34 @@ Core26 also patches snapcraft.yaml to `base: core26`, `grade: devel`,
 
 ---
 
+## Stage: `gate`
+
+> Confirms all distro builds succeeded before any deploy/VM stages run.
+> One job only: `build:gate`. Report jobs do **not** depend on this gate
+> and always run regardless of its result.
+
+### `build:gate`
+
+| Image | Timeout | Rules |
+|---|---|---|
+| `alpine:latest` | — | MR, branch push, tag push |
+
+**Dependencies (needs):** All 10 build jobs that feed into the transfer/install/vmtest pipeline
+(APK Alpine 3.20 + 3.22, AUR, DEB Debian 12 + 13, DEB Ubuntu 24.04 + 26.04,
+RPM EL10 + Fedora 43 + openSUSE Tumbleweed).
+
+**What happens:**
+
+If any upstream build job failed, `build:gate` is skipped, which cascades:
+- `transfer/*` (all need `build:gate`) → skipped
+- `install/*` (needs transfer) → skipped
+- `vmtest/*` (needs install) → skipped
+- Report jobs are unaffected and always run.
+
+If all builds passed, the gate prints a confirmation message and the deploy stages proceed.
+
+---
+
 ## Stage: `transfer`
 
 > SCPs the build artifact to each target VM. One job per distro.
@@ -335,12 +369,15 @@ test via `xdotool` + screenshot OCR.
 
 ## Stage: `report`
 
-> Aggregates deployment and verification results from all three VM pipeline stages
-> into a single Markdown deployment matrix + JUnit report (rendered in the GitLab MR widget).
-> Runs even when some upstream jobs fail (`when: always`) so the matrix always reflects
-> the full fleet state.
+> The report stage aggregates results from all upstream VM stages and generates
+> browsable artifacts. It has **five jobs**: the deployment matrix (JUnit for MR
+> Tests tab), Robot Framework HTML, pytest HTML, a UI screenshots gallery, and
+> GitLab Pages aggregating everything into a single browsable site.
+>
+> All report jobs use `when: always` so reports exist even when upstream stages fail.
+> Artifacts expire in **90 days** (except Pages at 30 days).
 
-### `report:verify-matrix`
+### `report:deployment-matrix`
 
 | Image | Dependencies |
 |---|---|
@@ -351,17 +388,72 @@ test via `xdotool` + screenshot OCR.
 1. Collects `transfer-results/`, `install-results/`, `test-results/` from all
    vmtest job artifacts.
 2. Runs `scripts/ci/lib/verify-matrix.py` to produce:
-   - `deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
-   - `deployment-matrix.json` — structured JSON for downstream tooling
-   - `verify-junit.xml` — JUnit XML report surfaced in the GitLab MR widget
+   - `reports/deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
+   - `reports/deployment-matrix.json` — structured JSON for downstream tooling
+   - `reports/deployment-matrix.junit.xml` — JUnit XML report surfaced in the GitLab MR Tests tab
 
-**Output artifacts** (expire in 90 days):
+**Output artifacts:**
 
 | Artifact | Always? |
 |---|---|
-| `deployment-matrix.md` | Yes (`when: always`) |
-| `deployment-matrix.json` | Yes (`when: always`) |
-| `verify-junit.xml` | Yes (via `reports: junit`) |
+| `reports/deployment-matrix.md` | Yes (`when: always`) |
+| `reports/deployment-matrix.json` | Yes (`when: always`) |
+| `reports/deployment-matrix.junit.xml` | Yes (via `reports: junit`) |
+
+### `report:robot-html`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `vmtest:debian-12` (artifacts: true) |
+
+Generates a Robot Framework HTML report from test results using
+`scripts/ci/lib/generate-robot-report.py`. Output lands in `reports/robot/` and
+is browsable via the GitLab artifact browser (`CI/CD → Jobs → Browse`).
+
+### `report:pytest-html`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | None |
+
+Runs `pytest` on `tests/unit/` with `--html` and `--junit-xml` reporters.
+Uses `|| true` so test failures in unit tests don't block the report.
+Output lands in `reports/pytest/` (both HTML and JUnit XML).
+
+### `report:ui-screenshots`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `vmtest:debian-12`, `vmtest:ubuntu-24.04` (artifacts: true) |
+
+Generates a browsable screenshot gallery using
+`scripts/ci/lib/generate-screenshot-gallery.py`. Reads compositor test
+screenshots from `verify-results/ui-screenshots/` and writes an `index.html`
+gallery to `reports/screenshots/`.
+
+### `pages` — GitLab Pages
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `report:deployment-matrix`, `report:robot-html`, `report:pytest-html`, `report:ui-screenshots` (all artifacts: true) |
+
+> The job name `pages` is special in GitLab — GitLab recognises it and serves the
+> `public/` directory as a static site.
+
+**Rules:** Only runs on `main` branch pushes or tag pushes (not on every branch
+or MR).
+
+**What it does:**
+
+1. Copies all report artifacts into `public/` under subdirectories (`robot/`,
+   `pytest/`, `screenshots/`).
+2. Generates a landing page index from the deployment matrix JSON.
+3. Publishes to **GitLab Pages** at:
+   `http://pages.dicematrix.cloud/donniedice/protondrive-linux`
+
+**Infrastructure requirements:**
+- Wildcard DNS `*.pages.dicematrix.cloud` → `192.168.1.31`
+- `gitlab.rb` config: `pages_external_url` set, `gitlab_pages['enable'] = true`
 
 ---
 
@@ -482,8 +574,9 @@ Requires Docker-in-Docker service.
 
 | Condition | Jobs |
 |---|---|
-| **Merge request** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
-| **Branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
-| **Tag push (`v*`)** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + release + publish:aur + publish:flatpak + publish:snap |
-| **Main branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + **release** (creates GitLab Release) |
+| **Merge request** | All test jobs + all build jobs + all gate jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
+| **Branch push** (no open MR) | All test jobs + all build jobs + all gate jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
+| **Branch push** (open MR exists) | **Skipped entirely** — MR pipeline takes priority |
+| **Tag push (`v*`)** | All test jobs + all build jobs + all gate jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + release + publish:aur + publish:flatpak + publish:snap |
+| **Main branch push** | All test jobs + all build jobs + all gate jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + **release** (creates GitLab Release) |
 | **Manual trigger** | Any job with `when: manual` fallthrough |
