@@ -231,10 +231,9 @@ output. The common flow is:
 - All build jobs have a 2-hour timeout and per-job Rust caches (`.cargo/` +
   `src-tauri/target/`) with a 2-hour TTL.
 
-### Spec (GitLab CI only)
+### Spec
 
-Package specification generation runs in the `spec` stage. These jobs are **not
-mirrored** in GitHub Actions.
+Package specification generation runs in the `spec` stage.
 
 | Job | Output | Container |
 |-----|--------|-----------|
@@ -415,8 +414,8 @@ CI scripts are split into subdirectories under `scripts/ci/`:
 | `scripts/ci/install/<distro>/` | Per-distro install scripts run on VMs |
 | `scripts/ci/transfer/<distro>/` | Per-distro SCP transfer scripts |
 | `scripts/ci/vmtest/<distro>/` | Per-distro GUI load + regression test scripts |
-| `scripts/ci/lib/` | Shared helpers: `_vm_common.sh`, `_test_common.sh`, `gui-load-check.sh`, `ui-test-compositor.sh`, `install-rust.sh`, `fetch-latest-artifact.sh`, `write-artifact-manifest.sh` |
-| `scripts/ci/regression/` | `sync.sh` (CI drift check), `login-routing.sh`, `sync.sh` (regression suite) |
+| `scripts/ci/lib/` | Shared helpers: `_vm_common.sh`, `_test_common.sh`, `fetch-webclients.sh`, `gui-load-check.sh`, `ui-test-compositor.sh`, `install-rust.sh`, `fetch-latest-artifact.sh`, `write-artifact-manifest.sh` |
+| `scripts/ci/regression/` | `login-routing.sh`, `sidebar.sh` (navigation regression), `sync.sh` (CI drift check) |
 
 **openSUSE Tumbleweed install note:** The RPM package declares
 `Requires: libayatana-appindicator-gtk3` (the Fedora capability name). openSUSE
@@ -478,10 +477,10 @@ You can reproduce most CI build steps locally:
 | Rust build | `cargo build --release` | `cd src-tauri && cargo build --release` |
 | Patch application | `git apply patches/<type>/<variant>.patch` | Same |
 | Sync check | `scripts/ci/regression/sync.sh` | Same script (needs `yq`, `jq`) |
-| Artifact manifest | `scripts/ci/write-artifact-manifest.sh` | Same script |
+| Artifact manifest | `scripts/ci/lib/write-artifact-manifest.sh` | Same script |
 | DEB package | `npx tauri build --bundles deb` | Same (needs system deps) |
 | RPM package | `npx tauri build --bundles rpm` | Same (needs system deps) |
-| AUR package | `scripts/ci/build-aur-package.sh` | Same (needs Arch tooling) |
+| AUR package | `scripts/ci/build/aur-package.sh` | Same (needs Arch tooling) |
 | APK archive | Inline tar commands | Manual tar of staged dir |
 | Flatpak bundle | `flatpak-builder` commands | Same (needs flatpak tooling) |
 | AppImage | `appimagetool` commands | Same |
