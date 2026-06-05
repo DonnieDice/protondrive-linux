@@ -14,7 +14,7 @@ The pipeline runs in **ten sequential stages**:
 test  →  build  →  gate  →  transfer  →  install  →  vmtest  →  report  →  spec  →  release  →  publish
 ```
 
-- **test** — pre-build regression checks (login/routing, sync, Rust formatting, Clippy lints, unit tests).
+- **test** — pre-build regression checks (login/routing, sync, sidebar, Rust formatting, Clippy lints, unit tests, coverage).
 - **build** — compiles the Tauri app and packages it for every supported distribution format.
 - **gate** — confirms all distro builds passed before deploying to VMs; transfer/install/vmtest depend on it.
 - **transfer** — SCPs the build artifact to each target VM in the LAN test matrix.
@@ -122,6 +122,14 @@ routing logic hasn't regressed.
 Runs `scripts/ci/regression/sync.sh` — validates sync functionality against
 synthetic state.
 
+### `test:sidebar-regression`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:latest` | 10m | None |
+
+Runs `scripts/ci/regression/sidebar.sh` — validates sidebar state/render logic.
+
 ### `test:fmt`
 
 | Image | Timeout | Dependencies |
@@ -191,7 +199,7 @@ AppRun wrapper sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITIN
 | `build:aur` | `archlinux:base-devel` | `arch-native` | `*.pkg.tar.zst` + `.SRCINFO` |
 
 WebClients is fetched by **pinned commit** (`WEBCLIENTS_COMMIT`) rather than branch.
-Uses `scripts/ci/build-aur-package.sh` to produce the Arch package, then generates
+Uses `scripts/ci/build/aur-package.sh` to produce the Arch package, then generates
 a `PKGBUILD` and `.SRCINFO` for the AUR repository.
 
 ### DEB (Debian / Ubuntu)
@@ -244,7 +252,7 @@ EL10 and openSUSE patches applied `--reverse --check` first (idempotent).
 
 Both require **Docker-in-Docker** service (`docker:dind`) and a runner with
 `privileged = true`. The binary is built natively, then Snapcraft runs inside a
-Docker container (`ghcr.io/canonical/snapcraft:8_core24`) for the final `.snap`
+Docker container (`ghcr.io/canonical/snapcraft:stable`) for the final `.snap`
 packaging step.
 Core26 also patches snapcraft.yaml to `base: core26`, `grade: devel`,
 `build-base: devel`.
