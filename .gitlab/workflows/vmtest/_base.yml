@@ -18,9 +18,4 @@
       - verify-results/ui-screenshots/       # compositor test screenshots (OCR debug)
     when: always
     expire_in: 30 days
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-    - when: manual
-      allow_failure: true
+  rules: !reference [.rules:build, rules]

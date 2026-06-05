@@ -1,7 +1,7 @@
 # ─── Test: Login/Routing Regression ──────────────────────────────────────────
 
 test:login-routing-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   timeout: 10m
@@ -14,7 +14,7 @@ test:login-routing-regression:
 # ─── Test: Sync Regression ───────────────────────────────────────────────────
 
 test:sync-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   timeout: 10m
@@ -25,7 +25,7 @@ test:sync-regression:
     - bash scripts/ci/regression/sync.sh
 
 test:sidebar-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   timeout: 10m
@@ -113,3 +113,47 @@ test:rust:
       printf '<!doctype html><html><body>rust test fixture</body></html>\n' \
         > WebClients/applications/drive/dist/index.html
     - cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture
+
+# ─── Test: Rust Coverage Gate ─────────────────────────────────────────────────
+
+test:coverage:
+  extends: .rules:test
+  stage: test
+  image: debian:12
+  timeout: 45m
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-coverage"
+    # Keep the job required from day one, but let GitLab project/group variables
+    # ratchet this upward after the first real CI baseline is measured.
+    RUST_COVERAGE_MIN: "0"
+  cache:
+    key: test-coverage-cargo
+    paths:
+      - .cargo-coverage/
+      - src-tauri/target/
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev ca-certificates
+    - source scripts/ci/lib/install-rust.sh
+    - cargo install cargo-llvm-cov --locked
+  script:
+    - mkdir -p WebClients/applications/drive/dist coverage
+    - |
+      printf '<!doctype html><html><body>rust coverage fixture</body></html>\n' \
+        > WebClients/applications/drive/dist/index.html
+    - cargo llvm-cov --manifest-path src-tauri/Cargo.toml
+        --cobertura --output-path coverage/cobertura.xml
+        --summary-only --fail-under-lines "${RUST_COVERAGE_MIN}"
+  coverage: '/TOTAL\s+\d+\.\d+%/'
+  artifacts:
+    when: always
+    paths:
+      - coverage/cobertura.xml
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage/cobertura.xml
+    expire_in: 30 days
