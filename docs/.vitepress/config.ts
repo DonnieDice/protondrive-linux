@@ -35,6 +35,7 @@ export default defineConfig({
         text: 'Architecture',
         items: [
           { text: 'Architecture', link: '/architecture/architecture' },
+          { text: 'Requirements & Pipeline Baseline', link: '/architecture/requirements-and-pipeline' },
           { text: 'Build System', link: '/architecture/build-system' },
           { text: 'Proxy System', link: '/architecture/proxy-system' },
           { text: 'App Navigation', link: '/architecture/proton-navigation' },
