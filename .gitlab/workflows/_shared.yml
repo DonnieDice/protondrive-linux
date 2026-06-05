@@ -15,13 +15,38 @@ variables:
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 
+# Fast gates run on every MR, branch push, and tag. Keep these jobs cheap enough
+# to be required before merge: formatting, clippy, Rust unit tests, and coverage.
+.rules:test:
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+
+# Heavier regression jobs exercise shell scripts, CI parity, and UI wiring. They
+# run automatically only for protected refs/tags/schedules, with a manual escape
+# hatch for one-off branch validation.
+.rules:regression:
+  interruptible: true
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_REGRESSION_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_REGRESSION_TESTS == "true"'
+    - when: manual
+      allow_failure: true
+
+# Package builds and downstream artifact smoke stages are protected-heavy work.
+# They should not run on unprotected feature branches or ordinary MR pipelines.
 .rules:build:
   interruptible: true
   retry: 1   # webpack OOM (SIGKILL) is intermittent under parallel runner load
   rules:
-    # Only rebuild when source or build config actually changed.
+    # Only rebuild when source or build config changed, and only on trusted refs.
     # Docs, test scripts, CI report/transfer/install/vmtest yml changes skip builds.
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: '$CI_COMMIT_REF_PROTECTED == "true"'
       changes: &src_globs
         - src/**/*
         - src-tauri/**/*
@@ -35,9 +60,11 @@ variables:
         - scripts/ci/lib/fetch-webclients.sh
         - .gitlab/workflows/builds.yml
         - .gitlab/workflows/_shared.yml
-    - if: $CI_COMMIT_BRANCH
-      changes: *src_globs
     - if: $CI_COMMIT_TAG   # release tags always build
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      changes: *src_globs
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_PACKAGE_BUILDS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_PACKAGE_BUILDS == "true"'
     - when: manual          # manual override to force a rebuild
       allow_failure: true
 
@@ -52,13 +79,6 @@ variables:
     - if: $CI_COMMIT_TAG =~ /^v.*/
     - when: manual
       allow_failure: true
-
-.rules:test:
-  interruptible: true
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
 
 # ─── Reusable install helpers ────────────────────────────────────────────────
 

@@ -11,9 +11,4 @@
     # If build was skipped (no source change), restore artifact from the last
     # successful pipeline on this branch so transfer/install/vmtest still run.
     - bash scripts/ci/lib/fetch-latest-artifact.sh "${BUILD_JOB_NAME}"
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
-    - if: $CI_COMMIT_TAG
-    - when: manual
-      allow_failure: true
+  rules: !reference [.rules:build, rules]

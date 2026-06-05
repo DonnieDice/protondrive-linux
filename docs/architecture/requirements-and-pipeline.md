@@ -124,18 +124,25 @@ not the release authority.
 
 Required pipeline layers:
 
-1. **Pre-flight tests** — login-routing regression, sync regression, formatting,
-   clippy, and Rust unit tests.
-2. **Package builds** — distro/package-specific build jobs for the full release
-   matrix.
-3. **Gate stage** — a fail-fast sentinel before remote VM transfer/install/test
-   work.
-4. **Transfer/install/vmtest chain** — copy artifacts to target VMs, install with
-   the native package manager, and confirm the GUI actually appears under a
-   compositor.
-5. **Reports** — always-run deployment matrix, Robot Framework output, pytest
+1. **Fast MR/branch gates** — formatting, clippy, Rust unit tests, and Rust
+   coverage run on merge requests, branch pushes, and tags through
+   `.rules:test`. These jobs must stay cheap enough to be required before merge.
+2. **Protected regression gates** — login-routing, sync, and sidebar regressions
+   run automatically on protected refs, tags, schedules, and explicit
+   `RUN_REGRESSION_TESTS=true` web/API pipelines through `.rules:regression`.
+3. **Protected package builds** — distro/package-specific build jobs for the full
+   release matrix run on protected refs/tags/schedules or explicit
+   `RUN_PACKAGE_BUILDS=true` pipelines through `.rules:build`.
+4. **Gate stage** — a fail-fast sentinel before remote VM transfer/install/test
+   work. It uses the same build rules as package producers so it does not appear
+   when builds are intentionally skipped.
+5. **Transfer/install/vmtest smoke chain** — copy artifacts to target VMs,
+   install with the native package manager, and confirm the GUI actually appears
+   under a compositor. These jobs consume package artifacts and therefore use the
+   same protected build rules.
+6. **Reports** — always-run deployment matrix, Robot Framework output, pytest
    output, screenshots, and Pages dashboard artifacts.
-6. **Spec/release/publish stages** — generate package specs/source archives,
+7. **Spec/release/publish stages** — generate package specs/source archives,
    upload release artifacts, and publish to external stores when their secrets
    and store-side prerequisites are valid.
 
@@ -149,7 +156,7 @@ patches, and real package installation.
 
 | Layer | Required coverage | Existing anchors |
 |-------|-------------------|------------------|
-| Rust backend | `cargo test`, `cargo fmt --check`, `cargo clippy`; proxy/navigation/sync command behavior | `.gitlab/workflows/tests.yml`, `.github/workflows/sanity.yml`, `src-tauri/src/*.rs` |
+| Rust backend | `cargo test`, `cargo fmt --check`, `cargo clippy`, and Cobertura coverage reporting; proxy/navigation/sync command behavior | `.gitlab/workflows/tests.yml`, `.github/workflows/sanity.yml`, `src-tauri/src/*.rs` |
 | Login/navigation regressions | Guard Account/Verify/Drive routing, CAPTCHA completion token handling, and post-2FA Drive handoff | `scripts/ci/regression/login-routing.sh`, `src-tauri/src/proton_navigation.rs`, `src-tauri/src/webview_cookies.rs` |
 | Sync regressions | Ensure CI definitions and sync bridge expectations do not drift | `scripts/ci/regression/sync.sh`, `tests/robot/suites/functional/03_sync.robot` |
 | GUI smoke | Prove that the installed app opens a visible WebKitGTK window, not only a live process | `scripts/ci/lib/gui-load-check.sh`, `scripts/ci/lib/ui-test-compositor.sh` |
