@@ -26,7 +26,7 @@ reqwest = { version = "0.12", features = ["json", "cookies"] }
 base64 = "0.22"
 dirs = "5.0"
 mime_guess = "2.0"
-notify = "6.1"
+notify = "8.2"
 rusqlite = { version = "0.32", features = ["bundled"] }
 sha2 = "0.10"
 hex = "0.4"
