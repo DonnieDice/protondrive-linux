@@ -27,7 +27,7 @@ base64 = "0.22"
 dirs = "5.0"
 mime_guess = "2.0"
 notify = "6.1"
-rusqlite = { version = "0.32", features = ["bundled"] }
+rusqlite = { version = "0.40", features = ["bundled"] }
 sha2 = "0.10"
 hex = "0.4"
 
