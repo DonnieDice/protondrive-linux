@@ -90,7 +90,7 @@ runs:
         printf '%s\n' '[Desktop Entry]' \
           'Version=1.0' \
           'Type=Application' \
-          'Name=Proton Drive' \
+          'Name=ProtonDrive Linux (Unofficial)' \
           'Comment=Secure cloud storage' \
           'Exec=proton-drive' \
           'Icon=com.proton.drive' \

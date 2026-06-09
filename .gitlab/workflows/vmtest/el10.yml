@@ -1,0 +1,7 @@
+vmtest:rpm-el10:
+  extends: .vmtest:base
+  needs:
+    - job: "install:rpm-el10"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/el10/test.sh

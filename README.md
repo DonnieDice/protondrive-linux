@@ -1,94 +1,138 @@
-<div>
-<h1><img src="src-tauri/icons/proton-drive.svg" height="28"> ProtonDrive Linux</h1>
-</div>
+# ProtonDrive Linux
 
-[![latest](https://img.shields.io/github/v/release/DonnieDice/protondrive-linux?label=latest&color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases/latest)
+[![pipeline](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/badges/main/pipeline.svg)](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/-/pipelines)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
 [![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](docs/LICENSE)
 [![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
 
-An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux.
+> This is the public **GitHub mirror**. Active development, CI/CD pipelines, and packaging happen on [**self-hosted GitLab**](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux). Every commit here is mirrored from there. See [CI Authority & GitHub Mirroring](docs/ci-cd/ci-authority-and-mirroring.md) for the full policy.
 
-![Screenshot](screenshots/main.png)
+An unofficial desktop client for [Proton Drive](https://proton.me/drive) on Linux, built with [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/).
 
 ---
 
 ## About
 
-ProtonDrive Linux wraps the official [Proton Drive](https://proton.me/drive) web interface in a native Linux desktop window using [Tauri](https://tauri.app/) and [WebKitGTK](https://webkitgtk.org/). Authentication, encryption, and file operations are handled by Proton's web app — this project provides the native shell, system tray integration, and cross-distro packaging.
+ProtonDrive Linux wraps Proton's web application in a native desktop window with system tray integration, native file sync, and comprehensive cross-distribution packaging. Authentication, encryption, and core file operations are handled by Proton's web app — this project provides the native shell and Linux integrations.
 
-**Features:**
+### Features
 
-- Desktop window for Proton Drive with system tray integration
-- Login, CAPTCHA, and two-factor authentication support
-- Proton Drive file browsing and downloads (saved to `~/Downloads`)
-- Experimental 2-way live sync (watch a local folder and apply remote changes)
-- Native packages for most major Linux distributions
-- Built with Rust + Tauri 2 for a small footprint and low resource usage
-- Package formats: AppImage (portable), Flatpak (standalone bundle), Snap (standalone), DEB, RPM, APK, and Arch PKGBUILD
+- Native desktop window with system tray integration
+- Login, CAPTCHA, and two-factor authentication
+- Proton Drive file browsing and downloads
+- Experimental 2-way live sync (watch local folders, apply remote changes)
+- Native packages for 17+ Linux targets
+- Built with Rust + Tauri for small footprint and low resource usage
 
-> **Packages are not yet available on Flathub, Snap Store, or system repositories.** For now, download from [Releases](https://github.com/DonnieDice/protondrive-linux/releases/latest).
+---
 
-## Quick Install
+## Installation
 
-Download the latest release from the [Releases page](https://github.com/DonnieDice/protondrive-linux/releases/latest).
+Download from [GitHub Releases](https://github.com/DonnieDice/protondrive-linux/releases/latest).
 
-| Format | Command |
+| Format | Targets |
 |--------|---------|
-| **AppImage** (portable) | `chmod +x proton-drive_*.AppImage && ./proton-drive_*.AppImage` |
-| **Debian/Ubuntu** | `sudo apt install ./proton-drive_*_amd64.deb` |
-| **Fedora/RHEL** | `sudo dnf install ./proton-drive-*.rpm` |
-| **openSUSE** | `sudo zypper install ./proton-drive-*-opensuse-tumbleweed.rpm` |
-| **Arch (AUR PKGBUILD)** | `sudo pacman -U proton-drive-*.pkg.tar.zst` |
-| **Alpine** | `sudo apk add ./proton-drive_*_alpine*_amd64.apk.tar.gz` |
-| **Flatpak** | `flatpak install proton-drive_*_gnome*.flatpak` |
-| **Snap** | `sudo snap install --dangerous protondrive-linux_*.snap` |
+| **AppImage** | Universal Linux |
+| **DEB** | Debian 12/13, Ubuntu 24.04/26.04 |
+| **RPM** | Fedora 43/44, EL10, openSUSE Tumbleweed |
+| **Flatpak** | GNOME 49/50 |
+| **Snap** | core24, core26 |
+| **APK** | Alpine 3.20/3.22/3.23 |
+| **AUR** | `proton-drive` (Arch Linux) |
 
-SHA256 checksums are provided in the `SHA256SUMS` file attached to each release.
+> Packages are not yet available on Flathub, Snap Store, or system repositories.
 
-## 2-Way Live Sync (Experimental)
+---
 
-The native sync layer lets the Proton Drive web app watch a local folder and apply remote file changes into it. This is **experimental** — the web frontend must call the Tauri commands to use it.
+## Building from Source
 
-Operational notes, weak areas, and the `~/Pictures` test plan are documented in [Two-Way Sync Notes](docs/sync/sync.md).
+```bash
+# Clone the repository
+git clone https://github.com/DonnieDice/protondrive-linux.git
+cd protondrive-linux
 
-### How it works
+# Build WebClients (Proton's web app)
+bash scripts/build-webclients.sh
 
-1. **Choose a sync folder** — the web app calls `start_sync(path)` with any directory under `$HOME`. The path must exist and be a directory. Paths outside `$HOME` are rejected for safety.
-2. **Local changes are detected** — a recursive file watcher monitors the folder for creates, modifies, and deletes. Events are emitted as `live-sync://local-change` to the frontend.
-3. **Remote changes are applied** — the frontend calls `handle_remote_update(change)` to write or delete files in the sync folder. Relative paths are validated against the sync root — symlink traversal and path traversal (`../`) are blocked.
+# Install dependencies and build
+npm ci
+npx tauri build --bundles deb
+```
 
-### Tauri commands
+### Prerequisites
 
-| Command | Description |
-|---------|-------------|
-| `start_sync(path)` | Start watching a folder. `path` must be an existing directory under `$HOME`. |
-| `stop_sync()` | Stop watching and release the file watcher. |
-| `get_sync_status()` | Returns `{ enabled, folder_path }`. |
-| `handle_remote_update(change)` | Apply a remote change. `change` is `{ relativePath, action, contentBase64 }` where `action` is `"create"`, `"update"`, or `"delete"`. |
+- Rust (stable)
+- Node.js 22+
+- WebKitGTK 4.1, GTK3, libayatana-appindicator, OpenSSL, libsoup 3.0
+- See [Contributing](docs/CONTRIBUTING.md) for distro-specific setup
 
-### Constraints
+---
 
-- The sync folder **must** be under `$HOME` (validated on start).
-- Symlinks anywhere in the target path are rejected.
-- Path components like `..` or root-dir references in `relativePath` are rejected.
-- A suppression cache (4096 entries, 30 s TTL) prevents watcher ping-pong when remote writes land.
-- Commands are only accepted from `tauri://localhost` or `tauri://tauri.localhost`.
+## CI/CD Pipeline
+
+The project runs a comprehensive CI/CD pipeline on self-hosted GitLab with 7 quality gates before builds:
+
+| Stage | Jobs |
+|-------|------|
+| **Lint** | ShellCheck, shfmt, yamllint, actionlint, GitLab CI lint, Ruff (Python) |
+| **Test** | Python script validation, version consistency, Rust coverage |
+| **Security** | Gitleaks secrets, cargo-deny, npm audit, Trivy FS scan |
+| **Build** | 17 platform targets (APK, AppImage, AUR, DEB, Flatpak, RPM, Snap) |
+| **Smoke** | Install-and-run tests (deb, rpm, AppImage) |
+| **Sign** | Cosign artifact signing, SLSA provenance attestation, SBOM generation |
+| **Release** | Artifact upload, checksums, release creation |
+| **Publish** | AUR, Flathub, Snap Store |
+
+Builds are manual on MRs/branches and automated on `v*` tags. See [CI Pipeline Reference](docs/ci-cd/ci-pipeline-reference.md).
+
+---
 
 ## Documentation
 
 | | |
 |---|---|
-| [Workflow](docs/workflow.md) | Branch, PR, review, and merge guide |
-| [CI Authority & GitHub Mirroring](docs/ci-cd/ci-authority-and-mirroring.md) | GitLab CI authority, GitHub mirror policy, and release ownership |
-| [Two-Way Sync Notes](docs/sync/sync.md) | Sync bridge contract, weak areas, and test plan |
-...
-| [Packaging & Compatibility](docs/build-packaging/packaging.md) | Support matrix, compatibility gates, patch policy |
-| [License](docs/LICENSE) | AGPL-3.0 or later |
-| [Security Policy](docs/SECURITY.md) | Vulnerability reporting |
-| [Code of Conduct](docs/CODE_OF_CONDUCT.md) | Community standards |
+| [Architecture](docs/architecture/architecture.md) | System design, build system, proxy, navigation |
+| [Build & Packaging](docs/build-packaging/build-packaging.md) | Support matrix, packaging policy, new target checklist |
+| [CI/CD](docs/ci-cd/ci-pipeline.md) | Pipeline reference, authority, roadmap, release process |
+| [Sync System](docs/sync/sync-system.md) | Live sync module, database, regression runbook |
+| [Authentication](docs/auth/auth-module.md) | Auth flow, SSO authentication |
+| [WebView](docs/webview/webview-integration.md) | WebView config, URL logging, storage |
+| [API Reference](docs/api_v2_reference.md) | Tauri commands, events, REST endpoints |
+| [Contributing](docs/CONTRIBUTING.md) | Dev setup, build rules, packaging guide |
+| [Workflow](docs/reference/workflow.md) | Branching, PR, review, merge protocol |
+| [Changelog](docs/CHANGELOG.md) | Release history |
+| [Security](docs/SECURITY.md) | Vulnerability reporting |
 
-&nbsp;
+---
 
-> **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Proton AG.
-> Proton Drive is a trademark of Proton AG. This is an independent community project.
+## 2-Way Live Sync (Experimental)
+
+The native sync layer watches a local folder and applies remote file changes. The web frontend must call Tauri commands to enable it.
+
+| Command | Description |
+|---------|-------------|
+| `start_sync(path)` | Start watching a folder under `$HOME` |
+| `stop_sync()` | Stop watching |
+| `get_sync_status()` | Returns `{ enabled, folder_path, poll_interval_seconds }` |
+| `handle_remote_update(change)` | Apply remote create/update/delete |
+| `read_sync_file(rootPath, relativePath)` | Read local file for upload (max 100 MB) |
+
+See [Live Sync Module](docs/sync/live-sync-module.md) for the full contract and constraints.
+
+---
+
+## Contributing
+
+Contributions are welcome. All development follows the [workflow protocol](docs/reference/workflow.md):
+
+1. **Issue** → Create a tracking issue
+2. **Branch** → `feature/N`, `fix/N`, or `chore/N`
+3. **PR** → Open against `main`, link to issue
+4. **Review** → Address CI checks and review feedback
+5. **Merge** → Squash-merge after approval
+
+Commit messages follow `(#N) Description` format. See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed build and packaging rules.
+
+---
+
+> **Disclaimer:** This project is not affiliated with, endorsed by, or connected to Proton AG. Proton Drive is a trademark of Proton AG. This is an independent community project.

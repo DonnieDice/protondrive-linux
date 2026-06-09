@@ -81,6 +81,10 @@ python3 scripts/fix_deps.py
 
 ## CI Scripts (`scripts/ci/`)
 
+`scripts/ci/` is for reusable CI, packaging, install, transfer, VM test, and
+release helper logic. Executable test cases live under `tests/` instead:
+`tests/regression/`, `tests/unit/`, and `tests/robot/`.
+
 | Script | Purpose |
 |---|---|
 | `build-alpine-320-apk.sh` | Build Alpine Linux 3.20 .apk package |

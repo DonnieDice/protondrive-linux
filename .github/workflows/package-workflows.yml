@@ -1,10 +1,6 @@
-name: Package Workflows
+﻿name: Package Workflows
 
 on:
-  pull_request_target:
-    types: [opened]
-  issues:
-    types: [opened]
   workflow_dispatch:
     inputs:
       workflow:
@@ -33,19 +29,20 @@ on:
         required: false
         default: stable
 
+  pull_request:
+  push:
+    branches: [main]
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  packages: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build_apk_alpine_3_20:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-20')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-20'))
     name: Alpine 3.20 APK
     runs-on: ubuntu-latest
     container:
@@ -64,13 +61,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.20
 
   build_apk_alpine_3_22:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-22')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-22'))
     name: Alpine 3.22 APK
     runs-on: ubuntu-latest
     container:
@@ -89,13 +86,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.22
 
   build_apk_alpine_3_23:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-23')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-apk-alpine-3-23'))
     name: Alpine 3.23 APK
     runs-on: ubuntu-latest
     container:
@@ -114,13 +111,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/apk/alpine-3.23
 
   build_appimage:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-appimage')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-appimage'))
     name: AppImage ${{ github.event.inputs.appimage_target || 'linux-baseline' }}
     runs-on: ubuntu-latest
     container:
@@ -137,13 +134,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/appimage/linux-baseline
 
   build_aur:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-aur')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-aur'))
     name: AUR Arch Native
     runs-on: ubuntu-latest
     container:
@@ -161,13 +158,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/aur/arch-native
 
   build_deb_debian_12:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-12')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-12'))
     name: Debian 12 DEB
     runs-on: ubuntu-latest
     container:
@@ -186,13 +183,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/debian-12
 
   build_deb_debian_13:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-13')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-debian-13'))
     name: Debian 13 DEB
     runs-on: ubuntu-latest
     container:
@@ -210,13 +207,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/debian-13
 
   build_deb_ubuntu_24_04:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-24-04')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-24-04'))
     name: Ubuntu 24.04 DEB
     runs-on: ubuntu-latest
     container:
@@ -234,13 +231,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/ubuntu-24.04
 
   build_deb_ubuntu_26_04:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-26-04')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-deb-ubuntu-26-04'))
     name: Ubuntu 26.04 DEB
     runs-on: ubuntu-latest
     container:
@@ -258,13 +255,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/deb/ubuntu-26.04
 
   build_flatpak_gnome_50:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-50')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-50'))
     name: Flatpak GNOME 50
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -279,13 +276,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/gnome-50
 
   build_flatpak_gnome_49:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-49')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-flatpak-gnome-49'))
     name: Flatpak GNOME 49 Package
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -300,13 +297,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/gnome-49
 
   build_rpm_el10:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-el10')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-el10'))
     name: EL10 RPM
     runs-on: ubuntu-latest
     container:
@@ -323,13 +320,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/el10
 
   build_rpm_fedora_43:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-43')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-43'))
     name: Fedora 43 RPM
     runs-on: ubuntu-latest
     container:
@@ -347,13 +344,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/fedora-43
 
   build_rpm_fedora_44:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-44')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-fedora-44'))
     name: Fedora 44 RPM
     runs-on: ubuntu-latest
     container:
@@ -371,13 +368,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/fedora-44
 
   build_rpm_opensuse_tumbleweed:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-opensuse-tumbleweed')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-rpm-opensuse-tumbleweed'))
     name: openSUSE Tumbleweed RPM
     runs-on: ubuntu-latest
     container:
@@ -397,13 +394,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/rpm/opensuse-tumbleweed
 
   build_snap_core24:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core24')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core24'))
     name: Snap core24
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -418,13 +415,13 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/core24
 
   build_snap_core26:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core26')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core26'))
     name: Snap core26
     runs-on: ubuntu-24.04
     timeout-minutes: 120
@@ -441,69 +438,75 @@ jobs:
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/core26
 
   generate_package_specs_generate_aur_pkgbuild:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/aur-pkgbuild
 
   generate_package_specs_generate_rpm_spec:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-rpm-spec')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-rpm-spec'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/rpm-spec
 
   generate_package_specs_create_source_dist:
-    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-create-source-dist')
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-create-source-dist'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/generate-package-specs/source-dist
 
   issue_auto_label:
-    if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/issue-auto-label
 
   pr_auto_label:
-    if: github.event_name == 'pull_request_target' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label'))
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/pr-auto-label
@@ -519,7 +522,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/aur/publish
@@ -534,7 +537,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/flatpak/publish
@@ -551,7 +554,7 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/snap/publish
@@ -578,11 +581,14 @@ jobs:
     if: always() && github.event_name == 'workflow_dispatch' && inputs.workflow == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: write
+      packages: write
 
   
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Run workflow implementation
         uses: ./.github/workflows/maintenance/release

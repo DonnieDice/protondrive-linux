@@ -1,0 +1,7 @@
+vmtest:aur:
+  extends: .vmtest:base
+  needs:
+    - job: "install:aur"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/arch/test.sh

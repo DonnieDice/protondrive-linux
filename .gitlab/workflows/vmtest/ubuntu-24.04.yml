@@ -1,0 +1,7 @@
+vmtest:ubuntu-24.04:
+  extends: .vmtest:base
+  needs:
+    - job: "install:ubuntu-24.04"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/ubuntu-24.04/test.sh

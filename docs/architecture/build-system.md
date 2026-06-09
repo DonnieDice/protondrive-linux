@@ -1,3 +1,14 @@
+---
+title: "Build System"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [build, configuration]
+sources:
+  - []
+---
+
+
 # Build System
 
 ## Overview
@@ -9,17 +20,22 @@ Linux distributions.
 
 **What gets built:**
 
-| Artifact        | Format                 | Target platforms                                  |
-|-----------------|------------------------|---------------------------------------------------|
-| Tauri app       | `src-tauri/target/`    | Development / CI runner (ELF binary + resources)  |
-| AUR package     | `.pkg.tar.zst`         | Arch Linux (native, `pacman`)                     |
-| Alpine APK      | `.apk.tar.gz`          | Alpine Linux 3.20, 3.22, 3.23 (musl-based)       |
-| openSUSE RPM    | `.rpm`                 | openSUSE Tumbleweed                               |
+| Artifact        | Format                 | Target platforms                                                                 |
+|-----------------|------------------------|----------------------------------------------------------------------------------|
+| Tauri app       | `src-tauri/target/`    | Development / CI runner (ELF binary + resources)                                |
+| AUR package     | `.pkg.tar.zst`         | Arch Linux (native, `pacman`)                                                   |
+| Alpine APK      | `.apk.tar.gz`          | Alpine Linux 3.20, 3.22, 3.23 (musl-based)                                      |
+| Debian/Ubuntu DEB | `.deb`              | Debian 12, 13; Ubuntu 24.04, 26.04                                               |
+| openSUSE RPM    | `.rpm`                 | openSUSE Tumbleweed                                                              |
+| Fedora RPM      | `.rpm`                 | Fedora 43, 44                                                                   |
+| EL RPM          | `.rpm`                 | Enterprise Linux 10 (CentOS Stream 10)                                           |
+| Flatpak         | `.flatpak`             | GNOME 49, 50 (Flathub)                                                          |
+| Snap            | `.snap`                | core24, core26 (Snap Store)                                                      |
+| AppImage        | `.AppImage`            | linux-baseline (pre-compiled)                                                    |
 
-> **Note:** Additional targets (Debian/Ubuntu DEB, Fedora RPM, Flatpak, Snap, AppImage)
-> are tracked in the [compatibility map](../packaging/compatibility-map.yml) as
-> roadmap-patch-ready or release-gated. This document covers the currently active
-> build pipeline.
+> All targets above are actively built in CI. The [compatibility map](../packaging/compatibility-map.yml)
+> tracks per-target status (release-gated vs rollout). Additional packaging targets
+> are added as their patch files and CI workflows land.
 
 ---
 
@@ -34,7 +50,7 @@ flowchart LR
     E["Common Patches\n· fix-tauri-worker-protocol"]
     F["yarn install + build\n· Drive, Account, Verify\n· Nested sub-path fixes\n· SRI stripping"]
     G["Distro-Specific Patch\n(e.g. alpine.3.22.patch)"]
-    H["npm install +\nnpx tauri build"]
+    H["npm ci +\nnpx tauri build"]
     I["Package Wrangling\n· FHS staging tree\n· Strip debug symbols\n· tar.gz / PKGBUILD / rpm"]
     J["Artifact\n.apk.tar.gz / .pkg.tar.zst / .rpm"]
 
@@ -44,7 +60,7 @@ flowchart LR
     D -- "Apply common patches" --> E
     E -- "yarn install &\nbuild (parallel)" --> F
     F -- "Apply distro patch\nto worktree" --> G
-    G -- "npm install + build\n(Tauri)" --> H
+    G -- "npm ci + build\n(Tauri)" --> H
     H -- "Package & strip" --> I
     I --> J
 ```
@@ -71,7 +87,7 @@ flowchart LR
    patch is applied. These patches set environment variables for WebKitGTK compatibility
    (e.g. `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `GDK_GL=disable` on musl targets) and
    handle D-Bus session auto-launching for Alpine.
-7. **Tauri compile** — `npm install` + `npx tauri build` compiles the Rust/Tauri binary
+7. **Tauri compile** — `npm ci` + `npx tauri build` compiles the Rust/Tauri binary
    with the patched WebClients dist baked in.
 8. **Packaging** — The binary, desktop entry, and icons are staged in an FHS-like
    directory tree, stripped of debug symbols, and packed into the target format.
@@ -82,7 +98,7 @@ flowchart LR
 
 ### AUR Package (.pkg.tar.zst)
 
-**Script:** [`scripts/ci/build-aur-package.sh`](../scripts/ci/build-aur-package.sh)
+**Script:** [`scripts/ci/build/aur-package.sh`](../scripts/ci/build/aur-package.sh)
 
 Builds an Arch Linux package for distribution via the Arch User Repository or direct
 `pacman -U` install.
@@ -108,23 +124,25 @@ Builds an Arch Linux package for distribution via the Arch User Repository or di
 
 ### Alpine APK (.apk.tar.gz)
 
-**Scripts:**
+**CI workflow (GitHub Actions):** `.github/workflows/apk/alpine-<version>/action.yml`
 
-| Alpine version | Script                                              | Patch                      |
-|----------------|-----------------------------------------------------|----------------------------|
-| 3.20           | [`build-alpine-320-apk.sh`](../scripts/ci/build-alpine-320-apk.sh) | `patches/apk/alpine.3.20.patch` |
-| 3.22           | [`build-alpine-322-apk.sh`](../scripts/ci/build-alpine-322-apk.sh) | `patches/apk/alpine.3.22.patch` |
-| 3.23           | [`build-alpine-323-apk.sh`](../scripts/ci/build-alpine-323-apk.sh) | `patches/apk/alpine.3.23.patch` |
+| Alpine version | Patch                      |
+|----------------|----------------------------|
+| 3.20           | `patches/apk/alpine.3.20.patch` |
+| 3.23           | `patches/apk/alpine.3.23.patch` |
 
-All three Alpine scripts follow an identical pattern (only the patch file and output
-directory differ):
+> **Alpine 3.22** — The standalone build script (`scripts/ci/build/alpine-322-apk.sh`) was removed in commit 6745336b as dead code. Alpine 3.22 builds are now handled by the shared transfer → install → vmtest pipeline (see [CI pipeline scripts](#package-builds-ci-style) below).
+
+The remaining Alpine builds follow an identical pattern (only the patch file and output
+directory differ). The build is orchestrated by a GitHub Actions composite workflow
+(`.github/workflows/apk/alpine-<version>/action.yml`):
 
 1. **Validate** the patch file exists.
 2. **Create a clean git worktree** from `HEAD` so the original tree is untouched.
 3. **Apply the distro patch** (first `--check`, then apply).
 4. **Build WebClients** via `scripts/build-webclients.sh`.
 5. **Build the binary** — syncs version from `package.json` → `tauri.conf.json` →
-   `Cargo.toml`, runs `npm install`, then `npx tauri build --verbose`.
+   `Cargo.toml`, runs `npm ci`, then `npx tauri build --verbose`.
 6. **Stage the packaging tree** — creates an FHS-like layout:
    ```
    usr/bin/proton-drive                    (stripped ELF)
@@ -139,9 +157,11 @@ directory differ):
 
 **Alpine-specific concerns:**
 
-- **musl linking:** Alpine uses musl libc. The `.cargo/config.toml` must set
-  `linker = "gcc"` and `target-feature=-crt-static` so the binary dynamically links
-  against system `.so` files (GTK, WebKit).
+- **musl linking:** Alpine uses musl libc. A `.cargo/config.toml` must be
+  generated (e.g. via the `cargo_config` entries in
+  [`packaging/compatibility-map.yml`](../../packaging/compatibility-map.yml)) with
+  `linker = "gcc"` and `rustflags = ["-C", "target-feature=-crt-static"]` so the
+  binary dynamically links against system `.so` files (GTK, WebKit).
 - **D-Bus:** Alpine lacks systemd's auto-launch. The patch must auto-launch a user DBus
   session (`dbus-launch --sh-syntax`) and set `AT_SPI_BUS_ADDRESS=/dev/null` to prevent
   WebKit crashes.
@@ -149,37 +169,41 @@ directory differ):
   `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `WEBKIT_DISABLE_COMPOSITING_MODE=1`,
   `WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1`, `GDK_GL=disable`,
   `LIBGL_ALWAYS_SOFTWARE=1`, `GSK_RENDERER=cairo`.
-- Rust compilation uses `cargo build --release` directly (not `npx tauri build`) in
-  Alpine containers because the Tauri bundler defaults to `deb`/`rpm`/`appimage`
-  targets unavailable on Alpine.
+- Rust compilation uses `npx tauri build --verbose` for all Alpine targets
+  (same as openSUSE RPM). Earlier versions of the pipeline used `cargo build --release`
+  directly because the Tauri bundler defaults to `deb`/`rpm`/`appimage` targets
+  unavailable on Alpine, but the current pipeline has resolved this — `npx tauri build`
+  works correctly on Alpine without a `--bundles` flag.
 
 ---
 
-### openSUSE Tumbleweed RPM (.rpm)
+### RPM Packages (.rpm)
 
-**Script:** [`scripts/ci/build-opensuse-tumbleweed-rpm.sh`](../scripts/ci/build-opensuse-tumbleweed-rpm.sh)
+**CI workflows (GitHub Actions):** `.github/workflows/rpm/<target>/action.yml`
+
+| Target            | Patch                         |
+|-------------------|-------------------------------|
+| openSUSE Tumbleweed | `patches/rpm/opensuse.tumbleweed.patch` |
+| Fedora 43         | `patches/rpm/fedora.43.patch`           |
+| Fedora 44         | `patches/rpm/fedora.44.patch`           |
+| EL 10             | `patches/rpm/el10.patch`                |
+
+#### openSUSE Tumbleweed
 
 Builds an RPM package for openSUSE Tumbleweed using Tauri's built-in RPM bundler.
 
-**How it works:**
-
-1. **Validate** the patch file `patches/rpm/opensuse.tumbleweed.patch`.
-2. **Create a clean git worktree** from `HEAD`.
-3. **Apply the distro patch**.
-4. **Build WebClients** via `scripts/build-webclients.sh`.
-5. **Optional WebKit overlay** — if `WEBKIT_OVERLAY` is set, creates symlinks in a
-   temp dir and adjusts `LIBRARY_PATH` / `RUSTFLAGS` so the linker finds custom
-   WebKitGTK libraries.
-6. **Build the RPM** — syncs version, `npm install`, then `npx tauri build --bundles rpm`.
-7. **Normalize filename** — Tauri's bundler produces `Proton Drive-<version>.rpm`; the
-   script renames it to `proton-drive_<version>_opensuse.amd64.rpm`.
-8. **Copy** the RPM to the output directory.
+The openSUSE RPM build is equivalent for Fedora and EL10 targets — each uses its own
+patch file and base container image. The process follows the same pipeline as Alpine
+APK builds (git worktree, patch application, WebClients build, Tauri compile, package)
+but uses `npx tauri build --bundles rpm` since the Tauri RPM bundler is available on
+SUSE/Fedora/EL.
 
 **Key details:**
-- Unlike the Alpine scripts, this uses `npx tauri build --bundles rpm` (not raw `cargo
-  build`) because the Tauri RPM bundler is available and functional on openSUSE.
-- The RPM output goes through a filename normalization step (`Proton Drive` →
-  `proton-drive`).
+- All RPM builds use `npx tauri build --bundles rpm` (not raw `cargo
+  build`) because the Tauri RPM bundler is available and functional on
+  SUSE/Fedora/EL targets.
+- Tauri's bundler produces `Proton Drive-<version>.rpm`; CI workflows apply a
+  filename normalization step (`Proton Drive` → `proton-drive`).
 
 ---
 
@@ -227,6 +251,10 @@ Patches applied before the WebClients build:
   in Tauri environments by checking `window.location?.protocol === 'tauri:'` or the
   `__TAURI__` global. System WebKitGTK doesn't support Web Workers from the `tauri://`
   protocol, so the app must use Proton's built-in main-thread crypto fallback.
+- `add-drive-linux-drawer-rail.patch` — Adds a desktop sidebar rail component to the
+  Drive UI for Linux, creating a non-blocking thin rail that provides quick access to
+  folders, upload controls, and account actions without the full drawer overlay behavior
+  used on web.
 
 ### `build-webclients.sh` — Build Orchestration
 
@@ -266,7 +294,7 @@ cd protondrive-linux
 scripts/build-webclients.sh
 
 # 2. Build the Tauri app (development mode)
-npm install
+npm ci
 npx tauri dev
 
 # Or for a release binary
@@ -276,20 +304,27 @@ npx tauri build --verbose
 ### Package Builds (CI-style)
 
 Each CI build script creates a **clean git worktree** so it doesn't touch your working
-tree. Run them from the repository root:
+tree. Builds are orchestrated via GitHub Actions composite workflows or the GitLab CI
+pipeline. For manual runs:
 
 ```bash
-# Arch Linux AUR package
-./scripts/ci/build-aur-package.sh
+# Arch Linux AUR package (uses standalone script)
+./scripts/ci/build/aur-package.sh
 
-# Alpine APK packages
-OUTPUT_DIR=/tmp/apk-out ./scripts/ci/build-alpine-322-apk.sh
-OUTPUT_DIR=/tmp/apk-out ./scripts/ci/build-alpine-323-apk.sh
-OUTPUT_DIR=/tmp/apk-out ./scripts/ci/build-alpine-320-apk.sh
-
-# openSUSE Tumbleweed RPM
-OUTPUT_DIR=/tmp/rpm-out ./scripts/ci/build-opensuse-tumbleweed-rpm.sh
+# Individual GitHub Actions workflows can be triggered via:
+#   gh workflow run package-workflows.yml -f workflow=build-rpm-opensuse-tumbleweed
 ```
+
+Each package format has a dedicated set of CI scripts:
+
+| Category | Location | Purpose |
+|----------|----------|---------|
+| Build    | `scripts/ci/build/` | Compile and package (AUR only uses a standalone script) |
+| Install  | `scripts/ci/install/<distro>/` | Dependency installation scripts per distro |
+| Transfer | `scripts/ci/transfer/<distro>/` | SCP artifacts to VM test runners |
+| VM test  | `scripts/ci/vmtest/<distro>/` | Regression + GUI load tests |
+| lib      | `scripts/ci/lib/` | Shared utilities (Rust install, artifact manifest, matrix verification) |
+| Regression tests | `tests/regression/` | Login routing, sidebar, and sync invariant checks |
 
 **Environment variables:**
 
@@ -309,30 +344,35 @@ OUTPUT_DIR=/tmp/rpm-out ./scripts/ci/build-opensuse-tumbleweed-rpm.sh
 
 ### CI Builds
 
-All package builds run in CI through two parallel CI systems:
+All package builds run through two parallel CI systems:
 
-- **GitLab CI** (`.gitlab-ci.yml`) — Authoritative per project policy
-- **GitHub Actions** (`.github/workflows/`) — Builds AUR, Alpine APK (3.20, 3.22, 3.23),
-  and openSUSE Tumbleweed RPM in dedicated containers
+- **GitLab CI** (`.gitlab-ci.yml`) — Authoritative per project policy. Stages:
+  `test` → `build` → `transfer` → `install` → `vmtest` → `report` → `spec` → `release` → `publish`
+  Each stage runs per-distro (Alpine 3.20, 3.22, Debian 12/13, Ubuntu 24.04/26.04,
+  EL10, Fedora 43/44, openSUSE Tumbleweed, Arch).
+- **GitHub Actions** (`.github/workflows/`) — Composite actions under
+  `.github/workflows/<format>/<target>/action.yml` for builds; also handles AUR,
+  Alpine APK, RPM, DEB, Flatpak, Snap, and AppImage packaging in dedicated containers.
 
 The CI pipeline is defined in:
-- [`docs/ci-cd-roadmap.md`](ci-cd-roadmap.md) — Pipeline architecture and target matrix
-- [`docs/ci-cd/ci-pipeline-reference.md`](ci-pipeline-reference.md) — Per-job reference
-- [`docs/ci-cd/ci-authority-and-mirroring.md`](ci-authority-and-mirroring.md) — Dual-CI policy
+- [`docs/ci-cd/ci-cd-roadmap.md`](../ci-cd/ci-cd-roadmap.md) — Pipeline architecture and target matrix
+- [`docs/ci-cd/ci-pipeline-reference.md`](../ci-cd/ci-pipeline-reference.md) — Per-job reference (GitLab)
+- [`docs/ci-cd/ci-authority-and-mirroring.md`](../ci-cd/ci-authority-and-mirroring.md) — Dual-CI policy
 
 ---
 
 ## Adding a New Target
 
 To add a new distro/package format, follow the checklist in
-[`docs/new-build-checklist.md`](new-build-checklist.md). The high-level steps:
+[`docs/build-packaging/new-build-checklist.md`](../build-packaging/new-build-checklist.md). The high-level steps:
 
 1. Verify compatibility gates (libc ≥ 2.35 or musl; WebKitGTK 4.1 installed)
 2. Create distro patch under `patches/<package>/<target>.patch`
 3. Update the compatibility map in `packaging/compatibility-map.yml`
-4. Create a GitHub Actions workflow under `.github/workflows/<package>/<target>/`
-5. (Optional) Create a local CI build script under `scripts/ci/`
-6. Integrate with the release pipeline
+4. Create a GitHub Actions composite workflow under `.github/workflows/<format>/<target>/action.yml`
+5. Create CI transfer, install, and vmtest scripts under `scripts/ci/{transfer,install,vmtest}/<target>/`
+6. Add GitLab CI includes under `.gitlab/workflows/{transfer,install,vmtest}/<target>.yml`
+7. Integrate with the release pipeline
 
 ---
 

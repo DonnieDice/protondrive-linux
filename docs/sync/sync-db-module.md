@@ -1,3 +1,14 @@
+---
+title: "Sync Database Module (sync_db.rs)"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [database, sync, architecture]
+sources:
+  - src-tauri/src/sync_db.rs
+---
+
+
 # Sync Database Module (`sync_db.rs`)
 
 > **Source:** `src-tauri/src/sync_db.rs` — 839 lines. A SQLite-backed metadata store
@@ -395,4 +406,4 @@ mediated by the Rust backend.
 - **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing, migration strategy
 - **[Sync System](sync-system.md)** — Full sync architecture, change detection, Tauri command wiring
 - **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, event contract
-- **[Architecture](ARCHITECTURE.md)** — How `sync_db` fits into the overall AppState
+- **[Architecture](../architecture/architecture.md)** — How `sync_db` fits into the overall AppState

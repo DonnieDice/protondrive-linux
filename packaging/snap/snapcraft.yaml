@@ -2,7 +2,7 @@ name: proton-drive
 version: "PLACEHOLDER"
 summary: Proton Drive Linux Desktop Client
 description: |
-  Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+  Fast, lightweight, and unofficial desktop GUI client for the Proton Drive web service on Linux.
   Built with Tauri and Rust for a native-performance experience.
 icon: src-tauri/icons/128x128.png
 grade: stable

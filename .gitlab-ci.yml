@@ -1,20 +1,2093 @@
 include:
-  - local: .gitlab/workflows/_shared.yml
+  - local: .gitlab-ci-vm-tests.yml
   - local: .gitlab/workflows/tests.yml
-  - local: .gitlab/workflows/builds.yml
-  - local: .gitlab/workflows/release.yml
+
+variables:
+  RUST_VERSION: stable
+  WEBCLIENTS_REF: main
+  WEBCLIENTS_COMMIT: "bbad1a0a482227b93a2e963a232463aede9b8abf"
+  CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  DOCKER_HOST: tcp://docker:2375
+  DOCKER_TLS_CERTDIR: ""
+  DOC_AUDIT_WINDOW_HOURS: "24"
 
 stages:
+  - detect
+  - audit
+  - update
+  - lint
   - test
+  - security
   - build
   - spec
+  - sign
   - release
   - publish
+  - mirror
 
 workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
+    # MR and branch pipelines run quality gates. Package release builds are
+    # created by protected v* tags; manual/API release-test runs are explicit.
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+    - when: never
+.rules:build:
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_RELEASE_TESTS == "true"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
+    - when: manual
+      allow_failure: true
+
+.rules:release:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$/
+    - when: never
+
+.rules:publish:
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v.*/
+    - when: manual
+      allow_failure: true
+
+.rules:doc_audit:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+    - when: never
+
+.rules:gate:
+  interruptible: true
+  rules:
     - if: $CI_PIPELINE_SOURCE == "merge_request_event"
     - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG
+    - when: never
+
+.rules:test:
+  extends: .rules:gate
+
+lint:shell:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: koalaman/shellcheck-alpine:stable
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - shellcheck --severity=warning $(git ls-files '*.sh')
+
+lint:shell-fmt:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: mvdan/shfmt:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  allow_failure: true
+  before_script:
+    - apk add --no-cache git
+  script:
+    - FILES="$(git ls-files '*.sh')"
+    - 'test -n "$FILES" && shfmt -d -i 2 -ci $FILES || echo "no shell files"'
+
+lint:yaml:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: cytopia/yamllint:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - yamllint -s .
+
+lint:actions:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: rhysd/actionlint:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - actionlint
+
+lint:gitlab-ci:
+  extends: .rules:gate
+  stage: lint
+  image: alpine:3.20
+  dependencies: []
+  cache: []
+  rules:
+    - if: '$CI_LINT_TOKEN && $CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab/workflows/*.yml
+    - when: never
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - |
+      RESP=$(curl -sk --header "PRIVATE-TOKEN: ${CI_LINT_TOKEN}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
+        --data-urlencode "content=$(cat .gitlab-ci.yml)")
+      echo "$RESP" | jq -e '.valid == true' >/dev/null || { echo "$RESP" | jq .; exit 1; }
+
+lint:python:
+  extends: .rules:gate
+  stage: lint
+  image: python:3.12-slim
+  dependencies: []
+  cache: []
+  before_script:
+    - pip install --no-cache-dir ruff
+  script:
+    - ruff check scripts/
+    - ruff format --check scripts/
+
+test:python-scripts:
+  extends: .rules:gate
+  stage: test
+  image: python:3.12-slim
+  dependencies: []
+  cache: []
+  script:
+    - python -c "import ast, pathlib; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('scripts').rglob('*.py')]"
+    - if [ -d scripts/tests ]; then python -m pip install --no-cache-dir pytest && pytest -q scripts/tests; else echo "no scripts/tests yet"; fi
+
+test:version-consistency:
+  extends: .rules:gate
+  stage: test
+  image: alpine:3.20
+  dependencies: []
+  cache: []
+  before_script:
+    - apk add --no-cache jq grep sed gawk bash
+  script:
+    - bash scripts/ci/check-versions.sh
+
+coverage:rust:
+  extends: .rules:gate
+  stage: test
+  image: debian:12
+  timeout: 40m
+  allow_failure: true
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-cov"
+  cache:
+    key: cov-rust-cargo
+    paths: [.cargo-cov/, src-tauri/target/]
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev
+    - source scripts/ci/lib/install-rust.sh
+    - rustup component add llvm-tools-preview
+    - cargo install cargo-llvm-cov --locked || true
+  script:
+    - mkdir -p WebClients/applications/drive/dist
+    - printf '<!doctype html><html><body>coverage fixture</body></html>\n' > WebClients/applications/drive/dist/index.html
+    - cargo llvm-cov --manifest-path src-tauri/Cargo.toml --cobertura --output-path coverage.xml --summary-only
+  coverage: '/TOTAL.*?(\d+\.\d+)%/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+
+security:secrets:
+  extends: .rules:gate
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - gitleaks detect --source . --redact -v --exit-code 1
+
+security:cargo-deny:
+  extends: .rules:gate
+  stage: security
+  image: rust:bookworm
+  dependencies: []
+  cache:
+    key: security-cargo-deny
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  allow_failure: true
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  script:
+    - cargo install cargo-deny --locked || true
+    - cargo deny --manifest-path src-tauri/Cargo.toml check advisories bans licenses sources
+
+security:npm-audit:
+  extends: .rules:gate
+  stage: security
+  image: node:22-slim
+  dependencies: []
+  cache: []
+  allow_failure: true
+  script:
+    - npm ci --ignore-scripts
+    - npm audit --audit-level=high
+
+security:trivy-fs:
+  extends: .rules:gate
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  allow_failure: true
+  script:
+    - trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 .
+
+docs:detect-changes:
+  extends: .rules:doc_audit
+  stage: detect
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --name-only --pretty=format: |
+          sort -u |
+          grep -v '^$' > changed_files.txt
+      else
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        if [ -n "$BASE_SHA" ]; then
+          git diff --name-only "$BASE_SHA".."$CI_COMMIT_SHA" > changed_files.txt
+        else
+          git diff --name-only HEAD~1..HEAD > changed_files.txt
+        fi
+      fi
+      cat changed_files.txt
+  artifacts:
+    when: always
+    paths:
+      - changed_files.txt
+
+docs:resolve-mapping:
+  extends: .rules:doc_audit
+  stage: detect
+  image: python:3.12-alpine
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+  before_script:
+    - pip install pyyaml
+  script:
+    - python scripts/ci/resolve-mapping.py --mapping docs/mapping.yaml --changed changed_files.txt > docs/affected_docs.json
+    - cat docs/affected_docs.json
+  artifacts:
+    when: always
+    paths:
+      - docs/affected_docs.json
+
+docs:audit-gate:
+  extends: .rules:doc_audit
+  stage: audit
+  image: alpine:3.20
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+    - job: docs:resolve-mapping
+      artifacts: true
+  before_script:
+    - apk add --no-cache bash curl git jq
+  script:
+    - export AFFECTED_JSON="docs/affected_docs.json"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        export MODE="schedule"
+        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
+      else
+        export MODE="${DOC_AUDIT_MODE:-release_gate}"
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
+      fi
+    - bash scripts/ci/ai-doc-gate.sh
+  artifacts:
+    when: always
+    paths:
+      - docs/stale_docs.json
+      - docs/stale_docs.raw.json
+
+docs:auto-update:
+  extends: .rules:doc_audit
+  stage: update
+  image: alpine:3.20
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - when: never
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+    - job: docs:resolve-mapping
+      artifacts: true
+    - job: docs:audit-gate
+      artifacts: true
+  before_script:
+    - apk add --no-cache bash curl git jq python3
+  script:
+    - export AFFECTED_JSON="docs/affected_docs.json"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
+      else
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
+      fi
+    - bash scripts/ci/ai-doc-update.sh
+    - |
+      if git diff --quiet docs/ README.md; then
+        echo "No doc changes needed."
+        exit 0
+      fi
+    - BRANCH="docs/ai-update-${CI_COMMIT_SHORT_SHA}"
+    - git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"
+    - git config user.email "${DOC_AUDIT_BOT_EMAIL:-bot@example.com}"
+    - git checkout -b "$BRANCH"
+    - git add docs/ README.md
+    - git commit -m "docs: auto-update from AI audit [skip ci]"
+    - |
+      if [ -n "${DOC_AUDIT_PUSH_TOKEN:-}" ]; then
+        git remote set-url origin "https://oauth2:${DOC_AUDIT_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      fi
+      git push -o merge_request.create -o merge_request.target=main -o merge_request.title="docs: AI audit update" origin "$BRANCH"
+
+# ─── Rust install script (reused via YAML anchor) ─────────────────────────────
+
+.install_rust: &install_rust |
+  export PATH="$CARGO_HOME/bin:$PATH"
+  if [ ! -f "$CARGO_HOME/bin/rustup" ]; then
+    curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | \
+      sh -s -- -y --default-toolchain "${RUST_VERSION}" --no-modify-path
+  else
+    rustup default "${RUST_VERSION}" 2>/dev/null || rustup default stable
+  fi
+  export PATH="$CARGO_HOME/bin:$PATH"
+  rustc --version && cargo --version
+
+.clone_webclients: &clone_webclients |
+  if [ -d "WebClients/.git" ]; then
+    echo "✅ WebClients already cloned – resetting to ${WEBCLIENTS_REF}"
+    cd WebClients && git fetch origin "${WEBCLIENTS_REF}" && git checkout "origin/${WEBCLIENTS_REF}" && git clean -fd && cd ..
+  else
+    rm -rf WebClients
+    git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+  fi
+
+# ─── APK ──────────────────────────────────────────────────────────────────────
+
+build:apk:alpine-3.20:
+  extends: .rules:build
+  stage: build
+  image: alpine:3.20
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: apk
+    DISTRO_PATCH: alpine.3.20
+    DISTRO_SUFFIX: alpine320
+  cache:
+    key: apk-alpine320-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apk update && apk add bash git curl wget build-base file pkgconfig
+        openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
+        glib-dev gdk-pixbuf-dev harfbuzz-dev pango-dev cairo-dev
+        wayland-dev zlib-dev libintl musl-dev libsoup3-dev
+        libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
+        vips-dev libjpeg-turbo-dev giflib-dev
+    - *install_rust
+    - |
+      mkdir -p .cargo
+      cat > .cargo/config.toml <<'EOF'
+      [target.x86_64-unknown-linux-musl]
+      linker = "gcc"
+      rustflags = ["-C", "target-feature=-crt-static"]
+      EOF
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release --verbose && cd ..
+    - |
+      VERSION=$(node -p "require('./package.json').version")
+      BINARY=src-tauri/target/release/proton-drive
+      [ -f "$BINARY" ] || { echo "ERROR: binary not found"; exit 1; }
+      APK_STAGING="/tmp/proton-drive-apk"
+      rm -rf "$APK_STAGING"
+      mkdir -p "$APK_STAGING/usr/bin" "$APK_STAGING/usr/share/applications" \
+        "$APK_STAGING/usr/share/icons/hicolor/32x32/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
+      cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
+      strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
+      cp src-tauri/linux/proton-drive.desktop "$APK_STAGING/usr/share/applications/"
+      cp src-tauri/icons/32x32.png "$APK_STAGING/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
+      cp src-tauri/icons/128x128.png "$APK_STAGING/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
+      cp src-tauri/icons/128x128@2x.png "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png"
+      cp src-tauri/icons/proton-drive.svg "$APK_STAGING/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+      mkdir -p artifacts
+      tar -C "$APK_STAGING" -czf "artifacts/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:apk:alpine-3.22:
+  extends: .rules:build
+  stage: build
+  image: alpine:3.22
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: apk
+    DISTRO_PATCH: alpine.3.22
+    DISTRO_SUFFIX: alpine322
+  cache:
+    key: apk-alpine322-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apk update && apk add bash git curl wget build-base file pkgconfig
+        openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
+        glib-dev gdk-pixbuf-dev harfbuzz-dev pango-dev cairo-dev
+        wayland-dev zlib-dev libintl musl-dev libsoup3-dev
+        libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
+        vips-dev libjpeg-turbo-dev giflib-dev
+    - *install_rust
+    - |
+      mkdir -p .cargo
+      cat > .cargo/config.toml <<'EOF'
+      [target.x86_64-unknown-linux-musl]
+      linker = "gcc"
+      rustflags = ["-C", "target-feature=-crt-static"]
+      EOF
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release --verbose && cd ..
+    - |
+      VERSION=$(node -p "require('./package.json').version")
+      BINARY=src-tauri/target/release/proton-drive
+      [ -f "$BINARY" ] || { echo "ERROR: binary not found"; exit 1; }
+      APK_STAGING="/tmp/proton-drive-apk"
+      rm -rf "$APK_STAGING"
+      mkdir -p "$APK_STAGING/usr/bin" "$APK_STAGING/usr/share/applications" \
+        "$APK_STAGING/usr/share/icons/hicolor/32x32/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
+      cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
+      strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
+      cp src-tauri/linux/proton-drive.desktop "$APK_STAGING/usr/share/applications/"
+      cp src-tauri/icons/32x32.png "$APK_STAGING/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
+      cp src-tauri/icons/128x128.png "$APK_STAGING/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
+      cp src-tauri/icons/128x128@2x.png "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png"
+      cp src-tauri/icons/proton-drive.svg "$APK_STAGING/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+      mkdir -p artifacts
+      tar -C "$APK_STAGING" -czf "artifacts/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:apk:alpine-3.23:
+  extends: .rules:build
+  stage: build
+  image: alpine:3.23
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: apk
+    DISTRO_PATCH: alpine.3.23
+    DISTRO_SUFFIX: alpine323
+  cache:
+    key: apk-alpine323-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apk update && apk add bash git curl wget build-base file pkgconfig
+        openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
+        glib-dev gdk-pixbuf-dev harfbuzz-dev pango-dev cairo-dev
+        wayland-dev zlib-dev libintl musl-dev libsoup3-dev
+        libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
+        vips-dev libjpeg-turbo-dev giflib-dev
+    - *install_rust
+    - |
+      mkdir -p .cargo
+      cat > .cargo/config.toml <<'EOF'
+      [target.x86_64-unknown-linux-musl]
+      linker = "gcc"
+      rustflags = ["-C", "target-feature=-crt-static"]
+      EOF
+      git config --global --add safe.directory "$CI_PROJECT_DIR"
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - export PKG_CONFIG_ALLOW_CROSS=1 PKG_CONFIG_PATH="/usr/lib/pkgconfig:/usr/share/pkgconfig"
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release --verbose && cd ..
+    - |
+      VERSION=$(node -p "require('./package.json').version")
+      BINARY=src-tauri/target/release/proton-drive
+      [ -f "$BINARY" ] || { echo "ERROR: binary not found"; exit 1; }
+      APK_STAGING="/tmp/proton-drive-apk"
+      rm -rf "$APK_STAGING"
+      mkdir -p "$APK_STAGING/usr/bin" "$APK_STAGING/usr/share/applications" \
+        "$APK_STAGING/usr/share/icons/hicolor/32x32/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps" \
+        "$APK_STAGING/usr/share/icons/hicolor/scalable/apps"
+      cp "$BINARY" "$APK_STAGING/usr/bin/proton-drive"
+      strip "$APK_STAGING/usr/bin/proton-drive" 2>/dev/null || true
+      cp src-tauri/linux/proton-drive.desktop "$APK_STAGING/usr/share/applications/"
+      cp src-tauri/icons/32x32.png "$APK_STAGING/usr/share/icons/hicolor/32x32/apps/proton-drive.png"
+      cp src-tauri/icons/128x128.png "$APK_STAGING/usr/share/icons/hicolor/128x128/apps/proton-drive.png"
+      cp src-tauri/icons/128x128@2x.png "$APK_STAGING/usr/share/icons/hicolor/128x128@2/apps/proton-drive.png"
+      cp src-tauri/icons/proton-drive.svg "$APK_STAGING/usr/share/icons/hicolor/scalable/apps/proton-drive.svg"
+      mkdir -p artifacts
+      tar -C "$APK_STAGING" -czf "artifacts/proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.apk.tar.gz" .
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── AppImage ─────────────────────────────────────────────────────────────────
+
+build:appimage:
+  extends: .rules:build
+  stage: build
+  image: debian:12
+  timeout: 2h
+  variables:
+    APPIMAGE_TARGET: linux-baseline
+  cache:
+    key: appimage-linux-baseline-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf fuse libfuse2 python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "ERROR: $PATCH_FILE not found"; exit 1
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cargo build --manifest-path src-tauri/Cargo.toml --release
+    - |
+      APPDIR="AppDir"
+      mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" \
+        "$APPDIR/usr/share/icons/hicolor/scalable/apps" \
+        "$APPDIR/usr/share/icons/hicolor/128x128/apps" \
+        "$APPDIR/usr/share/icons/hicolor/32x32/apps" \
+        "$APPDIR/usr/share/icons/hicolor/256x256/apps"
+      cp src-tauri/target/release/proton-drive "$APPDIR/usr/bin/proton-drive"
+      chmod +x "$APPDIR/usr/bin/proton-drive"
+      cat > "$APPDIR/usr/share/applications/com.proton.drive.desktop" <<'EOF'
+      [Desktop Entry]
+      Version=1.0
+      Type=Application
+      Name=ProtonDrive Linux (Unofficial)
+      Comment=Secure cloud storage
+      Exec=proton-drive %U
+      Icon=com.proton.drive
+      Categories=Utility;Network;FileTransfer;
+      Terminal=false
+      StartupWMClass=proton-drive
+      EOF
+      cp src-tauri/icons/proton-drive.svg "$APPDIR/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+      cp src-tauri/icons/128x128.png "$APPDIR/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+      cp src-tauri/icons/32x32.png "$APPDIR/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+      cp src-tauri/icons/128x128@2x.png "$APPDIR/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+      cp "$APPDIR/usr/share/applications/com.proton.drive.desktop" "$APPDIR/com.proton.drive.desktop"
+      cp src-tauri/icons/proton-drive.svg "$APPDIR/com.proton.drive.svg"
+      ln -sf usr/share/icons/hicolor/128x128/apps/com.proton.drive.png "$APPDIR/.DirIcon"
+      cat > "$APPDIR/AppRun" <<'APPRUN'
+      #!/bin/bash
+      export WEBKIT_DISABLE_DMABUF_RENDERER=1
+      export WEBKIT_DISABLE_COMPOSITING_MODE=1
+      export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+      export GDK_GL=software
+      export GSK_RENDERER=cairo
+      HERE="$(dirname "$(readlink -f "${0}")")"
+      export PATH="${HERE}/usr/bin:${PATH}"
+      export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+      exec "${HERE}/usr/bin/proton-drive" "$@"
+      APPRUN
+      chmod +x "$APPDIR/AppRun"
+      wget -q "https://github.com/AppImage/AppImageKit/releases/download/continuous/appimagetool-x86_64.AppImage" -O appimagetool
+      chmod +x appimagetool
+      ./appimagetool --appimage-extract
+      ARCH=x86_64 ./squashfs-root/AppRun "$APPDIR" "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage"
+      mkdir -p artifacts
+      mv "proton-drive_${VERSION}_${APPIMAGE_TARGET}_amd64.AppImage" artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── AUR ──────────────────────────────────────────────────────────────────────
+
+build:aur:
+  extends: .rules:build
+  stage: build
+  image: archlinux:base-devel
+  timeout: 2h
+  cache:
+    key: aur-arch-native-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - pacman -Sy --noconfirm --needed bash git curl wget file pkg-config
+        webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3
+        nodejs npm python rustup base-devel patch
+    - rustup default "${RUST_VERSION}"
+    - *install_rust
+    - |
+      rm -rf WebClients
+      git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
+      git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
+      git -C WebClients checkout --detach "${WEBCLIENTS_COMMIT}"
+    - |
+      AUR_PATCH="patches/aur/arch-native.patch"
+      if [ -f "$AUR_PATCH" ]; then
+        git apply "$AUR_PATCH"
+      else
+        echo "ERROR: No AUR patch found at $AUR_PATCH"; exit 1
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cargo build --manifest-path src-tauri/Cargo.toml --release
+    - scripts/ci/build-aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
+    - |
+      cd packaging/aur
+      sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+      sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+      makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
+    - mkdir -p artifacts
+    - cp /tmp/aur-output/*.pkg.tar.zst artifacts/ 2>/dev/null || true
+    - cp packaging/aur/.SRCINFO artifacts/ 2>/dev/null || true
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── DEB ──────────────────────────────────────────────────────────────────────
+
+build:deb:debian-12:
+  extends: .rules:build
+  stage: build
+  image: debian:12
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: deb
+    DISTRO_PATCH: debian.12
+    DISTRO_SUFFIX: debian12
+  cache:
+    key: deb-debian12-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles deb --verbose
+    - |
+      cd src-tauri/target/release/bundle/deb
+      for file in *.deb; do
+        [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
+      done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:deb:debian-13:
+  extends: .rules:build
+  stage: build
+  image: debian:13
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: deb
+    DISTRO_PATCH: debian.13
+    DISTRO_SUFFIX: debian13
+  cache:
+    key: deb-debian13-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles deb --verbose
+    - |
+      cd src-tauri/target/release/bundle/deb
+      for file in *.deb; do
+        [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
+      done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:deb:ubuntu-24.04:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:24.04
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: deb
+    DISTRO_PATCH: ubuntu.24.04
+    DISTRO_SUFFIX: ubuntu24.04
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: deb-ubuntu2404-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles deb --verbose
+    - |
+      cd src-tauri/target/release/bundle/deb
+      for file in *.deb; do
+        [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
+      done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:deb:ubuntu-26.04:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:26.04
+  timeout: 2h
+  variables:
+    DISTRO_TYPE: deb
+    DISTRO_PATCH: ubuntu.26.04
+    DISTRO_SUFFIX: ubuntu26.04
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: deb-ubuntu2604-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles deb --verbose
+    - |
+      cd src-tauri/target/release/bundle/deb
+      for file in *.deb; do
+        [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
+      done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── Flatpak ──────────────────────────────────────────────────────────────────
+# NOTE: flatpak-builder requires either --disable-rofiles-fuse or privileged mode.
+# If builds fail with FUSE errors, enable privileged mode in the runner config.
+
+build:flatpak:gnome-49:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:24.04
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: org.gnome.Platform.49
+    GNOME_RUNTIME: "49"
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: flatpak-gnome49-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+        flatpak flatpak-builder
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release && cd ..
+    - |
+      flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      flatpak install --user -y flathub org.gnome.Platform//${GNOME_RUNTIME} org.gnome.Sdk//${GNOME_RUNTIME} || true
+      printf '%s\n' '#!/bin/bash' \
+        'export WEBKIT_DISABLE_DMABUF_RENDERER=1' \
+        'export WEBKIT_DISABLE_COMPOSITING_MODE=1' \
+        'export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1' \
+        'export GDK_GL=software' \
+        'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
+      chmod +x proton-drive-wrapper.sh
+      printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
+        'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
+        > com.proton.drive.desktop
+      rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
+      cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
+      cp proton-drive-wrapper.sh flatpak-staging/proton-drive
+      cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png \
+         src-tauri/icons/128x128@2x.png src-tauri/icons/proton-drive.svg flatpak-staging/icons/
+      cp com.proton.drive.desktop flatpak-staging/
+      cp packaging/com.proton.drive.metainfo.xml flatpak-staging/
+      cat > com.proton.drive.yml <<YAMLEOF
+      app-id: com.proton.drive
+      runtime: org.gnome.Platform
+      runtime-version: '${GNOME_RUNTIME}'
+      sdk: org.gnome.Sdk
+      command: proton-drive
+      finish-args:
+        - --share=network
+        - --share=ipc
+        - --socket=fallback-x11
+        - --socket=wayland
+        - --socket=pulseaudio
+        - --device=dri
+        - --filesystem=xdg-download
+        - --filesystem=xdg-documents
+        - --talk-name=org.freedesktop.secrets
+        - --talk-name=org.freedesktop.Notifications
+      modules:
+      - name: proton-drive
+        buildsystem: simple
+        sources:
+        - type: dir
+          path: flatpak-staging
+        build-commands:
+        - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin
+        - install -Dm755 proton-drive /app/bin/proton-drive
+        - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+        - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+        - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+        - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+        - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
+        - install -Dm644 com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+      YAMLEOF
+      rm -rf build-dir repo
+      flatpak-builder --user --force-clean --repo=repo --disable-rofiles-fuse build-dir com.proton.drive.yml
+      flatpak build-bundle repo "proton-drive_${VERSION}_gnome${GNOME_RUNTIME}.flatpak" com.proton.drive
+      mkdir -p artifacts && mv *.flatpak artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:flatpak:gnome-50:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:24.04
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: org.gnome.Platform.50
+    GNOME_RUNTIME: "50"
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: flatpak-gnome50-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
+        flatpak flatpak-builder
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release && cd ..
+    - |
+      flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
+      flatpak install --user -y flathub org.gnome.Platform//${GNOME_RUNTIME} org.gnome.Sdk//${GNOME_RUNTIME} || true
+      printf '%s\n' '#!/bin/bash' \
+        'export WEBKIT_DISABLE_DMABUF_RENDERER=1' \
+        'export WEBKIT_DISABLE_COMPOSITING_MODE=1' \
+        'export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1' \
+        'export GDK_GL=disable' \
+        'export GSK_RENDERER=cairo' \
+        'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
+      chmod +x proton-drive-wrapper.sh
+      printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
+        'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
+        > com.proton.drive.desktop
+      rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
+      cp src-tauri/target/release/proton-drive flatpak-staging/proton-drive-bin
+      cp proton-drive-wrapper.sh flatpak-staging/proton-drive
+      cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png \
+         src-tauri/icons/128x128@2x.png src-tauri/icons/proton-drive.svg flatpak-staging/icons/
+      cp com.proton.drive.desktop flatpak-staging/
+      cp packaging/com.proton.drive.metainfo.xml flatpak-staging/
+      cat > com.proton.drive.yml <<YAMLEOF
+      app-id: com.proton.drive
+      runtime: org.gnome.Platform
+      runtime-version: '${GNOME_RUNTIME}'
+      sdk: org.gnome.Sdk
+      command: proton-drive
+      finish-args:
+        - --share=network
+        - --share=ipc
+        - --socket=fallback-x11
+        - --socket=wayland
+        - --socket=pulseaudio
+        - --device=dri
+        - --filesystem=xdg-download
+        - --filesystem=xdg-documents
+        - --talk-name=org.freedesktop.secrets
+        - --talk-name=org.freedesktop.Notifications
+      modules:
+      - name: proton-drive
+        buildsystem: simple
+        sources:
+        - type: dir
+          path: flatpak-staging
+        build-commands:
+        - install -Dm755 proton-drive-bin /app/bin/proton-drive-bin
+        - install -Dm755 proton-drive /app/bin/proton-drive
+        - install -Dm644 icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+        - install -Dm644 icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+        - install -Dm644 icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+        - install -Dm644 icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+        - install -Dm644 com.proton.drive.desktop /app/share/applications/com.proton.drive.desktop
+        - install -Dm644 com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+      YAMLEOF
+      rm -rf build-dir repo
+      flatpak-builder --user --force-clean --repo=repo --disable-rofiles-fuse build-dir com.proton.drive.yml
+      flatpak build-bundle repo "proton-drive_${VERSION}_gnome${GNOME_RUNTIME}.flatpak" com.proton.drive
+      mkdir -p artifacts && mv *.flatpak artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── RPM ──────────────────────────────────────────────────────────────────────
+
+build:rpm:el10:
+  extends: .rules:build
+  stage: build
+  image: quay.io/centos/centos:stream10
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: el10
+  cache:
+    key: rpm-el10-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - dnf install -y epel-release || true
+    - dnf install -y 'dnf-command(config-manager)' || true
+    - dnf config-manager --set-enabled crb || true
+    - dnf --enablerepo=epel install -y bash git curl wget gcc gcc-c++ make file
+        pkgconf-pkg-config openssl-devel gtk3-devel libappindicator-gtk3-devel
+        librsvg2-devel libsoup3-devel webkit2gtk4.1-devel patchelf rpm-build
+        nodejs npm python3 findutils which
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles rpm --verbose
+    - |
+      cd src-tauri/target/release/bundle/rpm
+      shopt -s nullglob
+      for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:rpm:fedora-43:
+  extends: .rules:build
+  stage: build
+  image: fedora:43
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: fedora.43
+  cache:
+    key: rpm43-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - dnf --disablerepo='fedora-cisco-openh264' install -y bash git curl wget gcc gcc-c++ make
+        file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
+        libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
+        nodejs npm python3 findutils which
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles rpm --verbose
+    - |
+      cd src-tauri/target/release/bundle/rpm
+      shopt -s nullglob
+      for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:rpm:fedora-44:
+  extends: .rules:build
+  stage: build
+  image: fedora:44
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: fedora.44
+  cache:
+    key: rpm44-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - dnf --disablerepo='fedora-cisco-openh264' install -y bash git curl wget gcc gcc-c++ make
+        file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
+        libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
+        nodejs npm python3 findutils which
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles rpm --verbose
+    - |
+      cd src-tauri/target/release/bundle/rpm
+      shopt -s nullglob
+      for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:rpm:opensuse-tumbleweed:
+  extends: .rules:build
+  stage: build
+  image: opensuse/tumbleweed:latest
+  timeout: 2h
+  variables:
+    DISTRO_PATCH: opensuse.tumbleweed
+    PATH: /usr/local/bin:/usr/bin:/bin
+  cache:
+    key: rpm-opensuse-tumbleweed-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - |
+      for i in 1 2 3 4 5; do
+        zypper --non-interactive --gpg-auto-import-keys refresh && break
+        echo "zypper refresh failed, retrying ($i/5)..."; sleep $((i * 10))
+      done
+    - |
+      for i in 1 2 3; do
+        zypper --non-interactive install bash git curl wget gcc gcc-c++ make file
+          pkgconf-pkg-config libopenssl-devel gtk3-devel
+          libappindicator3-devel libayatana-appindicator3-devel
+          librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0
+          patchelf rpm-build nodejs-default npm-default python313 findutils which && break
+        echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
+      done
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - npx tauri build --bundles rpm --verbose
+    - |
+      cd src-tauri/target/release/bundle/rpm
+      shopt -s nullglob
+      for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+    - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── Snap ─────────────────────────────────────────────────────────────────────
+# NOTE: Snap jobs require Docker-in-Docker. The runner must have privileged = true
+# in its config.toml. Enable it by running:
+#   docker exec gitlab-runner sed -i 's/privileged = false/privileged = true/' /etc/gitlab-runner/config.toml
+
+build:snap:core24:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:24.04
+  timeout: 2h
+  services:
+    - docker:dind
+  variables:
+    DISTRO_PATCH: core24
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: snap-core24-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  script:
+    - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release && cd ..
+    - |
+      BUILD_CONTEXT="$(mktemp -d)"
+      mkdir -p "$BUILD_CONTEXT/packaging/snap" "$BUILD_CONTEXT/src-tauri/target/release" "$BUILD_CONTEXT/src-tauri/icons"
+      cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+      cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+      cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+      cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
+      sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
+      docker run --rm --entrypoint "" \
+        -v "$BUILD_CONTEXT":/project -w /project \
+        ghcr.io/canonical/snapcraft:8_core24 \
+        snapcraft pack --destructive-mode --output /project
+      SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
+      [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
+      mkdir -p artifacts
+      mv "$SNAP_FILE" "artifacts/proton-drive_${VERSION}_core24_amd64.snap"
+      rm -rf "$BUILD_CONTEXT"
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+build:snap:core26:
+  extends: .rules:build
+  stage: build
+  image: ubuntu:24.04
+  timeout: 2h
+  services:
+    - docker:dind
+  variables:
+    DISTRO_PATCH: core26
+    DEBIAN_FRONTEND: noninteractive
+  cache:
+    key: snap-core26-cargo
+    paths: [.cargo/, src-tauri/target/]
+  when: always
+  script:
+    - |
+      apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config \
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates \
+        libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
+    - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
+    - *install_rust
+    - *clone_webclients
+    - |
+      PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
+      if [ -f "$PATCH_FILE" ]; then
+        git apply --reverse --check "$PATCH_FILE" 2>/dev/null || git apply "$PATCH_FILE"
+      else
+        echo "WARNING: $PATCH_FILE not found"
+      fi
+    - scripts/build-webclients.sh
+    - VERSION=$(node -p "require('./package.json').version")
+    - |
+      sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
+    - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
+    - npm ci
+    - cd src-tauri && cargo build --release && cd ..
+    - |
+      BUILD_CONTEXT="$(mktemp -d)"
+      mkdir -p "$BUILD_CONTEXT/packaging/snap" "$BUILD_CONTEXT/src-tauri/target/release" "$BUILD_CONTEXT/src-tauri/icons"
+      cp packaging/snap/proton-drive-wrapper.sh "$BUILD_CONTEXT/packaging/snap/"
+      cp packaging/snap/com.proton.drive.desktop "$BUILD_CONTEXT/packaging/snap/"
+      cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
+      cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
+      sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml | \
+        sed -e "s/base: core24/base: core26/" \
+            -e "s/grade: stable/grade: devel/" \
+            -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
+      docker run --rm --entrypoint "" \
+        -v "$BUILD_CONTEXT":/project -w /project \
+        ghcr.io/canonical/snapcraft:8_core24 \
+        snapcraft pack --destructive-mode --output /project
+      SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
+      [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
+      mkdir -p artifacts
+      mv "$SNAP_FILE" "artifacts/proton-drive_${VERSION}_core26_amd64.snap"
+      rm -rf "$BUILD_CONTEXT"
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 30 days
+
+# ─── Package spec generation ──────────────────────────────────────────────────
+
+spec:aur-pkgbuild:
+  extends: .rules:build
+  stage: spec
+  image: node:22
+  timeout: 30m
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(node -p "require('./package.json').version")
+      fi
+      cat > PKGBUILD <<EOF
+      # Maintainer: DonnieDice <donniedice@proton.me>
+      pkgname=proton-drive
+      pkgver=${VERSION}
+      pkgrel=1
+      pkgdesc="ProtonDrive Linux Desktop Client - unofficial Tauri wrapper"
+      arch=('x86_64')
+      url="${CI_PROJECT_URL}"
+      license=('AGPL-3.0')
+      depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'libssl' 'gcc-libs')
+      makedepends=('nodejs' 'npm' 'rust' 'python')
+      source=("${CI_PROJECT_URL}/-/archive/v\${pkgver}/protondrive-linux-v\${pkgver}.tar.gz")
+      sha256sums=('SKIP')
+
+      build() {
+        cd "\$srcdir/protondrive-linux-v\${pkgver}"
+        git clone --depth=1 --single-branch --branch main \\
+          https://github.com/ProtonMail/WebClients.git WebClients
+        scripts/build-webclients.sh
+        npm ci
+        cd src-tauri && cargo build --release && cd ..
+      }
+
+      package() {
+        cd "\$srcdir/protondrive-linux-v\${pkgver}"
+        install -Dm755 src-tauri/target/release/proton-drive "\$pkgdir/usr/bin/proton-drive"
+        install -Dm644 src-tauri/icons/32x32.png "\$pkgdir/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+        install -Dm644 src-tauri/icons/128x128.png "\$pkgdir/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+        install -Dm644 src-tauri/icons/proton-drive.svg "\$pkgdir/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+        install -Dm644 LICENSE "\$pkgdir/usr/share/licenses/\$pkgname/LICENSE"
+      }
+      EOF
+      mkdir -p artifacts && cp PKGBUILD artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+spec:rpm-spec:
+  extends: .rules:build
+  stage: spec
+  image: node:22
+  timeout: 30m
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(node -p "require('./package.json').version")
+      fi
+      cat > proton-drive.spec <<EOF
+      Name:           proton-drive
+      Version:        ${VERSION}
+      Release:        1%{?dist}
+      Summary:        ProtonDrive Linux Desktop Client (Unofficial)
+      License:        AGPL-3.0
+      URL:            ${CI_PROJECT_URL}
+      Source0:        ${CI_PROJECT_URL}/-/archive/v%{version}/protondrive-linux-v%{version}.tar.gz
+      BuildRequires:  rustc cargo gcc make pkgconfig(gtk+-3.0) webkit2gtk4.1-devel
+      BuildRequires:  libayatana-appindicator-devel openssl-devel nodejs npm python3
+      Requires:       gtk3 webkit2gtk4.1 libayatana-appindicator openssl-libs
+      %description
+      Fast, lightweight, unofficial desktop GUI client for the Proton Drive web service on Linux.
+      %prep
+      %autosetup -n protondrive-linux-v%{version}
+      %build
+      git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
+      scripts/build-webclients.sh
+      npm ci
+      cd src-tauri && cargo build --release && cd ..
+      %install
+      install -Dm755 src-tauri/target/release/proton-drive %{buildroot}%{_bindir}/proton-drive
+      install -Dm644 src-tauri/icons/32x32.png %{buildroot}%{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+      install -Dm644 src-tauri/icons/128x128.png %{buildroot}%{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+      install -Dm644 src-tauri/icons/proton-drive.svg %{buildroot}%{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+      %files
+      %license LICENSE
+      %{_bindir}/proton-drive
+      %{_datadir}/icons/hicolor/32x32/apps/com.proton.drive.png
+      %{_datadir}/icons/hicolor/128x128/apps/com.proton.drive.png
+      %{_datadir}/icons/hicolor/scalable/apps/com.proton.drive.svg
+      %changelog
+      * $(date +"%a %b %d %Y") Build System <build@proton.drive> - ${VERSION}-1
+      - Build from ${CI_COMMIT_TAG:-$CI_COMMIT_SHORT_SHA}
+      EOF
+      mkdir -p artifacts && cp proton-drive.spec artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+spec:source-dist:
+  extends: .rules:build
+  stage: spec
+  image: alpine/git:latest
+  timeout: 30m
+  script:
+    - |
+      if [[ "$CI_COMMIT_TAG" == v* ]]; then
+        VERSION="${CI_COMMIT_TAG#v}"
+      else
+        VERSION=$(cat package.json | grep '"version"' | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')
+      fi
+      git archive --format=tar.gz \
+        --prefix="proton-drive-${VERSION}/" \
+        -o "proton-drive-${VERSION}.tar.gz" HEAD
+      sha256sum "proton-drive-${VERSION}.tar.gz" > "proton-drive-${VERSION}.tar.gz.sha256"
+      mkdir -p artifacts
+      mv "proton-drive-${VERSION}.tar.gz" "proton-drive-${VERSION}.tar.gz.sha256" artifacts/
+  artifacts:
+    paths: [artifacts/]
+    expire_in: 90 days
+
+# ─── Release ──────────────────────────────────────────────────────────────────
+
+sbom:rust:
+  extends: .rules:release
+  stage: sign
+  image: rust:bookworm
+  dependencies: []
+  cache:
+    key: sbom-rust-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  script:
+    - cargo install cargo-cyclonedx --locked || true
+    - cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json
+    - mv src-tauri/*.cdx.json sbom-rust.cdx.json
+  artifacts:
+    paths:
+      - sbom-rust.cdx.json
+    expire_in: 90 days
+
+sbom:packages:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: anchore/syft:latest
+    entrypoint: [""]
+  script:
+    - syft dir:artifacts -o cyclonedx-json=sbom-artifacts.cdx.json -o spdx-json=sbom-artifacts.spdx.json
+  artifacts:
+    paths:
+      - sbom-artifacts.cdx.json
+      - sbom-artifacts.spdx.json
+    expire_in: 90 days
+
+sign:artifacts:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: gcr.io/projectsigstore/cosign:v2.4.0
+    entrypoint: [""]
+  allow_failure: true
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - |
+      find artifacts -type f | while IFS= read -r f; do
+        case "$f" in
+          *.cosign.bundle|*.att.bundle) continue ;;
+        esac
+        cosign sign-blob --yes --bundle "${f}.cosign.bundle" "$f"
+      done
+  artifacts:
+    paths:
+      - artifacts/*.cosign.bundle
+    expire_in: 90 days
+
+attest:provenance:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: gcr.io/projectsigstore/cosign:v2.4.0
+    entrypoint: [""]
+  allow_failure: true
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - |
+      cat > provenance.json <<EOF
+      {
+        "buildType": "https://gitlab.com/ci",
+        "builder": {"id": "${CI_SERVER_URL}/${CI_PROJECT_PATH}"},
+        "invocation": {
+          "configSource": {
+            "uri": "${CI_PROJECT_URL}",
+            "digest": {"sha1": "${CI_COMMIT_SHA}"},
+            "entryPoint": "${CI_PIPELINE_ID}"
+          }
+        },
+        "metadata": {
+          "buildStartedOn": "${CI_PIPELINE_CREATED_AT}",
+          "completeness": {"parameters": true}
+        }
+      }
+      EOF
+    - |
+      find artifacts -type f | while IFS= read -r f; do
+        case "$f" in
+          *.cosign.bundle|*.att.bundle) continue ;;
+        esac
+        cosign attest-blob --yes --predicate provenance.json --type slsaprovenance --bundle "${f}.att.bundle" "$f"
+      done
+  artifacts:
+    paths:
+      - provenance.json
+      - artifacts/*.att.bundle
+    expire_in: 90 days
+
+smoke:deb:debian-12:
+  extends: .rules:release
+  stage: smoke
+  image: debian:12
+  allow_failure: true
+  needs:
+    - job: build:deb:debian-12
+      artifacts: true
+  script:
+    - apt-get update
+    - DEB="$(ls artifacts/proton-drive_*_*_amd64.deb | head -1)"
+    - echo "Testing $DEB"
+    - apt-get install -y "./$DEB"
+    - dpkg -L proton-drive | grep -E '\.desktop$'
+    - dpkg -L proton-drive | grep -E '/proton-drive$'
+    - proton-drive --version || echo "binary present; no --version expected"
+    - apt-get remove -y proton-drive
+
+smoke:rpm:fedora-43:
+  extends: .rules:release
+  stage: smoke
+  image: fedora:43
+  allow_failure: true
+  needs:
+    - job: build:rpm:fedora-43
+      artifacts: true
+  script:
+    - RPM="$(ls artifacts/*.rpm | head -1)"
+    - dnf install -y "./$RPM"
+    - rpm -ql proton-drive | grep -E '\.desktop$'
+    - proton-drive --version || echo "binary present; no --version expected"
+    - dnf remove -y proton-drive
+
+smoke:appimage:
+  extends: .rules:release
+  stage: smoke
+  image: ubuntu:24.04
+  allow_failure: true
+  needs:
+    - job: build:appimage
+      artifacts: true
+  script:
+    - apt-get update
+    - apt-get install -y file libfuse2 || apt-get install -y file libfuse2t64 || true
+    - APP="$(ls artifacts/*.AppImage | head -1)"
+    - chmod +x "$APP"
+    - '"$APP" --appimage-extract >/dev/null'
+    - ./squashfs-root/AppRun --version || echo "AppRun present; no --version expected"
+
+security:trivy-artifacts:
+  extends: .rules:release
+  stage: smoke
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  allow_failure: true
+  needs:
+    - job: build:appimage
+      artifacts: true
+  script:
+    - APP="$(ls artifacts/*.AppImage | head -1)"
+    - chmod +x "$APP"
+    - '"$APP" --appimage-extract >/dev/null'
+    - trivy rootfs --severity HIGH,CRITICAL --exit-code 0 squashfs-root/
+
+release:
+  extends: .rules:release
+  stage: release
+  image: registry.gitlab.com/gitlab-org/release-cli:latest
+  needs:
+    - job: sbom:rust
+      artifacts: true
+    - job: sbom:packages
+      artifacts: true
+    - job: sign:artifacts
+      artifacts: true
+      optional: true
+    - job: attest:provenance
+      artifacts: true
+      optional: true
+    - job: smoke:deb:debian-12
+      artifacts: false
+      optional: true
+    - job: smoke:rpm:fedora-43
+      artifacts: false
+      optional: true
+    - job: smoke:appimage
+      artifacts: false
+      optional: true
+    - job: security:trivy-artifacts
+      artifacts: false
+      optional: true
+    - job: build:appimage
+      artifacts: true
+    - job: build:flatpak:gnome-50
+      artifacts: true
+    - job: build:flatpak:gnome-49
+      artifacts: true
+    - job: build:snap:core24
+      artifacts: true
+    - job: build:snap:core26
+      artifacts: true
+      optional: true
+    - job: build:aur
+      artifacts: true
+    - job: build:deb:debian-12
+      artifacts: true
+    - job: build:deb:debian-13
+      artifacts: true
+    - job: build:deb:ubuntu-24.04
+      artifacts: true
+    - job: build:deb:ubuntu-26.04
+      artifacts: true
+    - job: build:rpm:fedora-43
+      artifacts: true
+    - job: build:rpm:fedora-44
+      artifacts: true
+    - job: build:rpm:el10
+      artifacts: true
+    - job: build:rpm:opensuse-tumbleweed
+      artifacts: true
+    - job: build:apk:alpine-3.20
+      artifacts: true
+    - job: build:apk:alpine-3.22
+      artifacts: true
+    - job: build:apk:alpine-3.23
+      artifacts: true
+  before_script:
+    - apk add --no-cache curl bash ca-certificates
+    - update-ca-certificates
+  script:
+    - |
+      bash <<'BASH'
+      set -euo pipefail
+
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      ASSET_ARGS=()
+
+      upload_file() {
+        local file="$1"
+        local name
+        name=$(basename "$file")
+        curl --silent --fail \
+          --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
+          --upload-file "$file" \
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}"
+        ASSET_ARGS+=(--assets-link "{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}")
+      }
+
+      (cd artifacts && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > ../SHA256SUMS)
+      upload_file SHA256SUMS
+
+      for sbom in sbom-rust.cdx.json sbom-artifacts.cdx.json sbom-artifacts.spdx.json; do
+        if [ -f "$sbom" ]; then
+          upload_file "$sbom"
+        fi
+      done
+
+      if [ -f provenance.json ]; then
+        upload_file provenance.json
+      fi
+
+      while IFS= read -r -d '' f; do
+        upload_file "$f"
+      done < <(find artifacts/ -type f \( \
+        -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
+        -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \
+        -o -name "*.apk.tar.gz" -o -name "*.cosign.bundle" -o -name "*.att.bundle" \
+      \) -print0)
+
+      release-cli create \
+        --name "Proton Drive Linux ${TAG}" \
+        --tag-name "${TAG}" \
+        --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
+        "${ASSET_ARGS[@]}"
+      BASH
+
+# ─── Publish ──────────────────────────────────────────────────────────────────
+
+publish:aur:
+  extends: .rules:publish
+  stage: publish
+  image: archlinux:base-devel
+  timeout: 15m
+  script:
+    - pacman -Sy --noconfirm openssh git curl python
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+
+      SOURCE_URL="${CI_PROJECT_URL}/-/archive/${TAG}/protondrive-linux-${TAG}.tar.gz"
+      curl -sL "$SOURCE_URL" -o source.tar.gz
+      SHA256=$(sha256sum source.tar.gz | cut -d' ' -f1)
+      rm source.tar.gz
+
+      COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/ProtonMail/WebClients/commits/main" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+      curl -sL "https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz" -o wc.tar.gz
+      WC_SHA256=$(sha256sum wc.tar.gz | cut -d' ' -f1)
+      rm wc.tar.gz
+
+      cd aur
+      sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+      sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
+      sed -i "s|^_webclients_commit=.*|_webclients_commit=\"${COMMIT_SHA}\"|" PKGBUILD
+      sed -i "/^sha256sums=/,/)/c\\sha256sums=('${SHA256}'\n            '${WC_SHA256}')" PKGBUILD
+
+      cat > .SRCINFO <<SRCINFO
+      pkgbase = proton-drive
+      	pkgdesc = Unofficial Linux desktop client for Proton Drive, built with Tauri
+      	pkgver = ${VERSION}
+      	pkgrel = 1
+      	url = ${CI_PROJECT_URL}
+      	arch = x86_64
+      	license = AGPL-3.0-only
+      	depends = webkit2gtk-4.1
+      	depends = gtk3
+      	depends = libayatana-appindicator
+      	source = proton-drive-${VERSION}.tar.gz::${SOURCE_URL}
+      	source = WebClients-${COMMIT_SHA}.tar.gz::https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz
+      	sha256sums = ${SHA256}
+      	sha256sums = ${WC_SHA256}
+
+      pkgname = proton-drive
+      SRCINFO
+    - mkdir -p ~/.ssh
+    - echo "${AUR_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+    - ssh-keyscan -t rsa aur.archlinux.org >> ~/.ssh/known_hosts
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      git clone ssh://aur@aur.archlinux.org/proton-drive.git aur-repo 2>/dev/null || \
+        (mkdir -p aur-repo && cd aur-repo && git init && git checkout -b master &&
+         git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git)
+      cd aur-repo
+      git config user.name "DonnieDice"
+      git config user.email "donniedice@proton.me"
+      cp ../packaging/aur/PKGBUILD ../packaging/aur/.SRCINFO ../packaging/aur/proton-drive.install . 2>/dev/null || true
+      git add PKGBUILD .SRCINFO proton-drive.install
+      git commit -m "Update to v${VERSION}" || echo "No changes to commit"
+      git push -u origin master --force
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+
+publish:flatpak:
+  extends: .rules:publish
+  stage: publish
+  image: ubuntu:24.04
+  timeout: 30m
+  variables:
+    DEBIAN_FRONTEND: noninteractive
+  script:
+    - apt-get update && apt-get install -y git curl openssh-client python3
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      RUNTIME="${FLATPAK_RUNTIME:-50}"
+
+      SOURCE_COMMIT=$(git ls-remote "${CI_PROJECT_URL}.git" "refs/tags/${TAG}" | cut -f1)
+      COMMIT_SHA=$(curl -sL -H "Accept: application/vnd.github.v3+json" \
+        "https://api.github.com/repos/ProtonMail/WebClients/commits/main" \
+        | python3 -c "import sys,json; print(json.load(sys.stdin)['sha'])")
+      curl -sL "https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz" -o wc.tar.gz
+      WC_SHA256=$(sha256sum wc.tar.gz | cut -d' ' -f1)
+      rm wc.tar.gz
+
+      mkdir -p ~/.ssh
+      echo "${FLATHUB_SSH_PRIVATE_KEY}" > ~/.ssh/id_rsa && chmod 600 ~/.ssh/id_rsa
+      ssh-keyscan github.com >> ~/.ssh/known_hosts
+
+      git clone git@github.com:flathub/com.proton.drive.git flathub-repo || \
+        { echo "ERROR: Flathub repo not found. Initial submission via PR to flathub/flathub required."; exit 1; }
+
+      cd flathub-repo
+      git config user.name "DonnieDice"
+      git config user.email "donniedice@proton.me"
+
+      cat > com.proton.drive.yml <<YAMLEOF
+      app-id: com.proton.drive
+      runtime: org.gnome.Platform
+      runtime-version: "${RUNTIME}"
+      sdk: org.gnome.Sdk
+      sdk-extensions:
+        - org.freedesktop.Sdk.Extension.node22
+        - org.freedesktop.Sdk.Extension.rust-stable
+      command: proton-drive
+      finish-args:
+        - --share=network
+        - --share=ipc
+        - --socket=fallback-x11
+        - --socket=wayland
+        - --socket=pulseaudio
+        - --device=dri
+        - --filesystem=xdg-download
+        - --filesystem=xdg-documents
+        - --talk-name=org.freedesktop.secrets
+        - --talk-name=org.freedesktop.Notifications
+      modules:
+        - name: proton-drive
+          buildsystem: simple
+          sources:
+            - type: git
+              url: ${CI_PROJECT_URL}.git
+              tag: ${TAG}
+              commit: ${SOURCE_COMMIT}
+            - type: archive
+              url: https://github.com/ProtonMail/WebClients/archive/${COMMIT_SHA}.tar.gz
+              sha256: ${WC_SHA256}
+              dest: WebClients
+          build-commands:
+            - . /usr/lib/sdk/node22/enable.sh
+            - . /usr/lib/sdk/rust-stable/enable.sh
+            - ./scripts/build-webclients.sh
+            - npm ci
+            - cd src-tauri && cargo build --release && cd ..
+            - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
+            - |
+              cat > /app/bin/proton-drive << 'WEOF'
+              #!/bin/bash
+              export WEBKIT_DISABLE_DMABUF_RENDERER=1
+              export WEBKIT_DISABLE_COMPOSITING_MODE=1
+              export WEBKIT_DISABLE_SANDBOX_THIS_IS_DANGEROUS=1
+              export GDK_GL=disable
+              exec /app/bin/proton-drive-bin "\$@"
+              WEOF
+              chmod +x /app/bin/proton-drive
+            - install -Dm644 src-tauri/icons/32x32.png /app/share/icons/hicolor/32x32/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/128x128.png /app/share/icons/hicolor/128x128/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/128x128@2x.png /app/share/icons/hicolor/256x256/apps/com.proton.drive.png
+            - install -Dm644 src-tauri/icons/proton-drive.svg /app/share/icons/hicolor/scalable/apps/com.proton.drive.svg
+            - install -Dm644 packaging/com.proton.drive.metainfo.xml /app/share/metainfo/com.proton.drive.metainfo.xml
+      YAMLEOF
+
+      RELEASE_DATE=$(date -u +'%Y-%m-%d')
+      if [ -f com.proton.drive.metainfo.xml ]; then
+        grep -q "version=\"${VERSION}\"" com.proton.drive.metainfo.xml || \
+          sed -i "/<releases>/a\\  <release version=\"${VERSION}\" date=\"${RELEASE_DATE}\" />" com.proton.drive.metainfo.xml
+      else
+        cp ../packaging/com.proton.drive.metainfo.xml . 2>/dev/null || true
+      fi
+
+      git add -A
+      git commit -m "Update to v${VERSION}" || echo "No changes to commit"
+      git push origin master
+  after_script:
+    - rm -f ~/.ssh/id_rsa
+
+publish:snap:
+  extends: .rules:publish
+  stage: publish
+  image: ubuntu:24.04
+  timeout: 30m
+  services:
+    - docker:dind
+  variables:
+    SNAP_BASE: core24
+    SNAP_CHANNEL: stable
+    DEBIAN_FRONTEND: noninteractive
+  needs:
+    - job: build:snap:core24
+      artifacts: true
+  script:
+    - apt-get update && apt-get install -y docker.io
+    - |
+      TAG="${CI_COMMIT_TAG}"
+      VERSION="${TAG#v}"
+      SNAPCRAFT_IMAGE="ghcr.io/canonical/snapcraft:8_core24"
+
+      SNAP_FILE=$(find artifacts/ -name "proton-drive_*_${SNAP_BASE}_amd64.snap" | head -1)
+      [ -n "$SNAP_FILE" ] || { echo "ERROR: No snap file found for ${SNAP_BASE}"; exit 1; }
+
+      echo "Registering snap name..."
+      docker run --rm --entrypoint "" \
+        -e SNAPCRAFT_STORE_CREDENTIALS \
+        -v "$PWD":/project -w /project \
+        "$SNAPCRAFT_IMAGE" \
+        snapcraft register --yes proton-drive || true
+
+      echo "Uploading ${SNAP_FILE} to ${SNAP_CHANNEL}..."
+      for i in 1 2 3; do
+        docker run --rm --entrypoint "" \
+          -e SNAPCRAFT_STORE_CREDENTIALS \
+          -v "$PWD":/project -w /project \
+          "$SNAPCRAFT_IMAGE" \
+          snapcraft upload "${SNAP_FILE}" --release="${SNAP_CHANNEL}" && break
+        echo "Attempt $i failed, retrying in 30s..."; sleep 30
+      done
+
+# ─── GitHub Mirror ────────────────────────────────────────────────────────────
+
+mirror:github:
+  stage: mirror
+  image: alpine/git:latest
+  timeout: 10m
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
+    - if: $CI_COMMIT_TAG
+    - if: '$CI_PIPELINE_SOURCE == "web" && $MIRROR_NOW == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $MIRROR_NOW == "true"'
+    - when: never
+  before_script:
+    - apk add --no-cache openssh-client
+    - mkdir -p ~/.ssh
+    - echo "${GITHUB_MIRROR_DEPLOY_KEY}" > ~/.ssh/id_ed25519 && chmod 600 ~/.ssh/id_ed25519
+    - ssh-keyscan github.com >> ~/.ssh/known_hosts
+  script:
+    - git remote add github "git@github.com:DonnieDice/protondrive-linux.git" 2>/dev/null || true
+    - git push github --mirror --force
+  after_script:
+    - rm -f ~/.ssh/id_ed25519

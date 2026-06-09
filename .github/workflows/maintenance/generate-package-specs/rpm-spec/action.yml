@@ -34,7 +34,7 @@ runs:
         Name:           proton-drive
         Version:        ${{ steps.tag.outputs.version }}
         Release:        1%{?dist}
-        Summary:        Proton Drive Linux Desktop Client
+        Summary:        ProtonDrive Linux Desktop Client (Unofficial)
         License:        AGPL-3.0
 
         URL:            https://github.com/${{ github.repository }}
@@ -58,7 +58,7 @@ runs:
         Requires:       openssl-libs
 
         %description
-        Fast, lightweight, and unofficial desktop GUI client for Proton Drive on Linux.
+        Fast, lightweight, and unofficial desktop GUI client for the Proton Drive web service on Linux.
         Built with Tauri and Rust for a native-performance experience.
 
         %prep
@@ -91,7 +91,7 @@ runs:
         [Desktop Entry]
         Version=1.0
         Type=Application
-        Name=Proton Drive
+        Name=ProtonDrive Linux (Unofficial)
         Comment=Encrypted cloud storage
         Exec=proton-drive
         Icon=com.proton.drive

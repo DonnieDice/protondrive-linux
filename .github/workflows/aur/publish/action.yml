@@ -78,7 +78,7 @@ runs:
         WEBCCLIENTS_SHA256=${{ steps.webclients.outputs.sha256 }}
         WEBCCLIENTS_COMMIT=${{ steps.webclients.outputs.commit }}
 
-        cd aur
+        cd packaging/aur
 
         sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
         sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
@@ -91,7 +91,7 @@ runs:
     - name: Generate .SRCINFO
       shell: bash
       run: |
-        cd aur
+        cd packaging/aur
 
         cat > .SRCINFO << EOF
         pkgbase = proton-drive
@@ -150,24 +150,24 @@ runs:
         else
           echo "AUR package does not exist yet - initializing for first push"
           mkdir -p aur-repo
-          cd aur-repo
+          cd packaging/aur-repo
           git init
           git checkout -b master
           git remote add origin ssh://aur@aur.archlinux.org/proton-drive.git
         fi
 
-        cd aur-repo
+        cd packaging/aur-repo
         git config user.name "DonnieDice"
         git config user.email "donniedice@proton.me"
 
     - name: Update AUR package
       shell: bash
       run: |
-        cp aur/PKGBUILD aur-repo/
-        cp aur/.SRCINFO aur-repo/
-        cp aur/proton-drive.install aur-repo/
+        cp packaging/aur/PKGBUILD aur-repo/
+        cp packaging/aur/.SRCINFO aur-repo/
+        cp packaging/aur/proton-drive.install aur-repo/
 
-        cd aur-repo
+        cd packaging/aur-repo
         git add PKGBUILD .SRCINFO proton-drive.install
         git commit -m "Update to v${{ steps.version.outputs.version }}" || echo "No changes to commit"
         git push -u origin master --force
