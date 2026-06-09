@@ -1,6 +1,6 @@
 # ProtonDrive Linux
 
-[![pipeline](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/badges/main/pipeline.svg)](https://gitlab.dicematrix.cloud/DonnieDice/protondrive-linux/-/pipelines)
+[![CI](https://github.com/DonnieDice/protondrive-linux/actions/workflows/package-workflows.yml/badge.svg)](https://github.com/DonnieDice/protondrive-linux/actions/workflows/package-workflows.yml)
 [![downloads](https://img.shields.io/github/downloads/DonnieDice/protondrive-linux/total?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/releases)
 [![license](https://img.shields.io/badge/license-AGPL--3.0-6d4aff)](docs/LICENSE)
 [![issues](https://img.shields.io/github/issues/DonnieDice/protondrive-linux?color=6d4aff)](https://github.com/DonnieDice/protondrive-linux/issues)
