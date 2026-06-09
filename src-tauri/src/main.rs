@@ -1562,12 +1562,30 @@ fn main() {
             }
         }
     }, true);
+
+    // Credential disclosure — one-time consent per Proton third-party guidelines.
+    // Passwords are never stored; auth is handled entirely by Proton's web app.
+    try {
+        if (!localStorage.getItem('protondrive-linux-consent')) {
+            var msg = 'ProtonDrive Linux is an unofficial third-party application.\\n\\n' +
+                      'It is NOT affiliated with or endorsed by Proton AG.\\n' +
+                      'Your password is never stored by this application.\\n' +
+                      'Login credentials are handled by Proton\\'s web interface.\\n\\n' +
+                      'Do you understand and wish to continue?';
+            if (!confirm(msg)) {
+                document.body.innerHTML = '<div style=\"display:flex;align-items:center;justify-content:center;height:100vh;font-family:sans-serif;color:#94a3b8;background:#0f172a\"><div style=\"text-align:center;max-width:400px\"><h2 style=\"color:#f1f5f9\">ProtonDrive Linux</h2><p>You must accept the third-party disclosure to use this application.</p><p style=\"font-size:0.85em\">Restart the application to try again.</p></div></div>';
+                return;
+            }
+            localStorage.setItem('protondrive-linux-consent', '1');
+        }
+    } catch(e) {}
+
 })();
 "#;
 
             let app_handle_nav = app.handle().clone();
             let _window = WebviewWindowBuilder::new(app, "main", WebviewUrl::App("index.html".into()))
-                .title("Proton Drive")
+                .title("ProtonDrive Linux (Unofficial)")
                 .inner_size(1200.0, 800.0)
                 .min_inner_size(800.0, 600.0)
                 .data_directory(webview_data_dir)
