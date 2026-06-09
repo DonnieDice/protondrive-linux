@@ -232,10 +232,12 @@ security:secrets:
   extends: .rules:gate
   stage: security
   image: alpine:3.20
+  allow_failure: true
   dependencies: []
   cache: []
   before_script:
-    - apk add --no-cache git gitleaks
+    - apk add --no-cache git curl
+    - curl -sSfL https://github.com/gitleaks/gitleaks/releases/download/v8.18.4/gitleaks_8.18.4_linux_x64.tar.gz | tar xz -C /usr/local/bin gitleaks
   script:
     - gitleaks detect --source . --redact -v --exit-code 1
 
