@@ -121,7 +121,7 @@ lint:yaml:
   before_script:
     - apk add --no-cache yamllint
   script:
-    - yamllint -d '{rules: {line-length: disable}}' -s .
+    - yamllint -d "rules: {line-length: disable}" -s .
 
 lint:actions:
   extends: .rules:gate
