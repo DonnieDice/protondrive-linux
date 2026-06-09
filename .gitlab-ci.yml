@@ -21,6 +21,7 @@ stages:
   - build
   - spec
   - sign
+  - smoke
   - release
   - publish
   - mirror
