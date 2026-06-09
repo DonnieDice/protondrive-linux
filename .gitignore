@@ -16,6 +16,10 @@ yarn.lock
 *.rs.bk
 target/
 
+# Python
+__pycache__/
+*.py[cod]
+
 # Keep app lockfiles tracked for reproducible builds.
 !src-tauri/Cargo.lock
 
@@ -56,6 +60,7 @@ downloads/
 /com.proton.drive.yml
 /proton-drive-wrapper.sh
 /protondrive-linux-repo
+/packaging/flathub-submission/
 
 # Environment
 .env
@@ -75,6 +80,44 @@ AGENTS.md
 CLAUDE.md
 TASKS.md
 *.local.md
+
+# Keep project-scoped Graphify agent guidance tracked.
+!AGENTS.md
+!CLAUDE.md
+!GEMINI.md
+!.codex/
+!.codex/skills/
+!.codex/skills/graphify/
+!.codex/skills/graphify/**
+.codex/hooks.json
+!.claude/
+!.claude/CLAUDE.md
+!.claude/settings.json
+!.claude/skills/
+!.claude/skills/graphify/
+!.claude/skills/graphify/**
+!.opencode/
+!.opencode/agents/
+!.opencode/agents/**
+!.opencode/opencode.json
+!.opencode/plugins/
+!.opencode/plugins/graphify.js
+!.opencode/skills/
+!.opencode/skills/graphify/
+!.opencode/skills/graphify/**
+.opencode/node_modules/
+.opencode/package.json
+.opencode/package-lock.json
+!.gemini/
+!.gemini/settings.json
+!.gemini/skills/
+!.gemini/skills/graphify/
+!.gemini/skills/graphify/**
+!.copilot/
+!.copilot/skills/
+!.copilot/skills/graphify/
+!.copilot/skills/graphify/**
+graphify-out/
 
 # Keep opencode agent files tracked
 !.opencode/agents/

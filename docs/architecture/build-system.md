@@ -50,7 +50,7 @@ flowchart LR
     E["Common Patches\n· fix-tauri-worker-protocol"]
     F["yarn install + build\n· Drive, Account, Verify\n· Nested sub-path fixes\n· SRI stripping"]
     G["Distro-Specific Patch\n(e.g. alpine.3.22.patch)"]
-    H["npm install +\nnpx tauri build"]
+    H["npm ci +\nnpx tauri build"]
     I["Package Wrangling\n· FHS staging tree\n· Strip debug symbols\n· tar.gz / PKGBUILD / rpm"]
     J["Artifact\n.apk.tar.gz / .pkg.tar.zst / .rpm"]
 
@@ -60,7 +60,7 @@ flowchart LR
     D -- "Apply common patches" --> E
     E -- "yarn install &\nbuild (parallel)" --> F
     F -- "Apply distro patch\nto worktree" --> G
-    G -- "npm install + build\n(Tauri)" --> H
+    G -- "npm ci + build\n(Tauri)" --> H
     H -- "Package & strip" --> I
     I --> J
 ```
@@ -87,7 +87,7 @@ flowchart LR
    patch is applied. These patches set environment variables for WebKitGTK compatibility
    (e.g. `WEBKIT_DISABLE_DMABUF_RENDERER=1`, `GDK_GL=disable` on musl targets) and
    handle D-Bus session auto-launching for Alpine.
-7. **Tauri compile** — `npm install` + `npx tauri build` compiles the Rust/Tauri binary
+7. **Tauri compile** — `npm ci` + `npx tauri build` compiles the Rust/Tauri binary
    with the patched WebClients dist baked in.
 8. **Packaging** — The binary, desktop entry, and icons are staged in an FHS-like
    directory tree, stripped of debug symbols, and packed into the target format.
@@ -142,7 +142,7 @@ directory differ). The build is orchestrated by a GitHub Actions composite workf
 3. **Apply the distro patch** (first `--check`, then apply).
 4. **Build WebClients** via `scripts/build-webclients.sh`.
 5. **Build the binary** — syncs version from `package.json` → `tauri.conf.json` →
-   `Cargo.toml`, runs `npm install`, then `npx tauri build --verbose`.
+   `Cargo.toml`, runs `npm ci`, then `npx tauri build --verbose`.
 6. **Stage the packaging tree** — creates an FHS-like layout:
    ```
    usr/bin/proton-drive                    (stripped ELF)
@@ -294,7 +294,7 @@ cd protondrive-linux
 scripts/build-webclients.sh
 
 # 2. Build the Tauri app (development mode)
-npm install
+npm ci
 npx tauri dev
 
 # Or for a release binary
@@ -324,7 +324,7 @@ Each package format has a dedicated set of CI scripts:
 | Transfer | `scripts/ci/transfer/<distro>/` | SCP artifacts to VM test runners |
 | VM test  | `scripts/ci/vmtest/<distro>/` | Regression + GUI load tests |
 | lib      | `scripts/ci/lib/` | Shared utilities (Rust install, artifact manifest, matrix verification) |
-| Regression | `scripts/ci/regression/` | Login routing, sync regression tests |
+| Regression tests | `tests/regression/` | Login routing, sidebar, and sync invariant checks |
 
 **Environment variables:**
 

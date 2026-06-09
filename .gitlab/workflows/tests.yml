@@ -9,7 +9,7 @@ test:login-routing-regression:
   cache: []
   script:
     - apk add --no-cache bash
-    - bash scripts/ci/regression/login-routing.sh
+    - bash tests/regression/login-routing.sh
 
 # ─── Test: Sync Regression ───────────────────────────────────────────────────
 
@@ -22,7 +22,7 @@ test:sync-regression:
   cache: []
   script:
     - apk add --no-cache bash
-    - bash scripts/ci/regression/sync.sh
+    - bash tests/regression/sync.sh
 
 test:sidebar-regression:
   extends: .rules:test
@@ -33,7 +33,7 @@ test:sidebar-regression:
   cache: []
   script:
     - apk add --no-cache bash
-    - bash scripts/ci/regression/sidebar.sh
+    - bash tests/regression/sidebar.sh
 
 # ─── Test: Rust Format Check ──────────────────────────────────────────────────
 
@@ -84,7 +84,7 @@ test:clippy:
     - |
       printf '<!doctype html><html><body>rust clippy fixture</body></html>\n' \
         > WebClients/applications/drive/dist/index.html
-    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -W clippy::all -W clippy::pedantic
+    - cargo clippy --manifest-path src-tauri/Cargo.toml -- -D clippy::all -W clippy::pedantic
 
 # ─── Test: Rust Unit Tests ────────────────────────────────────────────────────
 
@@ -112,4 +112,4 @@ test:rust:
     - |
       printf '<!doctype html><html><body>rust test fixture</body></html>\n' \
         > WebClients/applications/drive/dist/index.html
-    - cargo test --manifest-path src-tauri/Cargo.toml -- --nocapture
+    - cargo test --manifest-path src-tauri/Cargo.toml --locked -- --nocapture

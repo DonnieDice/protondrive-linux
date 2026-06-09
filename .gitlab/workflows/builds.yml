@@ -47,7 +47,7 @@ build:apk:alpine-3.20:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -120,7 +120,7 @@ build:apk:alpine-3.22:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -194,7 +194,7 @@ build:apk:alpine-3.23:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -258,7 +258,7 @@ build:appimage:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
     - |
       APPDIR="AppDir"
@@ -273,7 +273,7 @@ build:appimage:
       [Desktop Entry]
       Version=1.0
       Type=Application
-      Name=Proton Drive
+      Name=ProtonDrive Linux (Unofficial)
       Comment=Secure cloud storage
       Exec=proton-drive %U
       Icon=com.proton.drive
@@ -346,21 +346,20 @@ build:aur:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
     - scripts/ci/build/aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
     - |
-      cd aur
+      cd packaging/aur
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
       cd "${CI_PROJECT_DIR}"
-    # NOTE: the block above cd's into aur/; return to project root so artifacts/
-    # is created at the repo root where GitLab collects it (was silently
-    # landing in aur/artifacts/ → "No files to upload" → verify:aur got nothing).
+    # NOTE: the block above cd's into packaging/aur/; return to project root so
+    # artifacts/ is created at the repo root where GitLab collects it.
     - mkdir -p "${CI_PROJECT_DIR}/artifacts"
     - cp /tmp/aur-output/*.pkg.tar.zst "${CI_PROJECT_DIR}/artifacts/"
-    - cp aur/.SRCINFO "${CI_PROJECT_DIR}/artifacts/" 2>/dev/null || true
+    - cp packaging/aur/.SRCINFO "${CI_PROJECT_DIR}/artifacts/" 2>/dev/null || true
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
@@ -405,7 +404,7 @@ build:deb:debian-12:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -456,7 +455,7 @@ build:deb:debian-13:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -508,7 +507,7 @@ build:deb:ubuntu-24.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -560,7 +559,7 @@ build:deb:ubuntu-26.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -616,7 +615,7 @@ build:flatpak:gnome-49:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -629,7 +628,7 @@ build:flatpak:gnome-49:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -719,7 +718,7 @@ build:flatpak:gnome-50:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -733,7 +732,7 @@ build:flatpak:gnome-50:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -824,7 +823,7 @@ build:rpm:el10:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -871,7 +870,7 @@ build:rpm:fedora-43:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -918,7 +917,7 @@ build:rpm:fedora-44:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -976,7 +975,7 @@ build:rpm:opensuse-tumbleweed:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -1033,7 +1032,7 @@ build:snap:core24:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="${CI_PROJECT_DIR}/.snap-build-${CI_JOB_ID}"
@@ -1097,7 +1096,7 @@ build:snap:core26:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="${CI_PROJECT_DIR}/.snap-build-${CI_JOB_ID}"

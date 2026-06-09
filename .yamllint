@@ -1,0 +1,20 @@
+extends: default
+
+rules:
+  line-length:
+    max: 160
+    level: warning
+  comments:
+    min-spaces-from-content: 1
+  document-start: disable
+  truthy:
+    allowed-values: ["true", "false", "on", "off"]
+
+ignore: |
+  WebClients/
+  node_modules/
+  .opencode/node_modules/
+  src-tauri/target/
+  graphify-out/
+  docs/.vitepress/dist/
+  docs/.vitepress/cache/

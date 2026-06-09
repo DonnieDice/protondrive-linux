@@ -18,7 +18,7 @@ spec:aur-pkgbuild:
       pkgname=proton-drive
       pkgver=${VERSION}
       pkgrel=1
-      pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+      pkgdesc="ProtonDrive Linux Desktop Client - unofficial Tauri wrapper"
       arch=('x86_64')
       url="${CI_PROJECT_URL}"
       license=('AGPL-3.0')
@@ -29,10 +29,10 @@ spec:aur-pkgbuild:
 
       build() {
         cd "\$srcdir/protondrive-linux-v\${pkgver}"
-        git clone --depth=1 --single-branch --branch main \\
+        git clone --depth=1 --single-branch --branch main \
           https://github.com/ProtonMail/WebClients.git WebClients
         scripts/build-webclients.sh
-        npm install
+        npm ci
         cd src-tauri && cargo build --release && cd ..
       }
 
@@ -75,13 +75,13 @@ spec:rpm-spec:
       BuildRequires:  libayatana-appindicator-devel openssl-devel nodejs npm python3
       Requires:       gtk3 webkit2gtk4.1 libayatana-appindicator openssl-libs
       %description
-      Fast, lightweight, unofficial desktop GUI client for Proton Drive on Linux.
+      Fast, lightweight, unofficial desktop GUI client for the Proton Drive web service on Linux.
       %prep
       %autosetup -n protondrive-linux-v%{version}
       %build
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
       scripts/build-webclients.sh
-      npm install
+      npm ci
       cd src-tauri && cargo build --release && cd ..
       %install
       install -Dm755 src-tauri/target/release/proton-drive %{buildroot}%{_bindir}/proton-drive
@@ -171,49 +171,46 @@ release:
       artifacts: true
     - job: build:apk:alpine-3.23
       artifacts: true
-  variables:
-    GIT_SSL_NO_VERIFY: "true"
-    # Upload release assets via the INTERNAL GitLab URL. The default
-    # CI_API_V4_URL points at the public hostname (gitlab.dicematrix.cloud),
-    # and the public-facing proxy rejects requests from the runner's RFC1918
-    # IP ("Rejected request from RFC1918 IP to public server address"). The
-    # internal LAN address (the one the runner registers with) bypasses it.
-    CI_API_V4_URL: "http://192.168.1.31:8929/api/v4"
-    CI_SERVER_URL: "http://192.168.1.31:8929"
   before_script:
-    - apk add --no-cache curl bash
+    - apk add --no-cache curl bash ca-certificates
+    - update-ca-certificates
   script:
     - |
-      TAG="${CI_COMMIT_TAG:-v$(cat package.json | grep '"version"' | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')}"
+      bash <<'BASH'
+      set -euo pipefail
+
+      TAG="${CI_COMMIT_TAG}"
       VERSION="${TAG#v}"
-      ASSET_LINKS=""
+      ASSET_ARGS=()
 
       upload_file() {
         local file="$1"
         local name
         name=$(basename "$file")
-        HTTP_CODE=$(curl -k -w "%{http_code}" -o /tmp/curl-response.txt \
+        curl --silent --fail \
           --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$file" \
-          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}" 2>&1)
-        echo "Upload ${name}: HTTP ${HTTP_CODE} - $(cat /tmp/curl-response.txt)"
-        [ "${HTTP_CODE}" -ge 200 ] && [ "${HTTP_CODE}" -lt 300 ] || \
-          { echo "ERROR: upload failed with HTTP ${HTTP_CODE}"; exit 1; }
-        ASSET_LINKS="${ASSET_LINKS}
-          --assets-link '{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}'"
+          "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}"
+        ASSET_ARGS+=(--assets-link "{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}")
       }
 
-      find artifacts/ -type f \( \
+      (cd artifacts && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > ../SHA256SUMS)
+      upload_file SHA256SUMS
+
+      while IFS= read -r -d '' f; do
+        upload_file "$f"
+      done < <(find artifacts/ -type f \( \
         -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
         -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \
         -o -name "*.apk.tar.gz" \
-      \) | while read -r f; do upload_file "$f"; done
+      \) -print0)
 
-      release-cli --insecure create \
+      release-cli create \
         --name "Proton Drive Linux ${TAG}" \
         --tag-name "${TAG}" \
-        --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
-        $ASSET_LINKS
+        --description "Proton Drive Linux ${TAG} � builds for all major distributions." \
+        "${ASSET_ARGS[@]}"
+      BASH
 
 # ─── Publish ──────────────────────────────────────────────────────────────────
 
@@ -244,7 +241,7 @@ publish:aur:
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       sed -i "s|^_webclients_commit=.*|_webclients_commit=\"${COMMIT_SHA}\"|" PKGBUILD
-      sed -i "/^sha256sums=/,/)/c\\sha256sums=('${SHA256}'\n            '${WC_SHA256}')" PKGBUILD
+      sed -i "/^sha256sums=/,/)/c\sha256sums=('${SHA256}'\n            '${WC_SHA256}')" PKGBUILD
 
       cat > .SRCINFO <<SRCINFO
       pkgbase = proton-drive
@@ -276,7 +273,7 @@ publish:aur:
       cd aur-repo
       git config user.name "DonnieDice"
       git config user.email "donniedice@proton.me"
-      cp ../aur/PKGBUILD ../aur/.SRCINFO ../aur/proton-drive.install . 2>/dev/null || true
+      cp ../packaging/aur/PKGBUILD ../packaging/aur/.SRCINFO ../packaging/aur/proton-drive.install . 2>/dev/null || true
       git add PKGBUILD .SRCINFO proton-drive.install
       git commit -m "Update to v${VERSION}" || echo "No changes to commit"
       git push -u origin master --force
@@ -352,7 +349,7 @@ publish:flatpak:
             - . /usr/lib/sdk/node22/enable.sh
             - . /usr/lib/sdk/rust-stable/enable.sh
             - ./scripts/build-webclients.sh
-            - npm install
+            - npm ci
             - cd src-tauri && cargo build --release && cd ..
             - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
             - |
@@ -375,7 +372,7 @@ publish:flatpak:
       RELEASE_DATE=$(date -u +'%Y-%m-%d')
       if [ -f com.proton.drive.metainfo.xml ]; then
         grep -q "version=\"${VERSION}\"" com.proton.drive.metainfo.xml || \
-          sed -i "/<releases>/a\\  <release version=\"${VERSION}\" date=\"${RELEASE_DATE}\" />" com.proton.drive.metainfo.xml
+          sed -i "/<releases>/a\  <release version=\"${VERSION}\" date=\"${RELEASE_DATE}\" />" com.proton.drive.metainfo.xml
       else
         cp ../packaging/com.proton.drive.metainfo.xml . 2>/dev/null || true
       fi

@@ -373,7 +373,7 @@ into:
 
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
-- `aur/PKGBUILD`
+- `packaging/aur/PKGBUILD`
 
 ## Publishing Workflows
 

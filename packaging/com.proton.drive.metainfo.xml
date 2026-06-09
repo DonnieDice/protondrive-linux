@@ -3,18 +3,17 @@
   <id>com.proton.drive</id>
   <metadata_license>MIT</metadata_license>
   <project_license>AGPL-3.0</project_license>
-  <name>Proton Drive</name>
+  <name>ProtonDrive Linux (Unofficial)</name>
   <summary>Secure and encrypted cloud storage</summary>
 
   <description>
     <p>
-      Proton Drive is an end-to-end encrypted cloud storage service developed by Proton.
-      This is an unofficial desktop client for Linux built with Tauri, providing a fast
-      and native-feeling experience for managing your files.
+      This is an unofficial Linux desktop client for the Proton Drive web service,
+      built with Tauri to provide a native-feeling shell for managing files.
     </p>
     <ul>
-      <li>End-to-end encryption: Your files are encrypted before they leave your device.</li>
-      <li>Privacy focused: Developed by the team behind Proton Mail and Proton VPN.</li>
+      <li>Uses Proton Drive's web application for authentication, encryption, and file operations.</li>
+      <li>Independent community project; not affiliated with, endorsed by, or connected to Proton AG.</li>
       <li>Native Linux experience: Lightweight and optimized for performance.</li>
     </ul>
   </description>

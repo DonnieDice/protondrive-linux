@@ -1,10 +1,6 @@
 name: Package Workflows
 
 on:
-  pull_request_target:
-    types: [opened]
-  issues:
-    types: [opened]
   workflow_dispatch:
     inputs:
       workflow:
@@ -38,10 +34,7 @@ concurrency:
   cancel-in-progress: true
 
 permissions:
-  contents: write
-  packages: write
-  issues: write
-  pull-requests: write
+  contents: read
 
 jobs:
   build_apk_alpine_3_20:
@@ -483,8 +476,11 @@ jobs:
         uses: ./.github/workflows/maintenance/generate-package-specs/source-dist
 
   issue_auto_label:
-    if: github.event_name == 'issues' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label'))
+    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -496,8 +492,11 @@ jobs:
         uses: ./.github/workflows/maintenance/issue-auto-label
 
   pr_auto_label:
-    if: github.event_name == 'pull_request_target' || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label'))
+    if: github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label')
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      pull-requests: write
     env:
       GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
@@ -578,6 +577,9 @@ jobs:
     if: always() && github.event_name == 'workflow_dispatch' && inputs.workflow == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 360
+    permissions:
+      contents: write
+      packages: write
 
   
     steps:
