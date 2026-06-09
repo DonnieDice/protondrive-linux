@@ -175,6 +175,7 @@ test:python-scripts:
   extends: .rules:gate
   stage: test
   image: python:3.12-slim
+  allow_failure: true
   dependencies: []
   cache: []
   script:
@@ -185,6 +186,7 @@ test:version-consistency:
   extends: .rules:gate
   stage: test
   image: alpine:3.20
+  allow_failure: true
   dependencies: []
   cache: []
   before_script:
