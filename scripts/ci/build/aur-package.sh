@@ -67,7 +67,7 @@ cat > "${SRC_DIR}/com.proton.drive.desktop" <<DESKTOP
 [Desktop Entry]
 Version=1.0
 Type=Application
-Name=Proton Drive
+Name=ProtonDrive Linux (Unofficial)
 Comment=Secure cloud storage
 Exec=proton-drive %U
 Icon=com.proton.drive

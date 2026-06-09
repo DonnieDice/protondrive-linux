@@ -58,6 +58,30 @@ Thank you for helping keep ProtonDrive Linux and its users safe.
 
 Only the latest release line receives security patches. Older versions should be upgraded.
 
+## Secret Rotation
+
+The following secrets must be rotated on a regular cadence and **immediately** on
+suspected compromise. After any rotation, re-run the affected publish job to confirm
+connectivity before the next release.
+
+| Secret | Where configured | Rotation cadence | What to do on compromise |
+|--------|-----------------|-----------------|--------------------------|
+| `AUR_SSH_PRIVATE_KEY` | GitLab CI protected variable + GitHub Actions secret | Every 12 months or on team change | Generate new SSH keypair, add public key to `aur.archlinux.org` account, update the secret, revoke the old key |
+| `FLATHUB_SSH_PRIVATE_KEY` | GitLab CI protected variable + GitHub Actions secret | Every 12 months or on team change | Generate new SSH keypair, add public key as deploy key to `flathub/com.proton.drive`, update the secret, revoke the old key |
+| `SNAPCRAFT_STORE_CREDENTIALS` | GitLab CI protected variable + GitHub Actions secret | Every 12 months or on team change (currently blocked — see issues #83/#19) | Revoke credentials in Snap Store dashboard, generate new token, update the secret |
+
+**Rotation procedure:**
+
+1. Generate the new key/credential before revoking the old one.
+2. Update the secret in both GitLab CI (Settings → CI/CD → Variables) and GitHub Actions (Settings → Secrets).
+3. Revoke the old key at the store/service level.
+4. Trigger a dry-run of the affected publish job (use a test tag or `workflow_dispatch`) to confirm the new credential works.
+5. Record the rotation date in this file under the relevant row.
+
+**On compromise:** rotate immediately, do not wait for the next scheduled window.
+Notify `donniedice@proton.me` and follow the post-mortem process in
+`docs/ci-cd/rollback-process.md`.
+
 ## Known Upstream Alert
 
 We currently track a Dependabot alert on the Linux desktop dependency stack for `glib` through the Tauri / gtk-rs / WebKitGTK chain.

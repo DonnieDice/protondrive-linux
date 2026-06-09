@@ -1,0 +1,129 @@
+version: 1
+mapping:
+  - source: ".gitlab-ci.yml"
+    docs:
+      - path: "docs/ci-cd/ci-pipeline-reference.md"
+        section: "GitLab CI"
+        critical: true
+        update_mode: "section"
+      - path: "docs/ci-cd/ci-authority-and-mirroring.md"
+        section: "GitLab Authority"
+        critical: true
+        update_mode: "section"
+      - path: "docs/release-checklist.md"
+        section: "Required Pre-Release Checks"
+        critical: true
+        update_mode: "section"
+
+  - glob: ".github/workflows/*.yml"
+    docs:
+      - path: "docs/ci-cd/ci-authority-and-mirroring.md"
+        section: "GitHub Mirror"
+        update_mode: "section"
+
+  - glob: "scripts/ci/**"
+    docs:
+      - path: "docs/ci-cd/ci-pipeline-reference.md"
+        section: "CI Helper Scripts"
+        critical: true
+        update_mode: "section"
+      - path: "docs/build-packaging/packaging.md"
+        section: "Build Scripts"
+        update_mode: "section"
+
+  - glob: "tests/**"
+    docs:
+      - path: "docs/ci-cd/ci-pipeline-reference.md"
+        section: "Test Suites"
+        critical: true
+        update_mode: "section"
+      - path: "docs/ci-cd/ci-pipeline.md"
+        section: "Test Jobs"
+        critical: true
+        update_mode: "section"
+
+  - source: "scripts/build-webclients.sh"
+    docs:
+      - path: "docs/architecture/proton-navigation.md"
+        section: "WebClients Build"
+        update_mode: "section"
+      - path: "docs/debugging/worker-login-sri.md"
+        section: "WebClients Build"
+        critical: true
+        update_mode: "section"
+
+  - source: "scripts/patch_drive_linux_drawer.py"
+    docs:
+      - path: "docs/architecture/proton-navigation.md"
+        section: "Linux Navigation"
+        critical: true
+        update_mode: "section"
+
+  - source: "src-tauri/src/main.rs"
+    docs:
+      - path: "docs/architecture/architecture.md"
+        section: "Tauri Shell"
+        critical: true
+        update_mode: "section"
+      - path: "docs/webview/webview-integration.md"
+        section: "Runtime Integration"
+        critical: true
+        update_mode: "section"
+
+  - source: "src-tauri/src/live_sync.rs"
+    docs:
+      - path: "docs/sync/live-sync-module.md"
+        section: "Live Sync"
+        critical: true
+        update_mode: "section"
+      - path: "docs/sync/sync-system.md"
+        section: "Native Sync"
+        critical: true
+        update_mode: "section"
+      - path: "docs/sync.md"
+        section: "Native Sync"
+        update_mode: "section"
+
+  - glob: "src-tauri/src/sync*.rs"
+    docs:
+      - path: "docs/sync/sync-db-module.md"
+        section: "Sync Database"
+        critical: true
+        update_mode: "section"
+      - path: "docs/sync/sync-database.md"
+        section: "Schema"
+        update_mode: "section"
+
+  - source: "src-tauri/Cargo.toml"
+    docs:
+      - path: "docs/reference/configuration-reference.md"
+        section: "Rust Dependencies"
+        update_mode: "section"
+
+  - source: "src-tauri/tauri.conf.json"
+    docs:
+      - path: "docs/reference/configuration-reference.md"
+        section: "Tauri Configuration"
+        critical: true
+        update_mode: "section"
+      - path: "docs/webview/webview-configuration.md"
+        section: "Security Configuration"
+        critical: true
+        update_mode: "section"
+
+  - glob: "packaging/**"
+    docs:
+      - path: "docs/build-packaging/packaging.md"
+        section: "Package Targets"
+        critical: true
+        update_mode: "section"
+      - path: "docs/release-checklist.md"
+        section: "Package Publishing"
+        critical: true
+        update_mode: "section"
+
+  - glob: "docs/*.md"
+    self_update: true
+
+  - glob: "docs/**/*.md"
+    self_update: true

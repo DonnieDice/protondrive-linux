@@ -25,7 +25,7 @@ runs:
         pkgname=proton-drive
         pkgver=${{ steps.tag.outputs.version }}
         pkgrel=1
-        pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+        pkgdesc="ProtonDrive Linux Desktop Client - unofficial Tauri wrapper"
         arch=('x86_64' 'aarch64')
         url="https://github.com/${{ github.repository }}"
         license=('AGPL-3.0')
@@ -75,7 +75,7 @@ runs:
         [Desktop Entry]
         Version=1.0
         Type=Application
-        Name=Proton Drive
+        Name=ProtonDrive Linux (Unofficial)
         Comment=Encrypted cloud storage
         Exec=proton-drive
         Icon=com.proton.drive

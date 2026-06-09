@@ -98,7 +98,7 @@ Lightweight pre-flight checks that run before builds:
 | Job | Container | Timeout | Purpose |
 |-----|-----------|---------|---------|
 | `test:login-routing-regression` | `alpine:latest` | 10m | Guards login/2FA routing invariants in `main.rs`, `proton_navigation.rs`, `webview_cookies.rs` |
-| `test:sync-regression` | `alpine:latest` | 10m | Detects drift between GitLab and GitHub CI configs via `scripts/ci/regression/sync.sh` |
+| `test:sync-regression` | `alpine:latest` | 10m | Guards native sync command, metadata, watcher, and remote-write invariants via `tests/regression/sync.sh` |
 | `test:fmt` | `debian:12` | 10m | `cargo fmt --check` |
 | `test:clippy` | `debian:12` | 30m | `cargo clippy` lint checks |
 | `test:rust` | `debian:12` | 30m | `cargo test` — unit tests for login routing, webview cookies, and live sync |
@@ -184,7 +184,7 @@ output. The common flow is:
 4. Apply distro patch from `patches/<format>/<variant>.patch`
 5. Run `scripts/build-webclients.sh` (web app build)
 6. Sync `package.json` version to `tauri.conf.json` and `Cargo.toml`
-7. `npm install` + `cargo build --release`
+7. `npm ci` + `cargo build --release`
 8. Package binary and icons into distro format
 9. Copy to `artifacts/` directory
 
@@ -336,11 +336,11 @@ GitLab release stage's `needs:` list.
 
 ## CI Scripts
 
-### `scripts/ci/regression/sync.sh`
+### `tests/regression/sync.sh`
 
-A pre-flight gate that detects drift between the dual CI configurations.
-Compares the GitLab build stage against GitHub workflows and exits non-zero
-when a target is missing in one system or misaligned.
+A pre-flight gate that guards native sync invariants in the Rust sources. It
+checks command registration, sync metadata privacy markers, watcher/poller
+contracts, and bounded remote write behavior.
 
 **Environment variables:**
 - `PROTOND_REPO_ROOT` — repo root (default: `.`)
@@ -402,7 +402,14 @@ CI scripts are split into subdirectories under `scripts/ci/`:
 | `scripts/ci/transfer/<distro>/` | Per-distro SCP transfer scripts |
 | `scripts/ci/vmtest/<distro>/` | Per-distro GUI load + regression test scripts |
 | `scripts/ci/lib/` | Shared helpers: `_vm_common.sh`, `_test_common.sh`, `gui-load-check.sh`, `ui-test-compositor.sh`, `install-rust.sh`, `fetch-latest-artifact.sh`, `write-artifact-manifest.sh` |
-| `scripts/ci/regression/` | `sync.sh` (CI drift check), `login-routing.sh`, `sync.sh` (regression suite) |
+
+Executable test cases are kept under `tests/`, not `scripts/ci/`:
+
+| Directory | Contents |
+|-----------|----------|
+| `tests/regression/` | Shell regression guards for login routing, sidebar patches, and native sync invariants |
+| `tests/unit/` | Python unit tests for local helper logic |
+| `tests/robot/` | Robot Framework suites, resources, and VM variables |
 
 **openSUSE Tumbleweed install note:** The RPM package declares
 `Requires: libayatana-appindicator-gtk3` (the Fedora capability name). openSUSE
@@ -463,7 +470,7 @@ You can reproduce most CI build steps locally:
 | Version sync | Inline sed commands | Same sed commands |
 | Rust build | `cargo build --release` | `cd src-tauri && cargo build --release` |
 | Patch application | `git apply patches/<type>/<variant>.patch` | Same |
-| Sync check | `scripts/ci/regression/sync.sh` | Same script (needs `yq`, `jq`) |
+| Sync regression | `tests/regression/sync.sh` | Same script |
 | Artifact manifest | `scripts/ci/write-artifact-manifest.sh` | Same script |
 | DEB package | `npx tauri build --bundles deb` | Same (needs system deps) |
 | RPM package | `npx tauri build --bundles rpm` | Same (needs system deps) |
@@ -506,7 +513,7 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | Add a new build target | Both | `docs/build-packaging/new-build-checklist.md` |
 | Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |
 | Inspect CI VM scripts | GitLab CI | `scripts/ci/{install,transfer,vmtest,lib}/` |
-| Check CI sync health | Both | `scripts/ci/regression/sync.sh` |
+| Check native sync invariants | Both | `tests/regression/sync.sh` |
 | Generate artifact manifest | Both | `scripts/ci/lib/write-artifact-manifest.sh` |
 
 ## Known Gaps

@@ -78,8 +78,8 @@ runs:
     - name: Generate .SRCINFO
       shell: bash
       run: |
-            cd aur
-            VERSION=$(node -p "require('../package.json').version")
+            cd packaging/aur
+            VERSION=$(node -p "require('../../package.json').version")
             sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
             sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
             makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
@@ -140,21 +140,21 @@ runs:
     - name: Write AUR metadata manifest
       shell: bash
       run: |
-        ARTIFACT_MANIFEST_DIR=aur \
+        ARTIFACT_MANIFEST_DIR=packaging/aur \
           bash scripts/ci/write-artifact-manifest.sh \
           aur-arch-native-srcinfo \
           aur-metadata \
           arch \
           x86_64 \
-          "aur/.SRCINFO"
+          "packaging/aur/.SRCINFO"
 
     - name: Upload AUR metadata
       uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
       with:
         name: aur-arch-native-srcinfo
         path: |
-          aur/.SRCINFO
-          aur/aur-arch-native-srcinfo.*
+          packaging/aur/.SRCINFO
+          packaging/aur/aur-arch-native-srcinfo.*
         if-no-files-found: warn
         include-hidden-files: true
         retention-days: 30

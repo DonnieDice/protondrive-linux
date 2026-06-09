@@ -175,6 +175,7 @@ When merging meaningful changes, bump the version in all three files:
 
 - `compatibility-map.yml` must stay in sync with actual workflows and `docs/build-packaging/packaging.md`.
 - AUR package is `proton-drive` (native build), not `proton-drive-bin`.
+- AUR recipe files live in `packaging/aur/` (PKGBUILD, proton-drive.install).
 
 ## Review Bot Feedback
 

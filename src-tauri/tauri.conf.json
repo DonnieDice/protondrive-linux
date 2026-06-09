@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Proton Drive",
+  "productName": "ProtonDrive Linux (Unofficial)",
   "version": "2.0.0",
   "identifier": "com.proton.drive",
   "build": {
@@ -23,7 +23,7 @@
     "copyright": "DonnieDice",
     "category": "Utility",
     "shortDescription": "Encrypted cloud storage",
-    "longDescription": "Proton Drive is encrypted cloud storage that protects your files with end-to-end encryption.",
+    "longDescription": "Unofficial Linux desktop wrapper for the Proton Drive web service.",
     "license": "AGPL-3.0",
     "linux": {
       "deb": {

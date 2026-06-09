@@ -77,7 +77,7 @@ Applied to all **build** and **spec** jobs.
 
 ### `.rules:release`
 Applied to the **release** job.
-- Runs only when: `CI_COMMIT_BRANCH == "main" && push`, **or** tag matching `/^v.*/`.
+- Runs only for protected release tags matching `vX.Y.Z` or `vX.Y.Z-rc.N`.
 - Otherwise: `when: never`.
 
 ### `.rules:publish`
@@ -115,7 +115,7 @@ Like `.install_rust` but also installs full GTK/WebKit development dependencies
 |---|---|---|
 | `alpine:latest` | 10m | None |
 
-Runs `scripts/ci/regression/login-routing.sh` — checks that login/session
+Runs `tests/regression/login-routing.sh` — checks that login/session
 routing logic hasn't regressed.
 
 ### `test:sync-regression`
@@ -124,7 +124,7 @@ routing logic hasn't regressed.
 |---|---|---|
 | `alpine:latest` | 10m | None |
 
-Runs `scripts/ci/regression/sync.sh` — validates sync functionality against
+Runs `tests/regression/sync.sh` — validates sync functionality against
 synthetic state.
 
 ### `test:fmt`
@@ -142,7 +142,7 @@ Runs `cargo fmt -- --check` on the `src-tauri` crate. Has its own cargo cache
 |---|---|---|
 | `debian:12` | 30m | None |
 
-Runs `cargo clippy` with `-W clippy::all -W clippy::pedantic`. Requires the
+Runs `cargo clippy` with `-D clippy::all -W clippy::pedantic`. Requires the
 full GTK/WebKit toolchain for dependency resolution. Stubs `WebClients/`
 with a minimal HTML fixture before linting.
 
@@ -152,7 +152,7 @@ with a minimal HTML fixture before linting.
 |---|---|---|
 | `debian:12` | 30m | None |
 
-Runs `cargo test -- --nocapture` on the `src-tauri` crate. Has its own cargo
+Runs `cargo test --locked -- --nocapture` on the `src-tauri` crate. Has its own cargo
 cache (`test-rust-cargo`) and stubs `WebClients/` with a minimal HTML fixture
 before running tests.
 
@@ -161,7 +161,7 @@ before running tests.
 ## Stage: `build`
 
 > All build jobs share the pattern: install system deps → install Rust → clone
-> WebClients → apply distro patch → build web clients → sync version → npm install
+> WebClients → apply distro patch → build web clients → sync version → npm ci
 > → cargo build → extract binary → package → drop into `artifacts/`.
 >
 > Artifacts expire in **30 days** and all outputs land in `artifacts/`.

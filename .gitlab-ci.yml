@@ -1,5 +1,6 @@
 include:
   - local: .gitlab-ci-vm-tests.yml
+  - local: .gitlab/workflows/tests.yml
 
 variables:
   RUST_VERSION: stable
@@ -8,10 +9,18 @@ variables:
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
   DOCKER_HOST: tcp://docker:2375
   DOCKER_TLS_CERTDIR: ""
+  DOC_AUDIT_WINDOW_HOURS: "24"
 
 stages:
+  - detect
+  - audit
+  - update
+  - lint
+  - test
+  - security
   - build
   - spec
+  - sign
   - release
   - publish
 
@@ -19,25 +28,34 @@ workflow:
   auto_cancel:
     on_new_commit: interruptible
   rules:
-    # Enterprise release gating: do not create pipelines for ordinary branch
-    # pushes or merge requests. Release builds are created by protected v* tags.
-    # Manual/API pipelines are allowed only for explicit release-test runs.
+    # MR and branch pipelines run quality gates. Package release builds are
+    # created by protected v* tags; manual/API release-test runs are explicit.
     - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
     - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
     - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
     - when: never
 .rules:build:
   rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-    - if: $CI_COMMIT_BRANCH
     - if: $CI_COMMIT_TAG
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_RELEASE_TESTS == "true"'
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+      when: manual
+      allow_failure: true
+    - if: $CI_COMMIT_BRANCH
+      when: manual
+      allow_failure: true
     - when: manual
       allow_failure: true
 
 .rules:release:
   rules:
-    - if: $CI_COMMIT_BRANCH == "main" && $CI_PIPELINE_SOURCE == "push"
-    - if: $CI_COMMIT_TAG =~ /^v.*/
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+(-rc\.[0-9]+)?$/
     - when: never
 
 .rules:publish:
@@ -45,6 +63,342 @@ workflow:
     - if: $CI_COMMIT_TAG =~ /^v.*/
     - when: manual
       allow_failure: true
+
+.rules:doc_audit:
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+    - when: never
+
+.rules:gate:
+  interruptible: true
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+    - if: $CI_COMMIT_BRANCH
+    - if: $CI_COMMIT_TAG
+    - when: never
+
+.rules:test:
+  extends: .rules:gate
+
+lint:shell:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: koalaman/shellcheck-alpine:stable
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  before_script:
+    - apk add --no-cache bash git
+  script:
+    - shellcheck --severity=warning $(git ls-files '*.sh')
+
+lint:shell-fmt:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: mvdan/shfmt:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  allow_failure: true
+  before_script:
+    - apk add --no-cache git
+  script:
+    - FILES="$(git ls-files '*.sh')"
+    - 'test -n "$FILES" && shfmt -d -i 2 -ci $FILES || echo "no shell files"'
+
+lint:yaml:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: cytopia/yamllint:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - yamllint -s .
+
+lint:actions:
+  extends: .rules:gate
+  stage: lint
+  image:
+    name: rhysd/actionlint:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - actionlint
+
+lint:gitlab-ci:
+  extends: .rules:gate
+  stage: lint
+  image: alpine:3.20
+  dependencies: []
+  cache: []
+  rules:
+    - if: '$CI_LINT_TOKEN && $CI_PIPELINE_SOURCE == "merge_request_event"'
+      changes:
+        - .gitlab-ci.yml
+        - .gitlab/workflows/*.yml
+    - when: never
+  before_script:
+    - apk add --no-cache curl jq
+  script:
+    - |
+      RESP=$(curl -sk --header "PRIVATE-TOKEN: ${CI_LINT_TOKEN}" \
+        "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/ci/lint" \
+        --data-urlencode "content=$(cat .gitlab-ci.yml)")
+      echo "$RESP" | jq -e '.valid == true' >/dev/null || { echo "$RESP" | jq .; exit 1; }
+
+lint:python:
+  extends: .rules:gate
+  stage: lint
+  image: python:3.12-slim
+  dependencies: []
+  cache: []
+  before_script:
+    - pip install --no-cache-dir ruff
+  script:
+    - ruff check scripts/
+    - ruff format --check scripts/
+
+test:python-scripts:
+  extends: .rules:gate
+  stage: test
+  image: python:3.12-slim
+  dependencies: []
+  cache: []
+  script:
+    - python -c "import ast, pathlib; [ast.parse(p.read_text(encoding='utf-8')) for p in pathlib.Path('scripts').rglob('*.py')]"
+    - if [ -d scripts/tests ]; then python -m pip install --no-cache-dir pytest && pytest -q scripts/tests; else echo "no scripts/tests yet"; fi
+
+test:version-consistency:
+  extends: .rules:gate
+  stage: test
+  image: alpine:3.20
+  dependencies: []
+  cache: []
+  before_script:
+    - apk add --no-cache jq grep sed gawk bash
+  script:
+    - bash scripts/ci/check-versions.sh
+
+coverage:rust:
+  extends: .rules:gate
+  stage: test
+  image: debian:12
+  timeout: 40m
+  allow_failure: true
+  dependencies: []
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-cov"
+  cache:
+    key: cov-rust-cargo
+    paths: [.cargo-cov/, src-tauri/target/]
+    when: always
+  before_script:
+    - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
+        librsvg2-dev libsoup-3.0-dev
+    - source scripts/ci/lib/install-rust.sh
+    - rustup component add llvm-tools-preview
+    - cargo install cargo-llvm-cov --locked || true
+  script:
+    - mkdir -p WebClients/applications/drive/dist
+    - printf '<!doctype html><html><body>coverage fixture</body></html>\n' > WebClients/applications/drive/dist/index.html
+    - cargo llvm-cov --manifest-path src-tauri/Cargo.toml --cobertura --output-path coverage.xml --summary-only
+  coverage: '/TOTAL.*?(\d+\.\d+)%/'
+  artifacts:
+    when: always
+    reports:
+      coverage_report:
+        coverage_format: cobertura
+        path: coverage.xml
+    paths:
+      - coverage.xml
+
+security:secrets:
+  extends: .rules:gate
+  stage: security
+  image:
+    name: zricethezav/gitleaks:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  script:
+    - gitleaks detect --source . --redact -v --exit-code 1
+
+security:cargo-deny:
+  extends: .rules:gate
+  stage: security
+  image: rust:bookworm
+  dependencies: []
+  cache:
+    key: security-cargo-deny
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  allow_failure: true
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  script:
+    - cargo install cargo-deny --locked || true
+    - cargo deny --manifest-path src-tauri/Cargo.toml check advisories bans licenses sources
+
+security:npm-audit:
+  extends: .rules:gate
+  stage: security
+  image: node:22-slim
+  dependencies: []
+  cache: []
+  allow_failure: true
+  script:
+    - npm ci --ignore-scripts
+    - npm audit --audit-level=high
+
+security:trivy-fs:
+  extends: .rules:gate
+  stage: security
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  dependencies: []
+  cache: []
+  allow_failure: true
+  script:
+    - trivy fs --scanners vuln,secret,misconfig --severity HIGH,CRITICAL --exit-code 0 .
+
+docs:detect-changes:
+  extends: .rules:doc_audit
+  stage: detect
+  image: alpine:3.20
+  before_script:
+    - apk add --no-cache git
+  script:
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --name-only --pretty=format: |
+          sort -u |
+          grep -v '^$' > changed_files.txt
+      else
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        if [ -n "$BASE_SHA" ]; then
+          git diff --name-only "$BASE_SHA".."$CI_COMMIT_SHA" > changed_files.txt
+        else
+          git diff --name-only HEAD~1..HEAD > changed_files.txt
+        fi
+      fi
+      cat changed_files.txt
+  artifacts:
+    when: always
+    paths:
+      - changed_files.txt
+
+docs:resolve-mapping:
+  extends: .rules:doc_audit
+  stage: detect
+  image: python:3.12-alpine
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+  before_script:
+    - pip install pyyaml
+  script:
+    - python scripts/ci/resolve-mapping.py --mapping docs/mapping.yaml --changed changed_files.txt > docs/affected_docs.json
+    - cat docs/affected_docs.json
+  artifacts:
+    when: always
+    paths:
+      - docs/affected_docs.json
+
+docs:audit-gate:
+  extends: .rules:doc_audit
+  stage: audit
+  image: alpine:3.20
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+    - job: docs:resolve-mapping
+      artifacts: true
+  before_script:
+    - apk add --no-cache bash curl git jq
+  script:
+    - export AFFECTED_JSON="docs/affected_docs.json"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        export MODE="schedule"
+        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
+      else
+        export MODE="${DOC_AUDIT_MODE:-release_gate}"
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
+      fi
+    - bash scripts/ci/ai-doc-gate.sh
+  artifacts:
+    when: always
+    paths:
+      - docs/stale_docs.json
+      - docs/stale_docs.raw.json
+
+docs:auto-update:
+  extends: .rules:doc_audit
+  stage: update
+  image: alpine:3.20
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - when: never
+  needs:
+    - job: docs:detect-changes
+      artifacts: true
+    - job: docs:resolve-mapping
+      artifacts: true
+    - job: docs:audit-gate
+      artifacts: true
+  before_script:
+    - apk add --no-cache bash curl git jq python3
+  script:
+    - export AFFECTED_JSON="docs/affected_docs.json"
+    - |
+      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
+        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
+      else
+        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
+        fi
+        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
+      fi
+    - bash scripts/ci/ai-doc-update.sh
+    - |
+      if git diff --quiet docs/ README.md; then
+        echo "No doc changes needed."
+        exit 0
+      fi
+    - BRANCH="docs/ai-update-${CI_COMMIT_SHORT_SHA}"
+    - git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"
+    - git config user.email "${DOC_AUDIT_BOT_EMAIL:-bot@example.com}"
+    - git checkout -b "$BRANCH"
+    - git add docs/ README.md
+    - git commit -m "docs: auto-update from AI audit [skip ci]"
+    - |
+      if [ -n "${DOC_AUDIT_PUSH_TOKEN:-}" ]; then
+        git remote set-url origin "https://oauth2:${DOC_AUDIT_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
+      fi
+      git push -o merge_request.create -o merge_request.target=main -o merge_request.title="docs: AI audit update" origin "$BRANCH"
 
 # ─── Rust install script (reused via YAML anchor) ─────────────────────────────
 
@@ -98,7 +452,7 @@ build:apk:alpine-3.20:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -112,7 +466,7 @@ build:apk:alpine-3.20:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -166,7 +520,7 @@ build:apk:alpine-3.22:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -180,7 +534,7 @@ build:apk:alpine-3.22:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -235,7 +589,7 @@ build:apk:alpine-3.23:
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
       git config --global --add safe.directory "$CI_PROJECT_DIR"
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -249,7 +603,7 @@ build:apk:alpine-3.23:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -295,7 +649,7 @@ build:appimage:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -308,7 +662,7 @@ build:appimage:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
     - |
       APPDIR="AppDir"
@@ -323,7 +677,7 @@ build:appimage:
       [Desktop Entry]
       Version=1.0
       Type=Application
-      Name=Proton Drive
+      Name=ProtonDrive Linux (Unofficial)
       Comment=Secure cloud storage
       Exec=proton-drive %U
       Icon=com.proton.drive
@@ -378,9 +732,9 @@ build:aur:
         nodejs npm python rustup base-devel patch
     - rustup default "${RUST_VERSION}"
     - *install_rust
-- |
-  rm -rf WebClients
-  git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
+    - |
+      rm -rf WebClients
+      git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
       git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
       git -C WebClients checkout --detach "${WEBCLIENTS_COMMIT}"
     - |
@@ -395,17 +749,17 @@ build:aur:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
     - scripts/ci/build-aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
     - |
-      cd aur
+      cd packaging/aur
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
     - mkdir -p artifacts
     - cp /tmp/aur-output/*.pkg.tar.zst artifacts/ 2>/dev/null || true
-    - cp aur/.SRCINFO artifacts/ 2>/dev/null || true
+    - cp packaging/aur/.SRCINFO artifacts/ 2>/dev/null || true
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
@@ -432,7 +786,7 @@ build:deb:debian-12:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -445,7 +799,7 @@ build:deb:debian-12:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -477,7 +831,7 @@ build:deb:debian-13:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -490,7 +844,7 @@ build:deb:debian-13:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -523,7 +877,7 @@ build:deb:ubuntu-24.04:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -536,7 +890,7 @@ build:deb:ubuntu-24.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -569,7 +923,7 @@ build:deb:ubuntu-26.04:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -582,7 +936,7 @@ build:deb:ubuntu-26.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -619,7 +973,7 @@ build:flatpak:gnome-49:
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -632,7 +986,7 @@ build:flatpak:gnome-49:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -645,7 +999,7 @@ build:flatpak:gnome-49:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -717,7 +1071,7 @@ build:flatpak:gnome-50:
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -730,7 +1084,7 @@ build:flatpak:gnome-50:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -744,7 +1098,7 @@ build:flatpak:gnome-50:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -817,7 +1171,7 @@ build:rpm:el10:
         librsvg2-devel libsoup3-devel webkit2gtk4.1-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -830,7 +1184,7 @@ build:rpm:el10:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -858,7 +1212,7 @@ build:rpm:fedora-43:
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -871,7 +1225,7 @@ build:rpm:fedora-43:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -899,7 +1253,7 @@ build:rpm:fedora-44:
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -912,7 +1266,7 @@ build:rpm:fedora-44:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -951,7 +1305,7 @@ build:rpm:opensuse-tumbleweed:
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -964,7 +1318,7 @@ build:rpm:opensuse-tumbleweed:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -1001,7 +1355,7 @@ build:snap:core24:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -1014,7 +1368,7 @@ build:snap:core24:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="$(mktemp -d)"
@@ -1052,13 +1406,14 @@ build:snap:core26:
     paths: [.cargo/, src-tauri/target/]
   when: always
   script:
-  - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
-  libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
-        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
+    - |
+      apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config \
+        libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev \
+        librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates \
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
     - *install_rust
- - *clone_webclients
+    - *clone_webclients
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -1071,7 +1426,7 @@ build:snap:core26:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="$(mktemp -d)"
@@ -1116,7 +1471,7 @@ spec:aur-pkgbuild:
       pkgname=proton-drive
       pkgver=${VERSION}
       pkgrel=1
-      pkgdesc="Proton Drive Linux Desktop Client - unofficial Tauri wrapper"
+      pkgdesc="ProtonDrive Linux Desktop Client - unofficial Tauri wrapper"
       arch=('x86_64')
       url="${CI_PROJECT_URL}"
       license=('AGPL-3.0')
@@ -1130,7 +1485,7 @@ spec:aur-pkgbuild:
         git clone --depth=1 --single-branch --branch main \\
           https://github.com/ProtonMail/WebClients.git WebClients
         scripts/build-webclients.sh
-        npm install
+        npm ci
         cd src-tauri && cargo build --release && cd ..
       }
 
@@ -1164,7 +1519,7 @@ spec:rpm-spec:
       Name:           proton-drive
       Version:        ${VERSION}
       Release:        1%{?dist}
-      Summary:        Proton Drive Linux Desktop Client
+      Summary:        ProtonDrive Linux Desktop Client (Unofficial)
       License:        AGPL-3.0
       URL:            ${CI_PROJECT_URL}
       Source0:        ${CI_PROJECT_URL}/-/archive/v%{version}/protondrive-linux-v%{version}.tar.gz
@@ -1172,13 +1527,13 @@ spec:rpm-spec:
       BuildRequires:  libayatana-appindicator-devel openssl-devel nodejs npm python3
       Requires:       gtk3 webkit2gtk4.1 libayatana-appindicator openssl-libs
       %description
-      Fast, lightweight, unofficial desktop GUI client for Proton Drive on Linux.
+      Fast, lightweight, unofficial desktop GUI client for the Proton Drive web service on Linux.
       %prep
       %autosetup -n protondrive-linux-v%{version}
       %build
       git clone --depth=1 --single-branch --branch main https://github.com/ProtonMail/WebClients.git WebClients
       scripts/build-webclients.sh
-      npm install
+      npm ci
       cd src-tauri && cargo build --release && cd ..
       %install
       install -Dm755 src-tauri/target/release/proton-drive %{buildroot}%{_bindir}/proton-drive
@@ -1224,11 +1579,197 @@ spec:source-dist:
 
 # ─── Release ──────────────────────────────────────────────────────────────────
 
+sbom:rust:
+  extends: .rules:release
+  stage: sign
+  image: rust:bookworm
+  dependencies: []
+  cache:
+    key: sbom-rust-cargo
+    paths: [.cargo/, src-tauri/target/]
+    when: always
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  script:
+    - cargo install cargo-cyclonedx --locked || true
+    - cargo cyclonedx --manifest-path src-tauri/Cargo.toml --format json
+    - mv src-tauri/*.cdx.json sbom-rust.cdx.json
+  artifacts:
+    paths:
+      - sbom-rust.cdx.json
+    expire_in: 90 days
+
+sbom:packages:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: anchore/syft:latest
+    entrypoint: [""]
+  script:
+    - syft dir:artifacts -o cyclonedx-json=sbom-artifacts.cdx.json -o spdx-json=sbom-artifacts.spdx.json
+  artifacts:
+    paths:
+      - sbom-artifacts.cdx.json
+      - sbom-artifacts.spdx.json
+    expire_in: 90 days
+
+sign:artifacts:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: gcr.io/projectsigstore/cosign:v2.4.0
+    entrypoint: [""]
+  allow_failure: true
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - |
+      find artifacts -type f | while IFS= read -r f; do
+        case "$f" in
+          *.cosign.bundle|*.att.bundle) continue ;;
+        esac
+        cosign sign-blob --yes --bundle "${f}.cosign.bundle" "$f"
+      done
+  artifacts:
+    paths:
+      - artifacts/*.cosign.bundle
+    expire_in: 90 days
+
+attest:provenance:
+  extends: .rules:release
+  stage: sign
+  image:
+    name: gcr.io/projectsigstore/cosign:v2.4.0
+    entrypoint: [""]
+  allow_failure: true
+  id_tokens:
+    SIGSTORE_ID_TOKEN:
+      aud: sigstore
+  script:
+    - |
+      cat > provenance.json <<EOF
+      {
+        "buildType": "https://gitlab.com/ci",
+        "builder": {"id": "${CI_SERVER_URL}/${CI_PROJECT_PATH}"},
+        "invocation": {
+          "configSource": {
+            "uri": "${CI_PROJECT_URL}",
+            "digest": {"sha1": "${CI_COMMIT_SHA}"},
+            "entryPoint": "${CI_PIPELINE_ID}"
+          }
+        },
+        "metadata": {
+          "buildStartedOn": "${CI_PIPELINE_CREATED_AT}",
+          "completeness": {"parameters": true}
+        }
+      }
+      EOF
+    - |
+      find artifacts -type f | while IFS= read -r f; do
+        case "$f" in
+          *.cosign.bundle|*.att.bundle) continue ;;
+        esac
+        cosign attest-blob --yes --predicate provenance.json --type slsaprovenance --bundle "${f}.att.bundle" "$f"
+      done
+  artifacts:
+    paths:
+      - provenance.json
+      - artifacts/*.att.bundle
+    expire_in: 90 days
+
+smoke:deb:debian-12:
+  extends: .rules:release
+  stage: smoke
+  image: debian:12
+  allow_failure: true
+  needs:
+    - job: build:deb:debian-12
+      artifacts: true
+  script:
+    - apt-get update
+    - DEB="$(ls artifacts/proton-drive_*_*_amd64.deb | head -1)"
+    - echo "Testing $DEB"
+    - apt-get install -y "./$DEB"
+    - dpkg -L proton-drive | grep -E '\.desktop$'
+    - dpkg -L proton-drive | grep -E '/proton-drive$'
+    - proton-drive --version || echo "binary present; no --version expected"
+    - apt-get remove -y proton-drive
+
+smoke:rpm:fedora-43:
+  extends: .rules:release
+  stage: smoke
+  image: fedora:43
+  allow_failure: true
+  needs:
+    - job: build:rpm:fedora-43
+      artifacts: true
+  script:
+    - RPM="$(ls artifacts/*.rpm | head -1)"
+    - dnf install -y "./$RPM"
+    - rpm -ql proton-drive | grep -E '\.desktop$'
+    - proton-drive --version || echo "binary present; no --version expected"
+    - dnf remove -y proton-drive
+
+smoke:appimage:
+  extends: .rules:release
+  stage: smoke
+  image: ubuntu:24.04
+  allow_failure: true
+  needs:
+    - job: build:appimage
+      artifacts: true
+  script:
+    - apt-get update
+    - apt-get install -y file libfuse2 || apt-get install -y file libfuse2t64 || true
+    - APP="$(ls artifacts/*.AppImage | head -1)"
+    - chmod +x "$APP"
+    - '"$APP" --appimage-extract >/dev/null'
+    - ./squashfs-root/AppRun --version || echo "AppRun present; no --version expected"
+
+security:trivy-artifacts:
+  extends: .rules:release
+  stage: smoke
+  image:
+    name: aquasec/trivy:latest
+    entrypoint: [""]
+  allow_failure: true
+  needs:
+    - job: build:appimage
+      artifacts: true
+  script:
+    - APP="$(ls artifacts/*.AppImage | head -1)"
+    - chmod +x "$APP"
+    - '"$APP" --appimage-extract >/dev/null'
+    - trivy rootfs --severity HIGH,CRITICAL --exit-code 0 squashfs-root/
+
 release:
   extends: .rules:release
   stage: release
   image: registry.gitlab.com/gitlab-org/release-cli:latest
   needs:
+    - job: sbom:rust
+      artifacts: true
+    - job: sbom:packages
+      artifacts: true
+    - job: sign:artifacts
+      artifacts: true
+      optional: true
+    - job: attest:provenance
+      artifacts: true
+      optional: true
+    - job: smoke:deb:debian-12
+      artifacts: false
+      optional: true
+    - job: smoke:rpm:fedora-43
+      artifacts: false
+      optional: true
+    - job: smoke:appimage
+      artifacts: false
+      optional: true
+    - job: security:trivy-artifacts
+      artifacts: false
+      optional: true
     - job: build:appimage
       artifacts: true
     - job: build:flatpak:gnome-50
@@ -1265,12 +1806,16 @@ release:
     - job: build:apk:alpine-3.23
       artifacts: true
   before_script:
-    - apk add --no-cache curl bash
+    - apk add --no-cache curl bash ca-certificates
+    - update-ca-certificates
   script:
     - |
-      TAG="${CI_COMMIT_TAG:-v$(cat package.json | grep '"version"' | head -1 | sed 's/.*"\([0-9.]*\)".*/\1/')}"
+      bash <<'BASH'
+      set -euo pipefail
+
+      TAG="${CI_COMMIT_TAG}"
       VERSION="${TAG#v}"
-      ASSET_LINKS=""
+      ASSET_ARGS=()
 
       upload_file() {
         local file="$1"
@@ -1280,21 +1825,36 @@ release:
           --header "JOB-TOKEN: ${CI_JOB_TOKEN}" \
           --upload-file "$file" \
           "${CI_API_V4_URL}/projects/${CI_PROJECT_ID}/packages/generic/releases/${TAG}/${name}"
-        ASSET_LINKS="${ASSET_LINKS}
-          --assets-link '{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}'"
+        ASSET_ARGS+=(--assets-link "{\"name\":\"${name}\",\"url\":\"${CI_PROJECT_URL}/-/packages/generic/releases/${TAG}/${name}\"}")
       }
 
-      find artifacts/ -type f \( \
+      (cd artifacts && find . -maxdepth 1 -type f -print0 | sort -z | xargs -0 sha256sum > ../SHA256SUMS)
+      upload_file SHA256SUMS
+
+      for sbom in sbom-rust.cdx.json sbom-artifacts.cdx.json sbom-artifacts.spdx.json; do
+        if [ -f "$sbom" ]; then
+          upload_file "$sbom"
+        fi
+      done
+
+      if [ -f provenance.json ]; then
+        upload_file provenance.json
+      fi
+
+      while IFS= read -r -d '' f; do
+        upload_file "$f"
+      done < <(find artifacts/ -type f \( \
         -name "*.AppImage" -o -name "*.deb" -o -name "*.rpm" \
         -o -name "*.flatpak" -o -name "*.snap" -o -name "*.pkg.tar.zst" \
-        -o -name "*.apk.tar.gz" \
-      \) | while read -r f; do upload_file "$f"; done
+        -o -name "*.apk.tar.gz" -o -name "*.cosign.bundle" -o -name "*.att.bundle" \
+      \) -print0)
 
       release-cli create \
         --name "Proton Drive Linux ${TAG}" \
         --tag-name "${TAG}" \
         --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
-        $ASSET_LINKS
+        "${ASSET_ARGS[@]}"
+      BASH
 
 # ─── Publish ──────────────────────────────────────────────────────────────────
 
@@ -1357,7 +1917,7 @@ publish:aur:
       cd aur-repo
       git config user.name "DonnieDice"
       git config user.email "donniedice@proton.me"
-      cp ../aur/PKGBUILD ../aur/.SRCINFO ../aur/proton-drive.install . 2>/dev/null || true
+      cp ../packaging/aur/PKGBUILD ../packaging/aur/.SRCINFO ../packaging/aur/proton-drive.install . 2>/dev/null || true
       git add PKGBUILD .SRCINFO proton-drive.install
       git commit -m "Update to v${VERSION}" || echo "No changes to commit"
       git push -u origin master --force
@@ -1433,7 +1993,7 @@ publish:flatpak:
             - . /usr/lib/sdk/node22/enable.sh
             - . /usr/lib/sdk/rust-stable/enable.sh
             - ./scripts/build-webclients.sh
-            - npm install
+            - npm ci
             - cd src-tauri && cargo build --release && cd ..
             - install -Dm755 src-tauri/target/release/proton-drive /app/bin/proton-drive-bin
             - |
