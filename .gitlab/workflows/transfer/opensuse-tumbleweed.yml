@@ -1,0 +1,18 @@
+transfer:rpm-opensuse-tumbleweed:
+  extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:rpm:opensuse-tumbleweed"
+  needs:
+    - job: "build:gate"
+    - job: "build:rpm:opensuse-tumbleweed"
+      artifacts: true
+      optional: true
+  artifacts:
+    name: "transfer-results-rpm-opensuse-tumbleweed"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/opensuse-tw.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/opensuse-tumbleweed/transfer.sh

@@ -10,9 +10,14 @@ build:apk:alpine-3.20:
     DISTRO_PATCH: alpine.3.20
     DISTRO_SUFFIX: alpine320
   cache:
-    key: apk-alpine320-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: apk-alpine320
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apk update && apk add bash git curl wget build-base file pkgconfig
         openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
@@ -20,7 +25,7 @@ build:apk:alpine-3.20:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -28,7 +33,7 @@ build:apk:alpine-3.20:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -42,7 +47,7 @@ build:apk:alpine-3.20:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -78,9 +83,14 @@ build:apk:alpine-3.22:
     DISTRO_PATCH: alpine.3.22
     DISTRO_SUFFIX: alpine322
   cache:
-    key: apk-alpine322-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: apk-alpine322
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apk update && apk add bash git curl wget build-base file pkgconfig
         openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
@@ -88,7 +98,7 @@ build:apk:alpine-3.22:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -96,7 +106,7 @@ build:apk:alpine-3.22:
       linker = "gcc"
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -110,7 +120,7 @@ build:apk:alpine-3.22:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -146,9 +156,14 @@ build:apk:alpine-3.23:
     DISTRO_PATCH: alpine.3.23
     DISTRO_SUFFIX: alpine323
   cache:
-    key: apk-alpine323-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: apk-alpine323
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apk update && apk add bash git curl wget build-base file pkgconfig
         openssl-dev openssl-libs-static webkit2gtk-4.1-dev gtk+3.0-dev
@@ -156,7 +171,7 @@ build:apk:alpine-3.23:
         wayland-dev zlib-dev libintl musl-dev libsoup3-dev
         libayatana-appindicator-dev patchelf nodejs npm python3 ca-certificates
         vips-dev libjpeg-turbo-dev giflib-dev
-    - source scripts/ci/install-rust.sh
+    - source scripts/ci/lib/install-rust.sh
     - |
       mkdir -p .cargo
       cat > .cargo/config.toml <<'EOF'
@@ -165,7 +180,7 @@ build:apk:alpine-3.23:
       rustflags = ["-C", "target-feature=-crt-static"]
       EOF
       git config --global --add safe.directory "$CI_PROJECT_DIR"
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/apk/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -179,7 +194,7 @@ build:apk:alpine-3.23:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release --verbose && cd ..
     - |
       VERSION=$(node -p "require('./package.json').version")
@@ -215,17 +230,22 @@ build:appimage:
   variables:
     APPIMAGE_TARGET: linux-baseline
   cache:
-    key: appimage-linux-baseline-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: appimage-linux-baseline
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf fuse libfuse2 python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/appimage/${APPIMAGE_TARGET}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -238,7 +258,7 @@ build:appimage:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
     - |
       APPDIR="AppDir"
@@ -253,7 +273,7 @@ build:appimage:
       [Desktop Entry]
       Version=1.0
       Type=Application
-      Name=Proton Drive
+      Name=ProtonDrive Linux (Unofficial)
       Comment=Secure cloud storage
       Exec=proton-drive %U
       Icon=com.proton.drive
@@ -299,19 +319,21 @@ build:aur:
   image: archlinux:base-devel
   timeout: 2h
   cache:
-    key: aur-arch-native-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: aur-arch-native
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - pacman -Sy --noconfirm --needed bash git curl wget file pkg-config
         webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3
         nodejs npm python rustup base-devel patch
     - rustup default "${RUST_VERSION}"
-    - source scripts/ci/install-rust.sh
-    - |
-      git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
-      git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
-      git -C WebClients checkout --detach "${WEBCLIENTS_COMMIT}"
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       AUR_PATCH="patches/aur/arch-native.patch"
       if [ -f "$AUR_PATCH" ]; then
@@ -324,17 +346,20 @@ build:aur:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
-    - scripts/ci/build-aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
+    - scripts/ci/build/aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
     - |
-      cd aur
+      cd packaging/aur
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
-    - mkdir -p artifacts
-    - cp /tmp/aur-output/*.pkg.tar.zst artifacts/ 2>/dev/null || true
-    - cp aur/.SRCINFO artifacts/ 2>/dev/null || true
+      cd "${CI_PROJECT_DIR}"
+    # NOTE: the block above cd's into packaging/aur/; return to project root so
+    # artifacts/ is created at the repo root where GitLab collects it.
+    - mkdir -p "${CI_PROJECT_DIR}/artifacts"
+    - cp /tmp/aur-output/*.pkg.tar.zst "${CI_PROJECT_DIR}/artifacts/"
+    - cp packaging/aur/.SRCINFO "${CI_PROJECT_DIR}/artifacts/" 2>/dev/null || true
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
@@ -351,17 +376,22 @@ build:deb:debian-12:
     DISTRO_PATCH: debian.12
     DISTRO_SUFFIX: debian12
   cache:
-    key: deb-debian12-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: deb-debian12
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -374,7 +404,7 @@ build:deb:debian-12:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -397,17 +427,22 @@ build:deb:debian-13:
     DISTRO_PATCH: debian.13
     DISTRO_SUFFIX: debian13
   cache:
-    key: deb-debian13-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: deb-debian13
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -420,7 +455,7 @@ build:deb:debian-13:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -444,17 +479,22 @@ build:deb:ubuntu-24.04:
     DISTRO_SUFFIX: ubuntu24.04
     DEBIAN_FRONTEND: noninteractive
   cache:
-    key: deb-ubuntu2404-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: deb-ubuntu2404
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -467,7 +507,7 @@ build:deb:ubuntu-24.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -491,17 +531,22 @@ build:deb:ubuntu-26.04:
     DISTRO_SUFFIX: ubuntu26.04
     DEBIAN_FRONTEND: noninteractive
   cache:
-    key: deb-ubuntu2604-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: deb-ubuntu2604
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/deb/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -514,7 +559,7 @@ build:deb:ubuntu-26.04:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles deb --verbose
     - |
       cd src-tauri/target/release/bundle/deb
@@ -541,9 +586,14 @@ build:flatpak:gnome-49:
     GNOME_RUNTIME: "49"
     DEBIAN_FRONTEND: noninteractive
   cache:
-    key: flatpak-gnome49-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: flatpak-gnome49
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
@@ -551,8 +601,8 @@ build:flatpak:gnome-49:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -565,7 +615,7 @@ build:flatpak:gnome-49:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -578,7 +628,7 @@ build:flatpak:gnome-49:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -639,9 +689,14 @@ build:flatpak:gnome-50:
     GNOME_RUNTIME: "50"
     DEBIAN_FRONTEND: noninteractive
   cache:
-    key: flatpak-gnome50-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: flatpak-gnome50
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
@@ -649,8 +704,8 @@ build:flatpak:gnome-50:
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev
         flatpak flatpak-builder
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/flatpak/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -663,7 +718,7 @@ build:flatpak:gnome-50:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       flatpak remote-add --user --if-not-exists flathub https://flathub.org/repo/flathub.flatpakrepo
@@ -677,7 +732,7 @@ build:flatpak:gnome-50:
         'exec /app/bin/proton-drive-bin "$@"' > proton-drive-wrapper.sh
       chmod +x proton-drive-wrapper.sh
       printf '%s\n' '[Desktop Entry]' 'Version=1.0' 'Type=Application' \
-        'Name=Proton Drive' 'Comment=Secure cloud storage' \
+        'Name=ProtonDrive Linux (Unofficial)' 'Comment=Secure cloud storage' \
         'Exec=proton-drive' 'Icon=com.proton.drive' 'Categories=Network;FileTransfer;' \
         > com.proton.drive.desktop
       rm -rf flatpak-staging && mkdir -p flatpak-staging/icons
@@ -738,9 +793,14 @@ build:rpm:el10:
   variables:
     DISTRO_PATCH: el10
   cache:
-    key: rpm-el10-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: rpm-el10
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - dnf install -y epel-release || true
     - dnf install -y 'dnf-command(config-manager)' || true
@@ -749,8 +809,8 @@ build:rpm:el10:
         pkgconf-pkg-config openssl-devel gtk3-devel libappindicator-gtk3-devel
         librsvg2-devel libsoup3-devel webkit2gtk4.1-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -763,7 +823,7 @@ build:rpm:el10:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -783,16 +843,21 @@ build:rpm:fedora-43:
   variables:
     DISTRO_PATCH: fedora.43
   cache:
-    key: rpm43-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: rpm43
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - dnf --disablerepo='fedora-cisco-openh264' install -y bash git curl wget gcc gcc-c++ make
         file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -805,7 +870,7 @@ build:rpm:fedora-43:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -825,16 +890,21 @@ build:rpm:fedora-44:
   variables:
     DISTRO_PATCH: fedora.44
   cache:
-    key: rpm44-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: rpm44
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - dnf --disablerepo='fedora-cisco-openh264' install -y bash git curl wget gcc gcc-c++ make
         file pkgconf-pkg-config openssl-devel webkit2gtk4.1-devel gtk3-devel
         libappindicator-gtk3-devel librsvg2-devel libsoup3-devel patchelf rpm-build
         nodejs npm python3 findutils which
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -847,7 +917,7 @@ build:rpm:fedora-44:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -868,9 +938,14 @@ build:rpm:opensuse-tumbleweed:
     DISTRO_PATCH: opensuse.tumbleweed
     PATH: /usr/local/bin:/usr/bin:/bin
   cache:
-    key: rpm-opensuse-tumbleweed-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: rpm-opensuse-tumbleweed
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - |
       for i in 1 2 3 4 5; do
@@ -886,8 +961,8 @@ build:rpm:opensuse-tumbleweed:
           patchelf rpm-build nodejs-default npm-default python313 findutils which && break
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/rpm/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -900,7 +975,7 @@ build:rpm:opensuse-tumbleweed:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - npx tauri build --bundles rpm --verbose
     - |
       cd src-tauri/target/release/bundle/rpm
@@ -929,17 +1004,22 @@ build:snap:core24:
     DEBIAN_FRONTEND: noninteractive
   allow_failure: true
   cache:
-    key: snap-core24-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: snap-core24
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -952,7 +1032,7 @@ build:snap:core24:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="${CI_PROJECT_DIR}/.snap-build-${CI_JOB_ID}"
@@ -965,7 +1045,7 @@ build:snap:core24:
       sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
       docker run --rm --entrypoint "" \
         -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
+        ghcr.io/canonical/snapcraft:stable \
         snapcraft pack --destructive-mode --output /project
       SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
       [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
@@ -987,9 +1067,14 @@ build:snap:core26:
     DISTRO_PATCH: core26
     DEBIAN_FRONTEND: noninteractive
   cache:
-    key: snap-core26-cargo
-    paths: [.cargo/, src-tauri/target/]
-    when: always
+    - key:
+        files: [Cargo.lock, src-tauri/Cargo.toml]
+        prefix: snap-core26
+      paths: [.cargo/, src-tauri/target/]
+      when: always
+    - key: "webclients-${WEBCLIENTS_COMMIT}"
+      paths: [WebClients/]
+      policy: pull-push
   allow_failure: true
   script:
     - apt-get update && apt-get install -y bash git curl wget build-essential file pkg-config
@@ -997,8 +1082,8 @@ build:snap:core26:
         librsvg2-dev libsoup-3.0-dev patchelf python3 ca-certificates
         libvips-dev libcairo2-dev libpango1.0-dev libjpeg-dev libgif-dev docker.io
     - curl -fsSL https://deb.nodesource.com/setup_22.x | bash - && apt-get install -y nodejs
-    - source scripts/ci/install-rust.sh
-    - git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
+    - source scripts/ci/lib/install-rust.sh
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       PATCH_FILE="patches/snap/${DISTRO_PATCH}.patch"
       if [ -f "$PATCH_FILE" ]; then
@@ -1011,7 +1096,7 @@ build:snap:core26:
     - |
       sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" src-tauri/tauri.conf.json
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
-    - npm install
+    - npm ci
     - cd src-tauri && cargo build --release && cd ..
     - |
       BUILD_CONTEXT="${CI_PROJECT_DIR}/.snap-build-${CI_JOB_ID}"
@@ -1027,7 +1112,7 @@ build:snap:core26:
             -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
       docker run --rm --entrypoint "" \
         -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
+        ghcr.io/canonical/snapcraft:stable \
         snapcraft pack --destructive-mode --output /project
       SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
       [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
@@ -1037,3 +1122,31 @@ build:snap:core26:
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days
+
+# ─── Build gate ────────────────────────────────────────────────────────────────
+# Waits for all distro builds that feed into transfer/install/vmtest.
+# If any of those builds fails this job is skipped, which cascades:
+#   transfer/* (all needs build:gate) → skipped
+#   install/*  (needs transfer)       → skipped
+#   vmtest/*   (needs install)        → skipped
+# Report jobs do NOT need this gate and always run.
+
+build:gate:
+  stage: gate
+  image: alpine:latest
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v[0-9]+\.[0-9]+\.[0-9]+.*$/
+    - when: never
+  needs:
+    - "build:apk:alpine-3.20"
+    - "build:apk:alpine-3.22"
+    - "build:aur"
+    - "build:deb:debian-12"
+    - "build:deb:debian-13"
+    - "build:deb:ubuntu-24.04"
+    - "build:deb:ubuntu-26.04"
+    - "build:rpm:el10"
+    - "build:rpm:fedora-43"
+    - "build:rpm:opensuse-tumbleweed"
+  script:
+    - echo "All distro builds passed — transfer/install/vmtest stages are cleared to run"

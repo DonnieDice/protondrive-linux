@@ -1,0 +1,10 @@
+/.gitlab-ci.yml            @DonnieDice
+/.gitlab/                  @DonnieDice
+/.github/                  @DonnieDice
+/scripts/ci/               @DonnieDice
+/packaging/                @DonnieDice
+/patches/                  @DonnieDice
+/deny.toml                 @DonnieDice
+/package.json              @DonnieDice
+/src-tauri/Cargo.toml      @DonnieDice
+/src-tauri/tauri.conf.json @DonnieDice

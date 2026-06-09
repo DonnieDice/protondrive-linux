@@ -1,3 +1,14 @@
+---
+title: "URL Logging & WebView Storage"
+created: 2026-05-28
+updated: 2026-05-28
+type: utility
+tags: [storage, configuration, webview]
+sources:
+  - src-tauri/src/url_log.rs
+  - src-tauri/src/webview_storage.rs
+---
+
 # URL Logging & WebView Storage
 
 Two small utility modules that handle logging hygiene and persistent storage.
@@ -30,17 +41,18 @@ pub fn sanitize_url_for_log(url: &str) -> String
 
 ### Where It's Used
 
-Called from `main.rs` in navigation and proxy logging:
+Called from `main.rs` in proxy logging, and from `webview_cookies.rs` for cookie injection logging:
 
 ```rust
 use url_log::sanitize_url_for_log;
 
-// Navigation events
-println!("[Navigate] URL: {}", sanitize_url_for_log(url));
+// Proxy requests (main.rs)
+println!("[Proxy][{}] {} {} start",
+    request_id, method, sanitize_url_for_log(&url));
 
-// Proxy requests
-println!("[Proxy] PROXY_REQ #{}: {} {}",
-    request_id, method, sanitize_url_for_log(target_url));
+// Cookie injection (webview_cookies.rs)
+info!("injecting auth cookies into webview: {}",
+    sanitize_url_for_log(url.as_str()));
 ```
 
 ### Why It Matters
@@ -89,15 +101,13 @@ From `main.rs` during Tauri app setup:
 let webview_data_dir = persistent_webview_data_dir(
     app.path().app_data_dir()?
 );
-ensure_webview_data_dir(&webview_data_dir).map_err(|e| {
-    format!("Failed to create WebView data directory: {e}")
-})?;
+ensure_webview_data_dir(&webview_data_dir)?;
 ```
 
 ### Why It Matters
 
 - **Session persistence** — Without this directory, every app restart is a fresh login. WebKit falls back to in-memory storage if the data directory doesn't exist or isn't writable.
-- **Sandbox prerequisite** — WebKit's sandbox must be disabled (`WEBKIT_FORCE_SANDBOX=0`) for persistent storage writes to work. See [Configuration Reference](configuration-reference.md).
+- **Sandbox prerequisite** — WebKit's sandbox must be disabled (`WEBKIT_FORCE_SANDBOX=0`) for persistent storage writes to work. See [Configuration Reference](../reference/configuration-reference.md).
 - **Permissions** — The directory must be owned by the user running the app. If the app was run as `sudo` once, subsequent normal-user runs may fail to write.
 
 ### Troubleshooting
@@ -118,7 +128,7 @@ the app's console output for `[Storage] Using persistent WebView data directory`
 
 ## See Also
 
-- **[Configuration Reference](configuration-reference.md)** — All env vars, constants, and file paths
+- **[Configuration Reference](../reference/configuration-reference.md)** — All env vars, constants, and file paths
 - **[WebView Integration](webview-integration.md)** — Full WebView subsystem, cookie handling, IPC
-- **[Auth Module](auth-module.md)** — Session lifecycle, cookie persistence
-- **[Architecture](ARCHITECTURE.md)** — How these modules fit into the AppState
+- **[Auth Module](../auth/auth-module.md)** — Session lifecycle, cookie persistence
+- **[Architecture](../architecture/architecture.md)** — How these modules fit into the AppState

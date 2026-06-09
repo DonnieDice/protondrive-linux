@@ -1,3 +1,14 @@
+---
+title: "Release Checklist"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [release, packaging]
+sources:
+  - []
+---
+
+
 # Release Checklist
 
 Use this checklist before every release deployment.
@@ -12,12 +23,13 @@ The release version is tracked in three files — all must be updated to match.
 
 - [ ] `package.json` — update `version` field to the new version.
 - [ ] `src-tauri/Cargo.toml` — update `[package].version` to match.
-- [ ] `src-tauri/tauri.conf.json` — update `version` field in the `app` section.
+- [ ] `src-tauri/tauri.conf.json` — update the top-level `version` field to match.
 - [ ] Verify the version string matches across all three files.
 - [ ] Commit version bump with message: `chore: bump version to v<x.y.z>`.
 
-> **Note:** Tauri v2 uses an `identifier` in `tauri.conf.json` under `app` (e.g. `com.proton.drive`).
-> Do not change the identifier between releases — only the `version` field.
+> **Note:** Both `version` and `identifier` (e.g. `com.proton.drive`) are **top-level** fields
+> in `tauri.conf.json`, not nested under `app`. Do not change the identifier between
+> releases — only the `version` field.
 
 ---
 
@@ -46,8 +58,9 @@ Build all native bundles locally to catch compile errors before CI.
       ```bash
       npm run build
       ```
-      This runs `npx tauri build` (Tauri v2), which compiles the Rust backend,
-      bundles the frontend, and produces native packages.
+      This runs `./scripts/build-webclients.sh` (bundles the frontend) followed by
+      `tauri build --bundles deb,rpm,appimage`, which compiles the Rust backend and
+      produces native packages.
 - [ ] Verify the generated bundles exist in `src-tauri/target/release/bundle/`.
 - [ ] Smoke-test the AppImage on a clean Linux environment.
 
@@ -95,14 +108,27 @@ All CI builds must be green before proceeding. The project uses **two CI systems
 
 Per-target builds (check on either CI system, both must be green):
 
+GitLab CI runs eight stages — confirm each in sequence:
+
+- [ ] **`test` stage** — all 5 jobs pass (fmt, clippy, rust, login-routing, sync).
+- [ ] **`build` stage** — all distro builds pass.
+- [ ] **`gate` stage** — `build:gate` passes. A skipped gate means a build failed; do not proceed.
+- [ ] **`transfer` stage** — artifact SCPed to all 10 VMs.
+- [ ] **`install` stage** — package installed on all 10 VMs.
+- [ ] **`vmtest` stage** — GUI loads, OCR confirms login screen, regression checks clean on all VMs.
+- [ ] **`report` stage** — deployment matrix report generated.
+
+Per-target build checks (both CI systems):
+
 - [ ] **AppImage** — linux-baseline job is passing.
 - [ ] **DEB** — Debian 12, Debian 13, Ubuntu 24.04, Ubuntu 26.04 jobs passing.
 - [ ] **RPM** — Fedora 43, Fedora 44, EL10, openSUSE Tumbleweed jobs passing.
 - [ ] **Flatpak** — GNOME 49 and GNOME 50 jobs passing.
-- [ ] **Snap** — core24 and core26 jobs passing.
+- [ ] **Snap** — core24 passing; core26 is `allow_failure` (non-blocking).
 - [ ] **AUR** — Arch Native job is passing.
 - [ ] **APK (Alpine)** — 3.20, 3.22, and 3.23 jobs passing.
 - [ ] **Release job** — final release pipeline job is passing.
+- [ ] **GitHub Actions** — confirm all jobs pass in the `package-workflows.yml` run.
 
 > **CI tip:** The tag pipeline (`v*` tag) is what triggers the final release
 > job on both CI systems. Always check the tag-specific pipeline, not a
@@ -167,7 +193,7 @@ Per-target builds (check on either CI system, both must be green):
       The release is **automatic** — pushing the tag triggers the release job,
       which collects artifacts, creates a GitHub Release, and uploads assets.
       Only intervene if the job failed.
-- [ ] Verify the GitLab CI release pipeline (if applicable): check
+- [ ] Verify the GitLab CI release pipeline — check
       **CI/CD > Pipelines** on GitLab for the tag pipeline and confirm the
       `release` stage completed.
 - [ ] Verify published artifacts on each distribution channel:

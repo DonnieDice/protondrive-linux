@@ -1,0 +1,18 @@
+transfer:alpine-3.20:
+  extends: .transfer:base
+  variables:
+    BUILD_JOB_NAME: "build:apk:alpine-3.20"
+  needs:
+    - job: "build:gate"
+    - job: "build:apk:alpine-3.20"
+      artifacts: true
+      optional: true
+  artifacts:
+    name: "transfer-results-alpine-3.20"
+    paths: [transfer-results/]
+    reports:
+      dotenv: transfer-results/alpine320.env
+    when: always
+    expire_in: 30 days
+  script:
+    - bash scripts/ci/transfer/alpine-3.20/transfer.sh

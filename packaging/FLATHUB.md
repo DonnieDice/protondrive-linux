@@ -8,7 +8,7 @@
    ```bash
    flatpak install -y flathub org.flatpak.Builder
    flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo
-   flatpak run --command=flathub-build org.flatpak.Builder --install packaging/com.proton.drive.yml
+   flatpak run --command=flatpak-builder org.flatpak.Builder --install --force-clean _build packaging/com.proton.drive.yml
    flatpak run com.proton.drive
    ```
 4. Run the linter:
@@ -28,8 +28,8 @@
 10. Accept the write access invitation (enable 2FA on GitHub first)
 11. Add `FLATHUB_SSH_PRIVATE_KEY` as a GitHub Actions secret in the
     protondrive-linux repo
-12. The `publish-flatpak.yml` workflow will then push updates to the
-    Flathub repo on each release
+12. The `flatpak/publish` workflow will then push updates to the
+ Flathub repo on each release
 
 ## Flathub Requirements
 
@@ -73,7 +73,7 @@ The Flatpak wrapper sets these environment variables:
 - Reference source-build manifest: `packaging/com.proton.drive.yml`
 - CI build manifests (pre-built binary approach) in `build-flatpak.yml` and
   `build-flatpak.gnome49.yml`
-- Flathub publishing pipeline: `publish-flatpak.yml` pushes manifest updates
+- Flathub publishing pipeline: `flatpak/publish` pushes manifest updates
   to `flathub/com.proton.drive` on release using `FLATHUB_SSH_PRIVATE_KEY`
   secret
 - Initial Flathub submission PR is required before the publish workflow can

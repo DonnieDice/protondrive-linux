@@ -1,0 +1,7 @@
+vmtest:debian-12:
+  extends: .vmtest:base
+  needs:
+    - job: "install:debian-12"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/debian-12/test.sh

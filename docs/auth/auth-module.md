@@ -1,3 +1,14 @@
+---
+title: "Authentication Module"
+created: 2026-05-28
+updated: 2026-05-28
+type: module
+tags: [auth, sso, webview]
+sources:
+  - src-tauri/src/auth.rs
+---
+
+
 # Authentication Module
 
 The protondrive-linux authentication system is split into two cooperating layers:
@@ -243,7 +254,7 @@ This is controlled at build time via the `DISTRO_TYPE` environment variable.
 |---------|------------|
 | Credential exposure | Login credentials are stored in memory-only static variables (PENDING_CREDENTIALS) and cleared after single use. Verification tokens similarly use single-use storage. |
 | SRP protocol security | Uses the official `proton-srp` crate. Server proof is verified client-side to prevent MITM/impersonation. |
-| Cookie theft | Cookies stored in `document.cookie` with `SameSite=Lax` and `path=/`. The shared reqwest cookie jar is in-memory only with no persistence. |
+| Cookie theft | Cookies stored in WebKit's native cookie manager (RFC 6265 scoping). The shared reqwest cookie jar is in-memory only with no persistence. |
 | Session storage | The `AuthManager` holds sessions in-memory only. External persistence must be implemented by the caller with appropriate encryption (OS keychain recommended). |
 | Sync command isolation | Sync-related commands validate the caller's origin — only `tauri://localhost` and `tauri://tauri.localhost` are permitted (`ensure_sync_command_allowed`). |
 | XSS surface | The fetch/XHR proxy intercept only applies to API URLs (`/api/` in path). Non-API requests pass through normally. |
@@ -304,6 +315,6 @@ This is controlled at build time via the `DISTRO_TYPE` environment variable.
 ## See Also
 
 - **[SSO Authentication](sso-authentication.md)** — End-to-end SSO flow, CAPTCHA handling, cookie bridge protocol
-- **[Proxy System](proxy-system.md)** — The fetch/XHR proxy layer, request construction, error handling
-- **[WebView Integration](webview-integration.md)** — Cookie handling, IPC commands, security considerations
-- **[Proton Navigation](proton-navigation.md)** — URL rewriting, SSO routing, CAPTCHA lifecycle
+- **[Proxy System](../architecture/proxy-system.md)** — The fetch/XHR proxy layer, request construction, error handling
+- **[WebView Integration](../webview/webview-integration.md)** — Cookie handling, IPC commands, security considerations
+- **[Proton Navigation](../architecture/proton-navigation.md)** — URL rewriting, SSO routing, CAPTCHA lifecycle

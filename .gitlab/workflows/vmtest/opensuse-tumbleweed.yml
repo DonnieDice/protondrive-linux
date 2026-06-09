@@ -1,0 +1,7 @@
+vmtest:rpm-opensuse-tumbleweed:
+  extends: .vmtest:base
+  needs:
+    - job: "install:rpm-opensuse-tumbleweed"
+      artifacts: true
+  script:
+    - bash scripts/ci/vmtest/opensuse-tumbleweed/test.sh

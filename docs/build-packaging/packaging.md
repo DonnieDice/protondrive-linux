@@ -17,6 +17,7 @@ targets are built, released, and smoke-tested.
 | State | Meaning |
 |-------|---------|
 | release-gated | CI builds it, the release job in `package-workflows.yml` waits for it, GitHub releases publish it |
+| blocked | CI builds and smoke-tests pass, but external publishing is blocked by a store/API issue; not counted in the release gate until unblocked |
 | roadmap patch-ready | patch exists, but workflow, artifact, release integration, or runtime smoke is missing |
 | roadmap | planned target, no patch yet; needs packaging design, workflow, and smoke test |
 | legacy candidate | one compatibility gate passes but the other is unverified or failing |
@@ -80,9 +81,9 @@ described above. Both must pass for a target to be `release-gated`.
 | openSUSE Tumbleweed RPM | pass | pass | `rpm/opensuse-tumbleweed` / `rpm-package-opensuse-tumbleweed` | `rpm/opensuse.tumbleweed.patch` | remote artifact pass | openSUSE Tumbleweed | keep in release gate |
 | Flatpak GNOME 49 | runtime | runtime | `flatpak/gnome-49` / `flatpak-package-gnome49` | `flatpak/org.gnome.Platform.49.patch` | remote artifact pass | GNOME Platform 49 runtime | keep in release gate |
 | Flatpak GNOME 50 | runtime | runtime | `flatpak/gnome-50` / `flatpak-package` | `flatpak/org.gnome.Platform.50.patch` | remote artifact pass | GNOME Platform 50 runtime | keep in release gate |
-|| Snap core24 | runtime | runtime | `snap/core24` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | blocked: Snap Store publishing blocked (issues #83, #19); CI builds continue but artifacts not included in release until unblocked |
-|| Snap core26 | runtime | runtime | `snap/core26` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | blocked: Snap Store publishing blocked (issues #83, #19); CI builds continue on best-effort (`continue-on-error`) until unblocked |
-|| AUR Arch package (native build) | pass (glibc 2.39) | pass | `aur/arch-native` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
+| Snap core24 | runtime | runtime | `snap/core24` / `snap-package` | `snap/core24.patch` | remote artifact pass | Snap core24 base | blocked: Snap Store publishing API inconsistency (issues #83, #19); build passes |
+| Snap core26 | runtime | runtime | `snap/core26` / `snap-package-core26` | `snap/core26.patch` | remote artifact pass | Snap core26 base | blocked: Snap Store publishing API inconsistency (issues #83, #19); build passes |
+| AUR Arch package (native build) | pass (glibc 2.39) | pass | `aur/arch-native` / `aur-arch-native` | `aur/arch-native.patch` | remote artifact pass | Arch, Manjaro, EndeavourOS, Garuda | keep in release gate |
 | Alpine 3.20 APK | musl pass | pass | `apk/alpine-3.20` / `apk-package-alpine320` | `apk/alpine.3.20.patch` | local smoke pass | Alpine 3.20 musl; glibc artifacts are not compatible | keep in release gate |
 | Alpine 3.22 APK | musl pass | pass | `apk/alpine-3.22` / `apk-package-alpine322` | `apk/alpine.3.22.patch` | local smoke pass | Alpine 3.22 musl; glibc artifacts are not compatible | keep in release gate |
 | Alpine 3.23 APK | musl pass | pass | `apk/alpine-3.23` / `apk-package-alpine323` | `apk/alpine.3.23.patch` | local smoke pass | Alpine 3.23 musl; glibc artifacts are not compatible | keep in release gate |
@@ -152,7 +153,7 @@ DEB/RPM/AppImage artifacts are not Alpine-compatible.
   before the publish workflow can push updates. The reference source-build
   manifest is at `packaging/com.proton.drive.yml`.
 - Snap packages are published to the Snap Store at
-  https://snapcraft.io/protondrive-linux via the Snap publish implementation.
+ https://snapcraft.io/proton-drive via the Snap publish implementation.
   Both core24 and core26 bases use
   `confinement: strict`. The `home` plug covers downloads to `~/Downloads`
   and the `removable-media` plug covers USB/mounted drives. No classic
@@ -302,7 +303,7 @@ Release checklist:
   `packaging/compatibility-map.yml`.
 - `main` contains only the tested commits intended for release.
 - Release tag points at `main`.
-- GitHub release contains all release-gated artifacts (Snap core24/core26 CI builds continue but publishing is blocked — see issues #83 and #19) plus `SHA256SUMS`.
+- GitHub release contains all 15 release-gated artifacts plus `SHA256SUMS`.
 
 Promotion checklist for roadmap targets:
 
@@ -372,7 +373,7 @@ into:
 
 - `src-tauri/tauri.conf.json`
 - `src-tauri/Cargo.toml`
-- `aur/PKGBUILD`
+- `packaging/aur/PKGBUILD`
 
 ## Publishing Workflows
 
@@ -381,7 +382,7 @@ Three publish workflows push packages to their respective stores on release:
 | Store | Workflow | Secret required | Target |
 |-------|----------|-----------------|--------|
 | AUR | `aur/publish` | `AUR_SSH_PRIVATE_KEY` | `aur.archlinux.org/proton-drive` |
-| Snap Store | `snap/publish` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/protondrive-linux` |
+| Snap Store | `snap/publish` | `SNAPCRAFT_STORE_CREDENTIALS` | `snapcraft.io/proton-drive` |
 | Flathub | `flatpak/publish` | `FLATHUB_SSH_PRIVATE_KEY` | `flathub/com.proton.drive` |
 
 All three publish implementations are called from `package-workflows.yml` on

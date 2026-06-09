@@ -4,16 +4,11 @@ name: Sanity Checks
 # Full CI/CD runs in GitLab — this workflow does NOT build packages.
 
 on:
-  push:
-    branches:
-      - main
-      - alpha
-      - feature/**
-      - fix/**
-      - chore/**
-  pull_request:
-    branches:
-      - main
+  workflow_dispatch:
+    inputs:
+      reason:
+        description: Why run sanity checks manually?
+        required: false
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}

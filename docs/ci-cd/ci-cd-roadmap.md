@@ -1,3 +1,14 @@
+---
+title: "CI/CD Roadmap"
+created: 2026-05-28
+updated: 2026-05-28
+type: guide
+tags: [ci]
+sources:
+  - []
+---
+
+
 # CI/CD Roadmap
 
 This roadmap separates checks by what they can prove, how much infrastructure

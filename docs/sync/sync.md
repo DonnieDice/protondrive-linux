@@ -1,3 +1,14 @@
+---
+title: "Two-Way Sync Notes"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [sync]
+sources:
+  - []
+---
+
+
 # Two-Way Sync Notes
 
 > **⚠️ Legacy document.** This was the original sync design document written during initial implementation. For the current, comprehensive documentation, see:

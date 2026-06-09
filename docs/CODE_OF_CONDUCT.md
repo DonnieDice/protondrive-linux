@@ -58,17 +58,16 @@ representative at an online or offline event.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement by
-[opening a GitHub issue](https://github.com/DonnieDice/protondrive-linux/issues).
+reported to the community leaders responsible for enforcement:
+
+- **Email:** donniedice@proton.me
+- **GitHub issues:** https://github.com/DonnieDice/protondrive-linux/issues
+- **GitLab issues** (authoritative repo): open an issue on the project's GitLab instance
+
 All complaints will be reviewed and investigated promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.
-
-> **For security-sensitive or confidential reports,** use the private
-> vulnerability reporting feature instead (see
-> [`SECURITY.md`](SECURITY.md) for instructions). Do not post sensitive
-> personal details or security vulnerabilities in public issues.
 
 ## Enforcement Guidelines
 

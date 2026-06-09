@@ -1,0 +1,72 @@
+# Maintainer: DonnieDice <donniedice@proton.me>
+pkgname=proton-drive
+pkgver=2.0.0
+pkgrel=1
+pkgdesc="Unofficial Linux desktop client for Proton Drive, built with Tauri"
+arch=('x86_64')
+url="https://github.com/DonnieDice/protondrive-linux"
+license=('AGPL-3.0-only')
+depends=('webkit2gtk-4.1' 'gtk3' 'libayatana-appindicator' 'openssl' 'libsoup3' 'librsvg')
+makedepends=('cargo' 'rust' 'nodejs' 'npm' 'git' 'pkg-config' 'patch' 'python')
+optdepends=('libappindicator-gtk3: system tray support (GNOME)')
+conflicts=('proton-drive-bin')
+replaces=('proton-drive-bin')
+install=proton-drive.install
+options=('!strip')
+_webclients_commit="bbad1a0a482227b93a2e963a232463aede9b8abf"
+_source_dir="protondrive-linux-${pkgver}"
+source=("${_source_dir}.tar.gz::https://github.com/DonnieDice/protondrive-linux/archive/refs/tags/v${pkgver}.tar.gz"
+        "WebClients-${_webclients_commit}.tar.gz::https://github.com/ProtonMail/WebClients/archive/${_webclients_commit}.tar.gz")
+sha256sums=('SKIP'
+            'SKIP')
+
+build() {
+  cd "${srcdir}/${_source_dir}"
+
+  rm -rf WebClients
+  ln -sf "${srcdir}/WebClients-${_webclients_commit}" WebClients
+
+  scripts/build-webclients.sh
+
+  git apply patches/aur/arch-native.patch
+
+  cd src-tauri
+  cargo build --release
+}
+
+package() {
+  cd "${srcdir}/${_source_dir}"
+
+  install -Dm755 "src-tauri/target/release/proton-drive" "${pkgdir}/usr/bin/proton-drive"
+
+  install -Dm644 /dev/stdin "${pkgdir}/usr/share/applications/com.proton.drive.desktop" <<DESKTOP
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=ProtonDrive Linux (Unofficial)
+Comment=Secure cloud storage
+Exec=proton-drive %U
+Icon=com.proton.drive
+Categories=Network;FileTransfer;Utility;
+Keywords=proton;drive;cloud;storage;sync;
+MimeType=x-scheme-handler/proton-drive;
+Terminal=false
+StartupWMClass=proton-drive
+StartupNotify=true
+DESKTOP
+
+  install -Dm644 "packaging/com.proton.drive.metainfo.xml" \
+    "${pkgdir}/usr/share/metainfo/com.proton.drive.metainfo.xml"
+
+  install -Dm644 "src-tauri/icons/32x32.png" \
+    "${pkgdir}/usr/share/icons/hicolor/32x32/apps/com.proton.drive.png"
+  install -Dm644 "src-tauri/icons/128x128.png" \
+    "${pkgdir}/usr/share/icons/hicolor/128x128/apps/com.proton.drive.png"
+  install -Dm644 "src-tauri/icons/128x128@2x.png" \
+    "${pkgdir}/usr/share/icons/hicolor/256x256/apps/com.proton.drive.png"
+
+  if [ -f "src-tauri/icons/proton-drive.svg" ]; then
+    install -Dm644 "src-tauri/icons/proton-drive.svg" \
+      "${pkgdir}/usr/share/icons/hicolor/scalable/apps/com.proton.drive.svg"
+  fi
+}

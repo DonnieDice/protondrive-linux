@@ -1,3 +1,14 @@
+---
+title: "Live Sync System"
+created: 2026-05-28
+updated: 2026-05-28
+type: architecture
+tags: [sync, architecture, database, configuration]
+sources:
+  - src-tauri/src/main.rs
+---
+
+
 # Live Sync System
 
 The sync system watches a local folder for changes and synchronizes them with Proton Drive. It has two independent change detection mechanisms, a suppression cache to prevent feedback loops, a remote-apply pipeline, and a SQLite-backed state tracker.
@@ -600,4 +611,4 @@ chmod 600 ~/.local/share/com.proton.drive/sync-root.txt
 - **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, suppression cache, event contract
 - **[Sync Database](sync-database.md)** — SQLite schema, item states, privacy hashing
 - **[Sync DB Module](sync-db-module.md)** — `sync_db.rs` integration, SyncKeyring, AppState wiring
-- **[WebView Integration](webview-integration.md)** — Frontend sync command wiring, origin gating
+- **[WebView Integration](../webview/webview-integration.md)** — Frontend sync command wiring, origin gating
