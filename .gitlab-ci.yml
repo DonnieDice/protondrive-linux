@@ -372,34 +372,17 @@ docs:auto-update:
   before_script:
     - apk add --no-cache bash curl git jq python3
   script:
-    - export AFFECTED_JSON="docs/affected_docs.json"
-    - |
-      if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
-        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
-      else
-        BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
-        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
-          BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
-        fi
-        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
-      fi
+    - 'export AFFECTED_JSON="docs/affected_docs.json"'
+    - 'if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"; else BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"; if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq "^0+$"; then BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"; fi; export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"; fi'
     - bash scripts/ci/ai-doc-update.sh
-    - |
-      if git diff --quiet docs/ README.md; then
-        echo "No doc changes needed."
-        exit 0
-      fi
-    - BRANCH="docs/ai-update-${CI_COMMIT_SHORT_SHA}"
-    - git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"
-    - git config user.email "${DOC_AUDIT_BOT_EMAIL:-bot@example.com}"
-    - git checkout -b "$BRANCH"
-    - git add docs/ README.md
-    - git commit -m "docs: auto-update from AI audit [skip ci]"
-    - |
-      if [ -n "${DOC_AUDIT_PUSH_TOKEN:-}" ]; then
-        git remote set-url origin "https://oauth2:${DOC_AUDIT_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"
-      fi
-      git push -o merge_request.create -o merge_request.target=main -o merge_request.title="docs: AI audit update" origin "$BRANCH"
+    - 'if git diff --quiet docs/ README.md; then echo "No doc changes needed."; exit 0; fi'
+    - 'BRANCH="docs/ai-update-${CI_COMMIT_SHORT_SHA}"'
+    - 'git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"'
+    - 'git config user.email "${DOC_AUDIT_BOT_EMAIL:-bot@example.com}"'
+    - 'git checkout -b "$BRANCH"'
+    - 'git add docs/ README.md'
+    - 'git commit -m "docs: auto-update from AI audit [skip ci]"'
+    - 'if [ -n "${DOC_AUDIT_PUSH_TOKEN:-}" ]; then git remote set-url origin "https://oauth2:${DOC_AUDIT_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"; fi; git push -o merge_request.create -o merge_request.target=main -o merge_request.title="docs: AI audit update" origin "$BRANCH"'
 
 # ─── Rust install script (reused via YAML anchor) ─────────────────────────────
 
