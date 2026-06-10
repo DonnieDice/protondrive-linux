@@ -8,8 +8,6 @@
 #   arch (192.168.1.128), ubuntu2404 (192.168.1.219),
 #   ubuntu2604 (192.168.1.168)
 
-# ─── SSH connectivity smoke test ──────────────────────────────────────────────
-
 vm:ssh:smoke:
   stage: spec
   image: alpine:latest
@@ -34,8 +32,6 @@ vm:ssh:smoke:
     - when: manual
       allow_failure: true
 
-# ─── Transfer and install packages on VMs ────────────────────────────────────
-
 .install_test:
   stage: spec
   image: alpine:latest
@@ -52,19 +48,13 @@ vm:ssh:smoke:
     - |
       case "$INSTALL_TYPE" in
         deb)
-          ssh -o BatchMode=yes "$VM_HOST" "apt-get update -qq && apt-get install -y -qq /tmp/$pkg_name && dpkg -L proton-drive 2>/dev/null | grep bin/$PROG_NAME && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ssh -o BatchMode=yes "$VM_HOST" "apt-get update -qq && apt-get install -y -qq /tmp/$pkg_name && dpkg -L proton-drive 2>/dev/null | grep bin/$PROG_NAME && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         apk)
-          ssh -o BatchMode=yes "$VM_HOST" "cd /tmp && tar xzf $pkg_name && mkdir -p /usr/local/bin && cp usr/bin/$PROG_NAME /usr/local/bin/ && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ssh -o BatchMode=yes "$VM_HOST" "cd /tmp && tar xzf $pkg_name && mkdir -p /usr/local/bin && cp usr/bin/$PROG_NAME /usr/local/bin/ && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         arch)
-          ssh -o BatchMode=yes "$VM_HOST" "pacman -U --noconfirm /tmp/$pkg_name && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
-          ;;
-        rpm)
-          ssh -o BatchMode=yes "$VM_HOST" "rpm -ivh --nodeps /tmp/$pkg_name 2>/dev/null || rpm -Uvh --nodeps /tmp/$pkg_name 2>/dev/null; $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
-          ;;
-        appimage)
-          ssh -o BatchMode=yes "$VM_HOST" "chmod +x /tmp/$pkg_name && /tmp/$pkg_name --appimage-extract-and-run --version 2>/dev/null || echo 'appimage extracted'"
+          ssh -o BatchMode=yes "$VM_HOST" "pacman -U --noconfirm /tmp/$pkg_name && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         *)
           echo "Unknown INSTALL_TYPE=$INSTALL_TYPE"
@@ -128,8 +118,6 @@ vm:install:ubuntu2604:
     INSTALL_TYPE: deb
     PROG_NAME: proton-drive
 
-# ─── Regression test suites on VMs ────────────────────────────────────────────
-
 .vm_regression:
   stage: spec
   image: alpine:latest
@@ -169,8 +157,6 @@ vm:regression:ubuntu2604:
     VM_HOST: ubuntu2604
   needs:
     - job: vm:install:ubuntu2604
-
-# ─── Diagnostics ──────────────────────────────────────────────────────────────
 
 vm:ssh:diagnostics:
   stage: spec
