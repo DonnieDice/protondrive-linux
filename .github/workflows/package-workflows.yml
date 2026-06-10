@@ -418,7 +418,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run workflow implementation
-        uses: ./.github/workflows/snap/core24
+        uses: ./.github/actions/snap/core24
 
   build_snap_core26:
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'build-snap-core26'))
@@ -441,7 +441,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run workflow implementation
-        uses: ./.github/workflows/snap/core26
+        uses: ./.github/actions/snap/core26
 
   generate_package_specs_generate_aur_pkgbuild:
     if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild'))
@@ -557,7 +557,7 @@ jobs:
         uses: actions/checkout@v6
 
       - name: Run workflow implementation
-        uses: ./.github/workflows/snap/publish
+        uses: ./.github/actions/snap/publish
 
   release:
     needs:

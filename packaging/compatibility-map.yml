@@ -20,7 +20,7 @@ ci_workflows:
   generate_package_specs: .github/workflows/maintenance/generate-package-specs
   release: .github/workflows/maintenance/release
   publish_aur: .github/workflows/aur/publish
-  publish_snap: .github/workflows/snap/publish
+  publish_snap: .github/actions/snap/publish
   publish_flatpak: .github/workflows/flatpak/publish
 
 rpm:
@@ -243,8 +243,8 @@ flatpak:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/snap/core24
-    publish_workflow: .github/workflows/snap/publish
+    workflow: .github/actions/snap/core24
+    publish_workflow: .github/actions/snap/publish
     build_container: ubuntu-24.04
     release_label: snap-core24
     artifact_name: snap-package
@@ -261,8 +261,8 @@ flatpak:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/snap/core26
-    publish_workflow: .github/workflows/snap/publish
+    workflow: .github/actions/snap/core26
+    publish_workflow: .github/actions/snap/publish
     build_container: ubuntu-24.04
     release_label: snap-core26
     artifact_name: snap-package-core26
