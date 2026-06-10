@@ -8,7 +8,7 @@
 #   ubuntu2604 (192.168.1.168)
 
 vm:ssh:smoke:
-  stage: build
+  stage: smoke
   image: alpine:latest
   timeout: 5m
   dependencies: []
@@ -32,7 +32,7 @@ vm:ssh:smoke:
       allow_failure: true
 
 .install_test:
-  stage: build
+  stage: smoke
   image: alpine:latest
   timeout: 20m
   allow_failure: true
@@ -118,7 +118,7 @@ vm:install:ubuntu2604:
     PROG_NAME: proton-drive
 
 .vm_regression:
-  stage: build
+  stage: smoke
   image: alpine:latest
   timeout: 15m
   allow_failure: true
@@ -157,7 +157,7 @@ vm:regression:ubuntu2604:
     - job: vm:install:ubuntu2604
 
 vm:ssh:diagnostics:
-  stage: build
+  stage: smoke
   image: alpine:latest
   timeout: 5m
   dependencies: []

@@ -91,6 +91,10 @@ def patch_drive_window() -> None:
  aria-expanded={isAppInView(DRAWER_NATIVE_APPS.QUICK_SETTINGS, appInView)}
  />,
 """
+        # Prepend-only: the Linux entry is inserted at the head of the
+        # drawerSidebarButtons array. Upstream entries that follow it —
+        # ContactDrawerAppButton, CalendarDrawerAppButton, ReferralAppButton —
+        # keep their relative order and are never disturbed by this patch.
         content = replace_once(
             content,
             " const drawerSidebarButtons = [\n",

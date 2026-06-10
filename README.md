@@ -95,6 +95,7 @@ Builds are manual on MRs/branches and automated on `v*` tags. See [CI Pipeline R
 | [Build & Packaging](docs/build-packaging/build-packaging.md) | Support matrix, packaging policy, new target checklist |
 | [CI/CD](docs/ci-cd/ci-pipeline.md) | Pipeline reference, authority, roadmap, release process |
 | [Sync System](docs/sync/sync-system.md) | Live sync module, database, regression runbook |
+| [Sync Operations](docs/sync/sync.md) | Current status, device model, manual test plan |
 | [Authentication](docs/auth/auth-module.md) | Auth flow, SSO authentication |
 | [WebView](docs/webview/webview-integration.md) | WebView config, URL logging, storage |
 | [API Reference](docs/api_v2_reference.md) | Tauri commands, events, REST endpoints |

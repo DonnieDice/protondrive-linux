@@ -483,13 +483,13 @@ fn emit_local_change(
         );
     }
 
-// Regression guard: the frontend sync engine depends on this exact event
-        // name. Payloads are intentionally mapping-ready: absolute paths are kept
-        // for compatibility, while root_path/relative_paths/source let future UI and
-        // path-mapping code consume the native sync stream without route coupling.
-        // NOTE: Unlike RemoteSyncChange (which uses #[serde(rename_all = "camelCase")]),
-        // LiveSyncEvent serializes as snake_case. The JS consumer must use
-        // event.payload.relative_paths (not relativePaths).
+    // Regression guard: the frontend sync engine depends on this exact event
+    // name. Payloads are intentionally mapping-ready: absolute paths are kept
+    // for compatibility, while root_path/relative_paths/source let future UI and
+    // path-mapping code consume the native sync stream without route coupling.
+    // NOTE: Unlike RemoteSyncChange (which uses #[serde(rename_all = "camelCase")]),
+    // LiveSyncEvent serializes as snake_case. The JS consumer must use
+    // event.payload.relative_paths (not relativePaths).
     if let Err(e) = app_handle.emit(
         "live-sync://local-change",
         LiveSyncEvent {
@@ -653,7 +653,10 @@ fn prune_known_files(cache: &mut HashMap<PathBuf, Instant>, now: Instant) {
     }
 }
 
-pub(crate) fn validate_path_within_root(root_canonical: &Path, target: &Path) -> Result<(), String> {
+pub(crate) fn validate_path_within_root(
+    root_canonical: &Path,
+    target: &Path,
+) -> Result<(), String> {
     let mut cur = PathBuf::new();
     for component in target.components() {
         cur.push(component.as_os_str());
