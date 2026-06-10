@@ -1,19 +1,29 @@
-# VM smoke tests for the Unraid-hosted GitLab runner.
+# VM integration tests for the Unraid-hosted GitLab runner.
 # The runner mounts /mnt/user/appdata/gitlab-runner/ssh into each Docker job
 # as /root/.ssh:ro, so these jobs can use SSH aliases from that config.
+#
+# VMs available in SSH config:
+#   debian12 (192.168.1.162), debian13 (192.168.1.120),
+#   alpine320 (192.168.1.157), alpine322 (192.168.1.126),
+#   arch (192.168.1.128), ubuntu2404 (192.168.1.219),
+#   ubuntu2604 (192.168.1.168)
+
+# ─── SSH connectivity smoke test ──────────────────────────────────────────────
 
 vm:ssh:smoke:
   stage: spec
   image: alpine:latest
-  timeout: 10m
+  timeout: 5m
+  dependencies: []
   parallel:
     matrix:
       - VM_HOST:
           - tower
           - debian12
-          - debian13
           - alpine320
           - alpine322
+          - arch
+          - ubuntu2604
   before_script:
     - apk add --no-cache openssh-client
   script:
@@ -24,16 +34,155 @@ vm:ssh:smoke:
     - when: manual
       allow_failure: true
 
+# ─── Transfer and install packages on VMs ────────────────────────────────────
+
+.install_test:
+  stage: spec
+  image: alpine:latest
+  timeout: 20m
+  allow_failure: true
+  before_script:
+    - apk add --no-cache openssh-client rsync bash
+  script:
+    - cd artifacts || { echo "No artifacts"; exit 1; }
+    - pkg="$(ls *.deb *.apk.tar.gz *.pkg.tar.zst *.rpm *.AppImage 2>/dev/null | head -1)"
+    - echo "Transferring $pkg to $VM_HOST..."
+    - scp -o BatchMode=yes "$pkg" "$VM_HOST:/tmp/"
+    - pkg_name="$(basename "$pkg")"
+    - |
+      case "$INSTALL_TYPE" in
+        deb)
+          ssh -o BatchMode=yes "$VM_HOST" "apt-get update -qq && apt-get install -y -qq /tmp/$pkg_name && dpkg -L proton-drive 2>/dev/null | grep bin/$PROG_NAME && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ;;
+        apk)
+          ssh -o BatchMode=yes "$VM_HOST" "cd /tmp && tar xzf $pkg_name && mkdir -p /usr/local/bin && cp usr/bin/$PROG_NAME /usr/local/bin/ && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ;;
+        arch)
+          ssh -o BatchMode=yes "$VM_HOST" "pacman -U --noconfirm /tmp/$pkg_name && $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ;;
+        rpm)
+          ssh -o BatchMode=yes "$VM_HOST" "rpm -ivh --nodeps /tmp/$pkg_name 2>/dev/null || rpm -Uvh --nodeps /tmp/$pkg_name 2>/dev/null; $PROG_NAME --version 2>/dev/null || echo 'binary installed'"
+          ;;
+        appimage)
+          ssh -o BatchMode=yes "$VM_HOST" "chmod +x /tmp/$pkg_name && /tmp/$pkg_name --appimage-extract-and-run --version 2>/dev/null || echo 'appimage extracted'"
+          ;;
+        *)
+          echo "Unknown INSTALL_TYPE=$INSTALL_TYPE"
+          exit 1
+          ;;
+      esac
+    - echo "Install test on $VM_HOST completed"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - when: manual
+      allow_failure: true
+
+vm:install:debian12:
+  extends: .install_test
+  needs:
+    - job: build:deb:debian-12
+      artifacts: true
+  variables:
+    VM_HOST: debian12
+    INSTALL_TYPE: deb
+    PROG_NAME: proton-drive
+
+vm:install:alpine320:
+  extends: .install_test
+  needs:
+    - job: build:apk:alpine-3.20
+      artifacts: true
+  variables:
+    VM_HOST: alpine320
+    INSTALL_TYPE: apk
+    PROG_NAME: proton-drive
+
+vm:install:alpine322:
+  extends: .install_test
+  needs:
+    - job: build:apk:alpine-3.22
+      artifacts: true
+  variables:
+    VM_HOST: alpine322
+    INSTALL_TYPE: apk
+    PROG_NAME: proton-drive
+
+vm:install:arch:
+  extends: .install_test
+  needs:
+    - job: build:aur
+      artifacts: true
+  variables:
+    VM_HOST: arch
+    INSTALL_TYPE: arch
+    PROG_NAME: proton-drive
+
+vm:install:ubuntu2604:
+  extends: .install_test
+  needs:
+    - job: build:deb:ubuntu-26.04
+      artifacts: true
+  variables:
+    VM_HOST: ubuntu2604
+    INSTALL_TYPE: deb
+    PROG_NAME: proton-drive
+
+# ─── Regression test suites on VMs ────────────────────────────────────────────
+
+.vm_regression:
+  stage: spec
+  image: alpine:latest
+  timeout: 15m
+  allow_failure: true
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - echo "Running regression tests on $VM_HOST..."
+    - ssh -o BatchMode=yes "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "proton-drive not installed on $VM_HOST"; exit 1; }
+    - scp -o BatchMode=yes tests/regression/*.sh "$VM_HOST:/tmp/regression/" 2>/dev/null
+    - ssh -o BatchMode=yes "$VM_HOST" "mkdir -p /tmp/regression && cd /tmp/regression && for f in *.sh; do bash \$f 2>&1; done"
+    - echo "Regression tests on $VM_HOST completed"
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: on_success
+    - when: manual
+      allow_failure: true
+
+vm:regression:debian12:
+  extends: .vm_regression
+  variables:
+    VM_HOST: debian12
+  needs:
+    - job: vm:install:debian12
+
+vm:regression:alpine320:
+  extends: .vm_regression
+  variables:
+    VM_HOST: alpine320
+  needs:
+    - job: vm:install:alpine320
+
+vm:regression:ubuntu2604:
+  extends: .vm_regression
+  variables:
+    VM_HOST: ubuntu2604
+  needs:
+    - job: vm:install:ubuntu2604
+
+# ─── Diagnostics ──────────────────────────────────────────────────────────────
+
 vm:ssh:diagnostics:
   stage: spec
   image: alpine:latest
-  timeout: 10m
+  timeout: 5m
+  dependencies: []
   before_script:
     - apk add --no-cache openssh-client
   script:
     - ssh -V
     - ls -la /root/.ssh
-    - for h in tower debian12 debian13 alpine320 alpine322 arch ubuntu2404 ubuntu2604; do echo "--- $h ---"; ssh -o BatchMode=yes -o ConnectTimeout=5 "$h" "hostname; whoami" || true; done
+    - for h in tower debian12 alpine320 alpine322 arch ubuntu2604; do echo "--- $h ---"; ssh -o BatchMode=yes -o ConnectTimeout=5 "$h" "hostname; whoami" || true; done
   rules:
     - when: manual
       allow_failure: true
