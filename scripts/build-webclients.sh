@@ -100,7 +100,7 @@ if [ -d "$PATCHES_DIR" ]; then
     done
 fi
 cd "$REPO_ROOT"
-python3 scripts/patch_drive_linux_sync_bridge.py
+python3 scripts/patch_drive_linux_sync_bridge.py || echo "WARNING: sync bridge patch failed (WebClients layout changed?), continuing without it"
 cd "$WEBCLIENTS_DIR"
 
 # 3. Install dependencies in WebClients
