@@ -210,7 +210,7 @@ Closes #42
 
 - `.gitlab-ci.yml`
 - `.github/workflows/package-workflows.yml`
-- `.github/workflows/deb/debian-12/action.yml`
+- `.github/actions/deb/debian-12/action.yml`
 - `docs/packaging.md`
 
 ## Testing

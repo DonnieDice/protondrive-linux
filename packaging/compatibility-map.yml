@@ -17,11 +17,11 @@ webkitgtk_runtime:
 
 ci_workflows:
   entrypoint: .github/workflows/package-workflows.yml
-  generate_package_specs: .github/workflows/maintenance/generate-package-specs
-  release: .github/workflows/maintenance/release
-  publish_aur: .github/workflows/aur/publish
+  generate_package_specs: .github/actions/maintenance/generate-package-specs
+  release: .github/actions/maintenance/release
+  publish_aur: .github/actions/aur/publish
   publish_snap: .github/actions/snap/publish
-  publish_flatpak: .github/workflows/flatpak/publish
+  publish_flatpak: .github/actions/flatpak/publish
 
 rpm:
   fedora43:
@@ -32,7 +32,7 @@ rpm:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/rpm/fedora-43
+    workflow: .github/actions/rpm/fedora-43
     build_container: fedora:43
     release_label: fedora43
     artifact_name: rpm-package-fedora43
@@ -47,7 +47,7 @@ rpm:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/rpm/fedora-44
+    workflow: .github/actions/rpm/fedora-44
     build_container: fedora:44
     release_label: fedora44
     artifact_name: rpm-package-fedora44
@@ -62,7 +62,7 @@ rpm:
     runtime_smoke:
       status: pass
       evidence: remote artifact install and launch on CentOS Stream 10 host
-    workflow: .github/workflows/rpm/el10
+    workflow: .github/actions/rpm/el10
     build_container: quay.io/centos/centos:stream10
     release_label: el10
     artifact_name: rpm-package-el10
@@ -82,7 +82,7 @@ deb:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/deb/debian-12
+    workflow: .github/actions/deb/debian-12
     build_container: debian:12
     release_label: debian12
     artifact_name: deb-package-debian12
@@ -97,7 +97,7 @@ deb:
     runtime_smoke:
       status: pass
       evidence: remote artifact install and launch on Debian 13 host
-    workflow: .github/workflows/deb/debian-13
+    workflow: .github/actions/deb/debian-13
     build_container: debian:13
     release_label: debian13
     artifact_name: deb-package-debian13
@@ -112,7 +112,7 @@ deb:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/deb/ubuntu-24.04
+    workflow: .github/actions/deb/ubuntu-24.04
     build_container: ubuntu:24.04
     release_label: ubuntu24.04
     artifact_name: deb-package-ubuntu2404
@@ -129,7 +129,7 @@ deb:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/deb/ubuntu-26.04
+    workflow: .github/actions/deb/ubuntu-26.04
     build_container: ubuntu:26.04
     release_label: ubuntu26.04
     artifact_name: deb-package-ubuntu2604
@@ -147,7 +147,7 @@ appimage:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/appimage/linux-baseline
+    workflow: .github/actions/appimage/linux-baseline
     build_container: debian:12
     release_label: linux-baseline
     artifact_name: appimage-linux-baseline
@@ -184,8 +184,8 @@ aur:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/aur/arch-native
-    publish_workflow: .github/workflows/aur/publish
+    workflow: .github/actions/aur/arch-native
+    publish_workflow: .github/actions/aur/publish
     build_container: archlinux:base-devel
     release_label: aur-arch-native
     artifact_name: aur-arch-native
@@ -207,8 +207,8 @@ flatpak:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/flatpak/gnome-49
-    publish_workflow: .github/workflows/flatpak/publish
+    workflow: .github/actions/flatpak/gnome-49
+    publish_workflow: .github/actions/flatpak/publish
     build_container: ubuntu-24.04
     release_label: flatpak-gnome49
     artifact_name: flatpak-package-gnome49
@@ -224,8 +224,8 @@ flatpak:
     runtime_smoke:
       status: pass
       evidence: remote artifact pass
-    workflow: .github/workflows/flatpak/gnome-50
-    publish_workflow: .github/workflows/flatpak/publish
+    workflow: .github/actions/flatpak/gnome-50
+    publish_workflow: .github/actions/flatpak/publish
     build_container: ubuntu-24.04
     release_label: flatpak-gnome50
     artifact_name: flatpak-package
@@ -282,7 +282,7 @@ roadmap_patch_ready:
     runtime_smoke:
       status: pass
       evidence: remote artifact install and launch on openSUSE Tumbleweed host
-    workflow: .github/workflows/rpm/opensuse-tumbleweed
+    workflow: .github/actions/rpm/opensuse-tumbleweed
     build_container: opensuse/tumbleweed:latest
     release_label: opensuse-tumbleweed
     artifact_name: rpm-package-opensuse-tumbleweed
@@ -313,7 +313,7 @@ roadmap_patch_ready:
       runtime_smoke:
         status: pass
         evidence: CI artifact installed and launched on Alpine 3.20 host, Proton login API responded
-      workflow: .github/workflows/apk/alpine-3.20
+      workflow: .github/actions/apk/alpine-3.20
       build_container: alpine:3.20
       release_label: alpine320
       artifact_name: apk-package-alpine320
@@ -332,7 +332,7 @@ roadmap_patch_ready:
     runtime_smoke:
       status: pass
       evidence: CI artifact installed and launched on Alpine 3.22 host, Proton login API responded, Drive file listing loaded
-    workflow: .github/workflows/apk/alpine-3.22
+    workflow: .github/actions/apk/alpine-3.22
     build_container: alpine:3.22
     release_label: alpine322
     artifact_name: apk-package-alpine322
@@ -351,7 +351,7 @@ roadmap_patch_ready:
     runtime_smoke:
       status: pass
       evidence: CI artifact installed and launched on Alpine 3.23 host, Proton login API responded, D-Bus session auto-launch and AT_SPI_BUS_ADDRESS=/dev/null workaround applied
-    workflow: .github/workflows/apk/alpine-3.23
+    workflow: .github/actions/apk/alpine-3.23
     build_container: alpine:3.23
     release_label: alpine323
     artifact_name: apk-package-alpine323

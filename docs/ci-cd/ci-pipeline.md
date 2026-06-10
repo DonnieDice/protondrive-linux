@@ -246,7 +246,7 @@ Aggregates artifacts from all 17 build jobs and creates a release.
 **GitHub Actions** (`release` job in `package-workflows.yml`):
 - Triggered only via `workflow_dispatch` with `workflow: release` input
 - Has `needs:` on all 17 build jobs (must all complete)
-- Creates a GitHub Release via `.github/workflows/maintenance/release/action.yml`
+- Creates a GitHub Release via `.github/actions/maintenance/release/action.yml`
 - 360-minute timeout (accounts for waiting on all builds)
 
 ### Publish
@@ -508,7 +508,7 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 | Review GitHub mirror of build matrix | GitHub Actions | `/.github/workflows/package-workflows.yml` |
 | Inspect a specific build action | GitHub Actions | `/.github/workflows/<type>/<variant>/action.yml` |
 | View issue/PR sync rules | GitHub Actions | `/.github/workflows/sync-to-gitlab.yml` |
-| View auto-label rules | GitHub Actions | `/.github/workflows/maintenance/` |
+| View auto-label rules | GitHub Actions | `/.github/actions/maintenance/` |
 | Understand the fail-fast gate | GitLab CI | `build:gate` job in `.gitlab/workflows/builds.yml` |
 | Add a new build target | Both | `docs/build-packaging/new-build-checklist.md` |
 | Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |

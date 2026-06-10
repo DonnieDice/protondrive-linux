@@ -100,8 +100,8 @@ repos, and the compatibility map can lag behind reality.
 
 - [ ] Create `.github/workflows/<package>/<target>/action.yml`.
   - Use an existing implementation as a template (e.g.,
-    `.github/workflows/deb/debian-12/action.yml`,
-    `.github/workflows/rpm/opensuse-tumbleweed/action.yml`).
+    `.github/actions/deb/debian-12/action.yml`,
+    `.github/actions/rpm/opensuse-tumbleweed/action.yml`).
   - Set the container image to match the target distro.
   - Install all build dependencies in the container (compiler, WebKitGTK dev
     packages, GTK dev packages, Node.js, etc.).

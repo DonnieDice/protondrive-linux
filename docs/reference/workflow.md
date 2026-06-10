@@ -100,7 +100,7 @@ Closes #42
 ## Changed Areas
 
 - `.github/workflows/package-workflows.yml`
-- `.github/workflows/deb/debian-12/action.yml`
+- `.github/actions/deb/debian-12/action.yml`
 - `docs/packaging.md`
 
 ## Testing
@@ -150,8 +150,8 @@ Evaluate the automated status checks and tests.
 
 The visible GitHub Actions entrypoint is
 `.github/workflows/package-workflows.yml`. It calls package-specific
-implementations from subfolders such as `.github/workflows/deb/debian-12/` and
-`.github/workflows/rpm/fedora-43/`. These jobs run via `workflow_dispatch`
+implementations from subfolders such as `.github/actions/deb/debian-12/` and
+`.github/actions/rpm/fedora-43/`. These jobs run via `workflow_dispatch`
 (manual trigger) on GitHub.
 
 On GitLab, the equivalent pipeline is defined in `.gitlab-ci.yml` and runs

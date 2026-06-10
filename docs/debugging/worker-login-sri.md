@@ -388,7 +388,7 @@ This fix must be applied to BOTH:
 - `package-workflows.yml` looked in `patches/webclients/` (doesn't exist)
 - Actual patch location: `patches/common/`
 - **All CI builds had zero patching applied** — root cause of persistent Worker failures in releases
-- **Fix:** Corrected path in all per-distro CI workflows (under `.github/workflows/rpm/`, `deb/`, `flatpak/`, etc.)
+- **Fix:** Corrected path in all per-distro CI workflows (under `.github/actions/rpm/`, `deb/`, `flatpak/`, etc.)
 
 ### ❌ Runtime `window.Worker = undefined` Conflicted with Patch
 - `main.rs` set `window.Worker = undefined` for rpm/deb/flatpak/snap builds

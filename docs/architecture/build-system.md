@@ -124,7 +124,7 @@ Builds an Arch Linux package for distribution via the Arch User Repository or di
 
 ### Alpine APK (.apk.tar.gz)
 
-**CI workflow (GitHub Actions):** `.github/workflows/apk/alpine-<version>/action.yml`
+**CI workflow (GitHub Actions):** `.github/actions/apk/alpine-<version>/action.yml`
 
 | Alpine version | Patch                      |
 |----------------|----------------------------|
@@ -135,7 +135,7 @@ Builds an Arch Linux package for distribution via the Arch User Repository or di
 
 The remaining Alpine builds follow an identical pattern (only the patch file and output
 directory differ). The build is orchestrated by a GitHub Actions composite workflow
-(`.github/workflows/apk/alpine-<version>/action.yml`):
+(`.github/actions/apk/alpine-<version>/action.yml`):
 
 1. **Validate** the patch file exists.
 2. **Create a clean git worktree** from `HEAD` so the original tree is untouched.
@@ -179,7 +179,7 @@ directory differ). The build is orchestrated by a GitHub Actions composite workf
 
 ### RPM Packages (.rpm)
 
-**CI workflows (GitHub Actions):** `.github/workflows/rpm/<target>/action.yml`
+**CI workflows (GitHub Actions):** `.github/actions/rpm/<target>/action.yml`
 
 | Target            | Patch                         |
 |-------------------|-------------------------------|
