@@ -1,11 +1,35 @@
 [advisories]
 version = 2
 yanked = "deny"
+ignore = [
+  # proc-macro-error is unmaintained; pulled in transitively by tauri macros.
+  { id = "RUSTSEC-2024-0370" },
+  # gtk-rs GTK3 bindings are no longer maintained upstream; required
+  # transitively by tauri/webkit2gtk on Linux — no upgrade path until
+  # tauri moves to GTK4.
+  { id = "RUSTSEC-2024-0411" },
+  { id = "RUSTSEC-2024-0412" },
+  { id = "RUSTSEC-2024-0413" },
+  { id = "RUSTSEC-2024-0414" },
+  { id = "RUSTSEC-2024-0415" },
+  { id = "RUSTSEC-2024-0416" },
+  { id = "RUSTSEC-2024-0417" },
+  { id = "RUSTSEC-2024-0418" },
+  { id = "RUSTSEC-2024-0419" },
+  { id = "RUSTSEC-2024-0420" },
+  # unic-* crates are unmaintained; pulled in transitively.
+  { id = "RUSTSEC-2025-0075" },
+  { id = "RUSTSEC-2025-0080" },
+  { id = "RUSTSEC-2025-0081" },
+  { id = "RUSTSEC-2025-0098" },
+  { id = "RUSTSEC-2025-0100" },
+]
 
 [licenses]
 version = 2
 confidence-threshold = 0.9
 allow = [
+  "AGPL-3.0",
   "AGPL-3.0-only",
   "AGPL-3.0-or-later",
   "Apache-2.0",

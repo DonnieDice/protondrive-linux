@@ -1,0 +1,9 @@
+title = "Gitleaks config"
+
+[allowlist]
+description = "Known false positives in historical CI config commits"
+commits = [
+  # .gitlab/ci/builds.yml in this commit contains cache-key strings that
+  # look like API keys to gitleaks but are not secrets.
+  "0f79205f4368bdcd90b270f00f1f584314f7e373",
+]

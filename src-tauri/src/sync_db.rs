@@ -93,7 +93,7 @@ impl SyncDb {
     }
 
     pub fn upsert_root(&self, root_path: &Path) -> Result<String, String> {
-        let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let root_id = hash_sensitive(root_path.to_string_lossy());
         let now = now_unix_ns();
         self.conn
             .execute(
@@ -117,7 +117,7 @@ impl SyncDb {
         device_name: &str,
         device_type: &str,
     ) -> Result<String, String> {
-        let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let root_id = hash_sensitive(root_path.to_string_lossy());
         let device_name_hash = hash_sensitive(device_name);
         let now = now_unix_ns();
         self.conn
@@ -155,7 +155,7 @@ impl SyncDb {
         root_path: &Path,
         remote_path: &str,
     ) -> Result<String, String> {
-        let root_id = hash_sensitive(&root_path.to_string_lossy());
+        let root_id = hash_sensitive(root_path.to_string_lossy());
         let remote_path_hash = hash_sensitive(remote_path);
         let now = now_unix_ns();
         self.conn
@@ -187,6 +187,9 @@ impl SyncDb {
         Ok(root_id)
     }
 
+    // Argument list mirrors the sync_items columns; collapsing into a struct
+    // would just move the field list without reducing call-site complexity.
+    #[allow(clippy::too_many_arguments)]
     pub fn upsert_local_item(
         &self,
         root_id: &str,
@@ -197,7 +200,7 @@ impl SyncDb {
         content_hash: Option<&str>,
         state: SyncItemState,
     ) -> Result<String, String> {
-        let relative_path_hash = hash_sensitive(&relative_path.to_string_lossy());
+        let relative_path_hash = hash_sensitive(relative_path.to_string_lossy());
         let now = now_unix_ns();
         self.conn
             .execute(
@@ -238,7 +241,7 @@ impl SyncDb {
         relative_path: &Path,
         remote: RemoteItemRef<'_>,
     ) -> Result<(), String> {
-        let relative_path_hash = hash_sensitive(&relative_path.to_string_lossy());
+        let relative_path_hash = hash_sensitive(relative_path.to_string_lossy());
         let now = now_unix_ns();
         self.conn
             .execute(
@@ -270,7 +273,7 @@ impl SyncDb {
     }
 
     pub fn mark_tombstone(&self, root_id: &str, relative_path: &Path) -> Result<bool, String> {
-        let relative_path_hash = hash_sensitive(&relative_path.to_string_lossy());
+        let relative_path_hash = hash_sensitive(relative_path.to_string_lossy());
         let now = now_unix_ns();
 
         let updated = self
@@ -303,7 +306,7 @@ impl SyncDb {
         root_id: &str,
         relative_path: &Path,
     ) -> Result<Option<SyncItemRecord>, String> {
-        let relative_path_hash = hash_sensitive(&relative_path.to_string_lossy());
+        let relative_path_hash = hash_sensitive(relative_path.to_string_lossy());
         self.conn
             .query_row(
                 "SELECT root_id, relative_path_hash, local_kind, local_size, local_mtime_ns,

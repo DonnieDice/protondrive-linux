@@ -20,8 +20,8 @@ pub fn account_login_complete_redirect_url(url: &tauri::Url) -> Option<String> {
     let path = url.path();
     let account_path = path.strip_prefix("/account").unwrap_or(path);
 
-    if !is_account_login_complete_host(url.host_str())
-        && !(is_local_app_host(url.host_str()) && path.starts_with("/account/u/"))
+    if !(is_account_login_complete_host(url.host_str())
+        || (is_local_app_host(url.host_str()) && path.starts_with("/account/u/")))
     {
         return None;
     }

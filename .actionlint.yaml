@@ -1,0 +1,8 @@
+self-hosted-runner:
+  labels: []
+# Composite action files live under .github/workflows/snap/*/action.yml —
+# actionlint treats any .yml under workflows/ as a workflow, but these are
+# actions (they have `runs.using: composite`, not `jobs:`).
+paths:
+  ignore:
+    - ".github/workflows/snap/**"

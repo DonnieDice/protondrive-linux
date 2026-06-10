@@ -123,21 +123,23 @@ cd "$REPO_ROOT"
 python3 scripts/create_stubs.py
 cd WebClients
 
-# 4. Build all four apps in parallel (saves ~4-6 minutes vs sequential)
-echo "🔨 Building Drive, Account, Verify, and Calendar apps in parallel..."
-$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log &
-DRIVE_PID=$!
-$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log &
-ACCOUNT_PID=$!
-$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log &
-VERIFY_PID=$!
-$YARN workspace proton-calendar build:web 2>&1 | tee /tmp/calendar-build.log &
-CALENDAR_PID=$!
+# 4. Build apps sequentially to avoid OOM on constrained runners
+# (webpack is memory-heavy; parallel builds SIGKILL under ~6GB RAM)
+echo "🔨 Building Drive app..."
+$YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log \
+  && echo "✅ Drive build complete" || { echo "❌ Drive build failed"; exit 1; }
 
-wait $DRIVE_PID    && echo "✅ Drive build complete"    || { echo "❌ Drive build failed"; exit 1; }
-wait $ACCOUNT_PID  && echo "✅ Account build complete"  || echo "⚠️  Account build failed (login may not work)"
-wait $VERIFY_PID   && echo "✅ Verify build complete"   || echo "⚠️  Verify build failed (captcha optional)"
-wait $CALENDAR_PID && echo "✅ Calendar build complete" || echo "⚠️  Calendar build failed (drawer calendar unavailable)"
+echo "🔨 Building Account app..."
+$YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log \
+  && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
+
+echo "🔨 Building Verify app..."
+$YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log \
+  && echo "✅ Verify build complete" || echo "⚠️  Verify build failed (captcha optional)"
+
+echo "🔨 Building Calendar app..."
+$YARN workspace proton-calendar build:web 2>&1 | tee /tmp/calendar-build.log \
+  && echo "✅ Calendar build complete" || echo "⚠️  Calendar build failed (drawer calendar unavailable)"
 
 # 4d. Copy account app to drive dist and fix paths
 echo "📦 Copying account app to drive dist..."

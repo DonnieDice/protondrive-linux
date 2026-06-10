@@ -1599,7 +1599,7 @@ fn main() {
                             if let Some(home) = dirs::home_dir() {
                                 let downloads_dir = home.join("Downloads");
                                 let url_str = url.as_str();
-                                if let Some(filename) = url_str.split('/').last() {
+                                if let Some(filename) = url_str.split('/').next_back() {
                                     // Remove query params from filename
                                     let clean_name = filename.split('?').next().unwrap_or(filename);
                                     *destination = downloads_dir.join(clean_name);
@@ -1664,8 +1664,8 @@ fn main() {
                             }
                         }
                         let query = format!("?{}", query_parts.join("&"));
-                        let local_url = format!("tauri://localhost/account/{}", query);
-                        println!("[SSO] Rewriting /login to account app: {}", local_url);
+                        let local_url = format!("tauri://localhost/account/{query}");
+                        println!("[SSO] Rewriting /login to account app: {local_url}");
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
                             let url_clone = local_url.clone();
@@ -1679,9 +1679,9 @@ fn main() {
                     // Rewrite account.proton.me to local /account/ path
                     if url.host_str() == Some("account.proton.me") {
                         let path = url.path();
-                        let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
-                        let local_url = format!("tauri://localhost/account{}{}", path, query);
-                        println!("[SSO] Rewriting to local: {}", local_url);
+                        let query = url.query().map(|q| format!("?{q}")).unwrap_or_default();
+                        let local_url = format!("tauri://localhost/account{path}{query}");
+                        println!("[SSO] Rewriting to local: {local_url}");
 
                         // Navigate to local account app
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
@@ -1696,9 +1696,9 @@ fn main() {
                     // Rewrite drive.proton.me back to local root
                     if url.host_str() == Some("drive.proton.me") {
                         let path = url.path();
-                        let query = url.query().map(|q| format!("?{}", q)).unwrap_or_default();
-                        let local_url = format!("tauri://localhost{}{}", path, query);
-                        println!("[SSO] Rewriting drive.proton.me to local: {}", local_url);
+                        let query = url.query().map(|q| format!("?{q}")).unwrap_or_default();
+                        let local_url = format!("tauri://localhost{path}{query}");
+                        println!("[SSO] Rewriting drive.proton.me to local: {local_url}");
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
                             let url_clone = local_url.clone();
@@ -1718,7 +1718,7 @@ fn main() {
                     // URL while leaving the account document alive on WebKitGTK,
                     // so the Drive init script never reinstalls IPC.
                     if let Some(drive_url) = account_login_complete_redirect_url(url) {
-                        println!("[SSO] Login complete, redirecting to: {}", drive_url);
+                        println!("[SSO] Login complete, redirecting to: {drive_url}");
 
                         if let Some(window) = app_handle_nav.get_webview_window("main") {
                             tauri::async_runtime::spawn(async move {
@@ -1782,7 +1782,7 @@ fn main() {
                     };
 
                     if is_captcha_url {
-                        println!("[CAPTCHA] Entering captcha page: {}", url_str);
+                        println!("[CAPTCHA] Entering captcha page: {url_str}");
                         ON_CAPTCHA_PAGE.store(true, std::sync::atomic::Ordering::SeqCst);
                         return true;
                     }
@@ -1790,7 +1790,7 @@ fn main() {
                     if ON_CAPTCHA_PAGE.load(std::sync::atomic::Ordering::SeqCst)
                         && url.scheme() == "about"
                     {
-                        println!("[CAPTCHA] Allowing captcha internal navigation: {}", url_str);
+                        println!("[CAPTCHA] Allowing captcha internal navigation: {url_str}");
                         return true;
                     }
 
@@ -1813,7 +1813,7 @@ fn main() {
                     // Allow tauri://, about: URLs but BLOCK /api/ navigation (API calls should use fetch, not navigate)
                     // Blocking /api/ prevents iframes from trying to load API endpoints which breaks the account app
                     if url.path().starts_with("/api/") {
-                        println!("[Navigation] Blocking API navigation (should use fetch): {}", url_str);
+                        println!("[Navigation] Blocking API navigation (should use fetch): {url_str}");
                         return false;
                     }
 
@@ -1839,13 +1839,12 @@ fn main() {
                     })
                 {
                     Ok(_) => {}
-                    Err(error) => eprintln!("[Sync] auto-start failed: {}", error),
+                    Err(error) => eprintln!("[Sync] auto-start failed: {error}"),
                 }
             } else {
                 if read_selected_sync_root(&app_data_dir).is_some() {
                     println!(
-                        "[Sync] persisted extra sync root present; primary root defaults to ~/{}",
-                        DEFAULT_SYNC_ROOT_DIR
+                        "[Sync] persisted extra sync root present; primary root defaults to ~/{DEFAULT_SYNC_ROOT_DIR}"
                     );
                 }
                 match ensure_default_sync_root().and_then(|sync_root| {
@@ -1858,7 +1857,7 @@ fn main() {
                     )
                 }) {
                     Ok(_) => {}
-                    Err(error) => eprintln!("[Sync] default auto-start failed: {}", error),
+                    Err(error) => eprintln!("[Sync] default auto-start failed: {error}"),
                 }
             }
 
