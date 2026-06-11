@@ -113,7 +113,7 @@ echo "📦 Installing WebClients dependencies..."
 : > yarn.lock
 rm -rf .yarn/cache
 YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
-export NODE_OPTIONS="--max-old-space-size=4096"
+export NODE_OPTIONS="--max-old-space-size=2048"
 export SHARP_IGNORE_GLOBAL_LIBVIPS=1
 $YARN install || $YARN install --network-timeout 300000
 
