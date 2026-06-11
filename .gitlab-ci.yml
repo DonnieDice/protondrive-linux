@@ -800,6 +800,7 @@ build:deb:debian-12:
       for file in *.deb; do
         [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
       done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
   artifacts:
     paths: [artifacts/]
@@ -845,6 +846,7 @@ build:deb:debian-13:
       for file in *.deb; do
         [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
       done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
   artifacts:
     paths: [artifacts/]
@@ -891,6 +893,7 @@ build:deb:ubuntu-24.04:
       for file in *.deb; do
         [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
       done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
   artifacts:
     paths: [artifacts/]
@@ -937,6 +940,7 @@ build:deb:ubuntu-26.04:
       for file in *.deb; do
         [ -f "$file" ] && mv "$file" "proton-drive_${VERSION}_${DISTRO_SUFFIX}_amd64.deb" && break
       done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/deb/*.deb artifacts/
   artifacts:
     paths: [artifacts/]
@@ -1184,6 +1188,7 @@ build:rpm:el10:
       cd src-tauri/target/release/bundle/rpm
       shopt -s nullglob
       for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
   artifacts:
     paths: [artifacts/]
@@ -1225,6 +1230,7 @@ build:rpm:fedora-43:
       cd src-tauri/target/release/bundle/rpm
       shopt -s nullglob
       for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
   artifacts:
     paths: [artifacts/]
@@ -1266,6 +1272,7 @@ build:rpm:fedora-44:
       cd src-tauri/target/release/bundle/rpm
       shopt -s nullglob
       for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
   artifacts:
     paths: [artifacts/]
@@ -1318,6 +1325,7 @@ build:rpm:opensuse-tumbleweed:
       cd src-tauri/target/release/bundle/rpm
       shopt -s nullglob
       for file in Proton\ Drive*.rpm; do mv "$file" "${file/Proton Drive/proton-drive}"; done
+      cd "$CI_PROJECT_DIR"
     - mkdir -p artifacts && cp src-tauri/target/release/bundle/rpm/*.rpm artifacts/
   artifacts:
     paths: [artifacts/]
