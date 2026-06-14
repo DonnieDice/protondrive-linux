@@ -3,7 +3,7 @@
 #   python -m pip install -r tests/requirements.txt
 
 # ─ Unit / integration test runner ─
-pytest==8.3.4
+pytest==9.0.3
 pytest-html==4.1.1            # self-contained HTML report
 pytest-timeout==2.3.1         # guard against hung remote commands
 
@@ -12,7 +12,7 @@ robotframework==7.2.2
 robotframework-sshlibrary==3.8.0   # SSH/SCP keywords for the test VMs
 
 # ─ SSH transport used by pytest acceptance helpers ─
-paramiko==3.5.1
+paramiko==5.0.0
 
 # ─ Functional test helpers ─
 pyotp==2.9.0          # TOTP generation for 2FA login tests (also installed on VMs via pip)
