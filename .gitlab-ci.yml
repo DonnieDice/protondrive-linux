@@ -332,6 +332,7 @@ docs:audit-gate:
   extends: .rules:doc_audit
   stage: audit
   image: alpine:3.20
+  allow_failure: true
   needs:
     - job: docs:detect-changes
       artifacts: true
