@@ -1,7 +1,7 @@
 ---
 title: "CI Pipeline Reference"
 created: 2026-05-28
-updated: 2026-05-28
+updated: 2026-06-27
 type: guide
 tags: [ci, build, packaging, release]
 sources:
@@ -19,21 +19,25 @@ sources:
 
 ## Pipeline Overview
 
-The pipeline runs in **nine sequential stages**:
+The pipeline runs in **thirteen sequential stages**:
 
 ```
-test  →  build  →  transfer  →  install  →  vmtest  →  report  →  spec  →  release  →  publish
+detect  →  audit  →  update  →  lint  →  test  →  security  →  build  →  spec  →  sign  →  smoke  →  release  →  publish  →  mirror
 ```
 
+- **detect** — identifies changed files since the last commit/schedule and resolves doc-affecting paths.
+- **audit** — runs AI-powered staleness checks against affected documentation files.
+- **update** — auto-generates AI-driven doc patches and pushes them as a merge request (main branch only).
+- **lint** — code style and formatting checks (Python, YAML, shell, CLion inspections).
 - **test** — pre-build regression checks (login/routing, sync, Rust formatting, Clippy lints, unit tests).
+- **security** — vulnerability scanning (Trivy).
 - **build** — compiles the Tauri app and packages it for every supported distribution format.
-- **transfer** — SCPs the build artifact to each target VM in the LAN test matrix.
-- **install** — installs the package on each VM using the distro-specific package manager.
-- **vmtest** — runs regression checks and GUI load tests on each VM.
-- **report** — aggregates deployment/verification results into a matrix (Markdown + JUnit).
 - **spec** — generates distro-specific package metadata files (PKGBUILD, .spec, source tarball).
+- **sign** — signs packages with GPG for authenticity verification.
+- **smoke** — quick post-build sanity checks on each artifact format.
 - **release** — aggregates all build artifacts and creates a GitLab Release with tagged assets.
 - **publish** — pushes artifacts to external distribution channels (AUR, Flathub, Snap Store).
+- **mirror** — mirrors pipeline artifacts to the GitHub release mirror.
 
 ### Workflow Rules
 
@@ -41,9 +45,10 @@ The pipeline is triggered for:
 
 | Event | Runs? |
 |---|---|
-| Merge request (`merge_request_event`) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
-| Branch push (any branch) | Yes — all test, build, transfer, install, vmtest, report & spec jobs |
-| Tag push (`CI_COMMIT_TAG`) | Yes — full pipeline including release & publish |
+| Merge request (`merge_request_event`) | Yes — all lint, test, security, build, spec, sign & smoke jobs |
+| Branch push (any branch) | Yes — all lint, test, security, build, spec, sign & smoke jobs |
+| **Main branch push** | Yes — all docs (detect/audit/update), lint, test, security, build, spec, sign, smoke & release jobs |
+| Tag push (`CI_COMMIT_TAG`) | Yes — full pipeline including release, publish & mirror |
 | Manual trigger | Yes — any jobs with `when: manual` fallthrough |
 
 ---
@@ -85,6 +90,14 @@ Applied to all **publish** jobs.
 - Runs only when tag matches `/^v.*/`.
 - Falls through to `when: manual, allow_failure: true`.
 
+### `.rules:doc_audit`
+Applied to all **doc audit** jobs (`docs:detect-changes`, `docs:resolve-mapping`, `docs:audit-gate`) and extended by `docs:auto-update`.
+- Runs automatically on **main branch** pushes (`$CI_COMMIT_BRANCH == "main"`).
+- Runs on scheduled pipelines when `$RUN_DOC_AUDIT == "true"`.
+- Runs on web/API manual triggers when `$RUN_DOC_AUDIT == "true"`.
+
+> **Note:** `docs:auto-update` also accepts `when: manual` for web and API triggers, and defaults to `when: never` for all other conditions (see job description below).
+
 ---
 
 ## Reusable Script Fragments
@@ -100,6 +113,186 @@ A `before_script` block reused by every build job. Installs the Rust toolchain v
 Like `.install_rust` but also installs full GTK/WebKit development dependencies
 (`libwebkit2gtk-4.1-dev`, `libgtk-3-dev`, `libayatana-appindicator3-dev`,
 `librsvg2-dev`, `libsoup-3.0-dev`, etc.) required by Tauri builds.
+
+---
+
+## CI Helper Scripts
+
+The pipeline delegates several stage-specific operations to standalone scripts under `scripts/ci/`.
+These scripts are invoked by CI jobs and encapsulate reusable logic for documentation auditing,
+AI-driven updates, and doc patching.
+
+### `scripts/ci/ai-doc-gate.sh`
+
+AI-powered documentation staleness gate, invoked by the `docs:audit-gate` job.
+
+**Purpose:** Evaluates whether documentation files are stale relative to the
+code changes in the current pipeline.
+
+| Environment Variable | Default | Purpose |
+|---|---|---|
+| `AFFECTED_JSON` | `docs/affected_docs.json` | Path to the affected-docs manifest produced by `docs:resolve-mapping` |
+| `DIFFS` | _(empty)_ | Unified diff of code changes for the affected source files |
+| `DOC_AUDIT_MODEL` | `deepseek-chat` | LLM model for staleness evaluation |
+| `DOC_AUDIT_API_URL` | `https://api.deepseek.com/chat/completions` | LLM API endpoint |
+| `DOC_AUDIT_MAX_BYTES` | `50000` | Max diff payload size before skipping |
+| `MODE` | `schedule` | Gate mode: `schedule` (advisory, exits 0) or `release_gate` (blocking, exits 1 on critical staleness) |
+
+**What it does:**
+
+1. Checks whether `AFFECTED_JSON` exists and is non-empty; exits 0 (no-op) if not.
+2. Checks for an LLM API key (`DEEPSEEK_API_KEY` or `OPENAI_API_KEY`); exits 0/1 depending on `MODE` if missing.
+3. Validates the diff payload size against `DOC_AUDIT_MAX_BYTES`; skips if too large.
+4. Builds a prompt containing the diff and affected doc mapping, sends it to the LLM.
+5. Parses the LLM response as JSON with stale/current assessments per doc section.
+6. Writes `docs/stale_docs.json` (and a raw response backup at `docs/stale_docs.raw.json` on parse failure).
+7. In `release_gate` mode, exits 1 if any critically stale docs are detected.
+
+**Output artifacts:** `docs/stale_docs.json`, `docs/stale_docs.raw.json` (on failure).
+
+### `scripts/ci/ai-doc-update.sh`
+
+AI-powered documentation auto-update script, invoked by the `docs:auto-update` job.
+This script was **completely rewritten** to adopt `scripts/ci/apply-doc-patch.py` for
+reliable section-aware and file-aware doc patching.
+
+**Purpose:** Generates AI-driven documentation patches from code diffs and applies
+them to the affected doc files, then creates a merge request.
+
+| Environment Variable | Default | Purpose |
+|---|---|---|
+| `AFFECTED_JSON` | `docs/affected_docs.json` | Path to the affected-docs manifest |
+| `STALE_JSON` | `docs/stale_docs.json` | Path to the stale-docs evaluation (from `ai-doc-gate.sh`) |
+| `DIFFS` | _(empty)_ | Unified diff of code changes for context |
+| `DOC_AUDIT_MODEL` | `deepseek-chat` | LLM model for doc generation |
+| `DOC_AUDIT_API_URL` | `https://api.deepseek.com/chat/completions` | LLM API endpoint |
+| `DEEPSEEK_API_KEY` / `OPENAI_API_KEY` | _(none)_ | LLM authentication (checked in that order) |
+
+**What it does:**
+
+1. Skips if `AFFECTED_JSON` is missing or empty, or if no LLM API key is configured.
+2. Reads work items from `STALE_JSON` (when present and non-empty) or falls back to `AFFECTED_JSON`.
+   Each work item carries a `path`, optional `section`, and `update_mode` (section-level or file-level).
+3. For each doc target:
+   - In section mode, validates that the doc file contains the required `<!-- BEGIN SECTION: ... -->`
+     and `<!-- END SECTION: ... -->` markers before proceeding.
+   - Reads the current doc content and sends it to the LLM with the code diff for context.
+   - Extracts the LLM-generated Markdown (parsed from a code-fenced block).
+   - Calls `scripts/ci/apply-doc-patch.py` to apply the patch in `file` or `section` mode.
+4. Cleans up temporary work-item files on completion.
+
+**Work item precedence:**
+1. Stale items from `STALE_JSON` (produced by `ai-doc-gate.sh`) take priority when available.
+2. All items from `AFFECTED_JSON` are processed when no stale assessment exists (e.g., first run or schedule mode where gate was advisory).
+
+**Key rewrite details:**
+
+The rewrite replaced a simpler inline pipeline script with a dedicated shell script that:
+- Reads structured work items from JSON (both stale assessments and affected-doc manifests).
+- Validates section-marker existence before invoking the LLM, preventing partial writes.
+- Delegates all file writes to `apply-doc-patch.py` instead of inline `sed`/`awk` commands.
+- Supports both section-level and file-level update modes from the same code path.
+
+### `scripts/ci/apply-doc-patch.py`
+
+Python utility for applying documentation patches, called by `ai-doc-update.sh`.
+
+**Purpose:** Writes updated Markdown content to a documentation file, supporting
+two modes of operation.
+
+| Argument | Values | Description |
+|---|---|---|
+| `--path` | File path (required) | Target doc file |
+| `--mode` | `file` or `section` (required) | Patch application mode |
+| `--section` | Section name | Required in `section` mode; identifies the markers to replace |
+
+**Modes:**
+
+- **`file` mode** — Replaces the entire file content with the provided Markdown.
+  Use for wholesale doc rewrites when section granularity is unnecessary.
+- **`section` mode** — Replaces content between `<!-- BEGIN SECTION: <name> -->` and
+  `<!-- END SECTION: <name> -->` markers in the target file. The markers themselves are
+  preserved. Used for targeted updates to specific sections of larger documents.
+
+---
+
+## Stage: `detect`
+
+> Identifies changed files since the last commit/schedule and resolves which documentation files are affected. All detect-stage jobs extend `.rules:doc_audit`.
+
+### `docs:detect-changes`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:3.20` | default | None |
+
+**What it does:**
+1. Collects changed file paths since the pipeline's diff base.
+2. On scheduled pipelines, walks the git log for the `$DOC_AUDIT_WINDOW_HOURS` window (default 24h).
+3. On merge requests and branch pushes, diffs against the target/base SHA.
+4. Writes the list to `changed_files.txt` and exports it as an artifact.
+
+### `docs:resolve-mapping`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `python:3.12-alpine` | default | `docs:detect-changes` (artifacts: true) |
+
+**What it does:**
+1. Reads `changed_files.txt` and the project's `docs/mapping.yaml`.
+2. Resolves which documentation files are affected by the changed source paths.
+3. Writes `docs/affected_docs.json` and exports it as an artifact.
+
+---
+
+## Stage: `audit`
+
+> Runs AI-powered staleness checks against documentation files identified in the detect stage. Extends `.rules:doc_audit`.
+
+### `docs:audit-gate`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:3.20` | default | `docs:detect-changes`, `docs:resolve-mapping` |
+
+- `allow_failure: true` — the audit gate is advisory; a stale doc won't block the pipeline.
+- **What it does:**
+  1. Collects diffs for the affected files (commit-range or schedule-window).
+  2. Calls `scripts/ci/ai-doc-gate.sh` which runs AI-based staleness evaluation.
+  3. Exports `docs/stale_docs.json` and `docs/stale_docs.raw.json` as artifacts.
+
+---
+
+## Stage: `update`
+
+> Auto-generates AI-driven documentation patches and pushes them as a merge request. Extends `.rules:doc_audit` with additional rules.
+
+### `docs:auto-update`
+
+Runs **only on `main` branch pushes, or manually via web/api with `$RUN_DOC_AUDIT=true`.**
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:3.20` | default | `docs:detect-changes`, `docs:resolve-mapping`, `docs:audit-gate` |
+
+**Execution rules (in order):**
+
+| Condition | Behavior |
+|---|---|
+| `$CI_COMMIT_BRANCH == "main"` | Runs automatically |
+| `$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"` | Runs automatically |
+| `$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"` | Manual (`when: manual`, `allow_failure: true`) |
+| `$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"` | Manual (`when: manual`, `allow_failure: true`) |
+| All other conditions | `when: never` (skipped) |
+
+**What it does:**
+1. Collects diffs for affected documentation files (commit-range or schedule-window).
+2. Calls `scripts/ci/ai-doc-update.sh` which runs AI-based doc generation.
+3. If any doc changes are detected, creates a new branch `docs/ai-update-<short_sha>`.
+4. Commits changes and pushes with `-o merge_request.create` targeting `main`.
+5. MR title: `docs: AI audit update`.
+
+**Secrets:** `DOC_AUDIT_PUSH_TOKEN` (GitLab personal access token with push/MR creation scope).
 
 ---
 
@@ -493,8 +686,8 @@ Requires Docker-in-Docker service.
 
 | Condition | Jobs |
 |---|---|
-| **Merge request** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
-| **Branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs |
-| **Tag push (`v*`)** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + release + publish:aur + publish:flatpak + publish:snap |
-| **Main branch push** | All test jobs + all build jobs + all transfer jobs + all install jobs + all vmtest jobs + report + all spec jobs + **release** (creates GitLab Release) |
-| **Manual trigger** | Any job with `when: manual` fallthrough |
+| **Merge request** | All lint jobs + all test jobs + all security jobs + all build jobs + all spec jobs + all sign jobs + all smoke jobs |
+| **Branch push (non-main)** | All lint jobs + all test jobs + all security jobs + all build jobs + all spec jobs + all sign jobs + all smoke jobs |
+| **Main branch push** | All docs jobs (detect + audit + update) + all lint jobs + all test jobs + all security jobs + all build jobs + all spec jobs + all sign jobs + all smoke jobs + **release** (creates GitLab Release) |
+| **Tag push (`v*`)** | All lint jobs + all test jobs + all security jobs + all build jobs + all spec jobs + all sign jobs + all smoke jobs + release + publish:aur + publish:flatpak + publish:snap + **mirror** (GitHub Release mirror) |
+| **Manual/web trigger** | Any job with `when: manual` fallthrough (e.g., `docs:auto-update` with `$RUN_DOC_AUDIT=true`) |

@@ -1,7 +1,7 @@
 ---
 title: "CI Authority and GitHub Mirroring"
 created: 2026-05-28
-updated: 2026-05-28
+updated: 2026-06-27
 type: guide
 tags: [ci]
 sources:
@@ -60,6 +60,51 @@ GitHub Actions must not automatically run package build or publishing jobs on:
 
 The package workflow implementations under `.github/workflows/` are retained for
 manual checks and maintenance, but they are not the release authority.
+
+## Doc audit pipeline
+
+The AI-assisted doc audit pipeline (jobs: `docs:detect-changes`,
+`docs:resolve-mapping`, `docs:audit-gate`, `docs:auto-update`) runs exclusively
+in GitLab CI, consistent with the GitLab authority model. The shared
+`.rules:doc_audit` rule set restricts these jobs to the `main` branch and
+optional scheduled, web, or API triggers:
+
+```yaml
+.rules:doc_audit:
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+    - when: never
+```
+
+The `main`-only branch condition prevents doc audit pipelines from running on
+feature branches, topic branches, or forks — audit results are only meaningful
+against the integration branch, and the push token used by `docs:auto-update` to
+open merge requests should only be delegated from `main`.
+
+The `docs:auto-update` job extends `.rules:doc_audit` but overrides web and API
+triggers to manual-only, so automated documentation updates always require human
+acknowledgment via the run interface:
+
+```yaml
+docs:auto-update:
+  extends: .rules:doc_audit
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+    - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
+    - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
+      when: manual
+      allow_failure: true
+    - when: never
+```
+
+No equivalent doc audit pipeline exists in GitHub Actions — the authority model
+assigns documentation quality to GitLab CI's private runner infrastructure.
 
 ## Release policy
 

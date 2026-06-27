@@ -391,6 +391,60 @@ an initial submission PR to `flathub/flathub`
 before it can push updates (see
 https://docs.flathub.org/docs/for-app-authors/submission).
 
+## CI Maintenance Scripts
+
+The repository uses several maintenance scripts under `scripts/ci/` that run
+from GitLab CI jobs (or GitHub Actions on push-to-main) to keep documentation
+and configuration in sync.
+
+### AI Documentation Update
+
+`scripts/ci/ai-doc-update.sh` is the auto-update engine of the AI doc audit
+pipeline. It was rewritten in [commit `40680f7c`] to:
+
+- Fix the Authorization header to use `${TOKEN}` (resolved a literal `***`
+  placeholder that prevented successful LLM calls).
+- Enable the `docs:auto-update` job to trigger on `push` to `main` in addition
+  to manual dispatch.
+
+The script reads one of two inputs:
+
+1. `docs/stale_docs.json` (produced by `scripts/ci/ai-doc-gate.sh` when stale
+   documentation sections are detected).
+2. `docs/affected_docs.json` (produced by `scripts/ci/resolve-mapping.py` from
+   `docs/mapping.yaml` when no stale-doc scan has run).
+
+For each doc target it:
+
+1. Reads the current file content from disk.
+2. Builds a prompt containing the file path, optional section scope, code diffs,
+   and the full document content.
+3. Sends the prompt to a configured LLM (DeepSeek Chat by default, or OpenAI
+   via `OPENAI_API_KEY`).
+4. Extracts the LLM's Markdown response.
+5. Applies the update via `scripts/ci/apply-doc-patch.py` in either
+   `file` mode (whole-document replace) or `section` mode (replace content
+   between `<!-- BEGIN SECTION: ... -->` and `<!-- END SECTION: ... -->`
+   markers).
+
+**Required configuration:**
+
+| Variable | Purpose |
+|----------|---------|
+| `DEEPSEEK_API_KEY` or `OPENAI_API_KEY` | LLM provider credential |
+| `DOC_AUDIT_MODEL` | Model name (default: `deepseek-chat`) |
+| `DOC_AUDIT_API_URL` | API base URL (default: `https://api.deepseek.com/chat/completions`) |
+
+### Related scripts in the doc audit pipeline
+
+| Script | Purpose |
+|--------|---------|
+| `scripts/ci/ai-doc-gate.sh` | Reads affected docs and code diffs, asks the LLM which docs are stale, writes `stale_docs.json`. Also enforces schedule vs. release-gate mode. |
+| `scripts/ci/resolve-mapping.py` | Maps changed source files to documentation targets from `docs/mapping.yaml`, producing `affected_docs.json`. |
+| `scripts/ci/apply-doc-patch.py` | Atomic file and section patcher; writes LLM output back to docs with section-marker validation. |
+
+The full pipeline design is documented in [`docs/ci-cd/ai-doc-audit-pipeline.md`](../ci-cd/ai-doc-audit-pipeline.md).
+
 ## Upstream Baseline Check
 
 Last checked against upstream release information on 2026-05-15:

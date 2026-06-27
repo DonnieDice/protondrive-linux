@@ -34,6 +34,9 @@ Use this checklist before every release deployment.
  - [ ] Alpine 3.20, 3.22, and 3.23 APK jobs are passing.
  - [ ] Release job is passing.
  - [ ] GitLab CI full pipeline is green (authoritative build system).
+- [ ] Doc audit pipeline jobs enforce `main` branch.
+  - [ ] `.rules:doc_audit` includes `$CI_COMMIT_BRANCH == "main"` as a trigger condition.
+  - [ ] `docs:auto-update` has a `$CI_COMMIT_BRANCH == "main"` rule before any manual/schedule conditions.
 - [ ] Publish implementation secrets are configured.
   - [ ] `AUR_SSH_PRIVATE_KEY` secret is set for AUR publishing.
   - [ ] `SNAPCRAFT_STORE_CREDENTIALS` secret is set for Snap Store publishing. **BLOCKED: snapcraft CLI / Snap Store API inconsistency — publishing on hold. See issues #83 and #19.**
