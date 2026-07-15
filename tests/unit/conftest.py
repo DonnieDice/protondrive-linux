@@ -1,5 +1,6 @@
 """Shared pytest fixtures for the protondrive-linux script unit tests."""
 
+import importlib.util
 import pathlib
 import shutil
 import sys
@@ -9,6 +10,38 @@ import pytest
 REPO_ROOT = pathlib.Path(__file__).resolve().parents[2]
 # Make the Robot VM matrix importable as a plain module.
 sys.path.insert(0, str(REPO_ROOT / "tests" / "robot" / "vars"))
+# Make the scripts/ci/ Python helpers importable as plain modules.
+sys.path.insert(0, str(REPO_ROOT / "scripts" / "ci"))
+
+
+def _load_script_module(name: str, path: pathlib.Path):
+    """Import a sibling Python script (no __init__.py in scripts/ci/) by file
+    path so its functions are unit-testable without subprocess."""
+    spec = importlib.util.spec_from_file_location(name, path)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules.setdefault(name, module)
+    spec.loader.exec_module(module)
+    return module
+
+
+@pytest.fixture(scope="session")
+def repo_root() -> pathlib.Path:
+    return REPO_ROOT
+
+
+@pytest.fixture(scope="session")
+def resolve_mapping_module(repo_root):
+    return _load_script_module("resolve_mapping", repo_root / "scripts" / "ci" / "resolve-mapping.py")
+
+
+@pytest.fixture(scope="session")
+def apply_doc_patch_module(repo_root):
+    return _load_script_module("apply_doc_patch", repo_root / "scripts" / "ci" / "apply-doc-patch.py")
+
+
+@pytest.fixture(scope="session")
+def fix_deps_module(repo_root):
+    return _load_script_module("fix_deps", repo_root / "scripts" / "fix_deps.py")
 
 
 def _is_posix_bash_available() -> bool:
@@ -21,11 +54,6 @@ def _is_posix_bash_available() -> bool:
         # attach the disk in subprocess contexts. Skip both cleanly.
         return False
     return shutil.which("bash") is not None
-
-
-@pytest.fixture(scope="session")
-def repo_root() -> pathlib.Path:
-    return REPO_ROOT
 
 
 @pytest.fixture(scope="session")

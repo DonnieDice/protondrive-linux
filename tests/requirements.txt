@@ -6,6 +6,7 @@
 pytest==8.3.4
 pytest-html==4.1.1            # self-contained HTML report
 pytest-timeout==2.3.1         # guard against hung remote commands
+pyyaml==6.0.2                 # scripts/ci/resolve-mapping.py + its unit tests
 
 # ─ Acceptance / E2E (keyword-driven, drives the VM fleet over SSH) ─
 robotframework==7.2.2

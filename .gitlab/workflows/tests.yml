@@ -40,9 +40,10 @@ test:sidebar-regression:
 
 # ─── Test: Python Unit Tests ──────────────────────────────────────────────────
 # Runs the pytest unit suite under tests/unit/ on Python 3.12. Catches drift in
-# the VM matrix, artifact-keying helpers, CI deploy lib (_common.sh), etc.
+# the VM matrix, artifact-keying helpers, CI deploy lib (_common.sh), doc-audit
+# path resolver, and AI-doc patch applier.
 # Bash-script subprocess tests skip on Windows (handled by conftest); on Linux
-# CI all 80 tests run.
+# CI all 106 tests run.
 
 test:pytest:
   extends: .rules:test
