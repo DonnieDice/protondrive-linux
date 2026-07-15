@@ -1,0 +1,6 @@
+self-hosted-runner:
+  # ubuntu-24.04 is a valid GitHub-hosted runner label; older actionlint
+  # builds (e.g. the Alpine-packaged fallback used in CI) predate it and
+  # report it as unknown. Listing it here suppresses that false positive.
+  labels:
+    - ubuntu-24.04
