@@ -298,6 +298,8 @@ docs:detect-changes:
   extends: .rules:doc_audit
   stage: detect
   image: alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
   before_script:
     - apk add --no-cache git
   script:
@@ -308,10 +310,10 @@ docs:detect-changes:
           grep -v '^$' > changed_files.txt
       else
         BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
-        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$' || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
           BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
         fi
-        if [ -n "$BASE_SHA" ]; then
+        if [ -n "$BASE_SHA" ] && git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
           git diff --name-only "$BASE_SHA".."$CI_COMMIT_SHA" > changed_files.txt
         else
           git diff --name-only HEAD~1..HEAD > changed_files.txt
@@ -345,6 +347,8 @@ docs:audit-gate:
   stage: audit
   image: alpine:3.20
   allow_failure: true
+  variables:
+    GIT_DEPTH: "0"
   needs:
     - job: docs:detect-changes
       artifacts: true
@@ -361,7 +365,7 @@ docs:audit-gate:
       else
         export MODE="${DOC_AUDIT_MODE:-release_gate}"
         BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
-        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$'; then
+        if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$' || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
           BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
         fi
         export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
@@ -377,6 +381,8 @@ docs:auto-update:
   extends: .rules:doc_audit
   stage: update
   image: alpine:3.20
+  variables:
+    GIT_DEPTH: "0"
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
     - if: '$CI_PIPELINE_SOURCE == "schedule" && $RUN_DOC_AUDIT == "true"'
@@ -398,7 +404,7 @@ docs:auto-update:
     - apk add --no-cache bash curl git jq python3
   script:
     - 'export AFFECTED_JSON="docs/affected_docs.json"'
-    - 'if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"; else BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"; if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq "^0+$"; then BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"; fi; export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"; fi'
+    - 'if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"; else BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"; if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq "^0+$" || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"; fi; export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"; fi'
     - bash scripts/ci/ai-doc-update.sh
     - 'if git diff --quiet docs/ README.md; then echo "No doc changes needed."; exit 0; fi'
     - 'git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"'
