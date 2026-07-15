@@ -18,9 +18,7 @@ Requires WebClients/ to exist with a completed yarn install.
 import json
 from pathlib import Path
 
-print("Creating stubs for private Proton packages...")
-
-stub_packages = {
+STUB_PACKAGES = {
     '@proton/collect-metrics': {
         'name': '@proton/collect-metrics',
         'version': '0.0.0-stub',
@@ -35,9 +33,9 @@ stub_packages = {
     }
 }
 
-stub_contents = {}
+STUB_CONTENTS = {}
 
-stub_contents['@proton/collect-metrics'] = '''// Stub for private Proton package
+STUB_CONTENTS['@proton/collect-metrics'] = '''// Stub for private Proton package
 class WebpackCollectMetricsPlugin {
     constructor(options) {}
     apply(compiler) {}
@@ -51,7 +49,7 @@ module.exports = {
 };
 '''
 
-stub_contents['@proton/proton-foundation-search'] = '''// Stub for private Proton package
+STUB_CONTENTS['@proton/proton-foundation-search'] = '''// Stub for private Proton package
 class StubExecution {
     next() { return undefined; }
     free() {}
@@ -147,17 +145,33 @@ module.exports = {
 };
 '''
 
-for pkg_name, pkg_json in stub_packages.items():
+
+def stub_dir_for(webclients_dir: Path, pkg_name: str) -> Path:
     parts = pkg_name.split('/')
     if len(parts) == 2:
         scope, name = parts
-        stub_dir = Path(f'WebClients/node_modules/{scope}/{name}')
-    else:
-        stub_dir = Path(f'WebClients/node_modules/{pkg_name}')
+        return webclients_dir / 'node_modules' / scope / name
+    return webclients_dir / 'node_modules' / pkg_name
 
+
+def write_stub(webclients_dir: Path, pkg_name: str) -> Path:
+    stub_dir = stub_dir_for(webclients_dir, pkg_name)
     stub_dir.mkdir(parents=True, exist_ok=True)
-    (stub_dir / 'package.json').write_text(json.dumps(pkg_json, indent=2) + '\n')
-    (stub_dir / 'index.js').write_text(stub_contents[pkg_name])
-    print(f"  Created stub for {pkg_name}")
+    (stub_dir / 'package.json').write_text(
+        json.dumps(STUB_PACKAGES[pkg_name], indent=2) + '\n', encoding="utf-8"
+    )
+    (stub_dir / 'index.js').write_text(STUB_CONTENTS[pkg_name], encoding="utf-8")
+    return stub_dir
 
-print("✅ Private package stubs created")
+
+def main() -> None:
+    print("Creating stubs for private Proton packages...")
+    webclients_dir = Path('WebClients')
+    for pkg_name in STUB_PACKAGES:
+        write_stub(webclients_dir, pkg_name)
+        print(f"  Created stub for {pkg_name}")
+    print("✅ Private package stubs created")
+
+
+if __name__ == "__main__":
+    main()

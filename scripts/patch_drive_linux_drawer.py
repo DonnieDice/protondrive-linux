@@ -45,7 +45,7 @@ def patch_drive_window() -> None:
     if drive_window is None:
         fail("Unable to find DriveWindow.tsx in current WebClients layout")
 
-    content = drive_window.read_text()
+    content = drive_window.read_text(encoding="utf-8")
     if "protondrive-linux-drawer-app-button:linux-icon" in content:
         print(" ⚠ Linux drawer entry already present - skipping")
     else:
@@ -102,7 +102,7 @@ def patch_drive_window() -> None:
             "drawerSidebarButtons anchor",
         )
 
-        drive_window.write_text(content)
+        drive_window.write_text(content, encoding="utf-8")
         print(f" ✓ Applied Linux drawer entry to {drive_window.relative_to(WEBCLIENTS_DIR)}")
 
 
@@ -110,7 +110,7 @@ def patch_drive_app() -> None:
     if not DRIVE_APP.exists():
         fail("Unable to find Drive App.tsx in current WebClients layout")
 
-    app_content = DRIVE_APP.read_text()
+    app_content = DRIVE_APP.read_text(encoding="utf-8")
     if "Proton Drive Linux owns native sync/settings controls in this rail." not in app_content:
         app_content = app_content.replace(
             "import { DRAWER_VISIBILITY } from '@proton/shared/lib/interfaces';\n", "", 1
@@ -125,7 +125,7 @@ def patch_drive_app() -> None:
             " showDrawerSidebar: true,\n",
             "Drive drawer default visibility",
         )
-        DRIVE_APP.write_text(app_content)
+        DRIVE_APP.write_text(app_content, encoding="utf-8")
         print(f" ✓ Forced Drive drawer rail visible by default in {DRIVE_APP.relative_to(WEBCLIENTS_DIR)}")
 
 
@@ -140,7 +140,7 @@ def patch_drawer_sidebar() -> None:
         print(" ⚠ DrawerSidebar.tsx not found – skipping sidebar visibility patch")
         return
 
-    content = sidebar.read_text()
+    content = sidebar.read_text(encoding="utf-8")
     if "drawer-sidebar inline no-print" in content:
         print(" ⚠ DrawerSidebar already patched – skipping")
         return
@@ -151,7 +151,7 @@ def patch_drawer_sidebar() -> None:
         "'drawer-sidebar inline no-print'",
         "DrawerSidebar hidden class",
     )
-    sidebar.write_text(content)
+    sidebar.write_text(content, encoding="utf-8")
     print(f" ✓ Unhid drawer sidebar in {sidebar.relative_to(WEBCLIENTS_DIR)}")
 
 
@@ -166,7 +166,7 @@ def patch_drawer_visibility_button() -> None:
         print(" ⚠ DrawerVisibilityButton.tsx not found – skipping visibility button patch")
         return
 
-    content = button.read_text()
+    content = button.read_text(encoding="utf-8")
     if "'drawer-visibility-control flex'" in content:
         print(" ⚠ DrawerVisibilityButton already patched – skipping")
         return
@@ -177,7 +177,7 @@ def patch_drawer_visibility_button() -> None:
         "'drawer-visibility-control flex'",
         "DrawerVisibilityButton hidden class",
     )
-    button.write_text(content)
+    button.write_text(content, encoding="utf-8")
     print(f" ✓ Unhid drawer visibility button in {button.relative_to(WEBCLIENTS_DIR)}")
 
 

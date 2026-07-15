@@ -37,7 +37,7 @@ def main() -> None:
     if not TOGGLE_DRAWER.exists():
         fail(f"useToggleDrawerApp.tsx not found at {TOGGLE_DRAWER}")
 
-    content = TOGGLE_DRAWER.read_text()
+    content = TOGGLE_DRAWER.read_text(encoding="utf-8")
 
     if "__TAURI__" in content:
         print("  ⚠ Calendar Tauri patch already present — skipping")
@@ -83,7 +83,7 @@ def main() -> None:
     )
     content = replace_once(content, old_block, new_block, "iframeSrcMap set block")
 
-    TOGGLE_DRAWER.write_text(content)
+    TOGGLE_DRAWER.write_text(content, encoding="utf-8")
     print(
         f"  ✓ Calendar Tauri URL patch applied to "
         f"{TOGGLE_DRAWER.relative_to(WEBCLIENTS_DIR)}"

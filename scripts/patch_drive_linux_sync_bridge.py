@@ -151,14 +151,14 @@ def fail(message: str) -> None:
 
 def find_drive_provider() -> Path:
     for path in DRIVE_APP_DIR.rglob("DriveProvider.tsx"):
-        source = path.read_text()
+        source = path.read_text(encoding="utf-8")
         if "export function DriveProvider" in source and "<UploadProvider>" in source:
             return path
     fail("Unable to find DriveProvider.tsx with UploadProvider in current WebClients layout")
 
 
 def patch_drive_provider(path: Path) -> None:
-    source = path.read_text()
+    source = path.read_text(encoding="utf-8")
     if "ProtonDriveLinuxSyncBridge" not in source:
         source = source.replace(
             "import { PublicSessionProvider } from './_api';\n",
@@ -168,7 +168,7 @@ def patch_drive_provider(path: Path) -> None:
             "                                <UploadProvider>\n                                    <SearchProvider>",
             "                                <UploadProvider>\n                                    <ProtonDriveLinuxSyncBridge />\n                                    <SearchProvider>",
         )
-    path.write_text(source)
+    path.write_text(source, encoding="utf-8")
 
 
 def main() -> None:
@@ -177,7 +177,7 @@ def main() -> None:
 
     provider_path = find_drive_provider()
     bridge_path = provider_path.parent / BRIDGE_FILENAME
-    bridge_path.write_text(BRIDGE_SOURCE)
+    bridge_path.write_text(BRIDGE_SOURCE, encoding="utf-8")
     patch_drive_provider(provider_path)
     print(f"  ✓ Installed Proton Drive Linux sync bridge at {bridge_path.relative_to(WEBCLIENTS_DIR)}")
 

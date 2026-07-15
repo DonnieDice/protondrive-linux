@@ -171,10 +171,10 @@ def main() -> None:
         fail(f"drawer directory not found: {DRAWER_DIR}")
 
     # 1. Write DriveLinuxPanel.tsx
-    if PANEL_COMPONENT.exists() and "DriveLinuxPanel" in PANEL_COMPONENT.read_text():
+    if PANEL_COMPONENT.exists() and "DriveLinuxPanel" in PANEL_COMPONENT.read_text(encoding="utf-8"):
         print("  ⚠ DriveLinuxPanel.tsx already present — skipping component write")
     else:
-        PANEL_COMPONENT.write_text(PANEL_SOURCE)
+        PANEL_COMPONENT.write_text(PANEL_SOURCE, encoding="utf-8")
         print(f"  ✓ Created {PANEL_COMPONENT.relative_to(WEBCLIENTS_DIR)}")
 
     # 2. Wire DriveLinuxPanel into DriveWindow.tsx
@@ -182,7 +182,7 @@ def main() -> None:
     if drive_window is None:
         fail("DriveWindow.tsx not found")
 
-    content = drive_window.read_text()
+    content = drive_window.read_text(encoding="utf-8")
     if "DriveLinuxPanel" in content:
         print("  ⚠ DriveWindow.tsx already uses DriveLinuxPanel — skipping")
         return
@@ -204,7 +204,7 @@ def main() -> None:
         "customAppSettings anchor",
     )
 
-    drive_window.write_text(content)
+    drive_window.write_text(content, encoding="utf-8")
     print(
         f"  ✓ Wired DriveLinuxPanel into "
         f"{drive_window.relative_to(WEBCLIENTS_DIR)}"

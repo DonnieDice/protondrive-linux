@@ -29,137 +29,159 @@ import re
 import sys
 from pathlib import Path
 
-# Check if WebClients directory exists
-webclient_dir = Path('WebClients')
-if not webclient_dir.exists():
-    print("❌ ERROR: WebClients directory not found!")
-    print("   Please clone WebClients first:")
-    print("   git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients")
-    sys.exit(1)
 
-print("Scanning for problematic dependencies...")
-count = 0
+def strip_problematic_deps(webclients_dir: Path) -> int:
+    print("Scanning for problematic dependencies...")
+    count = 0
 
-for pkg in Path('WebClients').rglob('package.json'):
-    if 'node_modules' in str(pkg) or '.yarn' in str(pkg):
-        continue
-    try:
-        data = json.loads(pkg.read_text())
-        modified = False
+    for pkg in webclients_dir.rglob('package.json'):
+        if 'node_modules' in str(pkg) or '.yarn' in str(pkg):
+            continue
+        try:
+            data = json.loads(pkg.read_text(encoding="utf-8"))
+            modified = False
 
-        for section in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
-            if section in data:
-                for k in list(data[section].keys()):
-                    if any(bad in k.lower() for bad in ['rowsncolumns', 'proton-meet', 'electron', 'proton-foundation-search']):
-                        print(f"  Removing {k} from {pkg}")
-                        del data[section][k]
-                        modified = True
-                        count += 1
+            for section in ('dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'):
+                if section in data:
+                    for k in list(data[section].keys()):
+                        if any(bad in k.lower() for bad in ['rowsncolumns', 'proton-meet', 'electron', 'proton-foundation-search']):
+                            print(f"  Removing {k} from {pkg}")
+                            del data[section][k]
+                            modified = True
+                            count += 1
 
-        if modified:
-            pkg.write_text(json.dumps(data, indent=2) + '\n')
+            if modified:
+                pkg.write_text(json.dumps(data, indent=2) + '\n', encoding="utf-8")
 
-    except Exception as e:
-        print(f"  Warning: Could not process {pkg}: {e}")
+        except Exception as e:
+            print(f"  Warning: Could not process {pkg}: {e}")
 
-print(f"✅ Patched {count} dependencies")
+    print(f"✅ Patched {count} dependencies")
+    return count
 
-# Patch Proton Drive to use standalone mode for desktop wrapper
-# SSO mode expects to run on Proton's domain, standalone mode works with any origin
-# No --api flag needed: Tauri IPC intercepts all fetch/XHR calls to Proton domains
-print("\nPatching Proton Drive build configuration...")
-drive_pkg_path = Path('WebClients/applications/drive/package.json')
-if drive_pkg_path.exists():
-    drive_data = json.loads(drive_pkg_path.read_text())
-    if 'scripts' in drive_data and 'build:web' in drive_data['scripts']:
-        old_script = drive_data['scripts']['build:web']
-        # Change appMode from sso to standalone for desktop wrapper
-        new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
-        # Remove any --api override - Tauri IPC handles API calls via fetch interception
-        new_script = re.sub(r'\s*--api=\S+', '', new_script)
-        # Disable SRI: WebKitGTK rejects script integrity attributes on tauri:// protocol,
-        # causing "Loading chunk X failed" even when the fetch returns HTTP 200.
-        if '--no-sri' not in new_script:
-            new_script = new_script.rstrip() + ' --no-sri'
-        if old_script != new_script:
-            drive_data['scripts']['build:web'] = new_script
-            drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n')
-            print("  Changed appMode to standalone, disabled SRI (WebKitGTK tauri:// incompatibility)")
-        else:
-            print("  build:web already configured")
-    else:
-        print("  Warning: Could not find build:web script")
-else:
-    print("  Warning: Could not find drive package.json")
 
-# Disable SRI for account and verify apps (same WebKitGTK tauri:// SRI rejection issue)
-for app_name, app_pkg_path in [
-    ('account', Path('WebClients/applications/account/package.json')),
-    ('verify', Path('WebClients/applications/verify/package.json')),
-]:
-    if app_pkg_path.exists():
-        app_data = json.loads(app_pkg_path.read_text())
-        if 'scripts' in app_data and 'build:web' in app_data['scripts']:
-            old_script = app_data['scripts']['build:web']
-            if '--no-sri' not in old_script:
-                new_script = old_script.rstrip() + ' --no-sri'
-                app_data['scripts']['build:web'] = new_script
-                app_pkg_path.write_text(json.dumps(app_data, indent=4) + '\n')
-                print(f"  Disabled SRI for {app_name} app")
+def patch_drive_build(webclients_dir: Path) -> None:
+    # Patch Proton Drive to use standalone mode for desktop wrapper
+    # SSO mode expects to run on Proton's domain, standalone mode works with any origin
+    # No --api flag needed: Tauri IPC intercepts all fetch/XHR calls to Proton domains
+    print("\nPatching Proton Drive build configuration...")
+    drive_pkg_path = webclients_dir / 'applications/drive/package.json'
+    if drive_pkg_path.exists():
+        drive_data = json.loads(drive_pkg_path.read_text(encoding="utf-8"))
+        if 'scripts' in drive_data and 'build:web' in drive_data['scripts']:
+            old_script = drive_data['scripts']['build:web']
+            # Change appMode from sso to standalone for desktop wrapper
+            new_script = re.sub(r'--appMode=sso', '--appMode=standalone', old_script)
+            # Remove any --api override - Tauri IPC handles API calls via fetch interception
+            new_script = re.sub(r'\s*--api=\S+', '', new_script)
+            # Disable SRI: WebKitGTK rejects script integrity attributes on tauri:// protocol,
+            # causing "Loading chunk X failed" even when the fetch returns HTTP 200.
+            if '--no-sri' not in new_script:
+                new_script = new_script.rstrip() + ' --no-sri'
+            if old_script != new_script:
+                drive_data['scripts']['build:web'] = new_script
+                drive_pkg_path.write_text(json.dumps(drive_data, indent=4) + '\n', encoding="utf-8")
+                print("  Changed appMode to standalone, disabled SRI (WebKitGTK tauri:// incompatibility)")
             else:
-                print(f"  {app_name} SRI already disabled")
-    else:
-        print(f"  Warning: Could not find {app_name} package.json")
-
-# Configure yarn for better reliability and compatibility
-print("\nConfiguring Yarn settings...")
-yarnrc_path = Path('WebClients/.yarnrc.yml')
-yarnrc_content = yarnrc_path.read_text() if yarnrc_path.exists() else ""
-
-# Parse and rewrite .yarnrc.yml
-lines = yarnrc_content.split('\n')
-new_lines = []
-skip_until_dedent = False
-skip_depth = 0
-
-for line in lines:
-    stripped = line.lstrip()
-    current_indent = len(line) - len(stripped)
-
-    if stripped.startswith('npmScopes:'):
-        skip_until_dedent = True
-        skip_depth = current_indent
-        print("  Removing npmScopes (internal Proton registries)")
-        continue
-
-    if stripped.startswith('npmRegistries:'):
-        skip_until_dedent = True
-        skip_depth = current_indent
-        print("  Removing npmRegistries (internal registry auth)")
-        continue
-
-    if skip_until_dedent:
-        if stripped and current_indent <= skip_depth:
-            skip_until_dedent = False
+                print("  build:web already configured")
         else:
+            print("  Warning: Could not find build:web script")
+    else:
+        print("  Warning: Could not find drive package.json")
+
+
+def disable_sri_for_apps(webclients_dir: Path) -> None:
+    # Disable SRI for account and verify apps (same WebKitGTK tauri:// SRI rejection issue)
+    for app_name, app_pkg_path in [
+        ('account', webclients_dir / 'applications/account/package.json'),
+        ('verify', webclients_dir / 'applications/verify/package.json'),
+    ]:
+        if app_pkg_path.exists():
+            app_data = json.loads(app_pkg_path.read_text(encoding="utf-8"))
+            if 'scripts' in app_data and 'build:web' in app_data['scripts']:
+                old_script = app_data['scripts']['build:web']
+                if '--no-sri' not in old_script:
+                    new_script = old_script.rstrip() + ' --no-sri'
+                    app_data['scripts']['build:web'] = new_script
+                    app_pkg_path.write_text(json.dumps(app_data, indent=4) + '\n', encoding="utf-8")
+                    print(f"  Disabled SRI for {app_name} app")
+                else:
+                    print(f"  {app_name} SRI already disabled")
+        else:
+            print(f"  Warning: Could not find {app_name} package.json")
+
+
+def rewrite_yarnrc(yarnrc_content: str) -> str:
+    """Strip npmScopes/npmRegistries, force the public registry, and disable
+    immutable installs. Pure string transform, no filesystem access."""
+    lines = yarnrc_content.split('\n')
+    new_lines = []
+    skip_until_dedent = False
+    skip_depth = 0
+
+    for line in lines:
+        stripped = line.lstrip()
+        current_indent = len(line) - len(stripped)
+
+        if stripped.startswith('npmScopes:'):
+            skip_until_dedent = True
+            skip_depth = current_indent
+            print("  Removing npmScopes (internal Proton registries)")
             continue
 
-    if stripped.startswith('npmRegistryServer:'):
-        new_lines.append('npmRegistryServer: "https://registry.npmjs.org"')
-        print("  Overriding npmRegistryServer to use public npm registry")
-        continue
+        if stripped.startswith('npmRegistries:'):
+            skip_until_dedent = True
+            skip_depth = current_indent
+            print("  Removing npmRegistries (internal registry auth)")
+            continue
 
-    new_lines.append(line)
+        if skip_until_dedent:
+            if stripped and current_indent <= skip_depth:
+                skip_until_dedent = False
+            else:
+                continue
 
-yarnrc_content = '\n'.join(new_lines)
+        if stripped.startswith('npmRegistryServer:'):
+            new_lines.append('npmRegistryServer: "https://registry.npmjs.org"')
+            print("  Overriding npmRegistryServer to use public npm registry")
+            continue
 
-if 'npmRegistryServer' not in yarnrc_content:
-    yarnrc_content += '\nnpmRegistryServer: "https://registry.npmjs.org"\n'
-    print("  Added official npm registry configuration")
+        new_lines.append(line)
 
-if 'enableImmutableInstalls' not in yarnrc_content:
-    yarnrc_content += 'enableImmutableInstalls: false\n'
-    print("  Disabled immutable installs mode")
+    yarnrc_content = '\n'.join(new_lines)
 
-yarnrc_path.write_text(yarnrc_content)
-print("✅ Yarn configured with public npm registry")
+    if 'npmRegistryServer' not in yarnrc_content:
+        yarnrc_content += '\nnpmRegistryServer: "https://registry.npmjs.org"\n'
+        print("  Added official npm registry configuration")
+
+    if 'enableImmutableInstalls' not in yarnrc_content:
+        yarnrc_content += 'enableImmutableInstalls: false\n'
+        print("  Disabled immutable installs mode")
+
+    return yarnrc_content
+
+
+def configure_yarn(webclients_dir: Path) -> None:
+    print("\nConfiguring Yarn settings...")
+    yarnrc_path = webclients_dir / '.yarnrc.yml'
+    yarnrc_content = yarnrc_path.read_text(encoding="utf-8") if yarnrc_path.exists() else ""
+    yarnrc_path.write_text(rewrite_yarnrc(yarnrc_content), encoding="utf-8")
+    print("✅ Yarn configured with public npm registry")
+
+
+def main() -> None:
+    webclient_dir = Path('WebClients')
+    if not webclient_dir.exists():
+        print("❌ ERROR: WebClients directory not found!")
+        print("   Please clone WebClients first:")
+        print("   git clone --depth=1 https://github.com/ProtonMail/WebClients.git WebClients")
+        sys.exit(1)
+
+    strip_problematic_deps(webclient_dir)
+    patch_drive_build(webclient_dir)
+    disable_sri_for_apps(webclient_dir)
+    configure_yarn(webclient_dir)
+
+
+if __name__ == "__main__":
+    main()

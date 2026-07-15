@@ -44,6 +44,39 @@ def fix_deps_module(repo_root):
     return _load_script_module("fix_deps", repo_root / "scripts" / "fix_deps.py")
 
 
+@pytest.fixture(scope="session")
+def create_stubs_module(repo_root):
+    return _load_script_module("create_stubs", repo_root / "scripts" / "create_stubs.py")
+
+
+@pytest.fixture(scope="session")
+def patch_drive_linux_calendar_module(repo_root):
+    return _load_script_module(
+        "patch_drive_linux_calendar", repo_root / "scripts" / "patch_drive_linux_calendar.py"
+    )
+
+
+@pytest.fixture(scope="session")
+def patch_drive_linux_panel_module(repo_root):
+    return _load_script_module(
+        "patch_drive_linux_panel", repo_root / "scripts" / "patch_drive_linux_panel.py"
+    )
+
+
+@pytest.fixture(scope="session")
+def patch_drive_linux_drawer_module(repo_root):
+    return _load_script_module(
+        "patch_drive_linux_drawer", repo_root / "scripts" / "patch_drive_linux_drawer.py"
+    )
+
+
+@pytest.fixture(scope="session")
+def patch_drive_linux_sync_bridge_module(repo_root):
+    return _load_script_module(
+        "patch_drive_linux_sync_bridge", repo_root / "scripts" / "patch_drive_linux_sync_bridge.py"
+    )
+
+
 def _is_posix_bash_available() -> bool:
     """True if `bash` exists AND it's a real POSIX bash (not MSYS-emulated,
     not WSL-stub). CI Linux returns True. Windows (Git-Bash or WSL stub) returns
