@@ -55,7 +55,7 @@ test:pytest:
   dependencies: []
   cache: []
   before_script:
-    - apt-get update -qq && apt-get install -y -qq bash openssh-client
+    - apt-get update -qq && apt-get install -y -qq bash openssh-client git
     - python -m pip install --no-cache-dir -r tests/requirements.txt
   script:
     - python -m pytest tests/unit/ -q --no-header --junitxml=reports/pytest.xml
