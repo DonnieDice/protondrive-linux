@@ -745,7 +745,16 @@ build:aur:
   script:
     - pacman -Sy --noconfirm --needed bash git curl wget file pkg-config
         webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3
-        nodejs npm python rustup base-devel patch
+        python rustup base-devel patch
+    - |
+      # Arch's repo nodejs tracks upstream latest (v26+), whose module resolver
+      # adds the "module-sync" export condition that WebClients' packages
+      # don't declare, breaking the webpack build. Every other distro job pins
+      # Node 22.x via NodeSource; do the same here from the official tarball
+      # since Arch has no NodeSource repo.
+      NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.tab | awk -v maj="v22." '$1 ~ "^"maj {print $1; exit}')"
+      curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+      tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
     - rustup default "${RUST_VERSION}"
     - *install_rust
     - |
