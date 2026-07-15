@@ -512,7 +512,7 @@ jobs:
         uses: ./.github/actions/maintenance/pr-auto-label
 
   publish_aur:
-    if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'publish-aur'
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'publish-aur'
     runs-on: ubuntu-latest
     timeout-minutes: 15
 
@@ -528,7 +528,7 @@ jobs:
         uses: ./.github/actions/aur/publish
 
   publish_flatpak:
-    if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'publish-flatpak'
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'publish-flatpak'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
 
@@ -543,7 +543,7 @@ jobs:
         uses: ./.github/actions/flatpak/publish
 
   publish_snap:
-    if: github.event_name == 'workflow_dispatch' && inputs.workflow == 'publish-snap'
+    if: github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'publish-snap'
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     # Keep the release flow moving even if the Snap Store is unavailable.
@@ -578,7 +578,7 @@ jobs:
       - build_apk_alpine_3_20
       - build_apk_alpine_3_22
       - build_apk_alpine_3_23
-    if: always() && github.event_name == 'workflow_dispatch' && inputs.workflow == 'release'
+    if: always() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:

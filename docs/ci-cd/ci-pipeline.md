@@ -286,6 +286,8 @@ The GitHub `sanity.yml` workflow is manual-only. It no longer runs on every bran
 
 Package, spec, release, and publish work is release-gated. GitLab only creates pipelines for semantic `v*` release tags or explicit release-test web/API pipelines with `RUN_RELEASE_TESTS=true`. GitHub package workflows run on `v*` tag pushes or manual dispatch on a `v*` tag ref.
 
+Package, spec, release, and publish jobs are tag-only. In GitLab they require a `v*` tag pipeline. In GitHub, `package-workflows.yml` remains manually dispatched, but package/spec/release/publish jobs additionally require the selected dispatch ref to be a `v*` tag (`refs/tags/v*`).
+
 Concurrency is grouped by workflow name + branch/ref, cancelling in-progress runs on duplicates.
 
 ## Trigger Rules
