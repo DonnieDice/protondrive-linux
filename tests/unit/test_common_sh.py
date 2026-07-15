@@ -1,4 +1,4 @@
-"""Unit tests for scripts/ci/deploy/_common.sh (bash) driven from pytest.
+"""Unit tests for scripts/ci/lib/_vm_common.sh (bash) driven from pytest.
 
 Each test sources the library in a subshell and exercises one function in
 isolation. Notably covers the VM_SSH_KEY normalization that fixes the GitLab
@@ -10,7 +10,7 @@ import shlex
 import subprocess
 
 REPO = pathlib.Path(__file__).resolve().parents[2]
-COMMON = REPO / "scripts" / "ci" / "deploy" / "_common.sh"
+COMMON = REPO / "scripts" / "ci" / "lib" / "_vm_common.sh"
 
 
 def _bash(snippet: str) -> subprocess.CompletedProcess:
@@ -18,7 +18,7 @@ def _bash(snippet: str) -> subprocess.CompletedProcess:
 
 
 def test_common_sh_sources_cleanly(have_posix_bash):
-    r = _bash(f"source {shlex.quote(str(COMMON))}; type deploy_run >/dev/null && echo OK")
+    r = _bash(f"source {shlex.quote(str(COMMON))}; type transfer_run >/dev/null && echo OK")
     assert "OK" in r.stdout, r.stderr
 
 
