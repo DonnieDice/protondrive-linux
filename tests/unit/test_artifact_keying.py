@@ -1,4 +1,5 @@
 """Tests for CI build artifact key and manifest helpers."""
+
 import json
 import pathlib
 import shlex
@@ -8,7 +9,9 @@ import subprocess
 import pytest
 
 
-def _run(repo_root: pathlib.Path, command: str, env: dict[str, str] | None = None) -> subprocess.CompletedProcess:
+def _run(
+    repo_root: pathlib.Path, command: str, env: dict[str, str] | None = None
+) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["bash", "-c", command],
         cwd=repo_root,
@@ -19,7 +22,7 @@ def _run(repo_root: pathlib.Path, command: str, env: dict[str, str] | None = Non
     )
 
 
-def test_compute_build_key_is_deterministic_and_prefixed(repo_root, have_bash):
+def test_compute_build_key_is_deterministic_and_prefixed(repo_root, have_posix_bash):
     script = repo_root / "scripts" / "ci" / "lib" / "compute-build-key.sh"
     command = f"WEBCLIENTS_COMMIT=abc123 {shlex.quote(str(script))} deb debian.12"
 
@@ -35,7 +38,7 @@ def test_compute_build_key_is_deterministic_and_prefixed(repo_root, have_bash):
     int(digest, 16)
 
 
-def test_compute_build_key_changes_when_build_env_changes(repo_root, have_bash):
+def test_compute_build_key_changes_when_build_env_changes(repo_root, have_posix_bash):
     script = repo_root / "scripts" / "ci" / "lib" / "compute-build-key.sh"
     base = _run(repo_root, f"WEBCLIENTS_COMMIT=abc123 {shlex.quote(str(script))} deb debian.12")
     changed = _run(repo_root, f"WEBCLIENTS_COMMIT=def456 {shlex.quote(str(script))} deb debian.12")
@@ -45,7 +48,9 @@ def test_compute_build_key_changes_when_build_env_changes(repo_root, have_bash):
     assert base.stdout != changed.stdout
 
 
-def test_artifact_manifest_records_build_key_and_gitlab_context(repo_root, have_bash, tmp_path):
+def test_artifact_manifest_records_build_key_and_gitlab_context(
+    repo_root, have_posix_bash, tmp_path
+):
     if not shutil.which("node"):
         pytest.skip("node not available")
 
