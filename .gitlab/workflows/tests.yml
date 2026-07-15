@@ -1,7 +1,7 @@
 # ─── Test: Login/Routing Regression ──────────────────────────────────────────
 
 test:login-routing-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   allow_failure: true
@@ -15,7 +15,7 @@ test:login-routing-regression:
 # ─── Test: Sync Regression ───────────────────────────────────────────────────
 
 test:sync-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   allow_failure: true
@@ -27,7 +27,7 @@ test:sync-regression:
     - bash tests/regression/sync.sh
 
 test:sidebar-regression:
-  extends: .rules:test
+  extends: .rules:regression
   stage: test
   image: alpine:latest
   allow_failure: true

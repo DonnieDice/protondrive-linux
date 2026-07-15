@@ -51,6 +51,10 @@ The pipeline is triggered for:
 | Tag push (`CI_COMMIT_TAG`) | Yes — full pipeline including release, publish & mirror |
 | Manual trigger | Yes — any jobs with `when: manual` fallthrough |
 
+> **Duplicate pipeline prevention:** When a branch has an open merge request, the
+> branch pipeline is automatically skipped (`when: never`). Only the MR pipeline
+> runs, avoiding redundant builds.
+
 ---
 
 ## Variables
@@ -320,6 +324,14 @@ routing logic hasn't regressed.
 Runs `tests/regression/sync.sh` — validates sync functionality against
 synthetic state.
 
+### `test:sidebar-regression`
+
+| Image | Timeout | Dependencies |
+|---|---|---|
+| `alpine:latest` | 10m | None |
+
+Runs `scripts/ci/regression/sidebar.sh` — validates sidebar state/render logic.
+
 ### `test:fmt`
 
 | Image | Timeout | Dependencies |
@@ -389,7 +401,7 @@ AppRun wrapper sets `WEBKIT_DISABLE_DMABUF_RENDERER`, `WEBKIT_DISABLE_COMPOSITIN
 | `build:aur` | `archlinux:base-devel` | `arch-native` | `*.pkg.tar.zst` + `.SRCINFO` |
 
 WebClients is fetched by **pinned commit** (`WEBCLIENTS_COMMIT`) rather than branch.
-Uses `scripts/ci/build-aur-package.sh` to produce the Arch package, then generates
+Uses `scripts/ci/build/aur-package.sh` to produce the Arch package, then generates
 a `PKGBUILD` and `.SRCINFO` for the AUR repository.
 
 ### DEB (Debian / Ubuntu)
@@ -442,10 +454,38 @@ EL10 and openSUSE patches applied `--reverse --check` first (idempotent).
 
 Both require **Docker-in-Docker** service (`docker:dind`) and a runner with
 `privileged = true`. The binary is built natively, then Snapcraft runs inside a
-Docker container (`ghcr.io/canonical/snapcraft:8_core24`) for the final `.snap`
+Docker container (`ghcr.io/canonical/snapcraft:stable`) for the final `.snap`
 packaging step.
 Core26 also patches snapcraft.yaml to `base: core26`, `grade: devel`,
 `build-base: devel`.
+
+---
+
+## Stage: `gate`
+
+> Confirms all distro builds succeeded before any deploy/VM stages run.
+> One job only: `build:gate`. Report jobs do **not** depend on this gate
+> and always run regardless of its result.
+
+### `build:gate`
+
+| Image | Timeout | Rules |
+|---|---|---|
+| `alpine:latest` | — | MR, branch push, tag push |
+
+**Dependencies (needs):** All 10 build jobs that feed into the transfer/install/vmtest pipeline
+(APK Alpine 3.20 + 3.22, AUR, DEB Debian 12 + 13, DEB Ubuntu 24.04 + 26.04,
+RPM EL10 + Fedora 43 + openSUSE Tumbleweed).
+
+**What happens:**
+
+If any upstream build job failed, `build:gate` is skipped, which cascades:
+- `transfer/*` (all need `build:gate`) → skipped
+- `install/*` (needs transfer) → skipped
+- `vmtest/*` (needs install) → skipped
+- Report jobs are unaffected and always run.
+
+If all builds passed, the gate prints a confirmation message and the deploy stages proceed.
 
 ---
 
@@ -539,12 +579,15 @@ test via `xdotool` + screenshot OCR.
 
 ## Stage: `report`
 
-> Aggregates deployment and verification results from all three VM pipeline stages
-> into a single Markdown deployment matrix + JUnit report (rendered in the GitLab MR widget).
-> Runs even when some upstream jobs fail (`when: always`) so the matrix always reflects
-> the full fleet state.
+> The report stage aggregates results from all upstream VM stages and generates
+> browsable artifacts. It has **five jobs**: the deployment matrix (JUnit for MR
+> Tests tab), Robot Framework HTML, pytest HTML, a UI screenshots gallery, and
+> GitLab Pages aggregating everything into a single browsable site.
+>
+> All report jobs use `when: always` so reports exist even when upstream stages fail.
+> Artifacts expire in **90 days** (except Pages at 30 days).
 
-### `report:verify-matrix`
+### `report:deployment-matrix`
 
 | Image | Dependencies |
 |---|---|
@@ -555,17 +598,72 @@ test via `xdotool` + screenshot OCR.
 1. Collects `transfer-results/`, `install-results/`, `test-results/` from all
    vmtest job artifacts.
 2. Runs `scripts/ci/lib/verify-matrix.py` to produce:
-   - `deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
-   - `deployment-matrix.json` — structured JSON for downstream tooling
-   - `verify-junit.xml` — JUnit XML report surfaced in the GitLab MR widget
+   - `reports/deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
+   - `reports/deployment-matrix.json` — structured JSON for downstream tooling
+   - `reports/deployment-matrix.junit.xml` — JUnit XML report surfaced in the GitLab MR Tests tab
 
-**Output artifacts** (expire in 90 days):
+**Output artifacts:**
 
 | Artifact | Always? |
 |---|---|
-| `deployment-matrix.md` | Yes (`when: always`) |
-| `deployment-matrix.json` | Yes (`when: always`) |
-| `verify-junit.xml` | Yes (via `reports: junit`) |
+| `reports/deployment-matrix.md` | Yes (`when: always`) |
+| `reports/deployment-matrix.json` | Yes (`when: always`) |
+| `reports/deployment-matrix.junit.xml` | Yes (via `reports: junit`) |
+
+### `report:robot-html`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `vmtest:debian-12` (artifacts: true) |
+
+Generates a Robot Framework HTML report from test results using
+`scripts/ci/lib/generate-robot-report.py`. Output lands in `reports/robot/` and
+is browsable via the GitLab artifact browser (`CI/CD → Jobs → Browse`).
+
+### `report:pytest-html`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | None |
+
+Runs `pytest` on `tests/unit/` with `--html` and `--junit-xml` reporters.
+Uses `|| true` so test failures in unit tests don't block the report.
+Output lands in `reports/pytest/` (both HTML and JUnit XML).
+
+### `report:ui-screenshots`
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `vmtest:debian-12`, `vmtest:ubuntu-24.04` (artifacts: true) |
+
+Generates a browsable screenshot gallery using
+`scripts/ci/lib/generate-screenshot-gallery.py`. Reads compositor test
+screenshots from `verify-results/ui-screenshots/` and writes an `index.html`
+gallery to `reports/screenshots/`.
+
+### `pages` — GitLab Pages
+
+| Image | Dependencies |
+|---|---|
+| `python:3.12-slim` | `report:deployment-matrix`, `report:robot-html`, `report:pytest-html`, `report:ui-screenshots` (all artifacts: true) |
+
+> The job name `pages` is special in GitLab — GitLab recognises it and serves the
+> `public/` directory as a static site.
+
+**Rules:** Only runs on `main` branch pushes or tag pushes (not on every branch
+or MR).
+
+**What it does:**
+
+1. Copies all report artifacts into `public/` under subdirectories (`robot/`,
+   `pytest/`, `screenshots/`).
+2. Generates a landing page index from the deployment matrix JSON.
+3. Publishes to **GitLab Pages** at:
+   `http://pages.dicematrix.cloud/donniedice/protondrive-linux`
+
+**Infrastructure requirements:**
+- Wildcard DNS `*.pages.dicematrix.cloud` → `192.168.1.31`
+- `gitlab.rb` config: `pages_external_url` set, `gitlab_pages['enable'] = true`
 
 ---
 

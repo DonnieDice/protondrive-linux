@@ -21,7 +21,7 @@ The project runs **two CI systems** in parallel:
 
 | System | Entrypoint | Role |
 |--------|-----------|------|
-| **GitLab CI** | `.gitlab-ci.yml` (62 lines, includes `.gitlab/workflows/*.yml` ~1,686 lines across 5 files) | **Authoritative** — build, spec, release, and publish originate here |
+| **GitLab CI** | `.gitlab-ci.yml` plus included `.gitlab/workflows/*.yml` files | **Authoritative** — fast gates, protected package builds, VM smoke tests, spec, release, and publish originate here |
 | **GitHub Actions** | `.github/workflows/package-workflows.yml` (588 lines) | **Mirror** — same build matrix on GitHub, triggerable via `workflow_dispatch` only |
 
 **GitLab CI is the source of truth** for all builds, releases, and publishes.
@@ -40,13 +40,14 @@ flowchart TD
         PUSH["Push (branch)"]
         TAG["Push (v* tag)"]
         PR["PR / MR"]
-        SCHED["schedule / workflow_dispatch"]
+        SCHED["schedule / web/API opt-in"]
     end
 
     subgraph GitLab_CI["GitLab CI (authoritative)"]
         direction LR
-        GL_TEST["Test Stage\n5 jobs"]
-        GL_BUILD["Build Stage\n17+ jobs"]
+        GL_TEST["Fast test stage\nfmt / clippy / unit / coverage"]
+        GL_REG["Protected regression jobs\nlogin / sync / sidebar"]
+        GL_BUILD["Protected build stage\n17+ jobs"]
         GL_GATE["Gate Stage\nbuild:gate\n(fail-fast sentinel)"]
         GL_TRANSFER["Transfer Stage\n10 VMs"]
         GL_INSTALL["Install Stage\n10 VMs"]
@@ -66,9 +67,14 @@ flowchart TD
     end
 
     GR_TRIGGER["workflow_dispatch"] --> GH_BUILD
-    PUSH --> GL_TEST --> GL_BUILD
-    TAG --> GL_BUILD
+    PUSH --> GL_TEST
     PR --> GL_TEST
+    TAG --> GL_TEST
+    SCHED --> GL_REG
+    SCHED --> GL_BUILD
+    TAG --> GL_REG --> GL_BUILD
+    PUSH -->|"protected ref + source change"| GL_REG
+    PUSH -->|"protected ref + source change"| GL_BUILD
 
     GL_BUILD --> GL_GATE
     GL_GATE -->|"all builds passed"| GL_TRANSFER --> GL_INSTALL --> GL_VMTEST --> GL_REPORT
@@ -80,7 +86,10 @@ flowchart TD
 
 ## Pipeline Stages
 
-GitLab CI runs eight sequential stages. The `gate` stage acts as a fail-fast
+GitLab CI uses sequential stages. The fast `test` stage always runs on MRs,
+branches, and tags. The heavier `build → gate → transfer → install → vmtest`
+artifact chain runs automatically only on protected refs, tags, schedules, or
+explicit web/API package-build pipelines. The `gate` stage acts as a fail-fast
 sentinel between the build compilers and the VM deployment chain:
 
 ```
@@ -91,9 +100,20 @@ If any build job fails, `build:gate` is skipped. Every `transfer/*` job needs
 `build:gate`, so a single build failure cascades silently through transfer,
 install, and vmtest (all skipped). The `report` stage always runs regardless.
 
-### Test — 5 jobs (GitLab CI only)
+### Test — fast gates plus protected regressions (GitLab CI only)
 
-Lightweight pre-flight checks that run before builds:
+Fast checks run on every MR, branch push, and tag through `.rules:test`:
+
+| Job | Container | Timeout | Purpose |
+|-----|-----------|---------|---------|
+| `test:fmt` | `debian:12` | 10m | `cargo fmt --check` |
+| `test:clippy` | `debian:12` | 30m | `cargo clippy` lint checks |
+| `test:rust` | `debian:12` | 30m | `cargo test` — unit tests for login routing, webview cookies, and live sync |
+| `test:coverage` | `debian:12` | 45m | `cargo llvm-cov` with Cobertura coverage report; `RUST_COVERAGE_MIN` can be set in GitLab CI variables to ratchet the required line-coverage floor after a measured baseline |
+
+Regression checks are intentionally heavier and run through `.rules:regression`:
+protected refs, tags, schedules, or explicit web/API pipelines with
+`RUN_REGRESSION_TESTS=true`. They remain manually playable from other refs.
 
 | Job | Container | Timeout | Purpose |
 |-----|-----------|---------|---------|
@@ -103,7 +123,10 @@ Lightweight pre-flight checks that run before builds:
 | `test:clippy` | `debian:12` | 30m | `cargo clippy` lint checks |
 | `test:rust` | `debian:12` | 30m | `cargo test` — unit tests for login routing, webview cookies, and live sync |
 
-The same regression checks also run on GitHub via `sanity.yml` (push/PR to `main`), covering login-routing regression, sync regression, and Rust unit tests — but no `fmt` or `clippy` checks on GitHub. No package building occurs there.
+The same regression checks also run on GitHub via `sanity.yml` (push/PR to
+`main`), covering login-routing regression, sync regression, and Rust unit tests
+— but no `fmt`, `clippy`, or GitLab Cobertura coverage checks on GitHub. No
+package building occurs there.
 
 ### Gate — 1 job (GitLab CI only)
 
@@ -152,8 +175,11 @@ WebKit renderer time to hydrate the React app on the VM.
 | `report:ui-screenshots` | Compositor screenshot gallery | Artifact browser |
 | `pages` | Aggregated dashboard | GitLab Pages (requires DNS) |
 
-**Build deduplication:** builds are skipped when no source file changed. Transfer
-still runs using the last successful artifact from this branch. See
+**Build deduplication:** build and downstream smoke jobs use `changes:` rules so
+protected branch pipelines skip the expensive artifact chain for docs-only or
+other non-build-affecting changes. When a transfer job is manually played without
+a fresh producer artifact, `fetch-latest-artifact.sh` can restore the last
+successful package artifact for that build job. See
 [Build Deduplication and Artifact Reuse](./build-deduplication.md) for the full
 mechanism including `fetch-latest-artifact.sh` and `optional: true` semantics.
 
@@ -218,10 +244,9 @@ output. The common flow is:
 - All build jobs have a 2-hour timeout and per-job Rust caches (`.cargo/` +
   `src-tauri/target/`) with a 2-hour TTL.
 
-### Spec (GitLab CI only)
+### Spec
 
-Package specification generation runs in the `spec` stage. These jobs are **not
-mirrored** in GitHub Actions.
+Package specification generation runs in the `spec` stage.
 
 | Job | Output | Container |
 |-----|--------|-----------|
@@ -229,8 +254,9 @@ mirrored** in GitHub Actions.
 | `spec:rpm-spec` | `proton-drive.spec` for RPM | `node:22` |
 | `spec:source-dist` | Source tarball + SHA256 | `alpine/git:latest` |
 
-All spec jobs use `.rules:build` (run on MR, branch, or tag push). Artifacts
-expire after 90 days (vs 30 for build artifacts).
+All spec jobs use `.rules:build` (protected refs/tags/schedules or explicit
+`RUN_PACKAGE_BUILDS=true` pipelines, with a manual fallback). Artifacts expire
+after 90 days (vs 30 for build artifacts).
 
 ### Release
 
@@ -285,6 +311,8 @@ All build jobs require `workflow_dispatch`, gated by an `if: github.event_name =
 The GitHub `sanity.yml` workflow is manual-only. It no longer runs on every branch push or PR.
 
 Package, spec, release, and publish work is release-gated. GitLab only creates pipelines for semantic `v*` release tags or explicit release-test web/API pipelines with `RUN_RELEASE_TESTS=true`. GitHub package workflows run on `v*` tag pushes or manual dispatch on a `v*` tag ref.
+
+Package, spec, release, and publish jobs are tag-only. In GitLab they require a `v*` tag pipeline. In GitHub, `package-workflows.yml` remains manually dispatched, but package/spec/release/publish jobs additionally require the selected dispatch ref to be a `v*` tag (`refs/tags/v*`).
 
 Package, spec, release, and publish jobs are tag-only. In GitLab they require a `v*` tag pipeline. In GitHub, `package-workflows.yml` remains manually dispatched, but package/spec/release/publish jobs additionally require the selected dispatch ref to be a `v*` tag (`refs/tags/v*`).
 
@@ -476,7 +504,7 @@ You can reproduce most CI build steps locally:
 | Artifact manifest | `scripts/ci/write-artifact-manifest.sh` | Same script |
 | DEB package | `npx tauri build --bundles deb` | Same (needs system deps) |
 | RPM package | `npx tauri build --bundles rpm` | Same (needs system deps) |
-| AUR package | `scripts/ci/build-aur-package.sh` | Same (needs Arch tooling) |
+| AUR package | `scripts/ci/build/aur-package.sh` | Same (needs Arch tooling) |
 | APK archive | Inline tar commands | Manual tar of staged dir |
 | Flatpak bundle | `flatpak-builder` commands | Same (needs flatpak tooling) |
 | AppImage | `appimagetool` commands | Same |
