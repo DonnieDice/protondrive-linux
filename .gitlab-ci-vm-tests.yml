@@ -3,8 +3,9 @@
 # as /root/.ssh:ro, so these jobs can use SSH aliases from that config.
 #
 # VMs available in SSH config:
-#   debian12 (192.168.1.162), alpine320 (192.168.1.157),
-#   alpine322 (192.168.1.126), arch (192.168.1.128),
+#   debian12 (192.168.1.162), debian13 (192.168.1.120),
+#   alpine320 (192.168.1.157), alpine322 (192.168.1.126),
+#   arch (192.168.1.128), ubuntu2404 (192.168.1.219),
 #   ubuntu2604 (192.168.1.168)
 
 vm:ssh:smoke:
@@ -125,7 +126,8 @@ vm:install:ubuntu2604:
   before_script:
     - apk add --no-cache openssh-client bash
   script:
-    - ssh -o BatchMode=yes "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "not installed on $VM_HOST"; exit 1; }
+    - echo "Running regression tests on $VM_HOST..."
+    - ssh -o BatchMode=yes "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "proton-drive not installed on $VM_HOST"; exit 1; }
     - scp -o BatchMode=yes tests/regression/*.sh "$VM_HOST:/tmp/regression/" 2>/dev/null
     - ssh -o BatchMode=yes "$VM_HOST" "mkdir -p /tmp/regression && cd /tmp/regression && for f in *.sh; do bash \$f 2>&1; done"
     - echo "Regression tests on $VM_HOST completed"
