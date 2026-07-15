@@ -38,6 +38,35 @@ test:sidebar-regression:
     - apk add --no-cache bash
     - bash tests/regression/sidebar.sh
 
+# ─── Test: Python Unit Tests ──────────────────────────────────────────────────
+# Runs the pytest unit suite under tests/unit/ on Python 3.12. Catches drift in
+# the VM matrix, artifact-keying helpers, CI deploy lib (_common.sh), etc.
+# Bash-script subprocess tests skip on Windows (handled by conftest); on Linux
+# CI all 80 tests run.
+
+test:pytest:
+  extends: .rules:test
+  stage: test
+  image: python:3.12-slim
+  allow_failure: true
+  timeout: 10m
+  dependencies: []
+  cache: []
+  before_script:
+    - apt-get update -qq && apt-get install -y -qq bash openssh-client
+    - python -m pip install --no-cache-dir -r tests/requirements.txt
+  script:
+    - python -m pytest tests/unit/ -q --no-header --junitxml=reports/pytest.xml
+    - mkdir -p public/pytest || true
+    - cp reports/pytest.xml public/pytest/ 2>/dev/null || true
+  artifacts:
+    when: always
+    paths:
+      - reports/pytest.xml
+    reports:
+      junit: reports/pytest.xml
+    expire_in: 14 days
+
 # ─── Test: Rust Format Check ──────────────────────────────────────────────────
 
 test:fmt:
