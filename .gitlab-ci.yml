@@ -7,8 +7,6 @@ variables:
   WEBCLIENTS_REF: main
   WEBCLIENTS_COMMIT: "bbad1a0a482227b93a2e963a232463aede9b8abf"
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
-  DOCKER_HOST: tcp://docker:2375
-  DOCKER_TLS_CERTDIR: ""
   DOC_AUDIT_WINDOW_HOURS: "24"
 
 stages:
@@ -1347,17 +1345,19 @@ build:rpm:opensuse-tumbleweed:
     expire_in: 30 days
 
 # ─── Snap ─────────────────────────────────────────────────────────────────────
-# NOTE: Snap jobs require Docker-in-Docker. The runner must have privileged = true
-# in its config.toml. Enable it by running:
-#   docker exec gitlab-runner sed -i 's/privileged = false/privileged = true/' /etc/gitlab-runner/config.toml
+# NOTE: Snap jobs run snapcraft inside the canonical snapcraft image via the
+# host Docker daemon (the runner bind-mounts /var/run/docker.sock into the job).
+# They do NOT use a docker:dind service: on this socket-binding runner the
+# mounted host socket occupies /var/run/docker.sock, so a dind daemon can't
+# start ("device or resource busy"), and bind mounts of job-local paths resolve
+# empty against the host daemon. scripts/ci/snapcraft-pack.sh streams the build
+# context in and the snap out with `docker cp` to avoid both problems.
 
 build:snap:core24:
   extends: .rules:build
   stage: build
   image: ubuntu:24.04
   timeout: 2h
-  services:
-    - docker:dind
   variables:
     DISTRO_PATCH: core24
     DEBIAN_FRONTEND: noninteractive
@@ -1395,14 +1395,7 @@ build:snap:core24:
       cp src-tauri/target/release/proton-drive "$BUILD_CONTEXT/src-tauri/target/release/"
       cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
       sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml > "$BUILD_CONTEXT/snapcraft.yaml"
-      docker run --rm --entrypoint "" \
-        -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
-        snapcraft pack --destructive-mode --output /project
-      SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
-      [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
-      mkdir -p artifacts
-      mv "$SNAP_FILE" "artifacts/proton-drive_${VERSION}_core24_amd64.snap"
+      bash scripts/ci/snapcraft-pack.sh "$BUILD_CONTEXT" "artifacts/proton-drive_${VERSION}_core24_amd64.snap"
       rm -rf "$BUILD_CONTEXT"
   artifacts:
     paths: [artifacts/]
@@ -1413,8 +1406,6 @@ build:snap:core26:
   stage: build
   image: ubuntu:24.04
   timeout: 2h
-  services:
-    - docker:dind
   variables:
     DISTRO_PATCH: core26
     DEBIAN_FRONTEND: noninteractive
@@ -1456,14 +1447,7 @@ build:snap:core26:
         sed -e "s/base: core24/base: core26/" \
             -e "s/grade: stable/grade: devel/" \
             -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
-      docker run --rm --entrypoint "" \
-        -v "$BUILD_CONTEXT":/project -w /project \
-        ghcr.io/canonical/snapcraft:8_core24 \
-        snapcraft pack --destructive-mode --output /project
-      SNAP_FILE="$(find "$BUILD_CONTEXT" -maxdepth 1 -name '*.snap' | head -1)"
-      [ -n "$SNAP_FILE" ] || { echo "No snap file found!"; exit 1; }
-      mkdir -p artifacts
-      mv "$SNAP_FILE" "artifacts/proton-drive_${VERSION}_core26_amd64.snap"
+      bash scripts/ci/snapcraft-pack.sh "$BUILD_CONTEXT" "artifacts/proton-drive_${VERSION}_core26_amd64.snap"
       rm -rf "$BUILD_CONTEXT"
   artifacts:
     paths: [artifacts/]
@@ -2053,8 +2037,6 @@ publish:snap:
   stage: publish
   image: ubuntu:24.04
   timeout: 30m
-  services:
-    - docker:dind
   variables:
     SNAP_BASE: core24
     SNAP_CHANNEL: stable
@@ -2071,21 +2053,31 @@ publish:snap:
 
       SNAP_FILE=$(find artifacts/ -name "proton-drive_*_${SNAP_BASE}_amd64.snap" | head -1)
       [ -n "$SNAP_FILE" ] || { echo "ERROR: No snap file found for ${SNAP_BASE}"; exit 1; }
+      SNAP_BN="$(basename "$SNAP_FILE")"
+
+      # Run snapcraft store commands in the snapcraft image via the host Docker
+      # socket. Stream the snap in with `docker cp` — a `docker run -v` bind
+      # mount of the job dir resolves empty against the host daemon on this
+      # socket-binding runner (see scripts/ci/snapcraft-pack.sh for the why).
+      # Store credentials are passed through the environment.
+      run_snapcraft() {
+        STAGE="$(mktemp -d)"; cp "$SNAP_FILE" "$STAGE/"
+        CID="$(docker create --entrypoint "" -w /project \
+          -e SNAPCRAFT_STORE_CREDENTIALS "$SNAPCRAFT_IMAGE" sh -c "$1")"
+        docker cp "$STAGE/." "$CID:/project"
+        local rc=0
+        docker start -a "$CID" || rc=$?
+        docker rm -f "$CID" >/dev/null 2>&1 || true
+        rm -rf "$STAGE"
+        return $rc
+      }
 
       echo "Registering snap name..."
-      docker run --rm --entrypoint "" \
-        -e SNAPCRAFT_STORE_CREDENTIALS \
-        -v "$PWD":/project -w /project \
-        "$SNAPCRAFT_IMAGE" \
-        snapcraft register --yes proton-drive || true
+      run_snapcraft "snapcraft register --yes proton-drive" || true
 
-      echo "Uploading ${SNAP_FILE} to ${SNAP_CHANNEL}..."
+      echo "Uploading ${SNAP_BN} to ${SNAP_CHANNEL}..."
       for i in 1 2 3; do
-        docker run --rm --entrypoint "" \
-          -e SNAPCRAFT_STORE_CREDENTIALS \
-          -v "$PWD":/project -w /project \
-          "$SNAPCRAFT_IMAGE" \
-          snapcraft upload "${SNAP_FILE}" --release="${SNAP_CHANNEL}" && break
+        run_snapcraft "snapcraft upload /project/${SNAP_BN} --release=${SNAP_CHANNEL}" && break
         echo "Attempt $i failed, retrying in 30s..."; sleep 30
       done
 
