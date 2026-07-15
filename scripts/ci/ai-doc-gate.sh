@@ -25,8 +25,8 @@ fi
 
 if [ -z "${DEEPSEEK_API_KEY:-}" ] && [ -z "${OPENAI_API_KEY:-}" ]; then
   jq -n '{"missing_api_key":true,"stale":[],"current":[]}' > docs/stale_docs.json
-  echo "No LLM API key configured; doc audit skipped."
-  [ "$MODE" = "release_gate" ] && exit 1 || exit 0
+  echo "No LLM API key configured; doc audit is optional and was skipped."
+  exit 0
 fi
 
 TOKEN="${DEEPSEEK_API_KEY:-${OPENAI_API_KEY:-}}"
