@@ -3,7 +3,7 @@ name = "proton-drive"
 version = "2.0.0"
 description = "Proton Drive desktop client"
 authors = ["DonnieDice"]
-license = "AGPL-3.0"
+license = "AGPL-3.0-or-later"
 edition = "2021"
 
 # Specify binary name explicitly to match everywhere

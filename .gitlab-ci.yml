@@ -279,7 +279,10 @@ security:npm-audit:
   allow_failure: true
   script:
     - npm ci --ignore-scripts
-    - npm audit --audit-level=high
+    # --omit=dev: this package.json has no runtime dependencies (the app
+    # ships a Rust/Tauri binary); npm here is only docs/CLI tooling, so
+    # scope the gate to deps that would actually ship.
+    - npm audit --omit=dev --audit-level=high
 
 security:trivy-fs:
   extends: .rules:gate

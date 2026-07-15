@@ -14,7 +14,7 @@
     "encryption"
   ],
   "author": "DonnieDice",
-  "license": "AGPL-3.0",
+  "license": "AGPL-3.0-or-later",
   "private": true,
   "engines": {
     "node": ">=20.0.0"
