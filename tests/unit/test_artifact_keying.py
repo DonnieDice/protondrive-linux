@@ -144,6 +144,7 @@ def _cache_env(tmp_path: pathlib.Path, fake_bin: pathlib.Path) -> dict[str, str]
         "CI_JOB_TOKEN": "test-token",
         "CI_JOB_NAME": "build:deb:debian-12",
         "CI_JOB_NAME_SLUG": "build-deb-debian-12",
+        "CI_JOB_STATUS": "success",
     }
 
 
