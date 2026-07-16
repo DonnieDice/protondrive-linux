@@ -113,7 +113,8 @@ echo "📦 Installing WebClients dependencies..."
 : > yarn.lock
 rm -rf .yarn/cache
 YARN="node $(ls .yarn/releases/yarn-*.cjs | head -1)"
-export NODE_OPTIONS="--max-old-space-size=2048"
+: "${NODE_OPTIONS:=--max-old-space-size=4096}"
+export NODE_OPTIONS
 export SHARP_IGNORE_GLOBAL_LIBVIPS=1
 $YARN install || $YARN install --network-timeout 300000
 
@@ -131,7 +132,7 @@ $YARN workspace proton-drive build:web 2>&1 | tee /tmp/drive-build.log \
 
 echo "🔨 Building Account app..."
 $YARN workspace proton-account build:web 2>&1 | tee /tmp/account-build.log \
-  && echo "✅ Account build complete" || echo "⚠️  Account build failed (login may not work)"
+  && echo "✅ Account build complete" || { echo "❌ Account build failed"; exit 1; }
 
 echo "🔨 Building Verify app..."
 $YARN workspace proton-verify build:web 2>&1 | tee /tmp/verify-build.log \

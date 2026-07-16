@@ -7,6 +7,12 @@ variables:
   WEBCLIENTS_REF: main
   WEBCLIENTS_COMMIT: "bbad1a0a482227b93a2e963a232463aede9b8abf"
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
+  # Cap cargo parallelism per job so concurrent distro builds do not oversubscribe
+  # the shared runner CPU set.
+  CARGO_BUILD_JOBS: "4"
+  # Webpack-heavy WebClients builds can exceed Node's default heap and abort
+  # during packaging unless the limit is raised explicitly.
+  NODE_OPTIONS: "--max-old-space-size=4096"
   DOC_AUDIT_WINDOW_HOURS: "24"
   # Package outputs are stored by deterministic build key in the Generic
   # Package Registry. A follow-up pipeline can restore them before installing
