@@ -32,8 +32,6 @@ import { useEffect, useState } from 'react';
 
 import { c } from 'ttag';
 
-import { Button } from '@proton/atoms';
-
 import DriveQuickSettings from './DriveQuickSettings';
 
 // ── Tauri bridge ──────────────────────────────────────────────────────────────
@@ -121,16 +119,15 @@ const DriveLinuxPanel = () => {
                 )}
 
                 {status?.enabled && (
-                    <Button
-                        size="small"
-                        shape="outline"
-                        color="weak"
+                    <button
+                        type="button"
+                        className="button button-outline-weak button-small"
                         onClick={handleStopSync}
-                        loading={busy}
+                        disabled={busy}
                         aria-label={c('Action').t`Stop live sync`}
                     >
-                        {c('Action').t`Stop sync`}
-                    </Button>
+                        {busy ? c('Info').t`Stopping…` : c('Action').t`Stop sync`}
+                    </button>
                 )}
 
                 {!status && getTauri() && (

@@ -59,9 +59,8 @@ if [ ! -d "$WEBCLIENTS_DIR/.git" ]; then
 fi
 
 if [ ! -d "$WEBCLIENTS_DIR" ]; then
-  echo "📥 WebClients checkout missing; cloning once..."
-  WEBCLIENTS_REF="${WEBCLIENTS_REF:-main}"
-  git clone --depth=1 --single-branch --branch "$WEBCLIENTS_REF" https://github.com/ProtonMail/WebClients.git "$WEBCLIENTS_DIR"
+  echo "📥 WebClients checkout missing; fetching pinned checkout..."
+  bash "$REPO_ROOT/scripts/ci/lib/fetch-webclients.sh"
 fi
 
 if [ ! -d "$WEBCLIENTS_DIR/.git" ]; then

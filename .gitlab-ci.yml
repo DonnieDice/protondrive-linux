@@ -438,13 +438,7 @@ docs:auto-update:
   rustc --version && cargo --version
 
 .clone_webclients: &clone_webclients |
-  if [ -d "WebClients/.git" ]; then
-    echo "✅ WebClients already cloned – resetting to ${WEBCLIENTS_REF}"
-    cd WebClients && git fetch origin "${WEBCLIENTS_REF}" && git checkout "origin/${WEBCLIENTS_REF}" && git clean -fd && cd ..
-  else
-    rm -rf WebClients
-    git clone --depth=1 --single-branch --branch "${WEBCLIENTS_REF}" https://github.com/ProtonMail/WebClients.git WebClients
-  fi
+  bash scripts/ci/lib/fetch-webclients.sh
 
 # ─── APK ──────────────────────────────────────────────────────────────────────
 
@@ -767,11 +761,7 @@ build:aur:
       tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
     - rustup default "${RUST_VERSION}"
     - *install_rust
-    - |
-      rm -rf WebClients
-      git clone --filter=blob:none --no-checkout https://github.com/ProtonMail/WebClients.git WebClients
-      git -C WebClients fetch --depth=1 origin "${WEBCLIENTS_COMMIT}"
-      git -C WebClients checkout --detach "${WEBCLIENTS_COMMIT}"
+    - bash scripts/ci/lib/fetch-webclients.sh
     - |
       AUR_PATCH="patches/aur/arch-native.patch"
       if [ -f "$AUR_PATCH" ]; then
@@ -1339,10 +1329,11 @@ build:rpm:opensuse-tumbleweed:
       done
     - |
       for i in 1 2 3; do
-        zypper --non-interactive install bash git curl wget gcc gcc-c++ make file
-          pkgconf-pkg-config libopenssl-devel gtk3-devel
-          libappindicator3-devel libayatana-appindicator3-devel
-          librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0
+        zypper --non-interactive install \
+          bash git curl wget gcc gcc-c++ make file \
+          pkgconf-pkg-config libopenssl-devel gtk3-devel \
+          libappindicator3-devel libayatana-appindicator3-devel \
+          librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0 \
           patchelf rpm-build nodejs-default npm-default python313 findutils which && break
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
@@ -1437,6 +1428,7 @@ build:snap:core26:
   variables:
     DISTRO_PATCH: core26
     DEBIAN_FRONTEND: noninteractive
+    SNAPCRAFT_IMAGE: ghcr.io/canonical/snapcraft:stable
   cache:
     key: snap-core26-cargo
     paths: [.cargo/, src-tauri/target/]
@@ -1473,8 +1465,7 @@ build:snap:core26:
       cp src-tauri/icons/32x32.png src-tauri/icons/128x128.png src-tauri/icons/proton-drive.svg "$BUILD_CONTEXT/src-tauri/icons/"
       sed "s/PLACEHOLDER/$VERSION/" packaging/snap/snapcraft.yaml | \
         sed -e "s/base: core24/base: core26/" \
-            -e "s/grade: stable/grade: devel/" \
-            -e "/^base: core26/a\\build-base: devel" > "$BUILD_CONTEXT/snapcraft.yaml"
+            -e "s/grade: stable/grade: devel/" > "$BUILD_CONTEXT/snapcraft.yaml"
       bash scripts/ci/snapcraft-pack.sh "$BUILD_CONTEXT" "artifacts/proton-drive_${VERSION}_core26_amd64.snap"
       rm -rf "$BUILD_CONTEXT"
   artifacts:
