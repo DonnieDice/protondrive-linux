@@ -45,9 +45,35 @@ Build-affecting environment values included in the hash stream include
 `DISTRO_PATCH`, `APPIMAGE_TARGET`, `FLATPAK_TARGET`, `SNAP_BASE`, and
 `CI_RUNNER_EXECUTABLE_ARCH`.
 
-This MR only adds the deterministic key and manifest metadata foundation. The
-follow-up registry MR will use the key to download/upload package files from the
-GitLab Generic Package Registry before running expensive compiles.
+The shared build template uses this key as the version of a
+`proton-drive-build-cache` package in the GitLab Generic Package Registry. This
+makes reuse independent of branch name or pipeline status while keeping it tied
+to the exact build inputs.
+
+### Run-again and cross-pipeline reuse
+
+Every package build runs `build-artifact-cache.sh restore` in `before_script`,
+before the distro toolchain is installed. The helper:
+
+1. Resolves the package type and target from the build job.
+2. Computes the deterministic build key.
+3. Downloads `artifact-cache.tar.gz` for that exact key from the Generic Package
+   Registry using `CI_JOB_TOKEN`.
+4. Verifies the embedded key and SHA-256 checksums.
+5. Restores `artifacts/` and exits the build job successfully on a hit.
+
+On a miss, the normal build runs. Its shared `after_script` packages the output,
+writes the existing artifact manifest metadata, and uploads the verified archive
+under the build key. Upload failures are warnings: the freshly built GitLab job
+artifact remains authoritative and downstream jobs are unaffected.
+
+This is the run-again path for superseding fix pipelines. A new pipeline can
+reuse successful package outputs from an earlier pipeline even if that earlier
+pipeline ultimately failed or was canceled, because reuse is keyed by build
+inputs rather than overall pipeline status.
+
+Set `FORCE_REBUILD=true` when starting a pipeline to bypass all package artifact
+hits. Set `REUSE_BUILD_ARTIFACTS=false` to disable both lookup and publication.
 
 ### 1. `changes:` rules on `.rules:build`
 
@@ -169,13 +195,11 @@ normally with the restored artifact.
 
 ## Known Limitations
 
-**1. No source-state verification on fetched artifacts.**
-`fetch-latest-artifact.sh` downloads from the last successful pipeline without
-checking that the artifact was built from a compatible source state. If there is
-a divergence between the artifact's source and the current branch head (e.g., a
-source change that failed to build), the test run will be against a stale binary.
-Mitigating factor: this only applies to CI-only change commits; source change
-commits always rebuild.
+**1. Legacy branch-scoped fallback.**
+`fetch-latest-artifact.sh` still supports transfer jobs created without a fresh
+or registry-restored build job. That fallback selects the last successful job on
+the ref. Normal and run-again build jobs use the content-addressed registry path,
+including embedded-key and checksum verification.
 
 **2. First-build cliff on new branches.**
 A new branch that has never had a successful build and receives only a CI-only
@@ -207,3 +231,4 @@ hatch but may look noisy on CI-only commits.
 | `.gitlab/workflows/transfer/*.yml` | `BUILD_JOB_NAME` variable + `optional: true` per distro |
 | `scripts/ci/lib/fetch-webclients.sh` | Cache-aware WebClients checkout |
 | `scripts/ci/lib/fetch-latest-artifact.sh` | GitLab API artifact download for skipped builds |
+| `scripts/ci/lib/build-artifact-cache.sh` | Verified Generic Package Registry restore/publish path |

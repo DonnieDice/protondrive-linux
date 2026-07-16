@@ -12,6 +12,8 @@ variables:
   # Cap Node/webpack heap per job. Webpack OOMs at 8 concurrent builds without
   # this limit. 4 GB x 8 jobs = 32 GB peak Node usage, leaving headroom in 48 GB.
   NODE_OPTIONS: "--max-old-space-size=4096"
+  REUSE_BUILD_ARTIFACTS: "true"
+  BUILD_ARTIFACT_CACHE_PACKAGE: "proton-drive-build-cache"
 
 # ─── Rule templates ───────────────────────────────────────────────────────────
 
@@ -43,6 +45,10 @@ variables:
 .rules:build:
   interruptible: true
   retry: 1   # webpack OOM (SIGKILL) is intermittent under parallel runner load
+  before_script:
+    - if sh scripts/ci/lib/build-artifact-cache.sh restore; then exit 0; fi
+  after_script:
+    - sh scripts/ci/lib/build-artifact-cache.sh publish
   rules:
     # Package/spec builds are release work only. Branch and MR pipelines are
     # blocked at workflow level; explicit release-test pipelines run tests only.

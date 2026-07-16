@@ -8,6 +8,11 @@ variables:
   WEBCLIENTS_COMMIT: "bbad1a0a482227b93a2e963a232463aede9b8abf"
   CARGO_HOME: "${CI_PROJECT_DIR}/.cargo"
   DOC_AUDIT_WINDOW_HOURS: "24"
+  # Package outputs are stored by deterministic build key in the Generic
+  # Package Registry. A follow-up pipeline can restore them before installing
+  # distro toolchains; set FORCE_REBUILD=true for a deliberate cold rebuild.
+  REUSE_BUILD_ARTIFACTS: "true"
+  BUILD_ARTIFACT_CACHE_PACKAGE: "proton-drive-build-cache"
 
 stages:
   - detect
@@ -40,6 +45,10 @@ workflow:
     - if: '$CI_PIPELINE_SOURCE == "api" && $RUN_DOC_AUDIT == "true"'
     - when: never
 .rules:build:
+  before_script:
+    - if sh scripts/ci/lib/build-artifact-cache.sh restore; then exit 0; fi
+  after_script:
+    - sh scripts/ci/lib/build-artifact-cache.sh publish
   rules:
     - if: $CI_COMMIT_TAG
     - if: '$CI_PIPELINE_SOURCE == "web" && $RUN_RELEASE_TESTS == "true"'
@@ -752,7 +761,9 @@ build:aur:
       # don't declare, breaking the webpack build. Every other distro job pins
       # Node 22.x via NodeSource; do the same here from the official tarball
       # since Arch has no NodeSource repo.
-      NODE_VERSION="$(curl -fsSL https://nodejs.org/dist/index.tab | awk -v maj="v22." '$1 ~ "^"maj {print $1; exit}')"
+      curl -fsSL https://nodejs.org/dist/index.tab -o /tmp/node-index.tab
+      NODE_VERSION="$(awk -v maj="v22." '$1 ~ "^"maj {print $1; exit}' /tmp/node-index.tab)"
+      [ -n "$NODE_VERSION" ] || { echo "ERROR: unable to resolve the latest Node 22 release"; exit 1; }
       curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
       tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
     - rustup default "${RUST_VERSION}"

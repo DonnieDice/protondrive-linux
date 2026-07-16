@@ -330,7 +330,13 @@ build:aur:
   script:
     - pacman -Sy --noconfirm --needed bash git curl wget file pkg-config
         webkit2gtk-4.1 gtk3 libayatana-appindicator openssl librsvg libsoup3
-        nodejs npm python rustup base-devel patch
+        python rustup base-devel patch
+    - |
+      curl -fsSL https://nodejs.org/dist/index.tab -o /tmp/node-index.tab
+      NODE_VERSION="$(awk -v maj="v22." '$1 ~ "^"maj {print $1; exit}' /tmp/node-index.tab)"
+      [ -n "$NODE_VERSION" ] || { echo "ERROR: unable to resolve the latest Node 22 release"; exit 1; }
+      curl -fsSL "https://nodejs.org/dist/${NODE_VERSION}/node-${NODE_VERSION}-linux-x64.tar.xz" -o /tmp/node.tar.xz
+      tar -xJf /tmp/node.tar.xz -C /usr/local --strip-components=1
     - rustup default "${RUST_VERSION}"
     - source scripts/ci/lib/install-rust.sh
     - bash scripts/ci/lib/fetch-webclients.sh

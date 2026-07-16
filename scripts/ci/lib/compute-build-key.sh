@@ -49,9 +49,12 @@ DEFAULT_PATHS=(
   Cargo.toml
   Cargo.lock
   scripts/build-webclients.sh
+  scripts/ci/build
   scripts/ci/lib/install-rust.sh
   scripts/ci/lib/fetch-webclients.sh
   scripts/ci/lib/compute-build-key.sh
+  scripts/ci/snapcraft-pack.sh
+  packaging
   .gitlab/workflows/_shared.yml
   .gitlab/workflows/builds.yml
 )
