@@ -1324,17 +1324,30 @@ build:rpm:opensuse-tumbleweed:
   script:
     - |
       for i in 1 2 3 4 5; do
-        zypper --non-interactive --gpg-auto-import-keys refresh && break
+        if zypper --non-interactive --gpg-auto-import-keys refresh; then
+          break
+        fi
+        if [ "$i" -eq 5 ]; then
+          echo "zypper refresh failed after $i attempts"
+          exit 1
+        fi
         echo "zypper refresh failed, retrying ($i/5)..."; sleep $((i * 10))
       done
     - |
       for i in 1 2 3; do
-        zypper --non-interactive install \
+        zypper --non-interactive remove -y busybox-gawk || true
+        if zypper --non-interactive install \
           bash git curl wget gcc gcc-c++ make file \
-          pkgconf-pkg-config libopenssl-devel gtk3-devel \
+          gawk pkgconf-pkg-config libopenssl-devel gtk3-devel \
           libappindicator3-devel libayatana-appindicator3-devel \
           librsvg-devel libsoup-devel webkitgtk3-devel libwebkit2gtk-4_1-0 \
-          patchelf rpm-build nodejs-default npm-default python313 findutils which && break
+          patchelf rpm-build nodejs-default npm-default python313 findutils which; then
+          break
+        fi
+        if [ "$i" -eq 3 ]; then
+          echo "zypper install failed after $i attempts"
+          exit 1
+        fi
         echo "zypper install failed, retrying ($i/3)..."; sleep $((i * 10))
       done
     - *install_rust
