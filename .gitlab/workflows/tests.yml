@@ -50,7 +50,6 @@ test:pytest:
   extends: .rules:test
   stage: test
   image: python:3.12-slim
-  allow_failure: true
   timeout: 10m
   dependencies: []
   cache: []
@@ -75,7 +74,6 @@ test:fmt:
   extends: .rules:test
   stage: test
   image: debian:12
-  allow_failure: true
   timeout: 10m
   dependencies: []
   variables:
@@ -98,7 +96,6 @@ test:clippy:
   extends: .rules:test
   stage: test
   image: debian:12
-  allow_failure: true
   timeout: 30m
   dependencies: []
   variables:
@@ -128,7 +125,6 @@ test:rust:
   extends: .rules:test
   stage: test
   image: debian:12
-  allow_failure: true
   timeout: 30m
   dependencies: []
   variables:
