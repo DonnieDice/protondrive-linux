@@ -776,7 +776,7 @@ build:aur:
     - sed -i "0,/^version = \"[^\"]*\"/s//version = \"$VERSION\"/" src-tauri/Cargo.toml
     - npm ci
     - cargo build --manifest-path src-tauri/Cargo.toml --release
-    - scripts/ci/build-aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
+    - scripts/ci/build/aur-package.sh "arch-native" "$VERSION" "src-tauri/target/release/proton-drive" "src-tauri/icons"
     - |
       cd packaging/aur
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
