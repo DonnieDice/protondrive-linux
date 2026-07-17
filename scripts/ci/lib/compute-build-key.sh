@@ -38,10 +38,10 @@ if ! command -v sha256sum >/dev/null 2>&1; then
   exit 1
 fi
 
-# Common build inputs. Git pathspec ordering is deterministic because we sort the
-# resulting index entries by path before hashing. This avoids filesystem traversal
-# order differences between runners.
-DEFAULT_PATHS=(
+# Common product-affecting build inputs. Keep this list scoped to sources and
+# shared build scripts so unrelated packaging changes do not invalidate every
+# package cache entry on reruns.
+COMMON_PATHS=(
   src
   src-tauri
   package.json
@@ -52,12 +52,30 @@ DEFAULT_PATHS=(
   scripts/ci/build
   scripts/ci/lib/install-rust.sh
   scripts/ci/lib/fetch-webclients.sh
-  scripts/ci/lib/compute-build-key.sh
-  scripts/ci/snapcraft-pack.sh
-  packaging
-  .gitlab/workflows/_shared.yml
-  .gitlab/workflows/builds.yml
 )
+
+package_paths() {
+  case "$PACKAGE_TYPE" in
+    appimage)
+      printf '%s\n' packaging/appimage
+      ;;
+    aur)
+      printf '%s\n' packaging/aur
+      ;;
+    deb)
+      printf '%s\n' packaging/deb
+      ;;
+    flatpak)
+      printf '%s\n' packaging/flatpak
+      ;;
+    rpm)
+      printf '%s\n' packaging/rpm
+      ;;
+    snap)
+      printf '%s\n' packaging/snap scripts/ci/snapcraft-pack.sh
+      ;;
+  esac
+}
 
 # Include the target-specific patch if it exists. Some package types use labels
 # that are already patch names (deb/rpm/snap/flatpak/apk). AppImage uses a named
@@ -74,7 +92,10 @@ case "$PACKAGE_TYPE" in
     ;;
 esac
 
-PATHS=("${DEFAULT_PATHS[@]}")
+PATHS=("${COMMON_PATHS[@]}")
+while IFS= read -r package_path; do
+  [ -n "$package_path" ] && PATHS+=("$package_path")
+done < <(package_paths)
 if [ -n "$PATCH_PATH" ] && [ -e "$PATCH_PATH" ]; then
   PATHS+=("$PATCH_PATH")
 fi
