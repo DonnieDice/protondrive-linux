@@ -372,15 +372,16 @@ docs:audit-gate:
     - |
       if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then
         export MODE="schedule"
-        export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"
+        git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) > docs/ci-doc-diffs.patch || true
       else
         export MODE="${DOC_AUDIT_MODE:-release_gate}"
         BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"
         if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq '^0+$' || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then
           BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"
         fi
-        export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"
+        git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) > docs/ci-doc-diffs.patch || true
       fi
+      export DIFFS_FILE="$CI_PROJECT_DIR/docs/ci-doc-diffs.patch"
     - bash scripts/ci/ai-doc-gate.sh
   artifacts:
     when: always
@@ -415,7 +416,7 @@ docs:auto-update:
     - apk add --no-cache bash curl git jq python3
   script:
     - 'export AFFECTED_JSON="docs/affected_docs.json"'
-    - 'if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then export DIFFS="$(git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) || true)"; else BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"; if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq "^0+$" || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"; fi; export DIFFS="$(git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) || true)"; fi'
+    - 'if [ "$CI_PIPELINE_SOURCE" = "schedule" ]; then git log --since="${DOC_AUDIT_WINDOW_HOURS:-24} hours ago" --patch --pretty=short -- $(cat changed_files.txt) > docs/ci-doc-diffs.patch || true; else BASE_SHA="${CI_MERGE_REQUEST_TARGET_BRANCH_SHA:-${CI_COMMIT_BEFORE_SHA:-}}"; if [ -z "$BASE_SHA" ] || echo "$BASE_SHA" | grep -Eq "^0+$" || ! git cat-file -e "${BASE_SHA}^{commit}" 2>/dev/null; then BASE_SHA="$(git rev-parse HEAD~1 2>/dev/null || true)"; fi; git diff "$BASE_SHA".."$CI_COMMIT_SHA" -- $(cat changed_files.txt) > docs/ci-doc-diffs.patch || true; fi; export DIFFS_FILE="$CI_PROJECT_DIR/docs/ci-doc-diffs.patch"'
     - bash scripts/ci/ai-doc-update.sh
     - 'if git diff --quiet docs/ README.md; then echo "No doc changes needed."; exit 0; fi'
     - 'git config user.name "${DOC_AUDIT_BOT_NAME:-doc-audit-bot}"'

@@ -6,6 +6,10 @@ STALE_JSON="${STALE_JSON:-docs/stale_docs.json}"
 MODEL="${DOC_AUDIT_MODEL:-deepseek-chat}"
 API_URL="${DOC_AUDIT_API_URL:-https://api.deepseek.com/chat/completions}"
 
+if [ -n "${DIFFS_FILE:-}" ] && [ -f "$DIFFS_FILE" ]; then
+  DIFFS="$(cat "$DIFFS_FILE")"
+fi
+
 if [ ! -s "$AFFECTED_JSON" ] || [ "$(jq 'length' "$AFFECTED_JSON" 2>/dev/null || echo 0)" = "0" ]; then
   echo "No affected docs for update."
   exit 0
