@@ -17,11 +17,44 @@
 #
 # Usage: snapcraft-pack.sh <build-context-dir> <output-snap-path>
 #   SNAPCRAFT_IMAGE overrides the snapcraft image (default: core24 8.x).
+#   SNAPCRAFT_BOOTSTRAP_VERSION builds and reuses a local Docker image with
+#   that Snapcraft release. This is used for bases newer than the published
+#   Canonical Snapcraft rock supports.
 set -euo pipefail
 
 BUILD_CONTEXT="${1:?build context dir required}"
 OUTPUT_SNAP="${2:?output snap path required}"
 SNAPCRAFT_IMAGE="${SNAPCRAFT_IMAGE:-ghcr.io/canonical/snapcraft:8_core24}"
+SNAPCRAFT_BOOTSTRAP_VERSION="${SNAPCRAFT_BOOTSTRAP_VERSION:-}"
+
+if [ -n "$SNAPCRAFT_BOOTSTRAP_VERSION" ]; then
+  if ! docker image inspect "$SNAPCRAFT_IMAGE" >/dev/null 2>&1; then
+    echo "Building reusable Snapcraft ${SNAPCRAFT_BOOTSTRAP_VERSION} image: $SNAPCRAFT_IMAGE"
+    docker build \
+      --build-arg "SNAPCRAFT_VERSION=$SNAPCRAFT_BOOTSTRAP_VERSION" \
+      --tag "$SNAPCRAFT_IMAGE" \
+      - <<'DOCKERFILE'
+FROM ubuntu:26.04
+
+ARG SNAPCRAFT_VERSION
+ENV DEBIAN_FRONTEND=noninteractive
+ENV PATH=/opt/snapcraft-venv/bin:$PATH
+
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends \
+        ca-certificates \
+        git \
+        python3 \
+        python3-venv \
+        squashfs-tools \
+    && python3 -m venv /opt/snapcraft-venv \
+    && /opt/snapcraft-venv/bin/pip install --no-cache-dir \
+        "git+https://github.com/canonical/snapcraft.git@${SNAPCRAFT_VERSION}" \
+    && snapcraft --version \
+    && rm -rf /var/lib/apt/lists/*
+DOCKERFILE
+  fi
+fi
 
 # Create (not run) the container so we can stream the context in before it
 # starts. Output goes to a dedicated /out dir so we copy back only the snap,

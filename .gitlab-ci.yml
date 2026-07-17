@@ -1441,7 +1441,11 @@ build:snap:core26:
   variables:
     DISTRO_PATCH: core26
     DEBIAN_FRONTEND: noninteractive
-    SNAPCRAFT_IMAGE: ghcr.io/canonical/snapcraft:stable
+    # Canonical's published Snapcraft rock currently ends at the 8.x line,
+    # while core26 requires Snapcraft 9.x. Build this version once on the
+    # socket-bound runner and reuse it for later pipeline attempts.
+    SNAPCRAFT_IMAGE: protondrive/snapcraft:9.0.0-core26
+    SNAPCRAFT_BOOTSTRAP_VERSION: 9.0.0
   cache:
     key: snap-core26-cargo
     paths: [.cargo/, src-tauri/target/]
