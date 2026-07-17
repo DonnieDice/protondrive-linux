@@ -2,7 +2,7 @@
 # Pack a snap with the canonical snapcraft image via the host Docker socket.
 #
 # Why docker cp instead of `docker run -v`:
-# This project's GitLab runner uses the "socket binding" pattern — the host
+# This project's GitLab runner uses the "socket binding" pattern -- the host
 # /var/run/docker.sock is bind-mounted into every job and the runner uses host
 # networking. In that topology a `docker run -v <jobpath>:/project` bind mount
 # resolves against the *host* filesystem, not the job container's, so a build
@@ -46,9 +46,10 @@ RUN apt-get update -qq \
         ca-certificates \
         git \
         python3 \
+        python3-apt \
         python3-venv \
         squashfs-tools \
-    && python3 -m venv /opt/snapcraft-venv \
+    && python3 -m venv --system-site-packages /opt/snapcraft-venv \
     && /opt/snapcraft-venv/bin/pip install --disable-pip-version-check --no-cache-dir --quiet \
         "git+https://github.com/canonical/snapcraft.git@${SNAPCRAFT_VERSION}" \
     && snapcraft --version \
