@@ -27,14 +27,37 @@ OUTPUT_SNAP="${2:?output snap path required}"
 SNAPCRAFT_IMAGE="${SNAPCRAFT_IMAGE:-ghcr.io/canonical/snapcraft:8_core24}"
 SNAPCRAFT_BOOTSTRAP_VERSION="${SNAPCRAFT_BOOTSTRAP_VERSION:-}"
 SNAPCRAFT_BOOTSTRAP_IMAGE_BASE="${SNAPCRAFT_BOOTSTRAP_IMAGE_BASE:-ubuntu:24.04}"
+SNAPCRAFT_BOOTSTRAP_CACHE_KEY="${SNAPCRAFT_BOOTSTRAP_CACHE_KEY:-v1}"
+
+bootstrap_image_matches() {
+  [ -n "$SNAPCRAFT_BOOTSTRAP_VERSION" ] || return 1
+  docker image inspect "$SNAPCRAFT_IMAGE" >/dev/null 2>&1 || return 1
+
+  local image_base image_version image_cache_key
+  image_base="$(docker image inspect --format '{{ index .Config.Labels "protondrive.snapcraft-base" }}' \
+    "$SNAPCRAFT_IMAGE" 2>/dev/null || true)"
+  image_version="$(docker image inspect --format '{{ index .Config.Labels "protondrive.snapcraft-version" }}' \
+    "$SNAPCRAFT_IMAGE" 2>/dev/null || true)"
+  image_cache_key="$(docker image inspect --format '{{ index .Config.Labels "protondrive.snapcraft-cache-key" }}' \
+    "$SNAPCRAFT_IMAGE" 2>/dev/null || true)"
+
+  [ "$image_base" = "$SNAPCRAFT_BOOTSTRAP_IMAGE_BASE" ] &&
+    [ "$image_version" = "$SNAPCRAFT_BOOTSTRAP_VERSION" ] &&
+    [ "$image_cache_key" = "$SNAPCRAFT_BOOTSTRAP_CACHE_KEY" ]
+}
 
 if [ -n "$SNAPCRAFT_BOOTSTRAP_VERSION" ]; then
-  if ! docker image inspect "$SNAPCRAFT_IMAGE" >/dev/null 2>&1; then
+  if bootstrap_image_matches; then
+    echo "Reusing Snapcraft bootstrap image: $SNAPCRAFT_IMAGE"
+  else
     echo "Building reusable Snapcraft ${SNAPCRAFT_BOOTSTRAP_VERSION} image: $SNAPCRAFT_IMAGE"
     BOOTSTRAP_LOG="$(mktemp)"
     if ! docker build -q \
       --build-arg "SNAPCRAFT_BASE_IMAGE=$SNAPCRAFT_BOOTSTRAP_IMAGE_BASE" \
       --build-arg "SNAPCRAFT_VERSION=$SNAPCRAFT_BOOTSTRAP_VERSION" \
+      --label "protondrive.snapcraft-base=$SNAPCRAFT_BOOTSTRAP_IMAGE_BASE" \
+      --label "protondrive.snapcraft-version=$SNAPCRAFT_BOOTSTRAP_VERSION" \
+      --label "protondrive.snapcraft-cache-key=$SNAPCRAFT_BOOTSTRAP_CACHE_KEY" \
       --tag "$SNAPCRAFT_IMAGE" \
       - >"$BOOTSTRAP_LOG" 2>&1 <<'DOCKERFILE'
 ARG SNAPCRAFT_BASE_IMAGE=ubuntu:24.04
