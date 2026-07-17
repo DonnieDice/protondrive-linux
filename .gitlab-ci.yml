@@ -783,9 +783,9 @@ build:aur:
       sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
       sed -i "s/^pkgrel=.*/pkgrel=1/" PKGBUILD
       makepkg --printsrcinfo > .SRCINFO 2>/dev/null || true
-    - mkdir -p artifacts
-    - cp /tmp/aur-output/*.pkg.tar.zst artifacts/ 2>/dev/null || true
-    - cp packaging/aur/.SRCINFO artifacts/ 2>/dev/null || true
+    - mkdir -p "$CI_PROJECT_DIR/artifacts"
+    - cp /tmp/aur-output/*.pkg.tar.zst "$CI_PROJECT_DIR/artifacts/"
+    - cp .SRCINFO "$CI_PROJECT_DIR/artifacts/"
   artifacts:
     paths: [artifacts/]
     expire_in: 30 days

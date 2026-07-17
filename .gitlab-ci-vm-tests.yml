@@ -24,10 +24,12 @@ vm:ssh:smoke:
           - ubuntu2604
   before_script:
     - apk add --no-cache openssh-client
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
   script:
     - test -r /root/.ssh/id_ed25519
     - test -r /root/.ssh/config
-    - ssh -o BatchMode=yes -o ConnectTimeout=10 "$VM_HOST" "echo vm-smoke-ok:\$(hostname):\$(whoami)"
+    - ssh -o BatchMode=yes -o ConnectTimeout=10 -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "echo vm-smoke-ok:\$(hostname):\$(whoami)"
   rules:
     - when: manual
       allow_failure: true
@@ -39,23 +41,25 @@ vm:ssh:smoke:
   allow_failure: true
   before_script:
     - apk add --no-cache openssh-client rsync bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
   script:
     - cd artifacts || { echo "No artifacts"; exit 1; }
     - pkg="$(find . -type f \( -name '*.deb' -o -name '*.apk.tar.gz' -o -name '*.pkg.tar.zst' -o -name '*.rpm' -o -name '*.AppImage' \) -print -quit)"
     - test -n "$pkg" || { echo "No installable package found in downloaded artifacts"; exit 1; }
     - echo "Transferring $pkg to $VM_HOST..."
-    - scp -o BatchMode=yes "$pkg" "$VM_HOST:/tmp/"
+    - scp -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$pkg" "$VM_HOST:/tmp/"
     - pkg_name="$(basename "$pkg")"
     - |
       case "$INSTALL_TYPE" in
         deb)
-          ssh -o BatchMode=yes "$VM_HOST" "apt-get update -qq && apt-get install -y -qq /tmp/$pkg_name && dpkg -L proton-drive 2>/dev/null | grep bin/$PROG_NAME && $PROG_NAME --version 2>/dev/null || echo binary-installed"
+          ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "apt-get update -qq && apt-get install -y -qq /tmp/$pkg_name && dpkg -L proton-drive 2>/dev/null | grep bin/$PROG_NAME && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         apk)
-          ssh -o BatchMode=yes "$VM_HOST" "cd /tmp && tar xzf $pkg_name && mkdir -p /usr/local/bin && cp usr/bin/$PROG_NAME /usr/local/bin/ && $PROG_NAME --version 2>/dev/null || echo binary-installed"
+          ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "cd /tmp && tar xzf $pkg_name && mkdir -p /usr/local/bin && cp usr/bin/$PROG_NAME /usr/local/bin/ && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         arch)
-          ssh -o BatchMode=yes "$VM_HOST" "pacman -U --noconfirm /tmp/$pkg_name && $PROG_NAME --version 2>/dev/null || echo binary-installed"
+          ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "pacman -U --noconfirm /tmp/$pkg_name && $PROG_NAME --version 2>/dev/null || echo binary-installed"
           ;;
         *)
           echo "Unknown INSTALL_TYPE=$INSTALL_TYPE"
@@ -126,9 +130,11 @@ vm:install:ubuntu2604:
   allow_failure: true
   before_script:
     - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
   script:
     - echo "Running regression tests on $VM_HOST..."
-    - ssh -o BatchMode=yes "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "proton-drive not installed on $VM_HOST"; exit 1; }
+    - ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "proton-drive not installed on $VM_HOST"; exit 1; }
     - for f in tests/regression/*.sh; do bash "$f"; done
     - echo "Regression tests on $VM_HOST completed"
   rules:
@@ -165,10 +171,12 @@ vm:ssh:diagnostics:
   dependencies: []
   before_script:
     - apk add --no-cache openssh-client
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
   script:
     - ssh -V
     - ls -la /root/.ssh
-    - for h in tower debian12 alpine320 alpine322 arch ubuntu2604; do echo "--- $h ---"; ssh -o BatchMode=yes -o ConnectTimeout=5 "$h" "hostname; whoami" || true; done
+    - for h in tower debian12 alpine320 alpine322 arch ubuntu2604; do echo "--- $h ---"; ssh -o BatchMode=yes -o ConnectTimeout=5 -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$h" "hostname; whoami" || true; done
   rules:
     - when: manual
       allow_failure: true
