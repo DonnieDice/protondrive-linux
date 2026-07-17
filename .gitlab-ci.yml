@@ -425,7 +425,7 @@ docs:auto-update:
     - 'git commit -m "docs: auto-update from AI audit [skip ci]"'
     - 'if [ -n "${DOC_AUDIT_PUSH_TOKEN:-}" ]; then git remote set-url origin "https://oauth2:${DOC_AUDIT_PUSH_TOKEN}@${CI_SERVER_HOST}/${CI_PROJECT_PATH}.git"; fi; git push origin HEAD:main'
 
-# ─── Rust install script (reused via YAML anchor) ─────────────────────────────
+# â”€â”€â”€ Rust install script (reused via YAML anchor) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 .install_rust: &install_rust |
   export PATH="$CARGO_HOME/bin:$PATH"
@@ -441,7 +441,7 @@ docs:auto-update:
 .clone_webclients: &clone_webclients |
   bash scripts/ci/lib/fetch-webclients.sh
 
-# ─── APK ──────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ APK â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 build:apk:alpine-3.20:
   extends: .rules:build
@@ -648,7 +648,7 @@ build:apk:alpine-3.23:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── AppImage ─────────────────────────────────────────────────────────────────
+# â”€â”€â”€ AppImage â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 build:appimage:
   extends: .rules:build
@@ -734,7 +734,7 @@ build:appimage:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── AUR ──────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ AUR â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 build:aur:
   extends: .rules:build
@@ -790,7 +790,7 @@ build:aur:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── DEB ──────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ DEB â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 build:deb:debian-12:
   extends: .rules:build
@@ -978,7 +978,7 @@ build:deb:ubuntu-26.04:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── Flatpak ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Flatpak â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # NOTE: flatpak-builder requires either --disable-rofiles-fuse or privileged mode.
 # If builds fail with FUSE errors, enable privileged mode in the runner config.
 
@@ -1179,7 +1179,7 @@ build:flatpak:gnome-50:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── RPM ──────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ RPM â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 build:rpm:el10:
   extends: .rules:build
@@ -1377,7 +1377,7 @@ build:rpm:opensuse-tumbleweed:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── Snap ─────────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Snap â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 # NOTE: Snap jobs run snapcraft inside the canonical snapcraft image via the
 # host Docker daemon (the runner bind-mounts /var/run/docker.sock into the job).
 # They do NOT use a docker:dind service: on this socket-binding runner the
@@ -1460,6 +1460,7 @@ build:snap:core26:
     # while core26 requires Snapcraft 9.x. Build this version once on the
     # socket-bound runner and reuse it for later pipeline attempts.
     SNAPCRAFT_IMAGE: protondrive/snapcraft:9.0.0-core26
+    SNAPCRAFT_BOOTSTRAP_IMAGE_BASE: ubuntu:26.04
     SNAPCRAFT_BOOTSTRAP_VERSION: 9.0.0
   cache:
     key: snap-core26-cargo
@@ -1518,7 +1519,7 @@ build:snap:core26:
     paths: [artifacts/]
     expire_in: 30 days
 
-# ─── Package spec generation ──────────────────────────────────────────────────
+# â”€â”€â”€ Package spec generation â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 spec:aur-pkgbuild:
   extends: .rules:build
@@ -1643,7 +1644,7 @@ spec:source-dist:
     paths: [artifacts/]
     expire_in: 90 days
 
-# ─── Release ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Release â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 sbom:rust:
   extends: .rules:release
@@ -1922,11 +1923,11 @@ release:
       release-cli create \
         --name "Proton Drive Linux ${TAG}" \
         --tag-name "${TAG}" \
-        --description "Proton Drive Linux ${TAG} — builds for all major distributions." \
+        --description "Proton Drive Linux ${TAG} â€” builds for all major distributions." \
         "${ASSET_ARGS[@]}"
       BASH
 
-# ─── Publish ──────────────────────────────────────────────────────────────────
+# â”€â”€â”€ Publish â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 publish:aur:
   extends: .rules:publish
@@ -2121,7 +2122,7 @@ publish:snap:
       SNAP_BN="$(basename "$SNAP_FILE")"
 
       # Run snapcraft store commands in the snapcraft image via the host Docker
-      # socket. Stream the snap in with `docker cp` — a `docker run -v` bind
+      # socket. Stream the snap in with `docker cp` â€” a `docker run -v` bind
       # mount of the job dir resolves empty against the host daemon on this
       # socket-binding runner (see scripts/ci/snapcraft-pack.sh for the why).
       # Store credentials are passed through the environment.
@@ -2146,7 +2147,7 @@ publish:snap:
         echo "Attempt $i failed, retrying in 30s..."; sleep 30
       done
 
-# ─── GitHub Mirror ────────────────────────────────────────────────────────────
+# â”€â”€â”€ GitHub Mirror â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 mirror:github:
   stage: mirror

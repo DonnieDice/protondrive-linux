@@ -26,17 +26,21 @@ BUILD_CONTEXT="${1:?build context dir required}"
 OUTPUT_SNAP="${2:?output snap path required}"
 SNAPCRAFT_IMAGE="${SNAPCRAFT_IMAGE:-ghcr.io/canonical/snapcraft:8_core24}"
 SNAPCRAFT_BOOTSTRAP_VERSION="${SNAPCRAFT_BOOTSTRAP_VERSION:-}"
+SNAPCRAFT_BOOTSTRAP_IMAGE_BASE="${SNAPCRAFT_BOOTSTRAP_IMAGE_BASE:-ubuntu:24.04}"
 
 if [ -n "$SNAPCRAFT_BOOTSTRAP_VERSION" ]; then
   if ! docker image inspect "$SNAPCRAFT_IMAGE" >/dev/null 2>&1; then
     echo "Building reusable Snapcraft ${SNAPCRAFT_BOOTSTRAP_VERSION} image: $SNAPCRAFT_IMAGE"
     BOOTSTRAP_LOG="$(mktemp)"
     if ! docker build -q \
+      --build-arg "SNAPCRAFT_BASE_IMAGE=$SNAPCRAFT_BOOTSTRAP_IMAGE_BASE" \
       --build-arg "SNAPCRAFT_VERSION=$SNAPCRAFT_BOOTSTRAP_VERSION" \
       --tag "$SNAPCRAFT_IMAGE" \
       - >"$BOOTSTRAP_LOG" 2>&1 <<'DOCKERFILE'
-FROM ubuntu:24.04
+ARG SNAPCRAFT_BASE_IMAGE=ubuntu:24.04
+FROM ${SNAPCRAFT_BASE_IMAGE}
 
+ARG SNAPCRAFT_BASE_IMAGE
 ARG SNAPCRAFT_VERSION
 ENV DEBIAN_FRONTEND=noninteractive
 ENV PATH=/opt/snapcraft-venv/bin:$PATH
