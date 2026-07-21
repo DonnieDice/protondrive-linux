@@ -170,6 +170,7 @@ test_run() {
   echo "=== [vmtest] $label on $ip (family=$family) ==="
 
   install_test_deps "$ip" "$family"
+  network_preflight_checks "$ip"
   regression_checks "$ip"
 
   # Per-distro hook — define distro_checks() in the vmtest/<distro>/test.sh script.
@@ -189,7 +190,11 @@ test_run() {
   ui_compositor_test "$ip" smoke  "$ui_artifact_dir"
   ui_compositor_test "$ip" ui     "$ui_artifact_dir"
   # Credential-gated suites — skip automatically if env vars absent
+  require_proton_login_credentials
   ui_compositor_test "$ip" sidebar "$ui_artifact_dir"
+  if [ "${RUN_VM_LOGIN_TESTS:-false}" = "true" ]; then
+    ui_compositor_test "$ip" functional "$ui_artifact_dir"
+  fi
   ui_compositor_test "$ip" menus   "$ui_artifact_dir"
 
   local status=FAIL

@@ -27,7 +27,7 @@ OUTPUT_SNAP="${2:?output snap path required}"
 SNAPCRAFT_IMAGE="${SNAPCRAFT_IMAGE:-ghcr.io/canonical/snapcraft:8_core24}"
 SNAPCRAFT_BOOTSTRAP_VERSION="${SNAPCRAFT_BOOTSTRAP_VERSION:-}"
 SNAPCRAFT_BOOTSTRAP_IMAGE_BASE="${SNAPCRAFT_BOOTSTRAP_IMAGE_BASE:-ubuntu:24.04}"
-SNAPCRAFT_BOOTSTRAP_CACHE_KEY="${SNAPCRAFT_BOOTSTRAP_CACHE_KEY:-v1}"
+SNAPCRAFT_BOOTSTRAP_CACHE_KEY="${SNAPCRAFT_BOOTSTRAP_CACHE_KEY:-v2}"
 
 bootstrap_image_matches() {
   [ -n "$SNAPCRAFT_BOOTSTRAP_VERSION" ] || return 1
@@ -70,10 +70,15 @@ ENV PATH=/opt/snapcraft-venv/bin:$PATH
 
 RUN apt-get update -qq \
     && apt-get install -y -qq --no-install-recommends \
+        build-essential \
         ca-certificates \
         git \
+        libffi-dev \
+        libgit2-dev \
+        pkg-config \
         python3 \
         python3-apt \
+        python3-dev \
         python3-venv \
         squashfs-tools \
     && python3 -m venv --system-site-packages /opt/snapcraft-venv \

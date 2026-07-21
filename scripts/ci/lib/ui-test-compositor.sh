@@ -280,6 +280,7 @@ suite_sidebar() {
   # Allow dashboard to fully load
   sleep 4
   screenshot "sidebar_dashboard" >/dev/null
+  screen_not_contains "no server-time fetch error" "could not fetch server time\|server time" "sidebar_no_server_time_error"
 
   # Sidebar items that must appear after login
   screen_contains "sidebar: My Files"        "my.files\|my files"           "sidebar_myfiles"
@@ -338,6 +339,7 @@ suite_functional() {
   DISPLAY="$DISPLAY_NUM" xdotool key Return 2>/dev/null; sleep 6
 
   screenshot "functional_dashboard" >/dev/null
+  screen_not_contains "no server-time fetch error" "could not fetch server time\|server time" "functional_no_server_time_error"
   local text; text="$(ocr_text "$ARTIFACT_DIR/functional_dashboard.png")"
 
   if ! echo "$text" | grep -qi "my.files\|my files\|proton.drive\|storage"; then

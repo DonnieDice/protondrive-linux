@@ -51,6 +51,7 @@ install_test_deps() {
   # All failures are non-fatal; compositor tests degrade gracefully on missing tools.
   case "$family" in
     apk)
+      run_on_vm "$ip" 'apk add --no-cache ca-certificates curl 2>/dev/null || true'
       run_on_vm "$ip" 'apk add --no-cache xvfb       2>/dev/null || true'
       run_on_vm "$ip" 'apk add --no-cache xdotool     2>/dev/null || true'
       run_on_vm "$ip" 'apk add --no-cache scrot        2>/dev/null || true'
@@ -59,6 +60,7 @@ install_test_deps() {
       run_on_vm "$ip" 'apk add --no-cache python3 py3-pip 2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     deb)
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ca-certificates curl 2>/dev/null || true'
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xvfb       2>/dev/null || true'
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q x11-utils   2>/dev/null || true'
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q xdotool     2>/dev/null || true'
@@ -67,6 +69,7 @@ install_test_deps() {
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q imagemagick  2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || pip install --quiet pyotp 2>/dev/null || true' ;;
     rpm-dnf)
+      run_on_vm "$ip" 'dnf install -y ca-certificates curl 2>/dev/null || true'
       run_on_vm "$ip" 'dnf install -y xorg-x11-server-Xvfb  2>/dev/null || true'
       run_on_vm "$ip" 'dnf install -y xorg-x11-utils         2>/dev/null || true'
       run_on_vm "$ip" 'dnf install -y xorg-x11-apps          2>/dev/null || true'
@@ -76,6 +79,7 @@ install_test_deps() {
       run_on_vm "$ip" 'dnf install -y ImageMagick             2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     rpm-zypper)
+      run_on_vm "$ip" 'zypper --non-interactive install ca-certificates curl 2>/dev/null || true'
       run_on_vm "$ip" 'zypper --non-interactive install xvfb-run    2>/dev/null || zypper --non-interactive install xorg-x11-server 2>/dev/null || true'
       run_on_vm "$ip" 'zypper --non-interactive install xdotool      2>/dev/null || true'
       run_on_vm "$ip" 'zypper --non-interactive install scrot         2>/dev/null || true'
@@ -83,6 +87,7 @@ install_test_deps() {
       run_on_vm "$ip" 'zypper --non-interactive install ImageMagick   2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     aur)
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed ca-certificates curl 2>/dev/null || true'
       run_on_vm "$ip" 'pacman -S --noconfirm --needed xorg-server-xvfb 2>/dev/null || true'
       run_on_vm "$ip" 'pacman -S --noconfirm --needed xorg-xwininfo     2>/dev/null || true'
       run_on_vm "$ip" 'pacman -S --noconfirm --needed xdotool            2>/dev/null || true'
@@ -92,6 +97,31 @@ install_test_deps() {
       run_on_vm "$ip" 'pip install --quiet pyotp 2>/dev/null || true' ;;
   esac
   return 0
+}
+
+# network_preflight_checks <ip>
+# Catches the "could not fetch server time" class before the GUI login flow.
+network_preflight_checks() {
+  local ip="$1"
+  echo "--- network/time preflight on $ip ---"
+  assert_on_vm "$ip" "system UTC clock is readable" \
+    "date -u '+%Y-%m-%dT%H:%M:%SZ'"
+  assert_on_vm "$ip" "DNS resolves Proton web hosts" \
+    '(getent hosts mail.proton.me || nslookup mail.proton.me || busybox nslookup mail.proton.me) >/dev/null 2>&1 &&
+     (getent hosts account.proton.me || nslookup account.proton.me || busybox nslookup account.proton.me) >/dev/null 2>&1'
+  assert_on_vm "$ip" "Proton HTTPS exposes server date header" \
+    "curl -sSIL --connect-timeout 10 --max-time 20 https://mail.proton.me/api/core/v4/time 2>/dev/null | grep -iq '^x-pm-date:'"
+}
+
+require_proton_login_credentials() {
+  [ "${RUN_VM_LOGIN_TESTS:-false}" = "true" ] || return 0
+  _PD_TEST_RUN=$((_PD_TEST_RUN+1))
+  if [ -n "${PROTON_TEST_EMAIL:-}" ] && [ -n "${PROTON_TEST_PASSWORD:-}" ]; then
+    echo "  PASS: Proton login credentials available for VM login tests"
+  else
+    echo "  FAIL: RUN_VM_LOGIN_TESTS=true requires PROTON_TEST_EMAIL and PROTON_TEST_PASSWORD"
+    _PD_TEST_FAILS=$((_PD_TEST_FAILS+1))
+  fi
 }
 
 # regression_checks <ip>

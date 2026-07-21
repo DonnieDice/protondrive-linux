@@ -33,6 +33,7 @@ use webview_storage::{ensure_webview_data_dir, persistent_webview_data_dir};
 
 /// Base URL for the Proton API.
 const PROTON_API_BASE: &str = "https://mail.proton.me";
+const PROTON_API_PROXY_HOSTS: &[&str] = &["api.proton.me", "mail-api.proton.me"];
 
 /// Error message shown when a sync command is invoked from an untrusted origin.
 const ERR_SYNC_NOT_ALLOWED: &str = "Sync operation is not allowed in this context";
@@ -399,7 +400,7 @@ async fn proxy_request(
             &request.url[request.url.find("/api").unwrap()..]
         )
     } else if request.url.starts_with("https://") || request.url.starts_with("http://") {
-        request.url.clone()
+        normalize_proton_api_url(&request.url).unwrap_or_else(|| request.url.clone())
     } else if request.url.starts_with("tauri://") {
         // Extract /api/... path from tauri:// URLs
         if let Some(idx) = request.url.find("/api") {
@@ -506,6 +507,29 @@ async fn proxy_request(
         headers: resp_headers,
         body,
     })
+}
+
+fn normalize_proton_api_url(url: &str) -> Option<String> {
+    let parsed = tauri::Url::parse(url).ok()?;
+    let host = parsed.host_str()?;
+    if !PROTON_API_PROXY_HOSTS.contains(&host) {
+        return None;
+    }
+
+    let path = parsed.path();
+    let rewritten_path = if path.starts_with("/api/") {
+        path.to_string()
+    } else if path == "/" {
+        "/api/".to_string()
+    } else {
+        format!("/api{path}")
+    };
+    let query = parsed
+        .query()
+        .map(|query| format!("?{query}"))
+        .unwrap_or_default();
+
+    Some(format!("{PROTON_API_BASE}{rewritten_path}{query}"))
 }
 
 /// Checks that a sync command originated from the `tauri://localhost` origin.
@@ -748,6 +772,22 @@ mod tests {
         assert!(validate_sync_relative_path("../file.txt").is_err());
         assert!(validate_sync_relative_path("/tmp/file.txt").is_err());
         assert!(validate_sync_relative_path("").is_err());
+    }
+
+    #[test]
+    fn proton_api_host_urls_are_rewritten_to_mail_api_path() {
+        assert_eq!(
+            normalize_proton_api_url("https://api.proton.me/core/v4/time").as_deref(),
+            Some("https://mail.proton.me/api/core/v4/time")
+        );
+        assert_eq!(
+            normalize_proton_api_url("https://api.proton.me/core/v4/users?Page=0").as_deref(),
+            Some("https://mail.proton.me/api/core/v4/users?Page=0")
+        );
+        assert_eq!(
+            normalize_proton_api_url("https://mail.proton.me/api/core/v4/users").as_deref(),
+            None
+        );
     }
 }
 
@@ -1266,6 +1306,28 @@ fn main() {
             return String(url || '').includes('/storage/blocks');
         }
     };
+    const isProtonApiHostUrl = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            return parsed.hostname === 'api.proton.me' || parsed.hostname === 'mail-api.proton.me';
+        } catch {
+            return false;
+        }
+    };
+    const shouldProxyApiRequest = (url) => {
+        return String(url || '').includes('/api/') || isProtonApiHostUrl(url);
+    };
+    const proxiedApiPath = (url) => {
+        try {
+            const parsed = new URL(url, window.location.href);
+            if (isProtonApiHostUrl(url) && !parsed.pathname.startsWith('/api/')) {
+                return '/api' + parsed.pathname;
+            }
+            return parsed.pathname;
+        } catch {
+            return String(url || '');
+        }
+    };
 
     const requestBodyToString = async (body) => {
         if (body == null) return null;
@@ -1356,7 +1418,7 @@ fn main() {
         // Rust already logs [Proxy][N] for proxied requests.
 
         // Only proxy API calls
-        if (!url.includes('/api/')) {
+        if (!shouldProxyApiRequest(url)) {
             // For fetch calls, if we've fixed the URL from // to /, update the input
             let fetchInput = input;
             if (typeof input === 'string' && input !== url) {
@@ -1413,7 +1475,8 @@ fn main() {
 
             // Check for pending verification token (for auth retry after captcha)
             // Must match /api/core/v4/auth exactly, NOT /auth/cookies or /auth/info
-            if (url.includes('/api/core/v4/auth') && !url.includes('/auth/cookies') && !url.includes('/auth/info')) {
+            const apiPath = proxiedApiPath(url);
+            if (apiPath.includes('/api/core/v4/auth') && !apiPath.includes('/auth/cookies') && !apiPath.includes('/auth/info')) {
                 const verification = await window.__TAURI__.core.invoke('get_and_clear_verification_token');
                 if (verification) {
                     console.log('[CAPTCHA] Adding verification headers to auth request');
@@ -1506,7 +1569,7 @@ fn main() {
         };
 
         xhr.send = function(body) {
-            if (!url.includes('/api/')) {
+            if (!shouldProxyApiRequest(url)) {
                 return origSend.call(this, body);
             }
 

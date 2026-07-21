@@ -38,7 +38,7 @@ vm:ssh:smoke:
   stage: smoke
   image: alpine:latest
   timeout: 20m
-  allow_failure: true
+  allow_failure: false
   before_script:
     - apk add --no-cache openssh-client rsync bash
     - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
@@ -75,9 +75,8 @@ vm:ssh:smoke:
 
 vm:install:debian12:
   extends: .install_test
-  needs:
-    - job: build:deb:debian-12
-      artifacts: true
+  dependencies:
+    - build:deb:debian-12
   variables:
     VM_HOST: debian12
     INSTALL_TYPE: deb
@@ -85,9 +84,8 @@ vm:install:debian12:
 
 vm:install:alpine320:
   extends: .install_test
-  needs:
-    - job: build:apk:alpine-3.20
-      artifacts: true
+  dependencies:
+    - build:apk:alpine-3.20
   variables:
     VM_HOST: alpine320
     INSTALL_TYPE: apk
@@ -95,9 +93,8 @@ vm:install:alpine320:
 
 vm:install:alpine322:
   extends: .install_test
-  needs:
-    - job: build:apk:alpine-3.22
-      artifacts: true
+  dependencies:
+    - build:apk:alpine-3.22
   variables:
     VM_HOST: alpine322
     INSTALL_TYPE: apk
@@ -105,9 +102,8 @@ vm:install:alpine322:
 
 vm:install:arch:
   extends: .install_test
-  needs:
-    - job: build:aur
-      artifacts: true
+  dependencies:
+    - build:aur
   variables:
     VM_HOST: arch
     INSTALL_TYPE: arch
@@ -115,9 +111,8 @@ vm:install:arch:
 
 vm:install:ubuntu2604:
   extends: .install_test
-  needs:
-    - job: build:deb:ubuntu-26.04
-      artifacts: true
+  dependencies:
+    - build:deb:ubuntu-26.04
   variables:
     VM_HOST: ubuntu2604
     INSTALL_TYPE: deb
@@ -126,17 +121,26 @@ vm:install:ubuntu2604:
 .vm_regression:
   stage: smoke
   image: alpine:latest
-  timeout: 15m
-  allow_failure: true
+  timeout: 45m
+  allow_failure: false
+  variables:
+    RUN_VM_LOGIN_TESTS: "true"
   before_script:
-    - apk add --no-cache openssh-client bash
+    - apk add --no-cache openssh-client bash coreutils
+    - export VM_SSH_KEY="${VM_SSH_KEY:-/root/.ssh/id_ed25519}"
     - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
     - ': > "$VM_KNOWN_HOSTS"'
   script:
     - echo "Running regression tests on $VM_HOST..."
     - ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$VM_HOST" "which proton-drive || which /usr/local/bin/proton-drive" || { echo "proton-drive not installed on $VM_HOST"; exit 1; }
-    - for f in tests/regression/*.sh; do bash "$f"; done
+    - bash "$VM_TEST_SCRIPT"
     - echo "Regression tests on $VM_HOST completed"
+  artifacts:
+    when: always
+    paths:
+      - test-results/
+      - verify-results/ui-screenshots/
+    expire_in: 30 days
   rules:
     - if: '$CI_COMMIT_BRANCH == "main"'
       when: on_success
@@ -147,6 +151,7 @@ vm:regression:debian12:
   extends: .vm_regression
   variables:
     VM_HOST: debian12
+    VM_TEST_SCRIPT: scripts/ci/vmtest/debian-12/test.sh
   needs:
     - job: vm:install:debian12
 
@@ -154,13 +159,31 @@ vm:regression:alpine320:
   extends: .vm_regression
   variables:
     VM_HOST: alpine320
+    VM_TEST_SCRIPT: scripts/ci/vmtest/alpine-3.20/test.sh
   needs:
     - job: vm:install:alpine320
+
+vm:regression:alpine322:
+  extends: .vm_regression
+  variables:
+    VM_HOST: alpine322
+    VM_TEST_SCRIPT: scripts/ci/vmtest/alpine-3.22/test.sh
+  needs:
+    - job: vm:install:alpine322
+
+vm:regression:arch:
+  extends: .vm_regression
+  variables:
+    VM_HOST: arch
+    VM_TEST_SCRIPT: scripts/ci/vmtest/arch/test.sh
+  needs:
+    - job: vm:install:arch
 
 vm:regression:ubuntu2604:
   extends: .vm_regression
   variables:
     VM_HOST: ubuntu2604
+    VM_TEST_SCRIPT: scripts/ci/vmtest/ubuntu-26.04/test.sh
   needs:
     - job: vm:install:ubuntu2604
 
