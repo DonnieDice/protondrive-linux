@@ -2167,7 +2167,13 @@ mirror:github:
     - apk add --no-cache openssh-client
     - export MIRROR_SSH_DIR="$CI_PROJECT_DIR/.ci-ssh"
     - install -d -m 700 "$MIRROR_SSH_DIR"
-    - echo "$GITHUB_MIRROR_DEPLOY_KEY" | base64 -d > "$MIRROR_SSH_DIR/id_ed25519" 2>/dev/null || echo "$GITHUB_MIRROR_DEPLOY_KEY" > "$MIRROR_SSH_DIR/id_ed25519"
+    - |
+      if [ -f "$GITHUB_MIRROR_DEPLOY_KEY" ]; then
+        cp "$GITHUB_MIRROR_DEPLOY_KEY" "$MIRROR_SSH_DIR/id_ed25519"
+      else
+        printf '%s' "$GITHUB_MIRROR_DEPLOY_KEY" | base64 -d > "$MIRROR_SSH_DIR/id_ed25519" 2>/dev/null || printf '%s\n' "$GITHUB_MIRROR_DEPLOY_KEY" > "$MIRROR_SSH_DIR/id_ed25519"
+      fi
+      sed -i 's/\r$//' "$MIRROR_SSH_DIR/id_ed25519"
     - chmod 600 "$MIRROR_SSH_DIR/id_ed25519"
     - ssh-keyscan github.com > "$MIRROR_SSH_DIR/known_hosts"
     - export GIT_SSH_COMMAND="ssh -i $MIRROR_SSH_DIR/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=$MIRROR_SSH_DIR/known_hosts"
