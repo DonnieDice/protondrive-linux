@@ -1625,7 +1625,9 @@ spec:rpm-spec:
 spec:source-dist:
   extends: .rules:build
   stage: spec
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
   timeout: 30m
   script:
     - |
@@ -2151,7 +2153,9 @@ publish:snap:
 
 mirror:github:
   stage: mirror
-  image: alpine/git:latest
+  image:
+    name: alpine/git:latest
+    entrypoint: [""]
   timeout: 10m
   rules:
     - if: $CI_COMMIT_BRANCH == "main"
