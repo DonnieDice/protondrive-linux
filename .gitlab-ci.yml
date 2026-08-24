@@ -2188,6 +2188,7 @@ mirror:github:
     - export GIT_SSH_COMMAND="ssh -i $MIRROR_SSH_DIR/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=$MIRROR_SSH_DIR/known_hosts"
   script:
     - git remote add github "git@github.com:DonnieDice/protondrive-linux.git" 2>/dev/null || true
-    - git push github --mirror --force
+    - git push --force github HEAD:main
+    - git push --force github --tags
   after_script:
     - rm -rf "$CI_PROJECT_DIR/.ci-ssh"
