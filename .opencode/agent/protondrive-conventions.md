@@ -1,5 +1,5 @@
 ---
-description: Project conventions for protondrive-linux - commit messages, PR titles, issue/PR body format, branching, and version bumps. Load before every task.
+description: Project conventions for protondrive-linux - commit messages, MR titles, issue/MR body format, branching, and version bumps. Load before every task.
 mode: primary
 ---
 
@@ -9,8 +9,11 @@ mode: primary
 
 - Repo: `DonnieDice/protondrive-linux`
 - Default branch: `main`
-- **Never push directly to `main`** - always use Issue -> Branch -> PR -> Merge.
+- GitLab issues, merge requests, and pipelines are authoritative.
+- GitHub is a downstream mirror, contributor intake, and publication surface only.
+- **Never push directly to `main`** - always use Issue -> Branch -> MR -> Merge in GitLab.
 - No intermediate branches. Feature branches merge directly to `main`.
+- Reconcile GitHub-originated contributions into GitLab before canonical merge.
 
 ## Workflow Execution Protocol
 
@@ -19,7 +22,7 @@ mode: primary
 - Prompt or verify the creation of a tracking issue.
 - Issue titles are plain text. Do **not** add `(#N)` syntax to issue titles.
 - Agent-created issue bodies must be valid multi-line Markdown, not one collapsed paragraph.
-- Agent-created issue bodies must include real issue/PR numbers and links when known.
+- Agent-created issue bodies must include real issue/MR numbers and links when known.
 - Do **not** add a `Tracking issue` link inside the issue being tracked. An
   issue page already identifies itself; self-links are redundant and confusing.
 
@@ -35,17 +38,17 @@ mode: primary
 | `fix/` | Bug fixes | `fix/87-broken-csv-export` |
 | `chore/` | Non-code work, docs, deps, CI | `chore/103-update-dependencies` |
 
-### Step 3: Create Pull Request
+### Step 3: Create Merge Request
 
-- Initialize the PR from the working branch.
-- Explicitly link the PR to the original issue.
-- Apply appropriate tracking tags and labels to the PR.
+- Initialize the GitLab MR from the working branch.
+- Explicitly link the MR to the original issue.
+- Apply appropriate tracking tags and labels to the MR.
 
-### Step 4: The PR Refinement Loop
+### Step 4: The MR Refinement Loop
 
 Enforce a strict code review and metadata loop before any merge:
 
-1. **Edit Title:** Set PR title to `(#PR-number) Descriptive title`.
+1. **Edit Title:** Set MR title to `(#MR-number) Descriptive title`.
 2. **Links:** Include useful related links in a `## Links` section using
    compact icon bullets.
 3. **Changed Areas:** Use plain repository file paths for changed files.
@@ -54,7 +57,7 @@ Enforce a strict code review and metadata loop before any merge:
 
 ### Step 5: Conditional Verification and Closure
 
-- **IF ALL CHECKERS PASS:** Confirm status, close the original issue, merge the PR into `main`.
+- **IF ALL CHECKERS PASS:** Confirm the GitLab pipeline status, close the original issue, merge the MR into `main`.
 - **IF ANY CHECKER FAILS:** Reject progression, loop back to Step 4.
 
 ## Commit Messages
@@ -64,23 +67,23 @@ Enforce a strict code review and metadata loop before any merge:
 - At least 10 characters after the issue prefix.
 - Regex: `^\(#\d+\)\s[A-Z].{9,}$`.
 - Use `Closes #N` or `Refs #N` in commit body/footer for traceability.
-- The number in the commit title is the **issue** number, not the PR number.
+- The number in the commit title is the **issue** number, not the MR number.
 
-## PR Titles
+## MR Titles
 
-- Format: `(#PR-number) Descriptive title starting with uppercase`.
-- The number in the PR title is the **PR** number, not the tracked issue number.
-- If the PR number is not known yet, create the PR first, then edit the title
-  once GitHub assigns the PR number.
-- Keep the tracked issue in the PR body with `Closes #N` or `Refs #N`.
+- Format: `(#MR-number) Descriptive title starting with uppercase`.
+- The number in the MR title is the **MR** number, not the tracked issue number.
+- If the MR number is not known yet, create the MR first, then edit the title
+  once GitLab assigns the MR number.
+- Keep the tracked issue in the MR body with `Closes #N` or `Refs #N`.
 - Same regex as commits: `^\(#\d+\)\s[A-Z].{9,}$`.
-- Use tracking issue wording in PR bodies or external docs only, never as a
+- Use tracking issue wording in MR bodies or external docs only, never as a
   self-reference inside the tracked issue body.
 
 ## Agent Issue Body Format
 
-This is for agent-created or agent-edited GitHub issues. It is separate from the
-user-facing `.github/ISSUE_TEMPLATE/*.yml` forms.
+This is for agent-created or agent-edited GitLab issues. Downstream GitHub issue
+forms may remain for contributor intake, but they are not authoritative.
 
 Always write issue bodies as multi-line Markdown. Never submit a body as one
 long line. Never escape file paths with backslashes like `\src-tauri/main.rs\`.
@@ -90,10 +93,10 @@ Use this shape when filing technical issues:
 ```markdown
 ## Problem
 
-Describe the broken behavior, including real issue/PR links when relevant:
+Describe the broken behavior, including real issue/MR links when relevant:
 
-- Related PR: https://github.com/DonnieDice/protondrive-linux/pull/97
-- Related issue: https://github.com/DonnieDice/protondrive-linux/issues/98
+- Related MR: use the canonical GitLab MR URL
+- Related issue: use the canonical GitLab issue URL
 
 ## Affected Files
 
@@ -110,22 +113,22 @@ Explain the likely cause. Keep links real and clickable.
 - Concrete validation item
 ```
 
-Use bare GitHub issue/PR URLs when a full link is clearer. Use `#98` only when
+Use bare GitLab issue/MR URLs when a full link is clearer. Use `#98` only when
 the repository context is obvious.
 
 When editing issue `#98`, do not add `Tracking issue: #98` or a link to issue
-`#98` as a tracking reference. Link only to other relevant issues, PRs, Actions
+`#98` as a tracking reference. Link only to other relevant issues, MRs, pipelines
 runs, and external references.
 
-## PR Body Format
+## MR Body Format
 
 Reference the tracked issue at the top with `Closes #N`, then list changed
-areas with plain paths and include real issue/PR links. Do not use guessed
+areas with plain paths and include real issue/MR links. Do not use guessed
 `#diff-...` anchors. Do not use generic labels such as `Issue: #98`,
-`Related PR: #97`, or `PR: #99`.
+`Related MR: #97`, or `MR: #99`.
 
 Use compact icon bullets in `## Links` for useful related context. Do not add a
-link to the current PR inside its own body. Do not repeat the closing issue in a
+link to the current MR inside its own body. Do not repeat the closing issue in a
 separate link line unless the issue needs extra context beyond `Closes #N`.
 
 ```markdown
@@ -134,7 +137,7 @@ Closes #42
 ## Links
 
 - 🔗 Related: #41
-- 🧾 Run: https://github.com/DonnieDice/protondrive-linux/actions/runs/123456789
+- Pipeline: use the authoritative GitLab pipeline URL
 
 ## Summary
 
@@ -149,11 +152,11 @@ Closes #42
 ## Testing
 
 - `git diff --check`
-- Link to the relevant Actions run when available.
+- Link to the relevant GitLab pipeline when available.
 ```
 
 Numbers and links are required, but links must be stable and real. Prefer issue
-links, PR links, Actions run links, and plain file paths over fragile file diff
+links, MR links, pipeline links, and plain file paths over fragile file diff
 anchors.
 
 ## Version Bumps
@@ -166,9 +169,11 @@ When merging meaningful changes, bump the version in all three files:
 
 ## CI Workflows
 
-- The visible workflow entrypoint is `.github/workflows/package-workflows.yml`.
-- Package-specific implementations live under `.github/workflows/<package>/<target>/action.yml`.
-- Remote GitHub Actions builds run on Linux runners.
+- GitLab pipelines are the authoritative CI and merge gate.
+- GitHub Actions must not be treated as authoritative CI.
+- The downstream GitHub workflow entrypoint is `.github/workflows/package-workflows.yml`.
+- Downstream package-specific implementations live under `.github/workflows/<package>/<target>/action.yml`.
+- Mirrored GitHub Actions builds run on Linux runners and support publication only.
 - CommitCheck false positives can be ignored when the message follows `(#N) Description` correctly.
 
 ## Packaging State
@@ -179,12 +184,12 @@ When merging meaningful changes, bump the version in all three files:
 
 ## Review Bot Feedback
 
-Before merging **any** PR, all automated review bot findings must be addressed:
+Before merging **any** MR, all automated review bot findings must be addressed:
 
-- Check CodeRabbit, Qodo, and any other review bot comments on the PR.
+- Check CodeRabbit, Qodo, and any other review bot comments on the MR.
 - Every actionable comment must be either fixed or explicitly dismissed with justification.
 - Do not merge with unresolved bot review items, even if CI passes.
-- If a bot comment is a false positive, dismiss it on the PR conversation so it is documented.
+- If a bot comment is a false positive, dismiss it on the MR conversation so it is documented.
 - Re-request review after pushing fixes to ensure bots re-evaluate.
 
 ## Branch Cleanup
