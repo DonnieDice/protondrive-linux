@@ -2173,13 +2173,15 @@ mirror:github:
       else
         printf '%s\n' "$GITHUB_MIRROR_DEPLOY_KEY" > "$MIRROR_SSH_DIR/key.input"
       fi
-      if grep -q '^-----BEGIN .*PRIVATE KEY-----' "$MIRROR_SSH_DIR/key.input"; then
-        cp "$MIRROR_SSH_DIR/key.input" "$MIRROR_SSH_DIR/id_ed25519"
-      else
-        base64 -d "$MIRROR_SSH_DIR/key.input" > "$MIRROR_SSH_DIR/id_ed25519"
-      fi
-      sed -i 's/\r$//' "$MIRROR_SSH_DIR/id_ed25519"
-      rm -f "$MIRROR_SSH_DIR/key.input"
+      printf '%b\n' "$(tr -d '\r' < "$MIRROR_SSH_DIR/key.input")" > "$MIRROR_SSH_DIR/key.candidate"
+      for depth in 1 2 3; do
+        grep -q '^-----BEGIN .*PRIVATE KEY-----' "$MIRROR_SSH_DIR/key.candidate" && break
+        base64 -d "$MIRROR_SSH_DIR/key.candidate" > "$MIRROR_SSH_DIR/key.decoded"
+        mv "$MIRROR_SSH_DIR/key.decoded" "$MIRROR_SSH_DIR/key.candidate"
+      done
+      grep -q '^-----BEGIN .*PRIVATE KEY-----' "$MIRROR_SSH_DIR/key.candidate" || { echo "Unsupported mirror key format" >&2; exit 1; }
+      mv "$MIRROR_SSH_DIR/key.candidate" "$MIRROR_SSH_DIR/id_ed25519"
+      rm -f "$MIRROR_SSH_DIR/key.input" "$MIRROR_SSH_DIR/key.decoded"
     - chmod 600 "$MIRROR_SSH_DIR/id_ed25519"
     - ssh-keygen -y -f "$MIRROR_SSH_DIR/id_ed25519" >/dev/null
     - ssh-keyscan github.com > "$MIRROR_SSH_DIR/known_hosts"
