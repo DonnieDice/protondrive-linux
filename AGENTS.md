@@ -1,3 +1,17 @@
+## Repository Operations
+
+GitLab is canonical. GitHub is a forced downstream publication mirror. Never
+make authoritative changes on GitHub; GitHub-only commits, branches, or tags
+can be overwritten or removed by the next mirror run.
+
+For cross-provider work, load the installed private `project-management` skill
+first, then `gitlab` for canonical development, CI/CD, and releases, followed
+by `github` for downstream mirror and publishing verification.
+
+Discover provider configuration and identity through installed private skills
+at runtime. Do not embed hosts, endpoints, IDs, accounts, credentials, or other
+private operational details in this repository.
+
 ## graphify
 
 This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
