@@ -2169,12 +2169,19 @@ mirror:github:
     - install -d -m 700 "$MIRROR_SSH_DIR"
     - |
       if [ -f "$GITHUB_MIRROR_DEPLOY_KEY" ]; then
-        cp "$GITHUB_MIRROR_DEPLOY_KEY" "$MIRROR_SSH_DIR/id_ed25519"
+        cp "$GITHUB_MIRROR_DEPLOY_KEY" "$MIRROR_SSH_DIR/key.input"
       else
-        printf '%s' "$GITHUB_MIRROR_DEPLOY_KEY" | base64 -d > "$MIRROR_SSH_DIR/id_ed25519" 2>/dev/null || printf '%s\n' "$GITHUB_MIRROR_DEPLOY_KEY" > "$MIRROR_SSH_DIR/id_ed25519"
+        printf '%s\n' "$GITHUB_MIRROR_DEPLOY_KEY" > "$MIRROR_SSH_DIR/key.input"
+      fi
+      if grep -q '^-----BEGIN .*PRIVATE KEY-----' "$MIRROR_SSH_DIR/key.input"; then
+        cp "$MIRROR_SSH_DIR/key.input" "$MIRROR_SSH_DIR/id_ed25519"
+      else
+        base64 -d "$MIRROR_SSH_DIR/key.input" > "$MIRROR_SSH_DIR/id_ed25519"
       fi
       sed -i 's/\r$//' "$MIRROR_SSH_DIR/id_ed25519"
+      rm -f "$MIRROR_SSH_DIR/key.input"
     - chmod 600 "$MIRROR_SSH_DIR/id_ed25519"
+    - ssh-keygen -y -f "$MIRROR_SSH_DIR/id_ed25519" >/dev/null
     - ssh-keyscan github.com > "$MIRROR_SSH_DIR/known_hosts"
     - export GIT_SSH_COMMAND="ssh -i $MIRROR_SSH_DIR/id_ed25519 -o IdentitiesOnly=yes -o UserKnownHostsFile=$MIRROR_SSH_DIR/known_hosts"
   script:
