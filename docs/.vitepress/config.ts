@@ -57,6 +57,7 @@ export default defineConfig({
         items: [
           { text: 'Auth Module', link: '/auth/auth-module' },
           { text: 'SSO Authentication', link: '/auth/sso-authentication' },
+          { text: 'Accounts, Aliases, DNS & Recovery', link: '/auth/protonmail-accounts-aliases-dns-recovery' },
           { text: 'WebView Configuration', link: '/webview/webview-configuration' },
           { text: 'WebView Integration', link: '/webview/webview-integration' },
           { text: 'URL Log & Storage', link: '/webview/url-log-webview-storage' },
