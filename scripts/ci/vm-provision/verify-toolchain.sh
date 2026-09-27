@@ -7,7 +7,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$HERE/../../lib/_vm_common.sh"
+source "$HERE/../lib/_vm_common.sh"
 
 IP="${1:?usage: verify-toolchain.sh <ip> <label>}"
 LABEL="${2:?usage: verify-toolchain.sh <ip> <label>}"

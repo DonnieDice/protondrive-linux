@@ -6,7 +6,7 @@
 set -euo pipefail
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-source "$HERE/../../lib/_vm_common.sh"
+source "$HERE/../lib/_vm_common.sh"
 
 # VM targets from SSH config
 DEBIAN12_IP="192.168.1.162"
