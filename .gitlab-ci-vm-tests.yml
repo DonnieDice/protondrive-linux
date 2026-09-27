@@ -190,6 +190,11 @@ vm:regression:ubuntu2604:
 vm:provision:build-deps:
   stage: smoke
   image: alpine:latest
+  # Pin to the unraid-docker-runner: it bind-mounts /root/.ssh (transport for
+  # the mounted mode in _vm_common.sh). Observed in pipeline 2113: untagged
+  # smoke jobs raced onto k8s-runner, which has no /root/.ssh, and failed with
+  # "no SSH transport available" (jobs 22992/22993).
+  tags: [android]
   # Observed on this runner (2026-09-27, pipelines 2098/2099): image pulls and
   # apk fetches each take minutes, apt on the VMs is slow, and the full
   # provision + WebClients + cargo release build sequence is long. 3h fits the
@@ -215,6 +220,8 @@ vm:provision:build-deps:
 vm:verify:rust-toolchain:
   stage: smoke
   image: alpine:latest
+  # Same runner pin as vm:provision:build-deps (mounted /root/.ssh transport).
+  tags: [android]
   # Same slow-runner observation: VM round-trips plus rustup/rustc/cargo
   # version checks need more than the original 10m headroom.
   timeout: 20m
