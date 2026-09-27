@@ -190,7 +190,11 @@ vm:regression:ubuntu2604:
 vm:provision:build-deps:
   stage: smoke
   image: alpine:latest
-  timeout: 45m
+  # Observed on this runner (2026-09-27, pipelines 2098/2099): image pulls and
+  # apk fetches each take minutes, apt on the VMs is slow, and the full
+  # provision + WebClients + cargo release build sequence is long. 3h fits the
+  # whole sequence with headroom; the job remains manual.
+  timeout: 3h
   # Opt out of stage ordering: this manual job must be playable immediately in
   # any pipeline (parent #3 / issue #14 need it before the full test suite
   # settles). Without needs: [] it stays "created"/unplayable until every
@@ -211,7 +215,9 @@ vm:provision:build-deps:
 vm:verify:rust-toolchain:
   stage: smoke
   image: alpine:latest
-  timeout: 10m
+  # Same slow-runner observation: VM round-trips plus rustup/rustc/cargo
+  # version checks need more than the original 10m headroom.
+  timeout: 20m
   # Same opt-out: immediately playable manual job that verifies (without
   # modifying) the rustup default toolchain and the protondrive-linux release
   # binary on debian13 and debian12. Read-only evidence for issue #14.
