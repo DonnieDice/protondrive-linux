@@ -1,0 +1,132 @@
+# VM harness additions for work item #15 (in-VM login + pytest execution).
+#
+# These jobs run on the Unraid-hosted GitLab runner, which mounts
+# /mnt/user/appdata/gitlab-runner/ssh as /root/.ssh:ro in every job container
+# (same transport as the existing vm:install/vm:regression jobs). They do
+# NOT depend on the VM_SSH_KEY CI variable, which was never configured
+# (observed: "VM_SSH_KEY not set" in job 22765, pipeline 2099).
+#
+# Scope (issue #15):
+#   - runner-side SSH reachability evidence for debian12/debian13
+#   - proton-drive package install + dpkg/version evidence on the VM
+#   - tests/unit/ pytest suite executed INSIDE the VM, junit xml evidence
+#   - functional login suite attempt (credential-gated; posts structured
+#     blocker naming missing CI variable names only)
+
+vm:ssh:reachability:
+  stage: smoke
+  image: alpine:latest
+  timeout: 10m
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - ssh -V
+    - ls -la /root/.ssh
+    - |
+      for h in debian12 debian13; do
+        echo "=== $h ==="
+        ssh -o BatchMode=yes -o ConnectTimeout=10 -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new "$h" "hostname; whoami; uname -rm" || exit 1
+      done
+    - echo "SSH reachability verified for debian12 and debian13."
+  artifacts:
+    when: always
+    paths: [vm-reachability/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
+vm:install:pkg:debian12:
+  stage: smoke
+  image: alpine:latest
+  timeout: 30m
+  dependencies: []
+  variables:
+    VM_HOST: debian12
+    PKG_TYPE: deb
+  before_script:
+    - apk add --no-cache openssh-client bash git curl coreutils tar gzip
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/install-pkg.sh "$VM_HOST" "$PKG_TYPE"
+  artifacts:
+    when: always
+    paths: [vm-install-results/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
+vm:pytest:debian12:
+  stage: smoke
+  image: alpine:latest
+  timeout: 30m
+  dependencies: []
+  needs:
+    - job: vm:install:pkg:debian12
+      optional: true
+  variables:
+    VM_HOST: debian12
+  before_script:
+    - apk add --no-cache openssh-client bash git
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vmtest/pytest-unit.sh "$VM_HOST"
+  artifacts:
+    when: always
+    paths: [vm-pytest-results/]
+    reports:
+      junit: vm-pytest-results/pytest.xml
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
+vm:login:debian12:
+  stage: smoke
+  image: alpine:latest
+  timeout: 45m
+  dependencies: []
+  needs:
+    - job: vm:install:pkg:debian12
+      optional: true
+  variables:
+    RUN_VM_LOGIN_TESTS: "true"
+    VM_HOST: debian12
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    # Credential gate per issue #15: name missing variables, never values.
+    - |
+      if [ -z "${PROTON_TEST_EMAIL:-}" ] || [ -z "${PROTON_TEST_PASSWORD:-}" ]; then
+        echo "BLOCKER: RUN_VM_LOGIN_TESTS=true requires CI variables: PROTON_TEST_EMAIL, PROTON_TEST_PASSWORD (not configured in this project). Login suite cannot execute without them."
+        exit 1
+      fi
+    - scp -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new scripts/ci/lib/ui-test-compositor.sh debian12:/tmp/pd-ui-test.sh
+    - |
+      ssh -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new debian12 \
+        "PROTON_TEST_EMAIL='${PROTON_TEST_EMAIL}' PROTON_TEST_PASSWORD='${PROTON_TEST_PASSWORD}' bash /tmp/pd-ui-test.sh functional /tmp/pd-ui-artifacts"
+    - mkdir -p vm-login-results
+    - scp -o BatchMode=yes -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -o StrictHostKeyChecking=accept-new -r debian12:/tmp/pd-ui-artifacts/ vm-login-results/ || true
+  artifacts:
+    when: always
+    paths: [vm-login-results/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success

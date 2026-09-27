@@ -1,5 +1,6 @@
 include:
   - local: .gitlab-ci-vm-tests.yml
+  - local: .gitlab-ci-vm-harness-15.yml
   - local: .gitlab/workflows/tests.yml
 
 variables:
