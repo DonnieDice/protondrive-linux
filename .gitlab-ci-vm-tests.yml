@@ -218,3 +218,28 @@ vm:ssh:diagnostics:
   rules:
     - when: manual
       allow_failure: true
+
+# Read-only tower hypervisor inventory for the EL10 (CentOS Stream 10) VM
+# bootstrap (issue #19, parent #11). Immediately playable (needs: []) so it
+# never waits on build stages. Runs on the runner, which reaches tower via
+# the runner-mounted /root/.ssh config (alias: tower).
+vm:inventory:el10:
+  stage: smoke
+  image: alpine:latest
+  timeout: 10m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/el10-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
