@@ -224,6 +224,7 @@ vm:inventory:alpine322:
   stage: smoke
   image: alpine:latest
   timeout: 15m
+  tags: [android]
   needs: []
   dependencies: []
   before_script:
