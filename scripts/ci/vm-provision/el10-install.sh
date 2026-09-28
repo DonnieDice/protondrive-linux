@@ -118,10 +118,13 @@ fi
 # ------------------------------------------------- kernel/initrd extraction --
 log "extracting kernel/initrd from the DVD ISO (bsdtar, no loop mounts)"
 tower "command -v bsdtar; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
+# job 26480 failed: the bsdtar -s transform arg did not survive ssh re-quoting
+# ('Invalid regular expression: Trailing backslash'). Extract plain paths,
+# no -s transform (alpine322 pattern, proven in job 25028).
 tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' && \
        cd '$DOMAIN_DIR/install-media' && \
-       bsdtar -x -f '$ISO_PATH' -s '/^isolinux\\///' isolinux/vmlinuz isolinux/initrd.img && \
-       ls -la" | tee -a "$OUT_DIR/iso-extract.log"
+       bsdtar -x -f '$ISO_PATH' isolinux/vmlinuz isolinux/initrd.img && \
+       mv isolinux/vmlinuz isolinux/initrd.img . && rmdir isolinux && ls -la" | tee -a "$OUT_DIR/iso-extract.log"
 tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/install-media/initrd.img' && echo KERNEL-OK" \
   | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
 
