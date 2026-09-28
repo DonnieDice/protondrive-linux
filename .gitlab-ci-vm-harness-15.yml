@@ -40,6 +40,33 @@ vm:guest-start:debian12:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: on_success
 
+vm:inspect:debian12-storage:
+  stage: smoke
+  image: alpine:latest
+  timeout: 10m
+  needs: []
+  tags: [android]
+  dependencies: []
+  # Read-only storage inspection (issue #15): locate the real debian12 backing
+  # disk after guest-start job 26216 proved the domain's configured path
+  # /mnt/pool_two/domains/debian12/vdisk1.qcow2 does not exist (same class of
+  # broken domain definition #14 proved for debian13).
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/inspect-debian12-storage.sh
+  artifacts:
+    when: always
+    paths: [inspect-results/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
 vm:ssh:reachability:
   stage: smoke
   image: alpine:latest
