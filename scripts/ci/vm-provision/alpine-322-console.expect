@@ -1,0 +1,112 @@
+#!/usr/bin/env expect -f
+# scripts/ci/vm-provision/alpine-322-console.expect
+#
+# Serial-console driver for the Alpine 3.22 install of issue #22 (parent #6).
+# Runs on the tower host under `ssh -tt` so virsh console gets a real pty.
+#   argv: <guest> <payload_port> <total_budget_secs>
+#
+# The live environment boots to a serial getty (direct-kernel cmdline has
+# console=ttyS0). Flow:
+#   1. log in as root (no password in the live env)
+#   2. bring up eth0 with the static IP
+#   3. receive the payload bundle (live script + chroot script + hermes
+#      public key, gzipped tar) over the LAN from the CI runner via nc,
+#      checksum it, explode it
+#   4. run the live install (setup-disk), watch for INSTALL_DONE
+#   5. chroot post-config, watch for CHROOT_DONE
+#   6. power the guest off
+#
+# No secret material crosses this console: the workforce key's public half
+# arrives over the LAN payload, and the private half never leaves the
+# runner's RO /root/.ssh mount.
+set timeout 10
+log_user 1
+
+set guest   [lindex $argv 0]
+set port    [lindex $argv 1]
+set budget  [lindex $argv 2]
+set deadline [expr {[clock seconds] + $budget}]
+proc remaining {} { global deadline; return [expr {$deadline - [clock seconds]}] }
+
+proc die {msg} { puts "\nEXPECT-FATAL: $msg"; exit 2 }
+
+proc wait_for {pattern secs} {
+	set ::timeout $secs
+	expect {
+		$pattern { return 1 }
+		timeout { die "timeout waiting for: $pattern" }
+		eof     { die "console EOF waiting for: $pattern" }
+	}
+}
+
+spawn virsh console $guest --force
+
+# --- login on the serial getty -------------------------------------------
+wait_for "login:" 300
+after 500
+send "root\r"
+expect -re "(~#|#) $" {}
+
+# --- static network in the live env ---------------------------------------
+send "ip addr add 192.168.1.126/24 dev eth0 && ip link set eth0 up\r"
+expect -re "# $"
+send "ip route add default via 192.168.1.1 2>/dev/null; ip -4 addr show eth0 | grep inet\r"
+expect -re "# $"
+
+# --- receive payload over the LAN -----------------------------------------
+# runner -> guest:  tar.gz bundle with live-install.sh, chroot-config.sh,
+# hermes-key.pub; then an md5 trailer line the guest verifies.
+send "nc -lp $port > /tmp/payload.tgz < /dev/null &\r"
+expect -re "# $"
+send "echo NC_LISTENING\r"
+expect "NC_LISTENING"
+
+# signal the parent job (which polls the console log) that nc is listening;
+# the parent then sends the bundle and a final md5 line.
+wait_for "PAYLOAD_OK" 2400
+
+# --- explode payload -------------------------------------------------------
+send "pkill nc; md5sum -c /tmp/payload.md5 || echo MD5_FAIL\r"
+expect {
+	"MD5_FAIL" { die "payload checksum mismatch" }
+	"OK" {}
+}
+send "tar -xzf /tmp/payload.tgz -C /root && ls -la /root\r"
+expect -re "# $"
+send "chmod +x /root/live-install.sh /root/chroot-config.sh\r"
+expect -re "# $"
+
+# --- live install ------------------------------------------------------------
+send "sh /root/live-install.sh > /root/live-install.log 2>&1; echo LIVE_RC=\$?\r"
+expect {
+	-re "LIVE_RC=0" {}
+	-re "LIVE_RC=1" { die "live-install failed; see /root/live-install.log" }
+	timeout { die "timeout during setup-disk" }
+}
+wait_for "INSTALL_DONE" 60
+
+# --- chroot post-config -----------------------------------------------------
+send "mount /dev/vda2 /mnt\r"
+expect -re "# $"
+send "mount -t proc proc /mnt/proc && mount --rbind /sys /mnt/sys && mount --rbind /dev /mnt/dev\r"
+expect -re "# $"
+send "cp -L /etc/resolv.conf /mnt/etc/ && cp /root/chroot-config.sh /root/hermes-key.pub /mnt/root/\r"
+expect -re "# $"
+send "chroot /mnt sh /root/chroot-config.sh > /root/chroot.log 2>&1; echo CHROOT_RC=\$?\r"
+expect {
+	-re "CHROOT_RC=0" {}
+	-re "CHROOT_RC=[1-9]" { die "chroot-config failed; see /root/chroot.log" }
+	timeout { die "timeout during chroot-config" }
+}
+send "umount -R /mnt/proc /mnt/sys /mnt/dev 2>/dev/null; umount /mnt\r"
+expect -re "# $"
+
+# --- graceful poweroff ------------------------------------------------------
+send "poweroff\r"
+# virsh console prints nothing on shutdown; the domain reaches shut-off by
+# on_poweroff=destroy. Give it time then detach.
+after 20000
+send "\x1d"
+close
+puts "\nEXPECT-CONSOLE-COMPLETE"
+exit 0
