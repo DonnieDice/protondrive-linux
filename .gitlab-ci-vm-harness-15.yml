@@ -17,6 +17,15 @@ vm:ssh:reachability:
   stage: smoke
   image: alpine:latest
   timeout: 10m
+  # Immediately playable: with needs:[] this manual job does not wait for the
+  # test stage (test:rust/clippy/coverage:rust have been timing out under
+  # concurrent runner load, which previously left all smoke jobs skipped).
+  # tags: [android] pins it to the tower-mounted unraid-docker runner that
+  # bind-mounts /root/.ssh — the same pinning the sibling issue VM jobs use
+  # (e.g. vm:inventory:alpine322, job 24251, which ran green while its
+  # pipeline's test stage failed).
+  needs: []
+  tags: [android]
   dependencies: []
   before_script:
     - apk add --no-cache openssh-client
@@ -45,6 +54,8 @@ vm:install:pkg:debian12:
   stage: smoke
   image: alpine:latest
   timeout: 30m
+  needs: []
+  tags: [android]
   dependencies: []
   variables:
     VM_HOST: debian12
@@ -69,10 +80,11 @@ vm:pytest:debian12:
   stage: smoke
   image: alpine:latest
   timeout: 30m
+  # Immediately playable regardless of test-stage health; pinned to the
+  # tower-mounted runner (see vm:ssh:reachability note above).
+  needs: []
+  tags: [android]
   dependencies: []
-  needs:
-    - job: vm:install:pkg:debian12
-      optional: true
   variables:
     VM_HOST: debian12
   before_script:
@@ -97,10 +109,11 @@ vm:login:debian12:
   stage: smoke
   image: alpine:latest
   timeout: 45m
+  # Immediately playable regardless of test-stage health; pinned to the
+  # tower-mounted runner (see vm:ssh:reachability note above).
+  needs: []
+  tags: [android]
   dependencies: []
-  needs:
-    - job: vm:install:pkg:debian12
-      optional: true
   variables:
     RUN_VM_LOGIN_TESTS: "true"
     VM_HOST: debian12
