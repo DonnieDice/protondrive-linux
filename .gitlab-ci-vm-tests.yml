@@ -217,6 +217,34 @@ vm:provision:build-deps:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: on_success
 
+# Issue #14: authorized debian13 guest-start job. The tower inventory (job
+# 24251, pipeline 2138) proved every guest shut off — the root cause of the
+# pipeline 2129 "Host is unreachable" failures. Issue #14 scope item 2
+# authorizes starting the debian13 guest via the tower transport. Exactly one
+# lifecycle action on exactly one guest; state evidence is recorded before and
+# after. Manual + allow_failure so it never blocks the release-policy jobs.
+vm:guest-start:debian13:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 15m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/guest-start-debian13.sh
+  artifacts:
+    when: always
+    paths:
+      - guest-start-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 vm:verify:rust-toolchain:
   stage: smoke
   image: alpine:latest
