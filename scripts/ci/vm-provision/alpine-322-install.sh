@@ -13,32 +13,47 @@
 #
 # Preconditions verified by vm:inventory:alpine322 (job 24251, pipeline 2138):
 #   - guest alpine322 defined, shut off, uuid c0c1ff59-5e75-4581-9507-461163f99a96
-#   - disk  /mnt/pool_two/domains/alpine322/vdisk1.qcow2 (virtio, boot order 1)
+#   - disk source /mnt/pool_two/domains/alpine322/vdisk1.qcow2 (virtio, boot 1)
 #   - cdrom /mnt/pool_one/isos/alpine-standard-3.22.4-x86_64.iso (sata)
 #   - NIC   bridge br0 (active), mac 52:54:00:38:d9:cc, model virtio
 #   - serial pty console + qemu guest-agent channel in the domain XML
 #   - 192.168.1.126 free (no arp entry, ping silent)
+#   NOTE: the domain XML names the disk but the qcow2 FILE was found absent
+#   on 2026-09-28 (job 25028: "Cannot access storage file ... No such file or
+#   directory"). Issue #22 scope explicitly authorizes creating the qcow2
+#   disk, so this job creates it (32G sparse) when missing, after recording
+#   the pre-state. No existing file is ever overwritten.
 #
 # Method (headless, no VNC, deterministic):
-#   1. Extract vmlinuz-lts/initramfs-lts from the ISO on tower.
-#   2. Define a TRANSIENT domain alpine322-install reusing the guest's real
+#   1. Preflight: record domain-dir contents; create the qcow2 if absent.
+#   2. Extract vmlinuz-lts/initramfs-lts from the ISO on tower (bsdtar).
+#   3. Define a TRANSIENT domain alpine322-install reusing the guest's real
 #      qcow2 disk, br0 NIC, and ISO, booting the extracted kernel directly
-#      with console=ttyS0 so the live env gets a serial getty. The persistent
-#      alpine322 domain is never edited.
-#   3. Drive the serial console from tower via expect (ssh -tt pty); the
+#      with console=ttyS0 so the live env gets a serial getty (Alpine's
+#      initramfs spawns gettys for every console= param). The persistent
+#      alpine322 domain XML is never edited.
+#   4. Drive the serial console from tower via expect (ssh -tt pty). The
 #      payload bundle (live script + chroot script + Hermes public key)
 #      travels runner -> guest over the LAN (nc), never through the console,
-#      so no key value appears in any log or trace.
-#   4. After install: undefine the transient domain, boot the persistent
-#      alpine322 domain from its installed disk, and run the acceptance
-#      probes (SSH from the runner with the same key, in-guest service
-#      status, virsh guest-agent ping, qemu-img info).
+#      so no key value appears in any console log or CI trace. The guest
+#      verifies the payload md5 before exploding it.
+#   5. Live install: static LAN 192.168.1.126/24, hostname, sshd, then
+#      setup-disk -m sys to /dev/vda (ERASE_DISKS/SWAP_SIZE make it
+#      non-interactive). setup-disk replicates the live env's /etc config,
+#      apk world, and runlevels onto the target.
+#   6. Chroot post-config: qemu-guest-agent + enabled, Hermes key as sole
+#      root login (password locked, PermitRootLogin prohibit-password),
+#      serial getty, boot services.
+#   7. Undefine the transient domain, boot the persistent alpine322 domain
+#      from its installed disk, and run the acceptance probes (SSH from the
+#      runner with the same key, in-guest service status, virsh guest-ping,
+#      qemu-img info).
 #
 # Mutations are confined to the alpine322 guest's resources: its qcow2 disk
-# contents, its power state, transient sibling domain alpine322-install
-# (removed before the job ends), and scratch files in its own domain
-# directory + /tmp. No other guest, disk, network, or host service is
-# touched.
+# file (created when absent), disk contents, power state, the transient
+# sibling domain alpine322-install (removed before the job ends), and
+# scratch files in its own domain directory + tower /tmp. No other guest,
+# disk, network, or host service is touched.
 set -uo pipefail
 
 TOWER_HOST="${TOWER_HOST:-tower}"
@@ -50,6 +65,7 @@ DISK_PATH="${DISK_PATH:-/mnt/pool_two/domains/alpine322/vdisk1.qcow2}"
 DOMAIN_DIR="${DOMAIN_DIR:-/mnt/pool_two/domains/alpine322}"
 MAC="${MAC:-52:54:00:38:d9:cc}"
 PAYLOAD_PORT="${PAYLOAD_PORT:-8022}"
+DISK_SIZE="${DISK_SIZE:-32G}"
 OUT_DIR="${PROVISION_OUT_DIR:-provision-results}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$OUT_DIR"
@@ -61,20 +77,23 @@ SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-
 tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
 log()  { echo "[provision] $*"; }
 die()  { echo "FATAL: $*" >&2; exit 1; }
-on_exit() {
-  # best-effort cleanup of transient artifacts; never touch other guests
-  scp $SSH_OPTS "$CONSOLE_LOG" "$TOWER_HOST:/tmp/" >/dev/null 2>&1 || true
-}
 CONSOLE_LOG="$OUT_DIR/console-session.log"
-trap on_exit EXIT
+
+cleanup() {
+  # best-effort; never touch other guests. Record final transient state.
+  tower "sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; \
+         rm -rf '$DOMAIN_DIR/install-media' /tmp/alpine322-console.expect /tmp/alpine322-payload.*" \
+    >/dev/null 2>&1 || true
+}
+trap cleanup EXIT
 
 # ------------------------------------------------------------- pre-state ----
 tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || die "cannot reach tower"
 
 STATE="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)"
 log "persistent guest state: ${STATE:-unknown}"
-echo "pre-state: $STATE" > "$OUT_DIR/pre-state.txt"
-tower "sudo virsh dumpxml '$GUEST'" > "$OUT_DIR/alpine322-pre.xml" || die "dumpxml failed"
+{ echo "pre-state: $STATE"; tower "sudo virsh dumpxml '$GUEST'"; } > "$OUT_DIR/pre-state.txt" \
+  || die "dumpxml failed"
 
 # transient domain must not exist
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
@@ -83,15 +102,31 @@ if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
 fi
 
+# ---------------------------------------------------- disk preflight/create --
+log "domain dir contents before any change:"
+tower "ls -la '$DOMAIN_DIR/'" | tee "$OUT_DIR/disk-preflight.txt"
+
+# search for any alpine322 disk that may live elsewhere (record only)
+tower "find /mnt/pool_one /mnt/pool_two /mnt/user/domains -maxdepth 3 -iname '*alpine*322*' 2>/dev/null; true" \
+  | tee -a "$OUT_DIR/disk-preflight.txt"
+
+if tower "test -s '$DISK_PATH'"; then
+  log "disk exists"
+  tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
+else
+  log "disk $DISK_PATH ABSENT - creating fresh qcow2 ($DISK_SIZE, sparse; authorized by issue scope)"
+  tower "sudo qemu-img create -f qcow2 '$DISK_PATH' '$DISK_SIZE'" | tee -a "$OUT_DIR/disk-preflight.txt" \
+    || die "qemu-img create failed"
+  tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
+fi
+
 # ------------------------------------------------- kernel/initrd extraction --
 log "extracting kernel/initrd from the ISO (bsdtar, no loop mounts)"
-tower "command -v bsdtar || command -v 7z || echo NONE; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
+tower "command -v bsdtar; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
 tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' && \
        cd '$DOMAIN_DIR/install-media' && \
-       (bsdtar -xf '$ISO_PATH' boot/vmlinuz-lts boot/initramfs-lts 2>/dev/null || \
-        7z e -y '$ISO_PATH' boot/vmlinuz-lts boot/initramfs-lts >/dev/null) && \
-       mv boot/vmlinuz-lts boot/initramfs-lts . 2>/dev/null; rmdir boot 2>/dev/null; \
-       ls -la" | tee -a "$OUT_DIR/iso-extract.log"
+       bsdtar -xf '$ISO_PATH' boot/vmlinuz-lts boot/initramfs-lts && \
+       mv boot/vmlinuz-lts boot/initramfs-lts . && rmdir boot && ls -la" | tee -a "$OUT_DIR/iso-extract.log"
 tower "test -s '$DOMAIN_DIR/install-media/vmlinuz-lts' && test -s '$DOMAIN_DIR/install-media/initramfs-lts' && echo KERNEL-OK" \
   | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
 
@@ -143,7 +178,6 @@ ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" < "$OUT_DIR/transient
   || die "transient define failed"
 
 # ------------------------------------------------------------- payload ------
-# payload bundle: live-install.sh + chroot-config.sh + hermes-key.pub
 KEYSRC=""
 if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
 elif [ -r /root/.ssh/id_ed25519 ]; then
@@ -152,68 +186,57 @@ fi
 [ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
 log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
 
-tar -czf "$OUT_DIR/payload.tgz" -C "$HERE/guest" alpine-322-live-install.sh alpine-322-chroot-config.sh
-# rename guest scripts to the names the console driver expects
-tar -czf "$OUT_DIR/payload.tgz" -C "$HERE/guest" \
-  --transform 's/alpine-322-live-install.sh/live-install.sh/; s/alpine-322-chroot-config.sh/chroot-config.sh/' \
-  alpine-322-live-install.sh alpine-322-chroot-config.sh
-cp "$KEYSRC" "$OUT_DIR/payload-key.pub"
-tar -rf "$OUT_DIR/payload.tar" -C "$OUT_DIR" payload-key.pub 2>/dev/null || true
-# rebuild as tar.gz with the key inside
-mkdir -p "$OUT_DIR/payload-root"
-cp "$HERE/guest/alpine-322-live-install.sh"   "$OUT_DIR/payload-root/live-install.sh"
-cp "$HERE/guest/alpine-322-chroot-config.sh"  "$OUT_DIR/payload-root/chroot-config.sh"
-cp "$KEYSRC"                                  "$OUT_DIR/payload-root/hermes-key.pub"
-tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub
+# bundle: live-install.sh + chroot-config.sh + hermes-key.pub (busybox-tar safe)
+rm -rf "$OUT_DIR/payload-root"; mkdir -p "$OUT_DIR/payload-root"
+cp "$HERE/guest/alpine-322-live-install.sh"  "$OUT_DIR/payload-root/live-install.sh"
+cp "$HERE/guest/alpine-322-chroot-config.sh" "$OUT_DIR/payload-root/chroot-config.sh"
+cp "$KEYSRC"                                 "$OUT_DIR/payload-root/hermes-key.pub"
+tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub \
+  || die "payload tar failed"
 md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
-log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $(cat "$OUT_DIR/payload.md5")"
+PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
+log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
 # ship driver + payload staging to tower
 scp $SSH_OPTS "$HERE/alpine-322-console.expect" "$TOWER_HOST:/tmp/alpine322-console.expect" \
   || die "expect driver upload failed"
 scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" \
   || die "payload upload failed"
-scp $SSH_OPTS "$OUT_DIR/payload.md5" "$TOWER_HOST:/tmp/alpine322-payload.md5" \
-  || die "payload md5 upload failed"
 
 # --------------------------------------------------------------- install ----
 log "starting transient domain $TRANSIENT"
 tower "sudo virsh start '$TRANSIENT'" || die "transient start failed"
 
-# The console driver: (a) drives the console, (b) when it prints
-# NC_LISTENING, this job pushes the payload to $VM_IP:$PAYLOAD_PORT, then
-# echoes PAYLOAD_OK into the console stream it also consumes (the expect
-# side waits for PAYLOAD_OK in the console output loop).
+# Push the payload over the LAN when the guest signals (on the console) that
+# its nc listener is up. The signal marker is echoed as NC_RE""ADY so the
+# console echo of the command itself can never match the grep.
 push_payload_when_ready() {
-  # wait for the guest nc listener (the live env needs ~2-4 min to boot)
   local waited=0
   while [ "$waited" -lt 1500 ]; do
-    if grep -q NC_LISTENING "$CONSOLE_LOG" 2>/dev/null; then
-      log "console reports nc listening - pushing payload"
+    if grep -q 'NC_READY' "$CONSOLE_LOG" 2>/dev/null; then
+      log "console reports guest nc listening - pushing payload"
       gzip -c "$OUT_DIR/payload.tgz" | nc -w 60 "$VM_IP" "$PAYLOAD_PORT" >/dev/null 2>&1
       log "payload push rc=$?"
-      printf 'PAYLOAD_OK\n' >> "$CONSOLE_LOG"
       return 0
     fi
     sleep 10; waited=$((waited + 10))
   done
-  log "WARN: never saw NC_LISTENING"
+  log "WARN: never saw NC_READY"
   return 1
 }
 push_payload_when_ready &
 PUSHER=$!
 
+# Drive the console from tower. expect needs a pty on tower: ssh -tt.
 ssh -tt $SSH_OPTS "$TOWER_HOST" \
-  "sudo timeout --signal=KILL --kill-after=30 3000 expect /tmp/alpine322-console.expect '$TRANSIENT' '$PAYLOAD_PORT' 2700" \
-  > >(tee "$CONSOLE_LOG") 2>&1
-CONSOLE_RC=$?
+  "sudo timeout --signal=KILL --kill-after=30 3000 expect /tmp/alpine322-console.expect '$TRANSIENT' '$PAYLOAD_PORT' '$PAYLOAD_MD5' 2700" \
+  2>&1 | tee "$CONSOLE_LOG"
+CONSOLE_RC="${PIPESTATUS[0]}"
 kill "$PUSHER" 2>/dev/null || true; wait "$PUSHER" 2>/dev/null || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
-  log "console driver failed rc=$CONSOLE_RC"
-  tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
-  tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
-  die "install failed (transient domain cleaned up)"
+  log "console driver failed rc=$CONSOLE_RC (transient domain cleanup happens via trap)"
+  die "install failed"
 fi
 
 # wait for shut-off, then undefine the transient domain
@@ -223,7 +246,7 @@ for i in $(seq 1 30); do
   sleep 5
 done
 tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
-tower "rm -rf '$DOMAIN_DIR/install-media' /tmp/alpine322-*" || true
+tower "rm -rf '$DOMAIN_DIR/install-media'" || true
 log "transient domain and scratch files removed"
 
 # --------------------------------------------------- boot + acceptance ------
@@ -233,10 +256,10 @@ tower "sudo virsh start '$GUEST'" || die "persistent guest failed to start"
 log "waiting for TCP/22 at $VM_IP (up to 180s)"
 up=0
 for i in $(seq 1 90); do
-  if (exec 3<>/dev/tcp/$VM_IP/22) 2>/dev/null; then up=1; exec 3>&-; break; fi
+  if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then up=1; exec 3>&-; break; fi
   sleep 2
 done
-[ "$up" = "1" ] || { tower "sudo virsh console '$GUEST' --force" </dev/null >/dev/null 2>&1 & sleep 2; kill %1 2>/dev/null; die "ssh never came up"; }
+[ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
 log "SSH probe from the runner (workforce key installed in the guest)"
 ssh $SSH_OPTS -o ConnectTimeout=15 "root@$VM_IP" \
@@ -247,7 +270,7 @@ log "collecting acceptance evidence"
 {
   echo "=== virsh domstate ==="
   tower "sudo virsh domstate '$GUEST'"
-  echo "=== virsh dumpxml (name/disk/interface/channel) ==="
+  echo "=== virsh dumpxml (key facts) ==="
   tower "sudo virsh dumpxml '$GUEST'" | grep -E "<name>|<uuid>|<source file=|<source bridge=|<mac |<channel|guest_agent|<serial|<console" || true
   echo "=== qemu-img info ==="
   tower "sudo qemu-img info '$DISK_PATH'"
