@@ -57,7 +57,10 @@ proc at_prompt {} {
 	}
 }
 
-spawn ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
+# ssh -tt: force pty allocation on tower even though the local command is not
+# interactive (expect's spawn gives the local side a pty; virsh console demands
+# one on its own controlling side too - job 25780 failed without -tt).
+spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
 	-o UserKnownHostsFile=$env(VM_KNOWN_HOSTS) tower \
 	"sudo virsh console $guest --force"
 
