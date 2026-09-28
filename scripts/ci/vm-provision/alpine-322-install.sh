@@ -32,7 +32,10 @@
 #      with console=ttyS0 so the live env gets a serial getty (Alpine's
 #      initramfs spawns gettys for every console= param). The persistent
 #      alpine322 domain XML is never edited.
-#   4. Drive the serial console from tower via expect (ssh -tt pty). The
+#   4. Drive the serial console from the RUNNER via expect (the runner
+#      image apk-adds expect; tower has none - job 25177 failed rc=127 when
+#      the driver ran there). The pty chain is: expect (runner) -> ssh -tt
+#      tower -> sudo virsh console (real pty on tower) -> guest ttyS0. The
 #      payload bundle (live script + chroot script + Hermes public key)
 #      travels runner -> guest over the LAN (nc), never through the console,
 #      so no key value appears in any console log or CI trace. The guest
@@ -82,7 +85,7 @@ CONSOLE_LOG="$OUT_DIR/console-session.log"
 cleanup() {
   # best-effort; never touch other guests. Record final transient state.
   tower "sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; \
-         rm -rf '$DOMAIN_DIR/install-media' /tmp/alpine322-console.expect /tmp/alpine322-payload.*" \
+         rm -rf '$DOMAIN_DIR/install-media' /tmp/alpine322-payload.*" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -197,9 +200,8 @@ md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
 PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
 log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
-# ship driver + payload staging to tower
-scp $SSH_OPTS "$HERE/alpine-322-console.expect" "$TOWER_HOST:/tmp/alpine322-console.expect" \
-  || die "expect driver upload failed"
+# ship payload staging to tower (driver now runs on the runner, so only the
+# payload itself is staged)
 scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" \
   || die "payload upload failed"
 
@@ -227,9 +229,12 @@ push_payload_when_ready() {
 push_payload_when_ready &
 PUSHER=$!
 
-# Drive the console from tower. expect needs a pty on tower: ssh -tt.
-ssh -tt $SSH_OPTS "$TOWER_HOST" \
-  "sudo timeout --signal=KILL --kill-after=30 3000 expect /tmp/alpine322-console.expect '$TRANSIENT' '$PAYLOAD_PORT' '$PAYLOAD_MD5' 2700" \
+# Drive the console from the RUNNER: expect runs here (apk-added in the job
+# image) inside a pty allocated by the CI shell, reaching the guest's serial
+# console through tower: expect -> ssh -tt tower -> sudo virsh console.
+# VM_KNOWN_HOSTS must be exported so expect's spawn sees it.
+export VM_KNOWN_HOSTS
+expect "$HERE/alpine-322-console.tcl" "$TRANSIENT" "$PAYLOAD_PORT" "$PAYLOAD_MD5" 2700 \
   2>&1 | tee "$CONSOLE_LOG"
 CONSOLE_RC="${PIPESTATUS[0]}"
 kill "$PUSHER" 2>/dev/null || true; wait "$PUSHER" 2>/dev/null || true

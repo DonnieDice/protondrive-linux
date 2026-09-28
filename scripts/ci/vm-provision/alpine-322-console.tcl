@@ -1,13 +1,21 @@
 #!/usr/bin/env expect -f
-# scripts/ci/vm-provision/alpine-322-console.expect
+# scripts/ci/vm-provision/alpine-322-console.tcl
 #
 # Serial-console driver for the Alpine 3.22 install of issue #22 (parent #6).
-# Runs on the tower host under `ssh -tt` so virsh console gets a real pty.
-#   argv: <guest> <payload_port> <payload_md5> <total_budget_secs>
+# Runs ON THE GITLAB RUNNER inside a pty (the CI job allocates it), not on the
+# tower host: tower has no expect binary (job 25177 failed rc=127 at exactly
+# this point). The runner connects the pty through tower with:
 #
-# The transient domain boots the ISO's kernel directly with console=ttyS0,
-# so the live environment spawns a getty on the serial line. Flow:
-#   1. log in as root (no password in the live env)
+#   ssh -tt tower "sudo virsh console alpine322-install --force"
+#
+# so the expect process on the runner drives the guest's serial console over
+# the SSH transport. argv (all required):
+#   <guest> <payload_port> <payload_md5> <total_budget_secs>
+#
+# Flow (the transient domain boots the ISO kernel directly with
+# console=ttyS0,115200; Alpine's initramfs setup_inittab_console() spawns a
+# getty for every console= param, so a login: prompt appears on serial):
+#   1. wait for the live env's login: prompt; log in as root (no password)
 #   2. bring up eth0 with the static IP + default route
 #   3. start an nc listener; print the NC_READY marker (the CI job greps the
 #      console log for it and pushes the payload bundle over the LAN)
@@ -29,13 +37,9 @@ set deadline [expr {[clock seconds] + $budget}]
 
 proc remaining {} { global deadline; return [expr {$deadline - [clock seconds]}] }
 proc die {msg} { puts "\nEXPECT-FATAL: $msg"; exit 2 }
-proc at_prompt {} {
-	expect {
-		-re "(^|\n|# )$" {}
-		timeout { die "no prompt" }
-	}
-}
 
+# The transient domain may already be mid-boot from a prior attempt: after
+# spawn, drain whatever the console emits until the pattern or timeout.
 proc wait_for {pattern secs} {
 	set ::timeout $secs
 	expect {
@@ -45,9 +49,21 @@ proc wait_for {pattern secs} {
 	}
 }
 
-spawn virsh console $guest --force
+proc at_prompt {} {
+	set ::timeout 20
+	expect {
+		-re "(^|\n|~ )# $" {}
+		timeout { die "no shell prompt" }
+	}
+}
+
+spawn ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new \
+	-o UserKnownHostsFile=$env(VM_KNOWN_HOSTS) tower \
+	"sudo virsh console $guest --force"
 
 # --- login on the serial getty --------------------------------------------
+# live env: root has no password; pressing enter on the login prompt is
+# sufficient (getty asks for login name, root logs straight in)
 wait_for "login:" 300
 after 1000
 send "root\r"
@@ -65,19 +81,20 @@ send "ip -4 addr show eth0 | grep inet\r"
 send "nc -l -p $port > /tmp/payload.tgz &\r"
 after 500
 send "echo NC_RE\"\"ADY\r"
-wait_for "NC_READY" 60
+wait_for "NC_READY" 120
 
 # (the CI job pushes the bundle now; nc exits when the sender closes)
 send "echo waiting-for-payload\r"
 
 # --- verify + explode payload -----------------------------------------------
+# nc exits promptly on sender close; the /tmp/payload.tgz appears in ls
 set timeout 900
 expect {
 	-re "nc.*exit|payload.*$" {}
 	timeout { die "payload transfer window exceeded" }
 }
 send "md5sum /tmp/payload.tgz\r"
-expect -re "(\[0-9a-f\]{32})"
+expect -re "([0-9a-f]{32})"
 if {$paymd5 ne $expect_out(1,string)} {
 	send "echo MD5_MISMATCH\r"
 	die "payload md5 mismatch (expected $paymd5)"
@@ -121,6 +138,7 @@ set timeout 120
 expect {
 	"Power down" {}
 	"shut off" {}
+	-re "The system is going down" {}
 	timeout { puts "WARN: no explicit poweroff confirmation on console" }
 }
 after 15000

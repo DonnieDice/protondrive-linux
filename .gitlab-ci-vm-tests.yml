@@ -421,7 +421,7 @@ vm:provision:alpine322:
   needs: []
   dependencies: []
   before_script:
-    - apk add --no-cache openssh-client bash coreutils
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
     - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
     - ': > "$VM_KNOWN_HOSTS"'
   script:
