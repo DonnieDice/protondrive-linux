@@ -291,6 +291,36 @@ vm:inspect:debian13-storage:
     - when: manual
       allow_failure: true
 
+# Issue #14: authorized debian13/debian12 domain-disk repair + start. The
+# domains share was migrated off pool_two (Sep 27 22:19); both guests' XML
+# still points at /mnt/pool_two/domains/<guest>/vdisk1.qcow2 which no longer
+# exists, so virsh start fails (job 24760: "Path ... is not accessible").
+# The real disks live at /mnt/user/domains/<guest>/vdisk1.qcow2 (inspection
+# job 25655). This job repairs exactly that one path per guest (XML backup
+# kept on the tower), starts both guests, and polls SSH reachability.
+# debian12 is included only because the shared vm:provision:build-deps job
+# (scope item 1) provisions both hosts. Manual + allow_failure so it never
+# blocks the release-policy jobs.
+vm:repair:vm-domain-disk:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 45m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/repair-vm-domain-disk.sh
+  artifacts:
+    when: always
+    paths:
+      - repair-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 vm:ssh:diagnostics:
   stage: smoke
   image: alpine:latest
