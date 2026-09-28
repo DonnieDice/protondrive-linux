@@ -247,3 +247,31 @@ vm:inventory:el10:
   rules:
     - when: manual
       allow_failure: true
+
+# Install CentOS Stream 10 into the existing el10 guest (issue #19, parent
+# #11): headless kickstart over the LAN, creating the missing qcow2, static
+# 192.168.1.123, sshd, qemu-guest-agent, Hermes key. Mirrors the proven
+# vm:provision:alpine322 job wiring (issue #22): pinned to the tower-mounted
+# runner (tags: [android]) whose RO /root/.ssh provides the `tower` alias and
+# the workforce key; expect drives the serial console from the runner.
+vm:provision:el10:
+  stage: smoke
+  image: alpine:latest
+  timeout: 55m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/el10-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
