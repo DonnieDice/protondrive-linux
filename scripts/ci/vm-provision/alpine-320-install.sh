@@ -37,9 +37,12 @@
 #      with console=ttyS0 so the live env gets a serial getty (Alpine's
 #      initramfs spawns gettys for every console= param). The persistent
 #      alpine320 domain XML is never edited.
-#   4. Drive the serial console from tower via expect (ssh -tt pty). The
-#      payload bundle (live script + chroot script + Hermes public key)
-#      travels runner -> guest over the LAN (nc), never through the console,
+#   4. Drive the serial console from the RUNNER via expect (the runner image
+#      apk-adds expect; tower has none - job 25177 on the #22 sibling proved
+#      the tower-side route fails rc=127). The pty chain is: expect (runner)
+#      -> ssh -tt tower -> sudo virsh console -> guest ttyS0. The payload
+#      bundle (live script + chroot script + Hermes public key) travels
+#      runner -> guest over the LAN (nc), never through the console,
 #      so no key value appears in any console log or CI trace. The guest
 #      verifies the payload md5 before exploding it.
 #   5. Live install: static LAN 192.168.1.157/24, hostname, sshd, then
@@ -120,6 +123,12 @@ if tower "test -s '$DISK_PATH'"; then
   tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
 else
   log "disk $DISK_PATH ABSENT - creating fresh qcow2 ($DISK_SIZE, sparse; authorized by issue scope)"
+  # job 25524 failed exactly here: the domain directory named by the XML
+  # (/mnt/pool_two/domains/alpine320) did not exist on tower, so qemu-img
+  # create failed with ENOENT. Create the parent dir first (authorized by
+  # issue #21 scope step 3: allocate/create a qcow2 disk).
+  tower "sudo mkdir -p '$DOMAIN_DIR'" >>"$OUT_DIR/disk-preflight.txt" 2>&1 \
+    || die "mkdir of domain dir failed"
   tower "sudo qemu-img create -f qcow2 '$DISK_PATH' '$DISK_SIZE'" | tee -a "$OUT_DIR/disk-preflight.txt" \
     || die "qemu-img create failed"
   tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
@@ -202,9 +211,9 @@ md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
 PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
 log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
-# ship driver + payload staging to tower
-scp $SSH_OPTS "$HERE/alpine-320-console.expect" "$TOWER_HOST:/tmp/alpine320-console.expect" \
-  || die "expect driver upload failed"
+# ship payload staging to tower (RELAY FALLBACK ONLY: the primary route is the
+# direct runner -> guest LAN push below; if that LAN path is blocked, the
+# console driver dies at the md5 check and the job surfaces the failure)
 scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine320-payload.tgz" \
   || die "payload upload failed"
 
@@ -215,12 +224,15 @@ tower "sudo virsh start '$TRANSIENT'" || die "transient start failed"
 # Push the payload over the LAN when the guest signals (on the console) that
 # its nc listener is up. The signal marker is echoed as NC_RE""ADY so the
 # console echo of the command itself can never match the grep.
+# NOTE: send the tarball RAW. The guest md5-checks /tmp/payload.tgz (the file
+# nc wrote) against $PAYLOAD_MD5 (md5 of the tarball on the runner); piping
+# through gzip -c would change every byte and guarantee a MD5_MISMATCH.
 push_payload_when_ready() {
   local waited=0
   while [ "$waited" -lt 1500 ]; do
     if grep -q 'NC_READY' "$CONSOLE_LOG" 2>/dev/null; then
       log "console reports guest nc listening - pushing payload"
-      gzip -c "$OUT_DIR/payload.tgz" | nc -w 60 "$VM_IP" "$PAYLOAD_PORT" >/dev/null 2>&1
+      nc -w 120 "$VM_IP" "$PAYLOAD_PORT" < "$OUT_DIR/payload.tgz" >/dev/null 2>&1
       log "payload push rc=$?"
       return 0
     fi
@@ -232,11 +244,24 @@ push_payload_when_ready() {
 push_payload_when_ready &
 PUSHER=$!
 
-# Drive the console from tower. expect needs a pty on tower: ssh -tt.
-ssh -tt $SSH_OPTS "$TOWER_HOST" \
-  "sudo timeout --signal=KILL --kill-after=30 3000 expect /tmp/alpine320-console.expect '$TRANSIENT' '$PAYLOAD_PORT' '$PAYLOAD_MD5' 2700" \
-  2>&1 | tee "$CONSOLE_LOG"
-CONSOLE_RC="${PIPESTATUS[0]}"
+# Drive the console from the RUNNER: expect runs here (apk-added in the job
+# image) inside a pty allocated by the CI shell, reaching the guest's serial
+# console through tower: expect -> ssh -tt tower -> sudo virsh console.
+# (tower has no expect binary - the #22 sibling's job 25177 proved that route
+# fails rc=127 - so the driver must run on the runner.) The runner-side
+# driver also keeps the pty chain honest: expect's own pty feeds ssh -tt,
+# which gives virsh console a real controlling pty on tower.
+# VM_KNOWN_HOSTS must be exported so expect's spawn sees it.
+# The driver writes console-session.log itself via log_file (absolute path
+# passed in CONSOLE_LOG); expect stdout redirected to a file is kept as a
+# secondary artifact. The pusher greps $CONSOLE_LOG, which log_file flushes
+# per read.
+export VM_KNOWN_HOSTS
+export CONSOLE_LOG
+expect "$HERE/alpine-320-console.expect" "$TRANSIENT" "$PAYLOAD_PORT" "$PAYLOAD_MD5" 2700 \
+  > "$OUT_DIR/expect-stdout.log" 2>&1
+CONSOLE_RC=$?
+cat "$OUT_DIR/expect-stdout.log"
 kill "$PUSHER" 2>/dev/null || true; wait "$PUSHER" 2>/dev/null || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
