@@ -226,7 +226,11 @@ vm:ssh:diagnostics:
 vm:inventory:el10:
   stage: smoke
   image: alpine:latest
-  timeout: 10m
+  timeout: 15m
+  # Pin to the tower-mounted runner (same pin as vm:inventory:alpine322 on
+  # issue #22): only that runner has the /root/.ssh config with the `tower`
+  # alias; the shared k8s-runner cannot resolve it (pipelines 2128/2130).
+  tags: [android]
   needs: []
   dependencies: []
   before_script:
