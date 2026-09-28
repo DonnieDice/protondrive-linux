@@ -13,6 +13,33 @@
 #   - functional login suite attempt (credential-gated; posts structured
 #     blocker naming missing CI variable names only)
 
+vm:guest-start:debian12:
+  stage: smoke
+  image: alpine:latest
+  timeout: 10m
+  needs: []
+  tags: [android]
+  dependencies: []
+  # Authorized host operation (issue #15 scope item 2): boots the shut-off
+  # debian12 guest on the tower so the #15 evidence jobs can reach it.
+  # Coordination note 12271 posted on #14 before first use; only the debian12
+  # domain is started — no other guest, no define/undefine mutation.
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/guest-start-debian12.sh
+  artifacts:
+    when: always
+    paths: [guest-start-results/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
 vm:ssh:reachability:
   stage: smoke
   image: alpine:latest
