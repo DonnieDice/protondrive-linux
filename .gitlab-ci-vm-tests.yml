@@ -190,7 +190,22 @@ vm:regression:ubuntu2604:
 vm:provision:build-deps:
   stage: smoke
   image: alpine:latest
-  timeout: 45m
+  # Pin to the unraid-docker-runner: it bind-mounts /root/.ssh (transport for
+  # the mounted mode in _vm_common.sh). Observed in pipeline 2113: untagged
+  # smoke jobs raced onto k8s-runner, which has no /root/.ssh, and failed with
+  # "no SSH transport available" (jobs 22992/22993).
+  tags: [android]
+  # Observed on this runner (2026-09-27, pipelines 2098/2099): image pulls and
+  # apk fetches each take minutes, apt on the VMs is slow, and the full
+  # provision + WebClients + cargo release build sequence is long. 3h fits the
+  # whole sequence with headroom; the job remains manual.
+  timeout: 3h
+  # Opt out of stage ordering: this manual job must be playable immediately in
+  # any pipeline (parent #3 / issue #14 need it before the full test suite
+  # settles). Without needs: [] it stays "created"/unplayable until every
+  # earlier stage finishes, which blocks VM provisioning on unrelated
+  # test-stage flakiness.
+  needs: []
   dependencies: []
   before_script:
     - apk add --no-cache openssh-client bash git curl
@@ -201,6 +216,141 @@ vm:provision:build-deps:
       allow_failure: true
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: on_success
+
+# Issue #14: authorized debian13 guest-start job. The tower inventory (job
+# 24251, pipeline 2138) proved every guest shut off — the root cause of the
+# pipeline 2129 "Host is unreachable" failures. Issue #14 scope item 2
+# authorizes starting the debian13 guest via the tower transport. Exactly one
+# lifecycle action on exactly one guest; state evidence is recorded before and
+# after. Manual + allow_failure so it never blocks the release-policy jobs.
+vm:guest-start:debian13:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 15m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/guest-start-debian13.sh
+  artifacts:
+    when: always
+    paths:
+      - guest-start-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+vm:verify:rust-toolchain:
+  stage: smoke
+  image: alpine:latest
+  # Same runner pin as vm:provision:build-deps (mounted /root/.ssh transport).
+  tags: [android]
+  # Same slow-runner observation: VM round-trips plus rustup/rustc/cargo
+  # version checks need more than the original 10m headroom.
+  timeout: 20m
+  # Same opt-out: immediately playable manual job that verifies (without
+  # modifying) the rustup default toolchain and the protondrive-linux release
+  # binary on debian13 and debian12. Read-only evidence for issue #14.
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.120 debian13
+    - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.162 debian12
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Issue #14: read-only storage inspection diagnosing the debian13
+# "disk path not accessible" failure from vm:guest-start:debian13
+# (job 24760). No mutation: ls/find/df/virsh queries only. Manual +
+# allow_failure so it never blocks the release-policy jobs.
+vm:inspect:debian13-storage:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 15m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/inspect-debian13-storage.sh
+  artifacts:
+    when: always
+    paths:
+      - inspect-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Issue #14: authorized debian13/debian12 domain-disk repair + start. The
+# domains share was migrated off pool_two (Sep 27 22:19); both guests' XML
+# still points at /mnt/pool_two/domains/<guest>/vdisk1.qcow2 which no longer
+# exists, so virsh start fails (job 24760: "Path ... is not accessible").
+# The real disks live at /mnt/user/domains/<guest>/vdisk1.qcow2 (inspection
+# job 25655). This job repairs exactly that one path per guest (XML backup
+# kept on the tower), starts both guests, and polls SSH reachability.
+# debian12 is included only because the shared vm:provision:build-deps job
+# (scope item 1) provisions both hosts. Manual + allow_failure so it never
+# blocks the release-policy jobs.
+vm:repair:vm-domain-disk:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 45m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/repair-vm-domain-disk.sh
+  artifacts:
+    when: always
+    paths:
+      - repair-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Issue #14: authorized in-guest network repair for debian13 (+ debian12, which
+# the shared vm:provision:build-deps job also needs). After the domain-disk
+# repair (job 26734), both guests boot the installed OS with a connected qemu
+# guest-agent, but enp1s0 never acquires its documented IPv4 and neither MAC
+# appears in the tower br0 ARP table (read-only diag job 26943). Without the
+# guest network the provisioning/verify jobs cannot run. This job performs the
+# repair strictly through the connected guest-agent channel (guest-exec as
+# root): read-only in-guest diagnosis, DHCP renew/bounce, and if DHCP still
+# yields no IPv4, static assignment of the documented address. No domain XML,
+# disk, or host-network mutation. Manual + allow_failure so it never blocks
+# the release-policy jobs.
+vm:repair:vm-network:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 30m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/repair-vm-network.sh
+  artifacts:
+    when: always
+    paths:
+      - net-repair-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
 
 vm:ssh:diagnostics:
   stage: smoke
