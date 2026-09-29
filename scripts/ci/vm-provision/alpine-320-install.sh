@@ -192,13 +192,23 @@ ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" < "$OUT_DIR/transient
   || die "transient define failed"
 
 # ------------------------------------------------------------- payload ------
+# The authorized key must be the PUBLIC HALF OF THE PRIVATE KEY THIS RUNNER
+# OFFERS (the acceptance probe and vm:ssh:smoke authenticate with
+# /root/.ssh/id_ed25519). Deriving with ssh-keygen -y is the only way to
+# guarantee that; job 26864 authorized the mounted .pub sidecar and the probe
+# was rejected (Permission denied, publickey), i.e. the sidecar is stale
+# relative to the private half. Never trust a .pub sidecar for provisioning.
 KEYSRC=""
-if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
-elif [ -r /root/.ssh/id_ed25519 ]; then
-  ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
+if [ -r /root/.ssh/id_ed25519 ]; then
+  ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" \
+    && KEYSRC="$OUT_DIR/hermes-key.pub"
 fi
-[ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
+[ -n "$KEYSRC" ] || die "no workforce private key at /root/.ssh/id_ed25519 (SSH_PRIVATE_KEY_B64 absent; cannot authorize a key the runner can offer)"
 log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
+# sidecar drift evidence (fingerprints only, no key material printed)
+if [ -r /root/.ssh/id_ed25519.pub ]; then
+  log "mounted sidecar fingerprint (NOT authorized): $(ssh-keygen -lf /root/.ssh/id_ed25519.pub | awk '{print $2}')"
+fi
 
 # bundle: live-install.sh + chroot-config.sh + hermes-key.pub (busybox-tar safe)
 rm -rf "$OUT_DIR/payload-root"; mkdir -p "$OUT_DIR/payload-root"
@@ -292,7 +302,10 @@ done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
 log "SSH probe from the runner (workforce key installed in the guest)"
-ssh $SSH_OPTS -o ConnectTimeout=15 "root@$VM_IP" \
+# IdentitiesOnly: offer exactly the authorized key, never any other identity
+# the image may carry; the probe key is the private half the payload key was
+# derived from, so a pass here proves the authorized key matches the runner.
+ssh $SSH_OPTS -o IdentitiesOnly=yes -i /root/.ssh/id_ed25519 -o ConnectTimeout=15 "root@$VM_IP" \
   "hostname; whoami; uname -a; cat /etc/alpine-release" | tee "$OUT_DIR/ssh-probe.txt" \
   || die "SSH probe failed"
 
@@ -309,7 +322,7 @@ log "collecting acceptance evidence"
   echo "=== in-guest service status (via ssh from runner) ==="
 } | tee "$OUT_DIR/acceptance.txt"
 
-ssh $SSH_OPTS "root@$VM_IP" \
+ssh $SSH_OPTS -o IdentitiesOnly=yes -i /root/.ssh/id_ed25519 "root@$VM_IP" \
   "rc-service qemu-guest-agent status; rc-service sshd status; rc-update show default; ip -4 addr show eth0; grep -c ssh-ed25519 /root/.ssh/authorized_keys" \
   | tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
 

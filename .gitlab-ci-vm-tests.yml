@@ -313,6 +313,35 @@ vm:provision:alpine320:
     - when: manual
       allow_failure: true
 
+# Acceptance verification + authorized repair for the alpine320 guest
+# (issue #21, parent #5). Complements vm:provision:alpine320 after the
+# install completed but the key probe failed (job 26864): derives the
+# correct public key from the runner's private key, repairs
+# /root/.ssh/authorized_keys inside the alpine320 guest ONLY through the
+# qemu-guest-agent channel, and produces the full acceptance evidence
+# (SSH probe, in-guest services, guest-ping, disk/network facts).
+vm:verify:alpine320:
+  stage: smoke
+  image: alpine:latest
+  timeout: 20m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash jq coreutils
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/alpine-320-verify.sh
+  artifacts:
+    when: always
+    paths:
+      - verify-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 vm:ssh:diagnostics:
   stage: smoke
   image: alpine:latest
