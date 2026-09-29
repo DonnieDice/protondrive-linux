@@ -257,7 +257,7 @@ vm:inventory:el10:
 vm:provision:el10:
   stage: smoke
   image: alpine:latest
-  timeout: 55m
+  timeout: 75m
   tags: [android]
   needs: []
   dependencies: []

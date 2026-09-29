@@ -47,8 +47,10 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 	"sudo virsh console $guest --force"
 
 # --- installer boot ---------------------------------------------------------
-# kernel + Anaconda stage2 load from the DVD can take several minutes on this
-# storage; 900s is generous but still bounded.
+# OVMF init comes first (UEFI-only EL10), then the direct-boot kernel loads
+# and Anaconda starts. Kernel + stage2 load from the DVD can take several
+# minutes on this storage; 900s is generous but still bounded. The
+# AnacondaText banner is the reliable early marker on serial.
 wait_for {Starting installer, one moment} 900
 
 # --- kickstart-driven install ----------------------------------------------
