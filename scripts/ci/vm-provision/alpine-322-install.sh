@@ -72,6 +72,9 @@ DISK_SIZE="${DISK_SIZE:-32G}"
 OUT_DIR="${PROVISION_OUT_DIR:-provision-results}"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$OUT_DIR"
+# absolute path: the expect driver's log_file and the pusher's grep both run
+# from the same CWD, but an absolute CONSOLE_LOG also survives any cd.
+OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 
 VM_KNOWN_HOSTS="${CI_PROJECT_DIR:-.}/.vm-known-hosts"
 : > "$VM_KNOWN_HOSTS"
@@ -200,8 +203,28 @@ md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
 PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
 log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
-# ship payload staging to tower (driver now runs on the runner, so only the
-# payload itself is staged)
+# Key-identity guard (sibling #21 job 26864 failed its final SSH probe with
+# "Permission denied (publickey,...)" after installing the mounted
+# id_ed25519.pub into the guest): derive the public half FROM THE PRIVATE KEY
+# the runner will actually offer during the acceptance probe and install THAT
+# in the guest. If a stale .pub file ever diverges from the private key, the
+# probe now uses exactly the derived key, so the .pub can no longer desync
+# the guest's authorized_keys from the offered identity. The derivation also
+# proves the private key parses before the 45-minute install begins.
+ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key-derived.pub" \
+  || die "cannot derive public key from /root/.ssh/id_ed25519 (missing/corrupt private key)"
+cmp -s "$OUT_DIR/hermes-key-derived.pub" "$KEYSRC" \
+  || log "WARN: /root/.ssh/id_ed25519.pub differs from key derived from id_ed25519 - installing the derived key"
+cp "$OUT_DIR/hermes-key-derived.pub" "$OUT_DIR/payload-root/hermes-key.pub"
+tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub \
+  || die "payload tar rebuild failed"
+md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
+PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
+log "payload rebuilt with derived key: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
+
+# ship payload staging to tower (RELAY FALLBACK ONLY: the primary route is the
+# direct runner -> guest LAN push below; if that LAN path is blocked, the
+# console driver dies at the md5 check and the job surfaces the failure)
 scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" \
   || die "payload upload failed"
 
@@ -212,12 +235,16 @@ tower "sudo virsh start '$TRANSIENT'" || die "transient start failed"
 # Push the payload over the LAN when the guest signals (on the console) that
 # its nc listener is up. The signal marker is echoed as NC_RE""ADY so the
 # console echo of the command itself can never match the grep.
+# NOTE: send the tarball RAW. The guest md5-checks /tmp/payload.tgz (the file
+# nc wrote) against $PAYLOAD_MD5 (md5 of the tarball on the runner); piping
+# through gzip -c would change every byte and guarantee a MD5_MISMATCH (the
+# first run of job 25904 corrupted exactly this way).
 push_payload_when_ready() {
   local waited=0
   while [ "$waited" -lt 1500 ]; do
     if grep -q 'NC_READY' "$CONSOLE_LOG" 2>/dev/null; then
       log "console reports guest nc listening - pushing payload"
-      gzip -c "$OUT_DIR/payload.tgz" | nc -w 60 "$VM_IP" "$PAYLOAD_PORT" >/dev/null 2>&1
+      nc -w 120 "$VM_IP" "$PAYLOAD_PORT" < "$OUT_DIR/payload.tgz" >/dev/null 2>&1
       log "payload push rc=$?"
       return 0
     fi
@@ -232,11 +259,23 @@ PUSHER=$!
 # Drive the console from the RUNNER: expect runs here (apk-added in the job
 # image) inside a pty allocated by the CI shell, reaching the guest's serial
 # console through tower: expect -> ssh -tt tower -> sudo virsh console.
+# (tower has no expect binary - job 25177 proved that route fails rc=127 -
+# so the driver must run on the runner.) The runner-side driver also keeps
+# the pty chain honest: expect's own pty feeds ssh -tt, which gives virsh
+# console a real controlling pty on tower.
 # VM_KNOWN_HOSTS must be exported so expect's spawn sees it.
+# The driver writes console-session.log itself via log_file (absolute path
+# passed in CONSOLE_LOG); expect stdout redirected to a file is kept as a
+# secondary artifact. The pusher greps $CONSOLE_LOG, which log_file flushes
+# per read - expect's own stdout piped through tee is block-buffered, so the
+# pusher could otherwise wait past its budget on a marker the guest printed
+# minutes earlier (job 25904 hung exactly here).
 export VM_KNOWN_HOSTS
+export CONSOLE_LOG
 expect "$HERE/alpine-322-console.tcl" "$TRANSIENT" "$PAYLOAD_PORT" "$PAYLOAD_MD5" 2700 \
-  2>&1 | tee "$CONSOLE_LOG"
-CONSOLE_RC="${PIPESTATUS[0]}"
+  > "$OUT_DIR/expect-stdout.log" 2>&1
+CONSOLE_RC=$?
+cat "$OUT_DIR/expect-stdout.log"
 kill "$PUSHER" 2>/dev/null || true; wait "$PUSHER" 2>/dev/null || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
@@ -266,8 +305,32 @@ for i in $(seq 1 90); do
 done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
+# SSH probe from the runner. Normalized identity transport, mirroring
+# scripts/ci/lib/_vm_common.sh (the transport the vm:regression stages use):
+#   - copy the mounted private key to a temp file, chmod 600 (the RO
+#     /root/.ssh mount can carry group/world perms that make ssh silently
+#     skip a DEFAULT identity - explicit -i would at least fail loudly)
+#   - IdentitiesOnly + explicit -i: offer exactly the key whose public half
+#     was installed in the guest (derived above), never agent/config keys
+#   - -F /dev/null: the mounted ssh config cannot inject other options for
+#     this IP-based connection (aliases stay untouched for other jobs)
+# Sibling #21's job 26864 failed its probe with "Permission denied
+# (publickey,...)" after installing the mounted id_ed25519.pub and probing
+# with default-identity discovery; either a stale .pub or a skipped
+# identity produces exactly that. This probe eliminates both: the derived
+# key pins authorized_keys to the offered identity, and the temp-copy pins
+# the offered identity's permissions.
+VM_KEY_TMP="$(mktemp)"
+cp /root/.ssh/id_ed25519 "$VM_KEY_TMP"
+sed -i 's/\r$//' "$VM_KEY_TMP"
+[ -n "$(tail -c1 "$VM_KEY_TMP" 2>/dev/null)" ] && printf '\n' >>"$VM_KEY_TMP"
+chmod 600 "$VM_KEY_TMP"
+# extend the EXIT trap instead of replacing it: the first trap (cleanup)
+# still destroys the transient domain if this script dies mid-probe.
+trap 'rm -f "$VM_KEY_TMP"; cleanup' EXIT
+GUEST_SSH_OPTS="-F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS -i $VM_KEY_TMP -o IdentitiesOnly=yes"
 log "SSH probe from the runner (workforce key installed in the guest)"
-ssh $SSH_OPTS -o ConnectTimeout=15 "root@$VM_IP" \
+ssh $GUEST_SSH_OPTS "root@$VM_IP" \
   "hostname; whoami; uname -a; cat /etc/alpine-release" | tee "$OUT_DIR/ssh-probe.txt" \
   || die "SSH probe failed"
 
@@ -284,7 +347,7 @@ log "collecting acceptance evidence"
   echo "=== in-guest service status (via ssh from runner) ==="
 } | tee "$OUT_DIR/acceptance.txt"
 
-ssh $SSH_OPTS "root@$VM_IP" \
+ssh $GUEST_SSH_OPTS "root@$VM_IP" \
   "rc-service qemu-guest-agent status; rc-service sshd status; rc-update show default; ip -4 addr show eth0; grep -c ssh-ed25519 /root/.ssh/authorized_keys" \
   | tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
 

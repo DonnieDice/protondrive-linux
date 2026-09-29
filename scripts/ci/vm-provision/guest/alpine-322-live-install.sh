@@ -48,7 +48,13 @@ apk update
 
 # sshd in the live env; enters the apk world so setup-disk installs it on
 # the target too, and enables the default runlevel
-setup-sshd -c openssh
+# NOT setup-sshd: alpine-conf >=3.17 (Alpine 3.19+) prompts interactively
+# for "Allow root ssh login?", which would hang the headless console driver
+# (the #21 sibling proved the hang). apk + rc-update are fully
+# non-interactive and setup-disk replicates both the apk world and the
+# /etc/runlevels state onto the target.
+apk add openssh
+rc-update add sshd default
 
 # disk install (sys mode, BIOS/extlinux on the qcow2 via /dev/vda)
 ERASE_DISKS=/dev/vda SWAP_SIZE=0 setup-disk -m sys /dev/vda
