@@ -368,3 +368,60 @@ vm:ssh:diagnostics:
   rules:
     - when: manual
       allow_failure: true
+
+# Read-only tower hypervisor inventory for the EL10 (CentOS Stream 10) VM
+# bootstrap (issue #19, parent #11). Immediately playable (needs: []) so it
+# never waits on build stages. Runs on the runner, which reaches tower via
+# the runner-mounted /root/.ssh config (alias: tower).
+vm:inventory:el10:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  # Pin to the tower-mounted runner (same pin as vm:inventory:alpine322 on
+  # issue #22): only that runner has the /root/.ssh config with the `tower`
+  # alias; the shared k8s-runner cannot resolve it (pipelines 2128/2130).
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/el10-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Install CentOS Stream 10 into the existing el10 guest (issue #19, parent
+# #11): headless kickstart over the LAN, creating the missing qcow2, static
+# 192.168.1.123, sshd, qemu-guest-agent, Hermes key. Mirrors the proven
+# vm:provision:alpine322 job wiring (issue #22): pinned to the tower-mounted
+# runner (tags: [android]) whose RO /root/.ssh provides the `tower` alias and
+# the workforce key; expect drives the serial console from the runner.
+vm:provision:el10:
+  stage: smoke
+  image: alpine:latest
+  timeout: 75m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/el10-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
