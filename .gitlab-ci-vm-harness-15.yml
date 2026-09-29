@@ -67,6 +67,33 @@ vm:inspect:debian12-storage:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: on_success
 
+vm:diag:vm-network:
+  stage: smoke
+  image: alpine:latest
+  timeout: 10m
+  needs: []
+  tags: [android]
+  dependencies: []
+  # Read-only network diagnostics for issue #15: explain why debian12 and
+  # debian13 are not SSH-reachable although both domains show running state
+  # (repair job 26734). Uses virsh domifaddr (agent + arp), ip neigh, and the
+  # domain XML boot/MAC layout. No mutation.
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/diag-vm-network.sh
+  artifacts:
+    when: always
+    paths: [diag-results/]
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+    - if: '$CI_PIPELINE_SOURCE == "schedule"'
+      when: on_success
+
 vm:ssh:reachability:
   stage: smoke
   image: alpine:latest
