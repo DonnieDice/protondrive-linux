@@ -321,6 +321,37 @@ vm:repair:vm-domain-disk:
     - when: manual
       allow_failure: true
 
+# Issue #14: authorized in-guest network repair for debian13 (+ debian12, which
+# the shared vm:provision:build-deps job also needs). After the domain-disk
+# repair (job 26734), both guests boot the installed OS with a connected qemu
+# guest-agent, but enp1s0 never acquires its documented IPv4 and neither MAC
+# appears in the tower br0 ARP table (read-only diag job 26943). Without the
+# guest network the provisioning/verify jobs cannot run. This job performs the
+# repair strictly through the connected guest-agent channel (guest-exec as
+# root): read-only in-guest diagnosis, DHCP renew/bounce, and if DHCP still
+# yields no IPv4, static assignment of the documented address. No domain XML,
+# disk, or host-network mutation. Manual + allow_failure so it never blocks
+# the release-policy jobs.
+vm:repair:vm-network:
+  stage: smoke
+  image: alpine:latest
+  tags: [android]
+  timeout: 30m
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+  script:
+    - bash scripts/ci/vm-provision/repair-vm-network.sh
+  artifacts:
+    when: always
+    paths:
+      - net-repair-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 vm:ssh:diagnostics:
   stage: smoke
   image: alpine:latest
