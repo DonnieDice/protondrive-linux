@@ -240,13 +240,14 @@ coverage:rust:
     - source scripts/ci/lib/install-rust.sh
     - rustup component add llvm-tools-preview
     - cargo install cargo-llvm-cov --locked || true
-    # Self-heal a poisoned llvm-cov target cache (observed 2026-09-28, jobs
-    # 25994/26083 in pipeline 2272: "crate `zbus` required to be available in
+    # Self-heal a poisoned llvm-cov target cache (observed 2026-09-28: job in
+    # pipeline 2294 hit the 40m timeout at 2476s; jobs 25994/26083 in
+    # pipeline 2272 failed with "crate `zbus` required to be available in
     # rlib format, but was not found in this form" — a target dir archived
-    # mid-build by a prior 30m timeout leaves dependency rlibs missing while
-    # fingerprints claim they exist). Mirrors the install-rust.sh self-heal
-    # philosophy: the cov-instrumented subtree is disposable by design, so
-    # drop it whenever it is present and rebuild under instrumentation.
+    # mid-build by a prior timeout leaves dependency rlibs missing while
+    # fingerprints claim they exist). Same fix proven green on MR !4
+    # (pipeline 2286, coverage:rust 564s). The cov-instrumented subtree is
+    # disposable by design: drop it whenever present and rebuild.
     - if [ -d src-tauri/target/llvm-cov-target ]; then
         echo "[coverage] dropping stale src-tauri/target/llvm-cov-target from cache";
         rm -rf src-tauri/target/llvm-cov-target;
