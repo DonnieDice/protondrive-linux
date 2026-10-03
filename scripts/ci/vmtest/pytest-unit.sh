@@ -35,17 +35,25 @@ vm_ssh 'echo "connected: $(hostname) $(uname -rm) user=$(whoami)"'
 HOST_LINE="$(vm_ssh 'echo "$(hostname) $(uname -rm)"')"
 
 # 2. Provision python3/pip/venv on the VM (idempotent, non-fatal apt errors:
-#    the VM may already be provisioned).
+#    the VM may already be provisioned). git is needed to recreate a repository
+#    index for the transferred tree (see step 4).
 vm_ssh 'DEBIAN_FRONTEND=noninteractive apt-get update -qq || true
   DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
-    python3 python3-pip python3-venv bash ca-certificates >/dev/null 2>&1 || true'
+    python3 python3-pip python3-venv bash ca-certificates git >/dev/null 2>&1 || true'
 
-# 3. Transfer this repository checkout to the VM (tar over ssh, no .git/caches).
+# 3. Transfer this repository checkout to the VM (tar over ssh, no caches).
+#    .git is excluded from the tar (shallow-clone pack is not needed on the
+#    guest); a git index is recreated on the VM in step 4 so tests that
+#    exercise git-tracked inputs (tests/unit/test_artifact_keying.py ->
+#    scripts/ci/lib/compute-build-key.sh needs `git ls-files`) see a real
+#    repository. A `git init` + `git add -A` index reproduces the same blob
+#    IDs/modes as the source checkout (verified: identical build keys).
 echo "=== [vm-pytest] transferring checkout to $VM_HOST:$WORK ==="
 tar -C "$SRC_DIR" \
     --exclude=.git --exclude=.cargo --exclude=.cargo-fmt \
     --exclude='src-tauri/target' --exclude='WebClients' \
     --exclude='.build-artifact-cache' --exclude='artifacts' \
+    --exclude='.vm-known-hosts' \
     -czf - . \
   | vm_ssh "rm -rf '$WORK' && mkdir -p '$WORK' && tar -xzf - -C '$WORK'"
 
@@ -56,6 +64,17 @@ echo "=== [vm-pytest] provisioning python test env on $VM_HOST ==="
 vm_ssh "WORK='$WORK' bash -s" <<'REMOTE'
 set -e
 cd "$WORK"
+# Recreate a git repository index for the transferred tree: two tests in
+# tests/unit/test_artifact_keying.py invoke compute-build-key.sh, which
+# requires `git ls-files` to enumerate tracked sources. `git init` + `git
+# add -A` reproduces the source checkout's blob IDs/modes exactly (content
+# addressing), so the tests measure the same keys as on the runner.
+if command -v git >/dev/null 2>&1; then
+  git init -q . && git add -A
+  echo "git: $(git ls-files | wc -l) files indexed (transferred tree)"
+else
+  echo "WARNING: git unavailable on VM; artifact-keying tests will fail" >&2
+fi
 echo "python: $(python3 --version 2>&1)"
 PY=python3
 if python3 -m venv venv 2>/dev/null && [ -x venv/bin/python ]; then
