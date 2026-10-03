@@ -114,14 +114,24 @@ fi
 
 [ -n "$PKG" ] || { echo "ERROR: no .deb found in $ARTIFACT_DIR or cache" >&2; exit 1; }
 PKG_NAME="$(basename "$PKG")"
-echo "[vm-install] package: $PKG_NAME sha256=$(sha256sum "$PKG" | cut -c1-12)..."
+# Extract the actual Debian package name from the .deb control metadata.
+# The .deb filename may differ from the installed package name (e.g.
+# proton-drive_2.0.0_debian12_amd64.deb installs as proton-drive-linux-unofficial).
+PKG_REAL_NAME=""
+if command -v dpkg-deb >/dev/null 2>&1; then
+  PKG_REAL_NAME="$(dpkg-deb -f "$PKG" Package 2>/dev/null | tr -d '[:space:]')"
+elif command -v dpkg >/dev/null 2>&1; then
+  PKG_REAL_NAME="$(dpkg -f "$PKG" Package 2>/dev/null | tr -d '[:space:]')"
+fi
+PKG_REAL_NAME="${PKG_REAL_NAME:-proton-drive-linux-unofficial}"
+echo "[vm-install] package: $PKG_NAME (Debian name: $PKG_REAL_NAME) sha256=$(sha256sum "$PKG" | cut -c1-12)..."
 
 # ── 2. Reachability + current install state ──────────────────────────────────
 {
   echo "=== [vm-install] target: $VM_HOST ==="
   echo "connected: $(vm_ssh 'echo "$(hostname) $(uname -rm) user=$(whoami)"')"
 } | tee -a "$RESULT"
-vm_ssh 'dpkg -l proton-drive 2>/dev/null | grep "^ii" && echo "pre-state: installed" || echo "pre-state: not installed"' | tee -a "$RESULT" || true
+vm_ssh "dpkg -l $PKG_REAL_NAME 2>/dev/null | grep \"^ii\" && echo \"pre-state: installed\" || echo \"pre-state: not installed\"" | tee -a "$RESULT" || true
 
 # ── 3. Transfer + install on the VM ──────────────────────────────────────────
 echo "=== [vm-install] transferring $PKG_NAME to $VM_HOST ===" | tee -a "$RESULT"
@@ -131,13 +141,14 @@ vm_ssh "DEBIAN_FRONTEND=noninteractive apt-get update -qq || true
 
 # ── 4. Package-manager evidence: dpkg status + version output ─────────────────
 {
-  vm_ssh 'dpkg -l proton-drive 2>/dev/null | grep -E "^(ii|hi)" || true'
-  vm_ssh 'proton-drive --version 2>/dev/null || echo "(no --version output)"'
+  vm_ssh "dpkg -l $PKG_REAL_NAME 2>/dev/null | grep -E '^(ii|hi)' || true"
+  vm_ssh "dpkg-query -W -f='\${Status} \${Version}' $PKG_REAL_NAME 2>/dev/null || echo '(dpkg-query unavailable)'"
 } | tee -a "$RESULT"
 
-if vm_ssh 'dpkg -l proton-drive 2>/dev/null | grep -q "^ii"'; then
-  echo "=== [vm-install] $VM_HOST: proton-drive installed ===" | tee -a "$RESULT"
+# ── 5. Verify install succeeded ──────────────────────────────────────────────
+if vm_ssh "dpkg -l $PKG_REAL_NAME 2>/dev/null | grep -q '^ii'"; then
+  echo "=== [vm-install] $VM_HOST: $PKG_REAL_NAME installed ===" | tee -a "$RESULT"
 else
-  echo "ERROR: proton-drive not in dpkg ii state on $VM_HOST" >&2
+  echo "ERROR: $PKG_REAL_NAME not in dpkg ii state on $VM_HOST" >&2
   exit 1
 fi
