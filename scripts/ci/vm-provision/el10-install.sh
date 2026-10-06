@@ -107,11 +107,25 @@ log "persistent guest state: ${STATE:-unknown}"
 { echo "pre-state: $STATE"; tower "sudo virsh dumpxml '$GUEST'"; } > "$OUT_DIR/pre-state.txt" \
   || die "dumpxml failed"
 
-# transient domain must not exist
-if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
+# transient domain must not exist. A prior failed/aborted run can leave it
+# RUNNING (as job 30240 hit), so destroy-then-undef must be forced and re-
+# checked: virsh undefine silently no-ops if the domain is still running and
+# destroy failed, which then makes the later `virsh define` fail with
+# "domain already exists with uuid" (see evidence note 23311/trace job 30240).
+if tower "sudo virsh domstate '$TRANSIENT' 2>/dev/null" | grep -q .; then
   log "removing stale transient domain $TRANSIENT"
-  tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
-  tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
+  tower "sudo virsh destroy --graceful '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null" \
+    | tee "$OUT_DIR/transient-cleanup.log" || true
+  # verify it is actually gone; force-kill if a stubborn state lingers
+  if tower "sudo virsh domstate '$TRANSIENT' 2>/dev/null" | grep -q .; then
+    log "WARN: $TRANSIENT still exists after first cleanup; forcing"
+    tower "sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null" \
+      | tee -a "$OUT_DIR/transient-cleanup.log" || true
+  fi
+  # record final state; fail hard only if it truly persists
+  if tower "sudo virsh domstate '$TRANSIENT' 2>/dev/null" | grep -q .; then
+    die "transient domain $TRANSIENT could not be removed; pre-existing state blocks define"
+  fi
 fi
 
 # --------------------------------------------------- disk preflight/create --
