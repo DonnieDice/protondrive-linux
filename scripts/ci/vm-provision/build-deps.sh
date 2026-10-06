@@ -20,6 +20,20 @@ provision_build_deps() {
   echo "=== Provisioning build dependencies on $label ($ip) ==="
 
   # Update apt and install build dependencies
+  # Pre-flight disk cleanup: VMs accumulate apt lists and prior build caches;
+  # debian13 disk was observed full ("No space left on device", pipeline 3220
+  # job 30232) which aborts provisioning before reaching debian12. Clean
+  # build-cache locations only — no distro config touched.
+  run_on_vm "$ip" "
+    df -h /;
+    du -sh /var/cache/apt 2>/dev/null || true;
+    sudo apt-get clean 2>/dev/null || true;
+    sudo rm -rf /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/* 2>/dev/null || true;
+    sudo rm -rf /tmp/pd-deploy 2>/dev/null || true;
+    df -h /;
+  " || {
+    echo "WARN: disk cleanup pre-flight reported errors on $label (continuing)"
+  }
   run_on_vm "$ip" "
     DEBIAN_FRONTEND=noninteractive apt-get update -qq &&
     DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
