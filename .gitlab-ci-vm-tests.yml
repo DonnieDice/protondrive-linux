@@ -425,3 +425,33 @@ vm:provision:el10:
   rules:
     - when: manual
       allow_failure: true
+
+# Read-only tower hypervisor inventory for the openSUSE Tumbleweed VM
+# bootstrap (issue #17, parent #9). Immediately playable (needs: []) so it
+# never waits on build stages. Runs on the runner, which reaches tower via
+# the runner-mounted /root/.ssh config (alias: tower) — the same transport
+# proven by vm:inventory:alpine320 (issue #21) and vm:inventory:el10 (issue #19).
+# Inspects existing guests/disks, ISO media, br0 facts, and whether 192.168.1.245
+# (the IP wired into scripts/ci/{transfer,install,vmtest}/opensuse-tumbleweed/
+# and tests/robot/vars/vms.py) is free, before any mutation.
+vm:inventory:opensuse-tumbleweed:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/opensuse-tumbleweed-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
