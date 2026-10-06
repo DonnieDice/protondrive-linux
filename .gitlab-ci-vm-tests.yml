@@ -220,11 +220,17 @@ vm:ssh:diagnostics:
       allow_failure: true
 
 # Read-only tower hypervisor inventory for the Fedora 43 VM bootstrap (issue
-# #18). Immediately playable (needs: []) so it never waits on build stages.
-vm:inventory:fedora43:
+# #18, parent #12). Immediately playable (needs: []) so it never waits on build
+# stages. Runs on the runner, which reaches tower via the runner-mounted
+# /root/.ssh config (alias: tower) — the same transport proven by
+# vm:inventory:el10 (issue #19) and vm:inventory:opensuse-tumbleweed
+# (issue #17). Inspects existing guests/disks, ISO media, br0 facts, and
+# whether 192.168.1.183 is free, before any mutation.
+vm:inventory:fedora-43:
   stage: smoke
   image: alpine:latest
-  timeout: 10m
+  timeout: 15m
+  tags: [android]
   needs: []
   dependencies: []
   before_script:
@@ -237,6 +243,34 @@ vm:inventory:fedora43:
     when: always
     paths:
       - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Install Fedora 43 into the fedora-43 guest (issue #18, parent #12):
+# headless kickstart over the LAN, creating the missing qcow2, static
+# 192.168.1.183, sshd, qemu-guest-agent, Hermes key. Mirrors the proven
+# vm:provision:el10 job wiring (issue #19): pinned to the tower-mounted
+# runner (tags: [android]) whose RO /root/.ssh provides the `tower` alias
+# and the workforce key; expect drives the serial console from the runner.
+vm:provision:fedora-43:
+  stage: smoke
+  image: alpine:latest
+  timeout: 90m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/fedora-43-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
     expire_in: 30 days
   rules:
     - when: manual
