@@ -53,6 +53,25 @@ wc -l "$OUT_DIR/opensuse-guest-dumpxml.txt"
 echo "=== [inventory] ISO media inventory (openSUSE images) ==="
 tower "ls -la /mnt/user/isos/ 2>/dev/null | grep -i -E 'opensuse|tumbleweed|osuse' || echo '(no openSUSE ISOs in /mnt/user/isos)'; ls -la /boot/custom/ 2>/dev/null | grep -i iso | head -20 || true; find /mnt/user /mnt/pool_one -maxdepth 3 -iname '*opensuse*' -type f 2>/dev/null | head -20" | tee "$OUT_DIR/iso-inventory.txt" || true
 
+# Disk + network detail for the opensuse-tw guest (read-only)
+DISK_PATH="/mnt/pool_two/domains/opensuse-tw/vdisk1.qcow2"
+echo "=== [inventory] opensuse-tw disk detail (qemu-img info) ==="
+tower "sudo qemu-img info '$DISK_PATH' 2>/dev/null || echo 'disk $DISK_PATH not readable/absent'" \
+  | tee "$OUT_DIR/opensuse-disk-info.txt" || true
+echo "=== [inventory] opensuse-tw disk size on tower (ls) ==="
+tower "ls -la '$DISK_PATH' 2>/dev/null || echo 'no file'; ls -la /mnt/pool_two/domains/opensuse-tw/ 2>/dev/null || true" \
+  | tee -a "$OUT_DIR/opensuse-disk-info.txt" || true
+
+echo "=== [inventory] br0 network bridge detail ==="
+tower 'sudo virsh net-dumpxml br0 2>/dev/null | grep -E "name>|bridge=|<ip |<range|<forward|<interface|<domain" | head -12' \
+  | tee "$OUT_DIR/br0-detail.txt" || true
+
+# ISO boot layout (kernel/initrd paths) for headless serial install planning
+ISO_PATH="/mnt/pool_one/isos/openSUSE-Tumbleweed-GNOME-Live-x86_64-Current.iso"
+echo "=== [inventory] ISO boot layout (read-only) ==="
+tower "bsdtar -tf '$ISO_PATH' 2>/dev/null | grep -E '^boot/' | head -40; echo '---EFI---'; bsdtar -tf '$ISO_PATH' 2>/dev/null | grep -iE 'EFI/BOOT|loader/' | head -20" \
+  | tee "$OUT_DIR/iso-boot-layout.txt" || true
+
 echo "=== [inventory] $VM_IP occupancy probe (arp + ping, read-only) ==="
 tower "ip neigh show | grep -i '$VM_IP' || echo 'no arp entry'; ping -c1 -W2 '$VM_IP' >/dev/null 2>&1 && echo 'PING: $VM_IP answers' || echo 'PING: $VM_IP silent'" | tee "$OUT_DIR/ip-occupancy.txt" || true
 
