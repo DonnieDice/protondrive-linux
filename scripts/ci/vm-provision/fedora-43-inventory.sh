@@ -23,13 +23,16 @@ OUT_DIR="${INVENTORY_OUT_DIR:-inventory-results}"
 mkdir -p "$OUT_DIR"
 
 VM_KNOWN_HOSTS="${CI_PROJECT_DIR:-.}/.vm-known-hosts"
-: > "$VM_KNOWN_HOSTS"
+: >"$VM_KNOWN_HOSTS"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS"
 
 tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
 
 echo "=== [inventory] tower identity ==="
-tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || { echo "FATAL: cannot reach tower"; exit 1; }
+tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || {
+  echo "FATAL: cannot reach tower"
+  exit 1
+}
 
 echo "=== [inventory] virsh list --all ==="
 tower "sudo virsh list --all" | tee "$OUT_DIR/virsh-list.txt" || echo "(virsh list failed - recording)"
@@ -43,7 +46,7 @@ done' | tee "$OUT_DIR/guest-summary.txt" || true
 echo "=== [inventory] fedora-43-named guest detail (full dumpxml) ==="
 tower 'for d in $(sudo virsh list --all --name); do
   case "$d" in *fedora*|*fedora43*|*fedora-43*|*f43*) echo "===== $d ====="; sudo virsh dumpxml "$d";; esac
-done' > "$OUT_DIR/fedora43-guest-dumpxml.txt" || true
+done' >"$OUT_DIR/fedora43-guest-dumpxml.txt" || true
 wc -l "$OUT_DIR/fedora43-guest-dumpxml.txt" | tee "$OUT_DIR/fedora43-dumpxml-linecount.txt"
 
 echo "=== [inventory] fedora-43 disk qemu-img info (if any guests found) ==="
@@ -75,9 +78,9 @@ tower "ip neigh show | grep -i '$VM_IP' || echo 'no arp entry'; ping -c1 -W2 '$V
 F43_NAMES=$(grep -iE 'fedora|fedora43|fedora-43|f43' "$OUT_DIR/virsh-list.txt" 2>/dev/null | awk '{print $2}' | tr '\n' ',')
 GUEST_COUNT=$(grep -cE '^ [0-9]+ +[a-zA-Z0-9._-]+ ' "$OUT_DIR/virsh-list.txt" 2>/dev/null || echo 0)
 IP_ANSWERS=$(grep -c "answers" "$OUT_DIR/ip-occupancy.txt" 2>/dev/null || echo 0)
-DUMpxML_LINES=$(wc -l < "$OUT_DIR/fedora43-guest-dumpxml.txt" 2>/dev/null || echo 0)
+DUMpxML_LINES=$(wc -l <"$OUT_DIR/fedora43-guest-dumpxml.txt" 2>/dev/null || echo 0)
 
-cat > "$OUT_DIR/inventory.json" <<JSON
+cat >"$OUT_DIR/inventory.json" <<JSON
 {"hypervisor":"tower","checked_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","vm_ip":"$VM_IP","guest_count_hint":$GUEST_COUNT,"fedora43_named_guests":"${F43_NAMES}","fedora43_dumpxml_lines":${DUMpxML_LINES:-0},"ip_answers_ping":$IP_ANSWERS,"ci_job":"${CI_JOB_ID:-0}","ci_pipeline":"${CI_PIPELINE_ID:-0}","ci_commit":"${CI_COMMIT_SHA:-local}"}
 JSON
 cat "$OUT_DIR/inventory.json"

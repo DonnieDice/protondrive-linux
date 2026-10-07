@@ -41,12 +41,15 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 mkdir -p "$OUT_DIR"
 
 VM_KNOWN_HOSTS="${CI_PROJECT_DIR:-.}/.vm-known-hosts"
-: > "$VM_KNOWN_HOSTS"
+: >"$VM_KNOWN_HOSTS"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS"
 
 tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
 log() { echo "[provision] $*"; }
-die() { echo "FATAL: $*" >&2; exit 1; }
+die() {
+  echo "FATAL: $*" >&2
+  exit 1
+}
 CONSOLE_LOG="$OUT_DIR/console-session.log"
 CONSOLE_BUDGET="${CONSOLE_BUDGET:-3600}"
 
@@ -71,7 +74,7 @@ log "persistent guest state: ${STATE:-not-defined}"
   else
     echo "(guest $GUEST not yet defined)"
   fi
-} > "$OUT_DIR/pre-state.txt" || die "could not record pre-state"
+} >"$OUT_DIR/pre-state.txt" || die "could not record pre-state"
 
 # transient domain must not exist
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
@@ -85,8 +88,8 @@ log "domain dir contents before any change:"
 tower "ls -la '$DOMAIN_DIR/' 2>/dev/null || echo '(domain dir absent)'" | tee "$OUT_DIR/disk-preflight.txt"
 
 # search for any fedora-43 disk that may live elsewhere (record only)
-tower "find /mnt/pool_one /mnt/pool_two /mnt/user -maxdepth 3 -iname '*fedora*43*' -type f 2>/dev/null; true" \
-  | tee -a "$OUT_DIR/disk-preflight.txt"
+tower "find /mnt/pool_one /mnt/pool_two /mnt/user -maxdepth 3 -iname '*fedora*43*' -type f 2>/dev/null; true" |
+  tee -a "$OUT_DIR/disk-preflight.txt"
 
 if tower "test -s '$DISK_PATH'"; then
   log "disk exists"
@@ -95,8 +98,8 @@ else
   # Create the domain dir and a fresh sparse qcow2 if absent.
   # This is authorized by issue #18 scope (provision Fedora 43 to qcow2).
   log "disk $DISK_PATH ABSENT - creating domain dir + fresh qcow2 (sparse)"
-  tower "mkdir -p '$DOMAIN_DIR' && sudo qemu-img create -f qcow2 '$DISK_PATH' 60G" \
-    | tee -a "$OUT_DIR/disk-preflight.txt" || die "qemu-img create failed"
+  tower "mkdir -p '$DOMAIN_DIR' && sudo qemu-img create -f qcow2 '$DISK_PATH' 60G" |
+    tee -a "$OUT_DIR/disk-preflight.txt" || die "qemu-img create failed"
   tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
 fi
 
@@ -132,7 +135,7 @@ log "locating OVMF firmware on tower"
   done
   echo "=== find fallback (vars) ==="
   tower "find /usr/share /etc/libvirt /usr/lib -maxdepth 4 -type f \\( -iname 'OVMF_VARS*.bin' -o -iname 'OVMF_VARS*.fd' \\) 2>/dev/null | head -10; true"
-} > "$OUT_DIR/ovmf-discovery.txt"
+} >"$OUT_DIR/ovmf-discovery.txt"
 
 OVMF_CODE="$(tower "for p in /usr/share/qemu/ovmf-x64/OVMF_CODE.bin /usr/share/qemu/ovmf-x64/OVMF_CODE.fd /usr/share/qemu/ovmf-x64/OVMF_CODE-pure-efi.bin /usr/share/qemu/OVMF_CODE.fd /usr/share/OVMF/OVMF_CODE.fd /usr/share/ovmf/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE.fd /usr/share/edk2/ovmf/OVMF_CODE_4M.fd; do test -s \"\$p\" && { echo \"\$p\"; break; }; done")"
 [ -n "$OVMF_CODE" ] || OVMF_CODE="$(tower "find /usr/share /etc/libvirt /usr/lib -maxdepth 4 -type f -iname 'OVMF_CODE*' 2>/dev/null | grep -vi secboot | head -1; true")"
@@ -141,13 +144,13 @@ OVMF_VARS="$(tower "for p in /usr/share/qemu/ovmf-x64/OVMF_VARS.bin /usr/share/q
 
 log "OVMF_CODE=$OVMF_CODE"
 log "OVMF_VARS=$OVMF_VARS"
-[ -n "$OVMF_CODE" ] && [ -n "$OVMF_VARS" ] \
-  || die "no OVMF firmware found on tower (Fedora 43 requires UEFI; see ovmf-discovery.txt)"
+[ -n "$OVMF_CODE" ] && [ -n "$OVMF_VARS" ] ||
+  die "no OVMF firmware found on tower (Fedora 43 requires UEFI; see ovmf-discovery.txt)"
 
 NVRAM_INSTALL="$DOMAIN_DIR/nvram-install.fd"
 NVRAM_PERSIST="$DOMAIN_DIR/nvram.fd"
-tower "cp '$OVMF_VARS' '$NVRAM_INSTALL' && cp '$OVMF_VARS' '$NVRAM_PERSIST' && ls -la '$DOMAIN_DIR/'" \
-  | tee -a "$OUT_DIR/ovmf-discovery.txt" || die "could not stage NVRAM copies in $DOMAIN_DIR"
+tower "cp '$OVMF_VARS' '$NVRAM_INSTALL' && cp '$OVMF_VARS' '$NVRAM_PERSIST' && ls -la '$DOMAIN_DIR/'" |
+  tee -a "$OUT_DIR/ovmf-discovery.txt" || die "could not stage NVRAM copies in $DOMAIN_DIR"
 
 # ------------------------------------------------- kernel/initrd extraction --
 log "extracting kernel/initrd from the DVD ISO (images/pxeboot/, no loop mounts)"
@@ -160,14 +163,15 @@ tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' 
          mv images/pxeboot/vmlinuz images/pxeboot/initrd.img . && rmdir images/pxeboot; \
        fi; \
        ls -la" | tee -a "$OUT_DIR/iso-extract.log"
-tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/install-media/initrd.img' && echo KERNEL-OK" \
-  | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
+tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/install-media/initrd.img' && echo KERNEL-OK" |
+  tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
 
 # ------------------------------------------------------- kickstart serving --
 KEYSRC=""
-if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
+if [ -r /root/.ssh/id_ed25519.pub ]; then
+  KEYSRC=/root/.ssh/id_ed25519.pub
 elif [ -r /root/.ssh/id_ed25519 ]; then
-  ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
+  ssh-keygen -y -f /root/.ssh/id_ed25519 >"$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
 fi
 [ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
 log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
@@ -178,9 +182,9 @@ log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
 # stages can run against the VM exactly as wired in the repo.
 VMKEY_NOTE="VM_SSH_KEY not exposed to this job (protected-variable scope); fedora-43 stages will be evaluated via the runner key path"
 if [ -f "${VM_SSH_KEY:-}" ]; then
-  ssh-keygen -y -f "$VM_SSH_KEY" > "$OUT_DIR/vmsshkey.pub" 2>/dev/null \
-    && VMKEY_NOTE="VM_SSH_KEY exposed; public half added to authorized_keys" \
-    || VMKEY_NOTE="VM_SSH_KEY present but did not parse; not authorized"
+  ssh-keygen -y -f "$VM_SSH_KEY" >"$OUT_DIR/vmsshkey.pub" 2>/dev/null &&
+    VMKEY_NOTE="VM_SSH_KEY exposed; public half added to authorized_keys" ||
+    VMKEY_NOTE="VM_SSH_KEY present but did not parse; not authorized"
 fi
 log "vm stage key: $VMKEY_NOTE"
 
@@ -192,23 +196,23 @@ KS_LOCAL="$OUT_DIR/fedora43-ks.cfg"
   if [ -s "$OUT_DIR/vmsshkey.pub" ]; then
     echo "sshkey --username=root \"$(cat "$OUT_DIR/vmsshkey.pub")\""
   fi
-} > "$KS_LOCAL"
+} >"$KS_LOCAL"
 
 scp $SSH_OPTS "$KS_LOCAL" "$TOWER_HOST:/tmp/" >/dev/null 2>&1 || die "kickstart upload failed"
-tower "mkdir -p '$KS_DIR' && mv /tmp/fedora43-ks.cfg '$KS_DIR/fedora43-ks.cfg' && chmod 644 '$KS_DIR/fedora43-ks.cfg'" \
-  || die "kickstart staging failed"
+tower "mkdir -p '$KS_DIR' && mv /tmp/fedora43-ks.cfg '$KS_DIR/fedora43-ks.cfg' && chmod 644 '$KS_DIR/fedora43-ks.cfg'" ||
+  die "kickstart staging failed"
 
 # busybox httpd: Unraid ships busybox; verify and serve on the LAN port.
 tower "command -v busybox || ls /usr/bin/busybox /usr/sbin/busybox 2>/dev/null" | tee "$OUT_DIR/httpd.log"
-tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/fedora43-httpd.log 2>&1 & echo httpd-pid=\$!" \
-  | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
+tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/fedora43-httpd.log 2>&1 & echo httpd-pid=\$!" |
+  tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
 sleep 3
-tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/fedora43-ks.cfg' | head -3 || curl -s 'http://127.0.0.1:$KS_PORT/fedora43-ks.cfg' | head -3" \
-  | tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower"
+tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/fedora43-ks.cfg' | head -3 || curl -s 'http://127.0.0.1:$KS_PORT/fedora43-ks.cfg' | head -3" |
+  tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower"
 
 # ------------------------------------------------------------------ transient domain --
 log "defining transient install domain $TRANSIENT (OVMF UEFI)"
-cat > "$OUT_DIR/transient.xml" <<XML
+cat >"$OUT_DIR/transient.xml" <<XML
 <domain type='kvm'>
   <name>$TRANSIENT</name>
   <description>transient fedora-43 install session (issue #18)</description>
@@ -252,8 +256,8 @@ cat > "$OUT_DIR/transient.xml" <<XML
   </devices>
 </domain>
 XML
-ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" < "$OUT_DIR/transient.xml" \
-  || die "transient define failed"
+ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" <"$OUT_DIR/transient.xml" ||
+  die "transient define failed"
 
 # ------------------------------------------------------------------ install --
 log "starting transient domain $TRANSIENT"
@@ -289,22 +293,25 @@ log "transient domain and scratch files removed"
 # its live dumpxml.
 if ! tower "sudo virsh dumpxml '$GUEST'" | grep -q "<loader"; then
   log "redefining persistent guest $GUEST with OVMF firmware (Fedora 43 is UEFI-capable)"
-  tower "sudo virsh dumpxml '$GUEST'" > "$OUT_DIR/persistent-before.xml"
-  : > "$OUT_DIR/persistent-after.xml"
+  tower "sudo virsh dumpxml '$GUEST'" >"$OUT_DIR/persistent-before.xml"
+  : >"$OUT_DIR/persistent-after.xml"
   while IFS= read -r line; do
-    printf '%s\n' "$line" >> "$OUT_DIR/persistent-after.xml"
+    printf '%s\n' "$line" >>"$OUT_DIR/persistent-after.xml"
     case "$line" in
       *"machine='pc-q35-9.2'>hvm</type>"*)
-        printf "    <loader readonly=%s type=%s>%s</loader>\n" "'yes'" "'pflash'" "$OVMF_CODE" >> "$OUT_DIR/persistent-after.xml"
-        printf "    <nvram>%s</nvram>\n" "$NVRAM_PERSIST" >> "$OUT_DIR/persistent-after.xml"
+        printf "    <loader readonly=%s type=%s>%s</loader>\n" "'yes'" "'pflash'" "$OVMF_CODE" >>"$OUT_DIR/persistent-after.xml"
+        printf "    <nvram>%s</nvram>\n" "$NVRAM_PERSIST" >>"$OUT_DIR/persistent-after.xml"
         ;;
     esac
-  done < "$OUT_DIR/persistent-before.xml"
-  grep -q "<loader" "$OUT_DIR/persistent-after.xml" \
-    || die "failed to inject OVMF loader into persistent domain XML"
+  done <"$OUT_DIR/persistent-before.xml"
+  grep -q "<loader" "$OUT_DIR/persistent-after.xml" ||
+    die "failed to inject OVMF loader into persistent domain XML"
   ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" \
-    < "$OUT_DIR/persistent-after.xml" > "$OUT_DIR/persistent-domain-define.log" 2>&1 \
-    || { cat "$OUT_DIR/persistent-domain-define.log"; die "persistent domain redefine failed"; }
+    <"$OUT_DIR/persistent-after.xml" >"$OUT_DIR/persistent-domain-define.log" 2>&1 ||
+    {
+      cat "$OUT_DIR/persistent-domain-define.log"
+      die "persistent domain redefine failed"
+    }
   log "persistent domain redefined with OVMF (see persistent-domain-define.log)"
 else
   log "persistent guest already carries a firmware loader"
@@ -317,15 +324,19 @@ tower "sudo virsh start '$GUEST'" || die "persistent guest failed to start"
 log "waiting for TCP/22 at $VM_IP (up to 600s: first boot + relabel)"
 up=0
 for _ in $(seq 1 120); do
-  if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then up=1; exec 3>&-; break; fi
+  if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then
+    up=1
+    exec 3>&-
+    break
+  fi
   sleep 5
 done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
 log "SSH probe from the runner (workforce key installed by kickstart)"
 ssh $SSH_OPTS -o ConnectTimeout=15 "root@$VM_IP" \
-  "hostname; whoami; uname -a; cat /etc/redhat-release" | tee "$OUT_DIR/ssh-probe.txt" \
-  || die "SSH probe failed"
+  "hostname; whoami; uname -a; cat /etc/redhat-release" | tee "$OUT_DIR/ssh-probe.txt" ||
+  die "SSH probe failed"
 
 log "collecting acceptance evidence"
 {
@@ -340,18 +351,18 @@ log "collecting acceptance evidence"
 } | tee "$OUT_DIR/acceptance.txt"
 
 ssh $SSH_OPTS "root@$VM_IP" \
-  "systemctl is-active sshd qemu-guest-agent; systemctl is-enabled sshd qemu-guest-agent; ip -4 addr show; grep -c ssh-ed25519 /root/.ssh/authorized_keys; rpm -q qemu-guest-agent openssh-server; test -d /boot/efi && echo ESP-PRESENT; efibootmgr | head -8" \
-  | tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
+  "systemctl is-active sshd qemu-guest-agent; systemctl is-enabled sshd qemu-guest-agent; ip -4 addr show; grep -c ssh-ed25519 /root/.ssh/authorized_keys; rpm -q qemu-guest-agent openssh-server; test -d /boot/efi && echo ESP-PRESENT; efibootmgr | head -8" |
+  tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
 
 echo "=== guest agent ping (virsh) ==="
-tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" \
-  | tee -a "$OUT_DIR/acceptance.txt" || log "WARN: guest-ping failed (check agent in guest)"
+tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" |
+  tee -a "$OUT_DIR/acceptance.txt" || log "WARN: guest-ping failed (check agent in guest)"
 
 echo "=== fedora-43 CI transport smoke (same transport as transfer/install stages) ==="
 ssh $SSH_OPTS "root@$VM_IP" \
-  "dnf -v repolist --enabled 2>/dev/null | grep -iE 'fedora|updates' || echo 'WARN: repos not visible'" \
-  | tee -a "$OUT_DIR/acceptance.txt" || true
+  "dnf -v repolist --enabled 2>/dev/null | grep -iE 'fedora|updates' || echo 'WARN: repos not visible'" |
+  tee -a "$OUT_DIR/acceptance.txt" || true
 
 log "=== provisioning complete ==="
-echo '{"hypervisor":"tower","vm_ip":"'$VM_IP'","guest":"'$GUEST'","provisioned_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' > "$OUT_DIR/provision-result.json"
+echo '{"hypervisor":"tower","vm_ip":"'$VM_IP'","guest":"'$GUEST'","provisioned_at":"'$(date -u +%Y-%m-%dT%H:%M:%SZ)'"' >"$OUT_DIR/provision-result.json"
 exit 0
