@@ -20,23 +20,24 @@ provision_build_deps() {
   echo "=== Provisioning build dependencies on $label ($ip) ==="
 
   # Update apt and install build dependencies
-  # Pre-flight disk cleanup: VMs accumulate apt lists and prior build caches;
+  # Pre-flight disk cleanup: VMs accumulate apt lists and prior build caches.
   # debian13 disk was observed full ("No space left on device", pipeline 3220
   # job 30232) which aborts provisioning before reaching debian12. The 47G
   # debian13 root disk (26G used) left only ~19G free at pre-flight, which is not
   # enough headroom for the WebClients git clone + node_modules + webpack build
   # that OOM-killed the index in pipeline 3466/32000. Reclaim aggressively but
-  # safely: remove apt archives/lists, doc/man stubs, journal logs, yarn cache,
-  # and any stale pd-deploy tree — no distro package removals, no config edits.
+  # safely: remove apt archives/lists, doc/man stubs, journal logs, npm/yarn
+  # caches, and any stale pd-deploy tree — no distro package removals, no config
+  # edits.
   run_on_vm "$ip" "
     df -h /;
-    du -sh /var/cache/apt /var/log/journal 2>/dev/null || true;
+    du -sh /var/cache/apt /var/log/journal /tmp/pd-deploy /root/.npm /root/.cache 2>/dev/null || true;
     sudo apt-get clean 2>/dev/null || true;
     sudo rm -rf /var/cache/apt/archives/*.deb /var/cache/apt/archives/partial/* 2>/dev/null || true;
     sudo rm -rf /var/lib/apt/lists/* 2>/dev/null || true;
     sudo rm -rf /var/log/*.gz /var/log/journal/*/system@*.journal 2>/dev/null || true;
     sudo rm -rf /usr/share/doc /usr/share/man /usr/share/locale 2>/dev/null || true;
-    sudo rm -rf /tmp/pd-deploy /root/.cache/yarn 2>/dev/null || true;
+    sudo rm -rf /tmp/pd-deploy /root/.cache/yarn /root/.cache/npm /root/.npm 2>/dev/null || true;
     df -h /;
   " || {
     echo "WARN: disk cleanup pre-flight reported errors on $label (continuing)"
