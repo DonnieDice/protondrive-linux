@@ -62,6 +62,73 @@ vms "dumpxml $GUEST" | tee "$OUT_DIR/dumpxml-before.txt" || true
 
 # Idempotence: if already on br0 with correct IP, verify and report complete
 ARCH_NET=$(vms "dumpxml $GUEST" | grep -o "source bridge='[^']*'" | head -1 || true)
+# ── disk precondition: the guest cannot boot without its backing file ─────────
+# Job 31247 failed after the br0 interface was already attached: SKIP_MUTATION
+# short-circuited past every check and virsh start died on a missing disk file
+# (/mnt/pool_two/domains/arch/vdisk1.qcow2). Always verify the configured disk
+# exists before attempting to start the guest; if it is missing, attempt the
+# guarded path repair (same pattern as scripts/ci/vm-provision/repair-vm-domain-disk.sh
+# used for the sibling debian12/debian13 guests on issue #14) and block loudly
+# if no valid replacement disk exists.
+DISK_PATH=$(vms "dumpxml $GUEST" | awk '/<disk / && /device=.disk./{d=1} d && /<source file=/{if(match($0,/<source file=.[^'"'"']+/)) print substr($0,RSTART+14,RLENGTH-14); d=0}' | head -1 || true)
+log "configured disk path: ${DISK_PATH:-none}"
+
+disk_repair() {
+  local missing="$1"
+  [ "$SKIP_MUTATION" = "1" ] && { log "SKIP_MUTATION=1 (already on br0) — attempting disk-path repair anyway: without a disk the guest can never boot"; }
+  tower "sudo bash -s -- '$GUEST' '$missing'" <<'REMOTE' 2>&1 | tee "$OUT_DIR/disk-repair.txt"
+set -u
+guest="$1"; missing="$2"
+echo "MISSING_DISK: $missing"
+state="$(sudo virsh domstate "$guest" 2>&1)" || { echo "DOMSTATE_FAIL"; exit 1; }
+echo "state: $state"
+[ "$state" = "shut off" ] || { echo "ABORT: guest not shut off — no disk mutation"; exit 1; }
+base="$(basename "$missing")"
+cand=""
+for p in "/mnt/user/domains/$guest/$base" "/mnt/pool_one/domains/$guest/$base" "/var/lib/libvirt/images/$guest/$base" "/var/lib/libvirt/images/$base"; do
+  if [ -f "$p" ]; then cand="$p"; break; fi
+done
+if [ -z "$cand" ]; then
+  cand="$(find /mnt/user /mnt/pool_one /mnt/pool_two /var/lib/libvirt -maxdepth 4 -path "*domains/$guest/*" -name '*.qcow2' -size +8G 2>/dev/null | head -1)"
+fi
+if [ -z "$cand" ] || [ ! -f "$cand" ]; then
+  echo "ABORT: no replacement disk found for $guest (searched user/pool_one/pool_two/libvirt shares)"
+  exit 1
+fi
+if ! qemu-img info "$cand" > "/tmp/$guest-repair-qemuimg.txt" 2>&1; then
+  echo "ABORT: qemu-img info failed on $cand"; cat "/tmp/$guest-repair-qemuimg.txt"; exit 1
+fi
+cat "/tmp/$guest-repair-qemuimg.txt"
+vbytes="$(awk '/^virtual size:/{if(match($0,/\(([0-9]+) bytes\)/)) print substr($0,RSTART+1,RLENGTH-8); exit}' "/tmp/$guest-repair-qemuimg.txt")"
+if [ -z "$vbytes" ] || [ "$vbytes" -lt 20000000000 ]; then
+  echo "ABORT: replacement disk virtual size < ~20GiB ($vbytes bytes) — refusing to point the guest at a wrong image"
+  exit 1
+fi
+sudo virsh dumpxml "$guest" > "/tmp/$guest-xml-backup-disk.xml"
+sed "s|$missing|$cand|g" "/tmp/$guest-xml-backup-disk.xml" > "/tmp/$guest-xml-fixed.xml"
+if cmp -s "/tmp/$guest-xml-backup-disk.xml" "/tmp/$guest-xml-fixed.xml"; then
+  echo "ABORT: sed produced no change — path string not found in XML (no mutation performed)"
+  exit 1
+fi
+if ! sudo virsh define "/tmp/$guest-xml-fixed.xml"; then
+  echo "ABORT: virsh define failed (domain unchanged; backup kept at /tmp/$guest-xml-backup-disk.xml)"
+  exit 1
+fi
+echo "REPAIRED_DISK: $missing -> $cand (xml backup /tmp/$guest-xml-backup-disk.xml)"
+sudo virsh domblklist "$guest"
+exit 0
+REMOTE
+  return "${PIPESTATUS[0]}"
+}
+
+if [ -n "$DISK_PATH" ] && ! tower "sudo test -f '$DISK_PATH'" 2>/dev/null; then
+  echo "{\"status\":\"blocked\",\"reason\":\"configured disk file $DISK_PATH is missing on tower\",\"guest\":\"$GUEST\",\"disk\":\"$DISK_PATH\"}" > "$OUT_DIR/disk-missing.json"
+  log "BLOCKER: configured disk missing: $DISK_PATH — attempting guarded repair"
+  if ! disk_repair "$DISK_PATH"; then
+    die "disk $DISK_PATH missing and no guarded repair possible — evidence in disk-repair.txt and disk-missing.json"
+  fi
+fi
+
 if echo "$ARCH_NET" | grep -q "br0"; then
   log "arch guest already on br0 — verifying acceptance state only"
   # Skip to verification (acceptance criteria already met)
@@ -165,12 +232,12 @@ fi
 
 # Wait for the guest to come up and acquire an IP via DHCP on br0
 log "waiting for $VM_IP to answer (up to 120s: boot + DHCP)"
-UP=0
+up=0
 for _ in $(seq 1 24); do
   if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then up=1; exec 3>&-; break; fi
   sleep 5
 done
-echo "TCP/22 probe: ${UP}" | tee "$OUT_DIR/ssh-port-probe.txt"
+echo "TCP/22 probe: ${up}" | tee "$OUT_DIR/ssh-port-probe.txt"
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP (TCP/22 not listening)"
 
 # ── phase 4: in-guest configuration ────────────────────────────────────────────
