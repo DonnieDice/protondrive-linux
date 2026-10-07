@@ -219,9 +219,18 @@ tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' 
 tower "test -s '$DOMAIN_DIR/install-media/linux' && test -s '$DOMAIN_DIR/install-media/initrd' && echo KERNEL-OK" \
   | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd missing after extraction"
 
+# ── Discover ISO label (needed for root=live:CDLABEL= in kernel cmdline) ──
+log "discovering ISO label for live root parameter"
+ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | grep -i '^Volume id:' | sed 's/Volume id: //'" | tr -d '\r' || true)"
+if [ -z "$ISO_LABEL" ]; then
+  ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | awk -F: '/Volume id/ {print \$2}' | xargs" || true)"
+fi
+log "ISO label: ${ISO_LABEL:-unknown}"
+echo "ISO_LABEL=$ISO_LABEL" > "$OUT_DIR/iso-label.txt"
+
 # ── Serve AutoYaST via busybox httpd on the tower ─────────────────────────
 tower "command -v busybox" | tee "$OUT_DIR/httpd.log"
-tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/opensuse-httpd.log 2>&1 & echo httpd-pid=\$" \
+tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/opensuse-httpd.log 2>&1 & echo httpd-pid=\$\!" \
   | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
 sleep 3
 tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/autoinst.xml' | head -3 || curl -s 'http://127.0.0.1:$KS_PORT/autoinst.xml' | head -3" \
@@ -241,7 +250,7 @@ cat > "$TRANSIENT_XML" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/linux</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
+    <cmdline>console=ttyS0,115200 root=live:CDLABEL=${ISO_LABEL:-openSUSE-Tumbleweed-x86_64-0} rd.live.image ro autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
