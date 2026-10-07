@@ -60,6 +60,8 @@ vms "list --all" | tee "$OUT_DIR/virsh-list-before.txt"
 echo "=== [migrate] pre-state: arch guest dumpxml ==="
 vms "dumpxml $GUEST" | tee "$OUT_DIR/dumpxml-before.txt" || true
 
+# Initialize SKIP_MUTATION early so disk_repair can safely reference it
+SKIP_MUTATION=0
 # Idempotence: if already on br0 with correct IP, verify and report complete
 ARCH_NET=$(vms "dumpxml $GUEST" | grep -o "source bridge='[^']*'" | head -1 || true)
 # ── disk precondition: the guest cannot boot without its backing file ─────────
