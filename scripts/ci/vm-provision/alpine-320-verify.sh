@@ -81,7 +81,7 @@ tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}''" 2
 # agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
 agent_exec() {
   local cmd="$1" payload resp pid st ec out
-  payload="$(jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["-c",$cmd],capture-output:true}}')"
+  payload="$(jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["-c",$cmd],"capture-output":true}}')"
   resp="$(tower "sudo virsh qemu-agent-command '$GUEST' '$payload'")" \
     || { AGENT_RC=255; return 1; }
   pid="$(jq -r '.return.pid // empty' <<<"$resp")"
