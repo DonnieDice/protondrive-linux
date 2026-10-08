@@ -5,11 +5,11 @@
 # (parent #8). Runs ON THE GITLAB RUNNER inside a pty (the CI job shell
 # allocates one), reaching the guest's serial console through tower:
 #
-#   ssh -tt tower "sudo virsh console ubuntu-26.04-install --force"
+#   ssh -tt tower "sudo virsh console ubuntu2604-install --force"
 #
-# The preseed (served over the LAN from tower) drives the entire install
-# automatically; this driver mostly watches: it confirms the installer
-# starts, catches early kernel/installer failures, waits for the preseed
+# The Subiquity autoinstall user-data (served over the LAN from tower) drives
+# the entire install automatically; this driver mostly watches: it confirms
+# the installer starts, catches early kernel/installer failures, waits for the
 # late-command marker and the final reboot, and enforces the time budget.
 #
 # argv: <transient-guest> <total_budget_secs>
@@ -48,25 +48,26 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 	"sudo virsh console $guest --force"
 
 # --- installer boot --------------------------------------------------------
-# The transient domain boots the netboot kernel with console=ttyS0. The first
-# d-i banner ("Installing system" / "Debian installer") is the reliable early
-# marker on serial. 900s is generous but bounded for kernel + installer load.
-wait_for {"Installing system"} 900
+# The transient domain boots the live kernel with console=ttyS0.
+# Subiquity's first serial output is the casper live-initramfs banner,
+# followed by the installer starting. 900s is generous but bounded for
+# kernel + installer load + network bring-up.
+wait_for {"Ubuntu 26.04"} 900
 
-# --- preseed-driven install -------------------------------------------------
-# The preseed automates partitioning, package install, and the late-command.
-# The late-command prints PRESEED_LATE_COMMAND_DONE (a unique marker) when
-# it finishes; watching for it proves the preseed was actually loaded and
-# executed (not skipped due to a URL fetch failure).
-wait_for {"PRESEED_LATE_COMMAND_DONE"} 1800
+# --- autoinstall-driven install ---------------------------------------------
+# The autoinstall user-data drives partitioning, package install, and the
+# late-command. The late-command prints AUTOINSTALL_LATE_COMMAND_DONE (a
+# unique marker) when it finishes; watching for it proves the autoinstall
+# was actually loaded and executed (not skipped due to a URL fetch failure).
+wait_for {"AUTOINSTALL_LATE_COMMAND_DONE"} 2400
 
 # --- reboot -----------------------------------------------------------------
-# The installer reboots after preseed completion. On the transient domain
+# The installer reboots after autoinstall completion. On the transient domain
 # on_reboot=destroy closes the console (virsh prints the disconnect notice).
 set timeout 180
 expect {
 	{"Done booting"} { }
-	{"reboot"} { }
+	{"rebooting"} { }
 	{"Restarting system"} { }
 	eof { }
 	timeout { puts "WARN: no explicit reboot notice on console" }
