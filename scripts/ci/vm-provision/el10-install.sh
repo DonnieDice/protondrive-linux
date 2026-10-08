@@ -246,12 +246,29 @@ tower "mkdir -p '$KS_DIR' && mv /tmp/el10-ks.cfg '$KS_DIR/el10-ks.cfg' && chmod 
   || die "kickstart staging failed"
 
 # busybox httpd: Unraid ships busybox; verify and serve on the LAN port.
-tower "command -v busybox || ls /usr/bin/busybox /usr/sbin/busybox 2>/dev/null" | tee "$OUT_DIR/httpd.log"
-tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/el10-httpd.log 2>&1 & echo httpd-pid=\$!" \
-  | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
+# Job 36052 burned ~900s of expect budget because `nohup busybox httpd` failed
+# silently (busybox not on the tower SSH PATH) yet the job pressed on while
+# Anaconda retried the unreachable inst.ks URL and dropped to dracut-emergency.
+# Locate a runnable busybox httpd FIRST, launch the server, and PROVE the URL
+# is actually served — fail fast and loud instead of spinning until timeout.
+log "locating busybox httpd on tower"
+BUSYBOX="$(tower "command -v busybox || { echo 'NONE'; true; }")" 2>/dev/null || BUSYBOX="NONE"
+echo "$BUSYBOX" | tee "$OUT_DIR/httpd.log"
+if [ -z "$BUSYBOX" ] || [ "$BUSYBOX" = "NONE" ]; then
+  # the probe printed nothing: search the known busybox locations explicitly
+  BUSYBOX="$(tower "ls /usr/bin/busybox /usr/sbin/busybox /bin/busybox 2>/dev/null | head -1 || true")" 2>/dev/null || BUSYBOX=""
+  echo "$BUSYBOX" | tee -a "$OUT_DIR/httpd.log"
+fi
+[ -n "$BUSYBOX" ] && [ "$BUSYBOX" != "NONE" ] || die "no busybox httpd found on tower (PATH lacks /usr/bin/busybox); cannot serve kickstart"
+{
+  tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/el10-httpd.log 2>&1 & echo httpd-pid=\\$!"
+} | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
 sleep 3
-tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' | head -3 || curl -s 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' | head -3" \
-  | tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower"
+# PROVE the kickstart is actually fetchable on loopback; wget/curl exit 0 only
+# when they receive real content (head returning 0 on empty, as the old self-
+# test did, masked the failure in job 36052).
+tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' | head -1 | grep -q 'lang en_US' || { echo 'HTTPD-HEALTHCHECK-FAIL'; exit 1; }" \
+  | tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower loopback (httpd did not bind / busybox died)"
 
 # ---------------------------------------------------------- transient domain --
 log "defining transient install domain $TRANSIENT (OVMF UEFI)"
