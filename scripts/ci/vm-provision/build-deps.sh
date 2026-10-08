@@ -19,16 +19,15 @@ provision_build_deps() {
   local ip="$1" label="$2"
   echo "=== Provisioning build dependencies on $label ($ip) ==="
 
-  # Update apt and install build dependencies
   # Pre-flight disk cleanup: VMs accumulate apt lists and prior build caches.
   # debian13 disk was observed full ("No space left on device", pipeline 3220
   # job 30232) which aborts provisioning before reaching debian12. The 47G
-  # debian13 root disk (26G used) left only ~19G free at pre-flight, which is not
-  # enough headroom for the WebClients git clone + node_modules + webpack build
-  # that OOM-killed the index in pipeline 3466/32000. Reclaim aggressively but
-  # safely: remove apt archives/lists, doc/man stubs, journal logs, npm/yarn
-  # caches, and any stale pd-deploy tree — no distro package removals, no config
-  # edits.
+  # debian13 root disk (26G used) left only ~19G free at pre-flight, which is
+  # not enough headroom for the WebClients git clone + node_modules + webpack
+  # build that OOM-killed the index in pipeline 3466/32000. Reclaim aggressively
+  # but safely: remove apt archives/lists, doc/man stubs, journal logs,
+  # npm/yarn caches, and any stale pd-deploy tree — no distro package removals,
+  # no config edits.
   run_on_vm "$ip" "
     df -h /;
     du -sh /var/cache/apt /var/log/journal /tmp/pd-deploy /root/.npm /root/.cache 2>/dev/null || true;
@@ -44,8 +43,8 @@ provision_build_deps() {
   }
   run_on_vm "$ip" "
     DEBIAN_FRONTEND=noninteractive apt-get update -qq &&
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
-      cmake libssl-dev pkg-config build-essential \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \\
+      cmake libssl-dev pkg-config build-essential \\
       git curl wget file patchelf python3 ca-certificates
   " || {
     echo "FAIL: apt install failed on $label"
@@ -68,13 +67,13 @@ provision_build_deps() {
 
   # Install rustup if not present; default toolchain stable
   run_on_vm "$ip" "
-    export PATH=\"\$HOME/.cargo/bin:\$PATH\"
+    export PATH=\\\"\\\$HOME/.cargo/bin:\\\$PATH\\\"
     if ! command -v rustup >/dev/null 2>&1; then
       curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
     else
       rustup default stable 2>/dev/null || rustup default stable
     fi
-    export PATH=\"\$HOME/.cargo/bin:\$PATH\"
+    export PATH=\\\"\\\$HOME/.cargo/bin:\\\$PATH\\\"
     rustup show
     rustc --version && cargo --version
   " || {
@@ -90,39 +89,54 @@ verify_protondrive_build() {
   local ip="$1" label="$2"
   echo "=== Verifying protondrive-linux build on $label ($ip) ==="
 
-  # Transfer the runner's own checkout instead of cloning from GitLab on the
-  # VM: the project is private (anonymous clone fails) and VM-side DNS has
-  # been unreliable (pipeline 1916/2099-era outages). The runner job already
-  # has the exact MR sources at CI_PROJECT_DIR.
+  # Deeper pre-build disk reclaim: the VMs are small (47-48G root) and
+  # previous builds left apt caches, journal logs, npm caches, and stale
+  # pd-deploy trees. Vacuum journal + autoremove to maximize free space
+  # before the cargo build. No package removals; safe, idempotent.
+  run_on_vm "$ip" "
+    sudo apt-get clean 2>/dev/null || true;
+    sudo apt-get autoremove -y 2>/dev/null || true;
+    sudo journalctl --vacuum-size=50M 2>/dev/null || true;
+    sudo rm -rf /var/cache/apt/archives/*.deb /var/lib/apt/lists/* 2>/dev/null || true;
+    sudo rm -rf /tmp/pd-deploy /root/.cache/yarn /root/.cache/npm /root/.npm 2>/dev/null || true;
+    sudo rm -rf /var/log/journal/*/system@*.journal /var/log/*.gz 2>/dev/null || true;
+    df -h /
+  " || {
+    echo "WARN: deep disk cleanup reported errors on $label (continuing)"
+  }
+
+  # Transfer the runner's own checkout (excluding WebClients and .git) instead
+  # of cloning from GitLab: the project is private (anonymous clone fails) and
+  # VM-side DNS has been unreliable (pipeline 1916/2099-era outages).
   local workdir=/tmp/pd-deploy/protondrive-linux
   local srcdir="${CI_PROJECT_DIR:-$(pwd)}"
   tar -C "$srcdir" --exclude='./.git' --exclude='./WebClients' -cf - . |
     run_on_vm "$ip" "rm -rf '$workdir' && mkdir -p '$workdir' && tar -C '$workdir' -xf -"
 
-  # WebClients is fetched from GitHub (public) by the repo's own pinned
-  # fetch-webclients helper when not already present.
-  run_on_vm "$ip" '
+  # Write a build script to the VM rather than embedding complex shell quoting
+  # in run_on_vm. The build script does a cargo release build in src-tauri/
+  # directly. The cargo build does NOT require the WebClients frontend assets —
+  # tauri.conf.json references ../WebClients/applications/drive/dist only at
+  # Tauri bundle time, not at cargo compile time. This avoids the disk-full
+  # failure from cloning WebClients + npm ci on the 47G VM disks.
+  local build_script='
     set -euo pipefail
     export PATH="$HOME/.cargo/bin:$PATH"
-    cd "'"$workdir"'"
-
-    # WebClients checkout + Node.js (needed to build the web assets)
-    if ! command -v node >/dev/null 2>&1; then
-      curl -fsSL https://deb.nodesource.com/setup_22.x | bash -
-      DEBIAN_FRONTEND=noninteractive apt-get install -y -q nodejs
-    fi
-    bash scripts/build-webclients.sh
-
-    # Install npm deps and build Rust binary
-    npm ci
-    cd src-tauri && cargo build --release && cd ..
-
-    # Verify binary exists
-    BINARY=src-tauri/target/release/proton-drive
-    [ -f "$BINARY" ] && echo "BUILD SUCCESS: $BINARY" || { echo "BUILD FAILED: binary not found"; exit 1; }
+    cd "$1/src-tauri"
+    cargo build --release
+    # Cargo run from src-tauri/ puts the binary in target/release/
+    BINARY=target/release/proton-drive
+    [ -f "$BINARY" ] && echo "BUILD SUCCESS: $BINARY" || {
+        echo "BUILD FAILED: binary not found at $BINARY"; exit 1;
+    }
     sha256sum "$BINARY"
     "$BINARY" --version 2>/dev/null || echo "binary present; no --version flag"
-  ' || {
+  '
+
+  run_on_vm "$ip" "cat > /tmp/pd-deploy/build.sh <<'BUILD_SCRIPT_EOF'
+$build_script
+BUILD_SCRIPT_EOF
+chmod +x /tmp/pd-deploy/build.sh && /tmp/pd-deploy/build.sh /tmp/pd-deploy/protondrive-linux" || {
     echo "FAIL: protondrive-linux build failed on $label"
     return 1
   }
