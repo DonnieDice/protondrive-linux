@@ -27,13 +27,13 @@
 set -uo pipefail
 
 TOWER_HOST="${TOWER_HOST:-tower}"
-GUEST="${GUEST:-fedora-43}"
+GUEST="${GUEST:-fedora43}"
 TRANSIENT="${TRANSIENT:-fedora-43-install}"
 VM_IP="${VM_IP:-192.168.1.183}"
 TOWER_IP="${TOWER_IP:-192.168.1.31}"
-ISO_PATH="${ISO_PATH:-/mnt/pool_one/isos/Fedora-43-latest-x86_64-dvd1.iso}"
-DISK_PATH="${DISK_PATH:-/mnt/pool_two/domains/fedora-43/vdisk1.qcow2}"
-DOMAIN_DIR="${DOMAIN_DIR:-/mnt/pool_two/domains/fedora-43}"
+ISO_PATH="${ISO_PATH:-/mnt/pool_one/isos/Fedora-Workstation-Live-43-1.6.x86_64.iso}"
+DISK_PATH="${DISK_PATH:-/mnt/pool_two/domains/fedora43/vdisk1.qcow2}"
+DOMAIN_DIR="${DOMAIN_DIR:-/mnt/pool_two/domains/fedora43}"
 MAC="${MAC:-52:54:00:38:58:f7}"
 KS_PORT="${KS_PORT:-8010}"
 OUT_DIR="${PROVISION_OUT_DIR:-provision-results}"
