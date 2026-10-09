@@ -229,6 +229,23 @@ scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" \
   || die "payload upload failed"
 
 # --------------------------------------------------------------- install ----
+# The persistent guest may still be running from a prior lease (it holds a
+# write lock on DISK_PATH that blocks the transient install domain). Shut it
+# down cleanly before starting the transient domain; this is confined to the
+# single alpine322 guest and touches no other guest.
+log "ensuring persistent guest $GUEST is shut off (releases qcow2 write lock)"
+if [ "$(tower "sudo virsh domstate '$GUEST' 2>/dev/null")" = "running" ]; then
+  tower "sudo virsh shutdown '$GUEST'" || die "guest shutdown failed"
+  # wait up to ~60s for it to leave the running state
+  for _ in $(seq 1 30); do
+    [ "$(tower "sudo virsh domstate '$GUEST' 2>/dev/null")" = "running" ] || break
+    sleep 2
+  done
+  if [ "$(tower "sudo virsh domstate '$GUEST' 2>/dev/null")" = "running" ]; then
+    log "guest did not shut off cleanly; destroying $GUEST"
+    tower "sudo virsh destroy '$GUEST'" >/dev/null 2>&1 || true
+  fi
+fi
 log "starting transient domain $TRANSIENT"
 tower "sudo virsh start '$TRANSIENT'" || die "transient start failed"
 
