@@ -93,8 +93,12 @@ CONSOLE_BUDGET="${CONSOLE_BUDGET:-3600}"
 KS_DIR="/tmp/el10-ks.$$"
 cleanup() {
   # best-effort; never touch other guests. Kill the httpd we started, remove
-  # the transient domain, and wipe scratch files.
-  tower "pkill -f 'httpd.*el10-ks' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media'" \
+  # the transient domain, and wipe scratch files. --nvram because the
+  # transient domain runs OVMF and carries an <nvram> file: plain `virsh
+  # undefine` is rejected with "cannot undefine domain with nvram"
+  # (observed job 38315: the stale el10-install from job 36052 kept its
+  # nvram-install.fd and blocked every later run's define).
+  tower "pkill -f 'httpd.*el10-ks' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine --nvram '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media'" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -117,13 +121,18 @@ log "persistent guest state: ${STATE:-unknown}"
 # on undefine so we capture REAL errors instead of silently no-oping.
 if tower "sudo virsh list --all --name 2>/dev/null" | grep -qx "$TRANSIENT"; then
   log "removing stale transient domain $TRANSIENT"
-  # destroy (if running, ignore "not running" error); then undefine with errors visible
-  tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine '$TRANSIENT' 2>&1" \
+  # destroy (if running, ignore "not running" error); then undefine with
+  # errors visible. --nvram is REQUIRED: the stale transient carries an
+  # OVMF <nvram> file (nvram-install.fd), and libvirt rejects plain
+  # `virsh undefine` with "cannot undefine domain with nvram" (job 38315
+  # evidence). --nvram deletes the transient's own scratch NVRAM file
+  # only; the persistent el10 domain's nvram.fd is a different file.
+  tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine --nvram '$TRANSIENT' 2>&1" \
     | tee "$OUT_DIR/transient-cleanup.log" || true
   # re-check using list --all --name: only prints the name if still defined
   if tower "sudo virsh list --all --name 2>/dev/null" | grep -qx "$TRANSIENT"; then
     log "WARN: $TRANSIENT still defined after destroy+undefine; forcing"
-    tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine --remove-all-storage '$TRANSIENT' 2>&1" \
+    tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine --nvram --remove-all-storage '$TRANSIENT' 2>&1" \
       | tee -a "$OUT_DIR/transient-cleanup.log" || true
   fi
   # final hard check: fail only if the domain definition truly persists
@@ -341,13 +350,15 @@ if [ "$CONSOLE_RC" != "0" ]; then
   die "install failed"
 fi
 
-# wait for shut-off, then undefine the transient domain
+# wait for shut-off, then undefine the transient domain (--nvram: the
+# transient runs OVMF with nvram-install.fd; plain undefine is rejected —
+# "cannot undefine domain with nvram" — and would leave it stale forever)
 for _ in $(seq 1 30); do
   S="$(tower "sudo virsh domstate '$TRANSIENT'" 2>/dev/null || true)"
   [ "$S" = "shut off" ] && break
   sleep 5
 done
-tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
+tower "sudo virsh undefine --nvram '$TRANSIENT'" || die "undefine transient failed"
 tower "rm -rf '$DOMAIN_DIR/install-media' '$KS_DIR'" || true
 log "transient domain and scratch files removed"
 
