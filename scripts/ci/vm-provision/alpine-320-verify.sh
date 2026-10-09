@@ -14,7 +14,10 @@
 #   3. repairs /root/.ssh/authorized_keys INSIDE THE alpine320 GUEST ONLY,
 #      through the qemu-guest-agent channel (virsh qemu-agent-command
 #      guest-exec) - no console login, no reinstall, no other guest touched
-#   4. proves acceptance: SSH publickey probe from the runner, in-guest
+#   4. diagnoses sshd (service status, PermitRootLogin, PubkeyAuthentication,
+#      AuthorizedKeysFile, file permissions) and ensures sshd is enabled +
+#      running before the probe
+#   5. proves acceptance: SSH publickey probe from the runner, in-guest
 #      service status, IP config, guest-ping
 #
 # Mutations are confined to the alpine320 guest: starting it when shut off
@@ -100,7 +103,7 @@ agent_exec() {
   AGENT_RC=254; return 1
 }
 
-# ------------------------------------------------------------- key repair ---
+# ------------------------------------------------------------- key repair --
 [ -r "$PRIV" ] || die "no workforce private key at $PRIV (SSH_PRIVATE_KEY_B64 absent; cannot authorize a key the runner can offer)"
 DERIVED_PUB="$(ssh-keygen -y -f "$PRIV")" || die "cannot derive public half of the workforce key"
 DERIVED_FP="$(ssh-keygen -lf "$PRIV" | awk '{print $2}')"
@@ -129,7 +132,34 @@ else
 fi
 echo "derived key fingerprint: $DERIVED_FP" >> "$OUT_DIR/key-repair.txt"
 
-# ------------------------------------------------------------- ssh probe ---
+# ------------------------------------------------------------- sshd diagnosis --
+log "diagnosing sshd inside the alpine320 guest"
+{
+  echo "=== rc-service sshd status ==="
+  agent_exec "rc-service sshd status 2>&1 || true"
+  echo "=== sshd process ==="
+  agent_exec "ps aux 2>/dev/null | grep sshd | grep -v grep || echo 'no sshd process found'"
+  echo "=== sshd_config key directives ==="
+  agent_exec "grep -E '^(PubkeyAuthentication|PermitRootLogin|AuthorizedKeysFile|PasswordAuthentication|UsePAM|KbdInteractiveAuthentication)' /etc/ssh/sshd_config 2>/dev/null || echo 'sshd_config missing or no matching directives'"
+  echo "=== /root/.ssh permissions ==="
+  agent_exec "ls -lad /root/.ssh 2>/dev/null && ls -la /root/.ssh/ 2>/dev/null || echo '/root/.ssh not found'"
+  echo "=== /root permissions ==="
+  agent_exec "ls -ld /root"
+  echo "=== authorized_keys content type ==="
+  agent_exec "wc -l /root/.ssh/authorized_keys 2>/dev/null; file /root/.ssh/authorized_keys 2>/dev/null || true; head -c 40 /root/.ssh/authorized_keys 2>/dev/null; echo"
+} | tee "$OUT_DIR/sshd-diag.txt" || true
+
+# Ensure sshd is enabled at boot and started
+log "ensuring sshd is enabled and running"
+agent_exec "rc-update add sshd default 2>&1 || true" >> "$OUT_DIR/sshd-diag.txt"
+agent_exec "rc-service sshd start 2>&1 || echo 'sshd start returned non-zero'" >> "$OUT_DIR/sshd-diag.txt"
+sleep 3
+# Re-check sshd status after start attempt
+agent_exec "rc-service sshd status 2>&1 || true" >> "$OUT_DIR/sshd-diag.txt" || true
+# Also check if sshd is actually listening
+agent_exec "ss -tlnp 2>/dev/null | grep ':22' || netstat -tlnp 2>/dev/null | grep ':22 ' || echo 'no listener on :22 found'" >> "$OUT_DIR/sshd-diag.txt" || true
+
+# ------------------------------------------------------------- ssh probe ----
 log "waiting for TCP/22 at $VM_IP (up to 120s)"
 up=0
 for i in $(seq 1 60); do
