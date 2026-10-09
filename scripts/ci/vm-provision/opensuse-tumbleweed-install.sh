@@ -219,20 +219,45 @@ tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' 
 tower "test -s '$DOMAIN_DIR/install-media/linux' && test -s '$DOMAIN_DIR/install-media/initrd' && echo KERNEL-OK" \
   | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd missing after extraction"
 
-# ── Discover ISO label (fallback chain: isoinfo, file, bsdtar) ─────────────
+# ── Discover ISO volume label for root=live:CDLABEL= ───────────────────────
+# The openSUSE Tumbleweed live ISO boots via dracut's rd.live mechanism:
+# root=live:CDLABEL=<label> makes dracut scan all block devices for an ISO
+# whose ISO9660 Volume Label matches, then mounts the embedded squashfs.
+# root=live:/dev/sr0 does NOT work (dracut looks for an ISO *file* on the
+# device, not a CD-ROM that IS the ISO) — job 38137 proved this drops to
+# the dracut emergency shell with "Can't mount root filesystem".
+#
 # isoinfo is absent on some tower installs (job 33405 returned "unknown"),
-# so we cascade through `file` (parses the ISO9660 volume descriptor) and
-# `bsdtar -s` (reads the Joliet/Rock Ridge label) as robust fallbacks.
-log "discovering ISO label for live root parameter"
-ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | grep -i '^Volume id:' | sed 's/Volume id: //'" | tr -d '\r' || true)"
+# so we cascade through: isoinfo -> file -> dd PVD parse.
+log "discovering ISO volume label for root=live:CDLABEL="
+# Method 1: isoinfo (from genisoimage / libcdio-tools)
+ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | grep -i '^Volume id:' | sed 's/Volume id: //'" | tr -d '\\r' || true)"
 if [ -z "$ISO_LABEL" ]; then
-  ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | awk -F: '/Volume id/ {print \$2}' | xargs" || true)"
+  ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | awk -F: '/Volume id/ {print \\$2}' | xargs" || true)"
 fi
+# Method 2: file(1) — Unraid's busybox `file` may be absent; GNU file prints
+#   "ISO 9660 ... Volume Label: \`openSUSE-Tumbleweed-x86_64-0'"
+#   or "... ISO 9660 CD-ROM filesystem data ... label: '...''" for libarchive.
 if [ -z "$ISO_LABEL" ]; then
-  ISO_LABEL="$(tower "file -b '$ISO_PATH' 2>/dev/null | grep -oiE \"label: '[^\']+'\" | sed \"s/label: '\\([^']*\\)'/\\1/\"" | tr -d '\r' || true)"
+  ISO_LABEL="$(tower "file -b '$ISO_PATH' 2>/dev/null | sed -nE \"s/.*Volume Label: *'\?([^']+)'\?.*/\1/p; s/.*label: *'\?([^']+)'\?.*/\1/p\" | head -1" | tr -d '\\r' || true)"
+fi
+# Method 3: read the ISO9660 Primary Volume Descriptor directly with dd.
+# The PVD sits at byte offset 32768 (0x8000); the Volume Label occupies
+# bytes 40-71 (32 bytes, uppercase A-Z, space-padded ASCII). This needs
+# no special tooling beyond dd — works on Unraid's busybox dd.
+if [ -z "$ISO_LABEL" ]; then
+  ISO_LABEL="$(tower "dd if='$ISO_PATH' bs=1 skip=32808 count=32 2>/dev/null | tr -d ' ' | tr -d '\\000'" | tr -d '\\r' || true)"
 fi
 log "ISO label: ${ISO_LABEL:-unknown}"
 echo "ISO_LABEL=$ISO_LABEL" > "$OUT_DIR/iso-label.txt"
+# Use CDLABEL if we resolved it; otherwise fall through to /dev/sr0 with a
+# loud warning (known to fail on openSUSE live ISO; kept only as last resort).
+if [ -n "$ISO_LABEL" ]; then
+  LIVE_ROOT="root=live:CDLABEL=$ISO_LABEL"
+else
+  LIVE_ROOT="root=live:/dev/sr0"
+  log "WARN: ISO label not discoverable; falling back to $LIVE_ROOT (may fail on live ISO)"
+fi
 
 # ── Serve AutoYaST via busybox httpd on the tower ─────────────────────────
 tower "command -v busybox" | tee "$OUT_DIR/httpd.log"
@@ -256,7 +281,7 @@ cat > "$TRANSIENT_XML" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/linux</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 root=live:/dev/sr0 rd.live.image rd.live.scan ro autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
+    <cmdline>console=ttyS0,115200 ${LIVE_ROOT} rd.live.image ro autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
