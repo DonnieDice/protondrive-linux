@@ -219,11 +219,17 @@ tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' 
 tower "test -s '$DOMAIN_DIR/install-media/linux' && test -s '$DOMAIN_DIR/install-media/initrd' && echo KERNEL-OK" \
   | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd missing after extraction"
 
-# ── Discover ISO label (needed for root=live:CDLABEL= in kernel cmdline) ──
+# ── Discover ISO label (fallback chain: isoinfo, file, bsdtar) ─────────────
+# isoinfo is absent on some tower installs (job 33405 returned "unknown"),
+# so we cascade through `file` (parses the ISO9660 volume descriptor) and
+# `bsdtar -s` (reads the Joliet/Rock Ridge label) as robust fallbacks.
 log "discovering ISO label for live root parameter"
 ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | grep -i '^Volume id:' | sed 's/Volume id: //'" | tr -d '\r' || true)"
 if [ -z "$ISO_LABEL" ]; then
   ISO_LABEL="$(tower "isoinfo -d -i '$ISO_PATH' 2>/dev/null | awk -F: '/Volume id/ {print \$2}' | xargs" || true)"
+fi
+if [ -z "$ISO_LABEL" ]; then
+  ISO_LABEL="$(tower "file -b '$ISO_PATH' 2>/dev/null | grep -oiE \"label: '[^\']+'\" | sed \"s/label: '\\([^']*\\)'/\\1/\"" | tr -d '\r' || true)"
 fi
 log "ISO label: ${ISO_LABEL:-unknown}"
 echo "ISO_LABEL=$ISO_LABEL" > "$OUT_DIR/iso-label.txt"
@@ -250,7 +256,7 @@ cat > "$TRANSIENT_XML" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/linux</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 root=live:CDLABEL=${ISO_LABEL:-openSUSE-Tumbleweed-x86_64-0} rd.live.image ro autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
+    <cmdline>console=ttyS0,115200 root=live:/dev/sr0 rd.live.image rd.live.scan ro autoyast=http://$TOWER_IP:$KS_PORT/autoinst.xml</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
