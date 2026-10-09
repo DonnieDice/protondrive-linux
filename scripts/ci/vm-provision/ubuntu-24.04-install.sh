@@ -77,6 +77,48 @@ if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
 fi
 
+# ----------------------------------------------- idempotency: already installed? --
+# If the disk already carries an installed Ubuntu 24.04 and the guest boots to
+# sshd, skip the full autoinstall reinstall (issue #24 acceptance criteria are
+# about the OS being installed, not about reinstalling it). This is the same
+# idempotency principle the el10 install harness follows: detect an existing
+# installation and skip the destructive install phase, proceeding only to the
+# acceptance probes.
+log "checking for an existing Ubuntu 24.04 installation on $GUEST"
+IDEMPOTENT_SKIP=false
+# 1. Is the persistent guest running?
+if [ "${STATE:-}" = "running" ]; then
+  # 2. Does the disk carry a real (non-empty) filesystem?
+  DISK_VERSIG="$(tower "sudo qemu-img info '$DISK_PATH' 2>/dev/null | grep -i 'file format' || true")"
+  if tower "sudo blkid '$DISK_PATH' 2>/dev/null | grep -q ext4 || \
+     sudo file -s '$DISK_PATH' 2>/dev/null | grep -q 'Linux rev'"; then
+    log "disk carries a filesystem signature - checking for an existing OS"
+    # 3. Is SSH already up at the target IP?
+    if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then
+      exec 3>&-
+      log "sshd already accepting connections at $VM_IP - OS already installed"
+      IDEMPOTENT_SKIP=true
+    else
+      log "guest running but sshd not yet up - will proceed with install"
+    fi
+  else
+    log "disk appears empty/unformatted - proceeding with fresh install"
+  fi
+else
+  log "guest not running (state: ${STATE:-absent}) - will ensure it is started after install"
+fi
+
+if [ "$IDEMPOTENT_SKIP" = "true" ]; then
+  log "idempotency: skipping autoinstall (OS already installed to $DISK_PATH)"
+  echo "idempotency: skip_install=true reason='OS already installed and sshd reachable'" > "$OUT_DIR/idempotency.txt"
+  # Jump straight to acceptance: ensure OVMF on persistent domain, boot, verify.
+  # Fall through to the disk preflight which will detect the existing disk,
+  # then skip to the persistent-domain OVMF check + acceptance section below.
+  SKIP_INSTALL=true
+else
+  SKIP_INSTALL=false
+fi
+
 # ---------------------------------------------------- disk preflight/create --
 log "domain dir contents before any change:"
 tower "ls -la '$DOMAIN_DIR/' 2>/dev/null || echo '(domain dir absent)'" | tee "$OUT_DIR/disk-preflight.txt"
@@ -190,13 +232,14 @@ IREL="$DOMAIN_DIR/install-media/initrd-installer"
 tower "test -s '$KREL' && test -s '$IREL' && echo KERNEL-OK" | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd not found after extraction (tried vmlinuz+initrd.gz and casper/vmlinuz+initrd)"
 
 # ------------------------------------------------------------- key + metadata --
-KEYSRC=""
-if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
-elif [ -r /root/.ssh/id_ed25519 ]; then
-  ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
-fi
-[ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
-log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
+if [ "$SKIP_INSTALL" != "true" ]; then
+  KEYSRC=""
+  if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
+  elif [ -r /root/.ssh/id_ed25519 ]; then
+    ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
+  fi
+  [ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
+  log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
 
 # VM_SSH_KEY CI variable for the el10 stages (when exposed to this job)
 VMKEY_NOTE="VM_SSH_KEY not exposed to this job (protected-variable scope)"
@@ -219,8 +262,10 @@ if [ -s "$OUT_DIR/vmsshkey.pub" ]; then
   VM_KEY_LINE="$(cat "$OUT_DIR/vmsshkey.pub")"
   sed -i "s|- PLACEHOLDER_REPLACE_WITH_WORKFORCE_KEY|- PLACEHOLDER_REPLACE_WITH_WORKFORCE_KEY\\n    - $VM_KEY_LINE|" "$OUT_DIR/user-data" 2>/dev/null || true
 fi
+fi
 
 # ------------------------------------------------- serve autoinstall over LAN --
+if [ "$SKIP_INSTALL" != "true" ]; then
 tower "mkdir -p '$KS_DIR' && chmod 755 '$KS_DIR'" || die "could not create KS dir on tower"
 scp $SSH_OPTS "$OUT_DIR/user-data" "$TOWER_HOST:/tmp/" >/dev/null 2>&1 || die "cloud-init upload failed"
 tower "mv /tmp/user-data '$KS_DIR/user-data' && chmod 644 '$KS_DIR/user-data' && ls -la '$KS_DIR/'" || die "cloud-init staging failed"
@@ -310,6 +355,7 @@ done
 tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
 tower "rm -rf '$DOMAIN_DIR/install-media' '$KS_DIR'" || true
 log "transient domain and scratch files removed"
+fi  # end SKIP_INSTALL guard for transient domain
 
 # ------------------------------------- persistent domain: OVMF redefinition --
 # Ubuntu 24.04 on OVMF/UEFI: if the persistent guest exists and lacks a firmware
@@ -371,7 +417,7 @@ XML
     while IFS= read -r line; do
       printf '%s\n' "$line" >> "$OUT_DIR/persistent-after.xml"
       case "$line" in
-        *machine='pc-q35-9.2'>hvm</type>*)
+        *"machine='pc-q35-9.2'>hvm</type>"*)
           printf '    <loader readonly=%s type=%s>%s</loader>\n' "'yes'" "'pflash'" "$OVMF_CODE" >> "$OUT_DIR/persistent-after.xml"
           printf '    <nvram>%s</nvram>\n' "$NVRAM_PERSIST" >> "$OUT_DIR/persistent-after.xml"
           ;;

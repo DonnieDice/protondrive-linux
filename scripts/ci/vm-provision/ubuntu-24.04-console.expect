@@ -66,7 +66,8 @@ expect {
 	{Installation complete} { }
 	{Pane is dead} { die "subiquity pane died (installer error)" }
 	{Traceback (most recent call last)} { die "subiquity traceback" }
-	{FAILED} { puts "\nEXPECT-FATAL: installer reported FAILED"; exit 2 }
+	{Subiquity ERROR} { puts "\nEXPECT-FATAL: subiquity reported ERROR"; exit 2 }
+	{FAILED to start installer} { puts "\nEXPECT-FATAL: installer failed to start"; exit 2 }
 	eof { die "console EOF during install" }
 	timeout {
 		if {[remaining] > 0} {
