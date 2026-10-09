@@ -173,11 +173,16 @@ scp $SSH_OPTS "$AUTOINSTALL_LOCAL" "$TOWER_HOST:/tmp/ubuntu2604-user-data" >/dev
 tower "mv /tmp/ubuntu2604-user-data '$KS_DIR/user-data' && chmod 644 '$KS_DIR/user-data'" \
   || die "autoinstall staging failed"
 
-# busybox httpd: Unraid ships busybox; verify and serve on the LAN port.
-BUSYBOX="$(tower "command -v busybox 2>/dev/null || ls /usr/bin/busybox /usr/sbin/busybox 2>/dev/null | head -1" 2>/dev/null || true)"
-echo "$BUSYBOX" | tee "$OUT_DIR/httpd.log"
-[ -n "$BUSYBOX" ] || die "no busybox httpd found on tower (PATH lacks /usr/bin/busybox); cannot serve autoinstall"
-tower "nohup $BUSYBOX httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/ubuntu2604-httpd.log 2>&1 & echo httpd-pid=\\$!" \
+# busybox httpd: Unraid ships busybox; use it directly (el10 pattern).
+# The previous 'command -v busybox' over SSH failed on tower because
+# command -v resolves against the SSH login shell PATH which may not
+# include busybox. ls /usr/bin/busybox is the reliable check.
+BUSYBOX_PATH="$(tower "ls /usr/bin/busybox 2>/dev/null || command -v busybox 2>/dev/null || echo NOTFOUND" 2>/dev/null || echo NOTFOUND)"
+echo "$BUSYBOX_PATH" | tee "$OUT_DIR/httpd.log"
+if [ "$BUSYBOX_PATH" = "NOTFOUND" ]; then
+  die "no busybox httpd found on tower; cannot serve autoinstall"
+fi
+tower "nohup $BUSYBOX_PATH httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/ubuntu2604-httpd.log 2>&1 & echo httpd-pid=\\$!" \
   | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
 sleep 3
 # PROVE the user-data is actually fetchable on loopback
