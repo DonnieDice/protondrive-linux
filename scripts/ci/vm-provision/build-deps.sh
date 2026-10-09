@@ -65,18 +65,32 @@ provision_build_deps() {
     return 1
   }
 
-  # Install rustup if not present; default toolchain stable
-  run_on_vm "$ip" "
-    export PATH=\\\"\\\$HOME/.cargo/bin:\\\$PATH\\\"
+  # Install rustup if not present; default toolchain stable.
+  # Deploy a script to the VM instead of embedding multi-line shell in a
+  # double-quoted run_on_vm argument: the runner-side expansion of
+  # $HOME/$PATH inside the escaped inline form corrupted the remote PATH
+  # ("curl: sh: rustup: command not found", pipeline 3858 job 37378) even
+  # though apt had just installed curl. The heredoc below is transmitted
+  # verbatim (single-quoted delimiter) so every expansion happens on the
+  # VM with the VM's own environment — the same pattern that already works
+  # for the build script in verify_protondrive_build.
+  local rust_script='
+    set -euo pipefail
+    export PATH="$HOME/.cargo/bin:$PATH"
     if ! command -v rustup >/dev/null 2>&1; then
-      curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
+      curl --proto =https --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y --default-toolchain stable --no-modify-path
     else
       rustup default stable 2>/dev/null || rustup default stable
     fi
-    export PATH=\\\"\\\$HOME/.cargo/bin:\\\$PATH\\\"
+    export PATH="$HOME/.cargo/bin:$PATH"
     rustup show
-    rustc --version && cargo --version
-  " || {
+    rustc --version
+    cargo --version
+  '
+  run_on_vm "$ip" "mkdir -p /tmp/pd-deploy && cat > /tmp/pd-deploy/rust-install.sh <<'RUST_SCRIPT_EOF'
+$rust_script
+RUST_SCRIPT_EOF
+chmod +x /tmp/pd-deploy/rust-install.sh && /tmp/pd-deploy/rust-install.sh" || {
     echo "FAIL: rustup install failed on $label"
     return 1
   }
@@ -114,15 +128,21 @@ verify_protondrive_build() {
     run_on_vm "$ip" "rm -rf '$workdir' && mkdir -p '$workdir' && tar -C '$workdir' -xf -"
 
   # Write a build script to the VM rather than embedding complex shell quoting
-  # in run_on_vm. The build script does a cargo release build in src-tauri/
-  # directly. The cargo build does NOT require the WebClients frontend assets —
-  # tauri.conf.json references ../WebClients/applications/drive/dist only at
-  # Tauri bundle time, not at cargo compile time. This avoids the disk-full
-  # failure from cloning WebClients + npm ci on the 47G VM disks.
+  # in run_on_vm. The build script runs a cargo release build in src-tauri/.
+  # generate_context!() in src/main.rs loads tauri.conf.json (which declares
+  # frontendDist) at compile time, so cargo build FAILS when the dist directory
+  # is absent — the repo's own test:rust job stubs it identically
+  # (.gitlab/workflows/tests.yml). The transfer step excludes WebClients
+  # (disk headroom on the 47G VMs), so build.sh creates a placeholder dist
+  # here: enough to satisfy the tauri build, not a real web bundle (that npm
+  # build is out of scope for issue #14).
   local build_script='
     set -euo pipefail
     export PATH="$HOME/.cargo/bin:$PATH"
     cd "$1/src-tauri"
+    mkdir -p ../WebClients/applications/drive/dist
+    echo "<!doctype html><html><body>dist placeholder for release build</body></html>" \
+      > ../WebClients/applications/drive/dist/index.html
     cargo build --release
     # Cargo run from src-tauri/ puts the binary in target/release/
     BINARY=target/release/proton-drive
