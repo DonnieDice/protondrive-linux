@@ -91,14 +91,17 @@ CONSOLE_LOG="$OUT_DIR/console-session.log"
 CONSOLE_BUDGET="${CONSOLE_BUDGET:-3600}"
 
 KS_DIR="/tmp/el10-ks.$$"
+KS_HTTPD_PID_FILE="/tmp/el10-httpd-pid.$$"
 cleanup() {
-  # best-effort; never touch other guests. Kill the httpd we started, remove
-  # the transient domain, and wipe scratch files. --nvram because the
+  # best-effort; never touch other guests. Kill the HTTP server we started,
+  # remove the transient domain, and wipe scratch files. --nvram because the
   # transient domain runs OVMF and carries an <nvram> file: plain `virsh
   # undefine` is rejected with "cannot undefine domain with nvram"
   # (observed job 38315: the stale el10-install from job 36052 kept its
   # nvram-install.fd and blocked every later run's define).
-  tower "pkill -f 'httpd.*el10-ks' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine --nvram '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media'" \
+  # Kill by PID file first (we started it ourselves), then fall back to
+  # pattern-match for robustness.
+  tower "kill \\$(cat '$KS_HTTPD_PID_FILE' 2>/dev/null) 2>/dev/null; pkill -f 'httpd.*el10-ks' 2>/dev/null; pkill -f 'http.server.*$KS_PORT' 2>/dev/null; pkill -f 'HTTP::Daemon' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine --nvram '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media' '$KS_HTTPD_PID_FILE'" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -258,31 +261,64 @@ scp $SSH_OPTS "$KS_LOCAL" "$TOWER_HOST:/tmp/" >/dev/null 2>&1 || die "kickstart 
 tower "mkdir -p '$KS_DIR' && mv /tmp/el10-ks.cfg '$KS_DIR/el10-ks.cfg' && chmod 644 '$KS_DIR/el10-ks.cfg'" \
   || die "kickstart staging failed"
 
-# busybox httpd: Unraid ships busybox; verify and serve on the LAN port.
-# Job 36052 burned ~900s of expect budget because `nohup busybox httpd` failed
-# silently (busybox not on the tower SSH PATH) yet the job pressed on while
-# Anaconda retried the unreachable inst.ks URL and dropped to dracut-emergency.
-# Locate a runnable busybox httpd FIRST, launch the server, and PROVE the URL
-# is actually served — fail fast and loud instead of spinning until timeout.
-log "locating busybox httpd on tower"
-BUSYBOX="$(tower "command -v busybox || { echo 'NONE'; true; }")" 2>/dev/null || BUSYBOX="NONE"
-echo "$BUSYBOX" | tee "$OUT_DIR/httpd.log"
-if [ -z "$BUSYBOX" ] || [ "$BUSYBOX" = "NONE" ]; then
-  # the probe printed nothing: search the known busybox locations explicitly
-  BUSYBOX="$(tower "ls /usr/bin/busybox /usr/sbin/busybox /bin/busybox 2>/dev/null | head -1 || true")" 2>/dev/null || BUSYBOX=""
-  echo "$BUSYBOX" | tee -a "$OUT_DIR/httpd.log"
-fi
-[ -n "$BUSYBOX" ] && [ "$BUSYBOX" != "NONE" ] || die "no busybox httpd found on tower (PATH lacks /usr/bin/busybox); cannot serve kickstart"
-{
-  tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/el10-httpd.log 2>&1 & echo httpd-pid=\\$!"
-} | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
-sleep 3
-# PROVE the kickstart is actually fetchable on loopback; wget/curl exit 0 only
-# when they receive real content (head returning 0 on empty, as the old self-
-# test did, masked the failure in job 36052).
-tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' | head -1 | grep -q 'lang en_US' || { echo 'HTTPD-HEALTHCHECK-FAIL'; exit 1; }" \
-  | tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower loopback (httpd did not bind / busybox died)"
+# Serve the kickstart over HTTP from the tower. The Unraid tower does not
+# guarantee a particular HTTP server binary, so probe in a resilient order:
+#   1. busybox httpd        (preferred: present on Unraid 6.x as /usr/bin/busybox)
+#   2. python3 -m http.server (present on Unraid 6.12+ at /usr/bin/python3)
+#   3. perl -MHTTP::Daemon   (present on virtually all Linux installs)
+# If none is found we die (the tower must have at least one HTTP-capable
+# interpreter to serve inst.ks to the installer). The KS_HTTPD_PID_FILE
+# lets the cleanup trap kill whichever server we started.
+log "locating an HTTP server on tower for kickstart serving"
+KS_SERVER=""
 
+# busybox httpd (preferred: present on Unraid 6.x as /usr/bin/busybox)
+BB="$(tower "command -v busybox 2>/dev/null || echo NONE")" 2>/dev/null || BB="NONE"
+if [ "$BB" != "NONE" ] && [ -n "$BB" ]; then
+  KS_SERVER="busybox"
+  echo "busybox: $BB" | tee "$OUT_DIR/httpd.log"
+else
+  # python3 -m http.server (Unraid 6.12+ includes python3 at /usr/bin/python3)
+  PY3="$(tower "command -v python3 2>/dev/null || echo NONE")" 2>/dev/null || PY3="NONE"
+  if [ "$PY3" != "NONE" ] && [ -n "$PY3" ]; then
+    KS_SERVER="python3"
+    echo "python3: $PY3" | tee "$OUT_DIR/httpd.log"
+  else
+    # perl -MHTTP::Daemon fallback (present on virtually all Linux installs)
+    PERL_BIN="$(tower "command -v perl 2>/dev/null || echo NONE")" 2>/dev/null || PERL_BIN="NONE"
+    if [ "$PERL_BIN" != "NONE" ] && [ -n "$PERL_BIN" ]; then
+      KS_SERVER="perl"
+      echo "perl: $PERL_BIN" | tee "$OUT_DIR/httpd.log"
+    fi
+  fi
+fi
+
+if [ "$KS_SERVER" = "" ]; then
+  die "no HTTP server found on tower (tried busybox, python3, perl); cannot serve kickstart"
+fi
+
+case "$KS_SERVER" in
+  busybox)
+    log "starting busybox httpd on tower port $KS_PORT"
+    tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/el10-httpd.log 2>&1 & echo \$! > $KS_HTTPD_PID_FILE"
+    ;;
+  python3)
+    log "starting python3 -m http.server on tower port $KS_PORT"
+    tower "nohup python3 -m http.server --directory '$KS_DIR' '$KS_PORT' > /tmp/el10-httpd.log 2>&1 & echo \$! > $KS_HTTPD_PID_FILE"
+    ;;
+  perl)
+    log "starting perl HTTP::Daemon on tower port $KS_PORT"
+    # perl -MHTTP::Daemon serves files from $KS_DIR; HTTP::Daemon is core
+    # on most perl 5 installations. Uses a portable one-liner.
+    tower "nohup perl -MHTTP::Daemon -e '\$d=HTTP::Daemon->new(LocalAddr=>"0.0.0.0",LocalPort=>$KS_PORT,ReuseAddr=>1)or die;while(\$c=\$d->accept){\$c->send_file("$KS_DIR/el10-ks.cfg");\$c->close();}' > /tmp/el10-httpd.log 2>&1 & echo \$! > $KS_HTTPD_PID_FILE"
+    ;;
+esac
+sleep 3
+
+# PROVE the kickstart is actually fetchable on loopback; wget/curl exit 0
+# only when they receive real content.
+tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' 2>/dev/null | head -1 | grep -q 'lang en_US' || curl -s 'http://127.0.0.1:$KS_PORT/el10-ks.cfg' 2>/dev/null | head -1 | grep -q 'lang en_US' || { echo 'HTTPD-HEALTHCHECK-FAIL'; exit 1; }" \
+  | tee -a "$OUT_DIR/httpd.log" || die "kickstart not fetchable on tower loopback (HTTP server did not bind or crashed)"
 # ---------------------------------------------------------- transient domain --
 log "defining transient install domain $TRANSIENT (OVMF UEFI)"
 cat > "$OUT_DIR/transient.xml" <<XML
@@ -343,7 +379,8 @@ expect "$HERE/el10-console.tcl" "$TRANSIENT" "$CONSOLE_BUDGET" 2>&1 | tee "$CONS
 CONSOLE_RC="${PIPESTATUS[0]}"
 
 # stop serving the kickstart as soon as the console session ends
-tower "pkill -f 'httpd.*el10-ks' 2>/dev/null" >/dev/null 2>&1 || true
+tower "kill \\$(cat '$KS_HTTPD_PID_FILE' 2>/dev/null) 2>/dev/null; pkill -f 'httpd.*el10-ks' 2>/dev/null; pkill -f 'http.server.*$KS_PORT' 2>/dev/null; pkill -f 'HTTP::Daemon' 2>/dev/null" >/dev/null 2>&1 || true
+tower "rm -f '$KS_HTTPD_PID_FILE'" >/dev/null 2>&1 || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
   log "console driver failed rc=$CONSOLE_RC (transient domain cleanup happens via trap)"
