@@ -24,7 +24,7 @@ cat /etc/alpine-release
 ip link show
 
 # persistent network config (copied to the target by setup-disk)
-cat > /etc/network/interfaces <<'EOF'
+cat >/etc/network/interfaces <<'EOF'
 auto lo
 iface lo inet loopback
 
@@ -41,9 +41,9 @@ hostname alpine322
 
 # package sources: keep the ISO media repo, add the v3.22 network mirror
 # (qemu-guest-agent is not on the standard ISO media)
-grep -q 'dl-cdn.alpinelinux.org' /etc/apk/repositories || \
-	printf 'https://dl-cdn.alpinelinux.org/alpine/v3.22/main\nhttps://dl-cdn.alpinelinux.org/alpine/v3.22/community\n' \
-	>> /etc/apk/repositories
+grep -q 'dl-cdn.alpinelinux.org' /etc/apk/repositories ||
+  printf 'https://dl-cdn.alpinelinux.org/alpine/v3.22/main\nhttps://dl-cdn.alpinelinux.org/alpine/v3.22/community\n' \
+    >>/etc/apk/repositories
 apk update
 
 # sshd in the live env; enters the apk world so setup-disk installs it on

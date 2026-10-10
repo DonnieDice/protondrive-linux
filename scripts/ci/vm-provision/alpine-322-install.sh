@@ -77,12 +77,15 @@ mkdir -p "$OUT_DIR"
 OUT_DIR="$(cd "$OUT_DIR" && pwd)"
 
 VM_KNOWN_HOSTS="${CI_PROJECT_DIR:-.}/.vm-known-hosts"
-: > "$VM_KNOWN_HOSTS"
+: >"$VM_KNOWN_HOSTS"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS"
 
 tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
-log()  { echo "[provision] $*"; }
-die()  { echo "FATAL: $*" >&2; exit 1; }
+log() { echo "[provision] $*"; }
+die() {
+  echo "FATAL: $*" >&2
+  exit 1
+}
 CONSOLE_LOG="$OUT_DIR/console-session.log"
 
 cleanup() {
@@ -98,8 +101,11 @@ tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || die "cannot r
 
 STATE="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)"
 log "persistent guest state: ${STATE:-unknown}"
-{ echo "pre-state: $STATE"; tower "sudo virsh dumpxml '$GUEST'"; } > "$OUT_DIR/pre-state.txt" \
-  || die "dumpxml failed"
+{
+  echo "pre-state: $STATE"
+  tower "sudo virsh dumpxml '$GUEST'"
+} >"$OUT_DIR/pre-state.txt" ||
+  die "dumpxml failed"
 
 # transient domain must not exist
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
@@ -113,16 +119,16 @@ log "domain dir contents before any change:"
 tower "ls -la '$DOMAIN_DIR/'" | tee "$OUT_DIR/disk-preflight.txt"
 
 # search for any alpine322 disk that may live elsewhere (record only)
-tower "find /mnt/pool_one /mnt/pool_two /mnt/user/domains -maxdepth 3 -iname '*alpine*322*' 2>/dev/null; true" \
-  | tee -a "$OUT_DIR/disk-preflight.txt"
+tower "find /mnt/pool_one /mnt/pool_two /mnt/user/domains -maxdepth 3 -iname '*alpine*322*' 2>/dev/null; true" |
+  tee -a "$OUT_DIR/disk-preflight.txt"
 
 if tower "test -s '$DISK_PATH'"; then
   log "disk exists"
   tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
 else
   log "disk $DISK_PATH ABSENT - creating fresh qcow2 ($DISK_SIZE, sparse; authorized by issue scope)"
-  tower "sudo qemu-img create -f qcow2 '$DISK_PATH' '$DISK_SIZE'" | tee -a "$OUT_DIR/disk-preflight.txt" \
-    || die "qemu-img create failed"
+  tower "sudo qemu-img create -f qcow2 '$DISK_PATH' '$DISK_SIZE'" | tee -a "$OUT_DIR/disk-preflight.txt" ||
+    die "qemu-img create failed"
   tower "sudo qemu-img info '$DISK_PATH'" | tee -a "$OUT_DIR/disk-preflight.txt"
 fi
 
@@ -133,12 +139,12 @@ tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' 
        cd '$DOMAIN_DIR/install-media' && \
        bsdtar -xf '$ISO_PATH' boot/vmlinuz-lts boot/initramfs-lts && \
        mv boot/vmlinuz-lts boot/initramfs-lts . && rmdir boot && ls -la" | tee -a "$OUT_DIR/iso-extract.log"
-tower "test -s '$DOMAIN_DIR/install-media/vmlinuz-lts' && test -s '$DOMAIN_DIR/install-media/initramfs-lts' && echo KERNEL-OK" \
-  | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
+tower "test -s '$DOMAIN_DIR/install-media/vmlinuz-lts' && test -s '$DOMAIN_DIR/install-media/initramfs-lts' && echo KERNEL-OK" |
+  tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
 
 # ------------------------------------------------------- transient domain ----
 log "defining transient install domain $TRANSIENT"
-cat > "$OUT_DIR/transient.xml" <<XML
+cat >"$OUT_DIR/transient.xml" <<XML
 <domain type='kvm'>
   <name>$TRANSIENT</name>
   <description>transient alpine322 install session (issue #22)</description>
@@ -180,28 +186,30 @@ cat > "$OUT_DIR/transient.xml" <<XML
   </devices>
 </domain>
 XML
-ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" < "$OUT_DIR/transient.xml" \
-  || die "transient define failed"
+ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" <"$OUT_DIR/transient.xml" ||
+  die "transient define failed"
 
 # ------------------------------------------------------------- payload ------
 KEYSRC=""
-if [ -r /root/.ssh/id_ed25519.pub ]; then KEYSRC=/root/.ssh/id_ed25519.pub
+if [ -r /root/.ssh/id_ed25519.pub ]; then
+  KEYSRC=/root/.ssh/id_ed25519.pub
 elif [ -r /root/.ssh/id_ed25519 ]; then
-  ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
+  ssh-keygen -y -f /root/.ssh/id_ed25519 >"$OUT_DIR/hermes-key.pub" && KEYSRC="$OUT_DIR/hermes-key.pub"
 fi
 [ -n "$KEYSRC" ] || die "no Hermes key material at /root/.ssh/id_ed25519(.pub)"
 log "hermes key: $(ssh-keygen -lf "$KEYSRC" | awk '{print $1, $2}')"
 
 # bundle: live-install.sh + chroot-config.sh + hermes-key.pub (busybox-tar safe)
-rm -rf "$OUT_DIR/payload-root"; mkdir -p "$OUT_DIR/payload-root"
-cp "$HERE/guest/alpine-322-live-install.sh"  "$OUT_DIR/payload-root/live-install.sh"
+rm -rf "$OUT_DIR/payload-root"
+mkdir -p "$OUT_DIR/payload-root"
+cp "$HERE/guest/alpine-322-live-install.sh" "$OUT_DIR/payload-root/live-install.sh"
 cp "$HERE/guest/alpine-322-chroot-config.sh" "$OUT_DIR/payload-root/chroot-config.sh"
-cp "$KEYSRC"                                 "$OUT_DIR/payload-root/hermes-key.pub"
-tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub \
-  || die "payload tar failed"
-md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
+cp "$KEYSRC" "$OUT_DIR/payload-root/hermes-key.pub"
+tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub ||
+  die "payload tar failed"
+md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' >"$OUT_DIR/payload.md5"
 PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
-log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
+log "payload built: $(wc -c <"$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
 # Key-identity guard (sibling #21 job 26864 failed its final SSH probe with
 # "Permission denied (publickey,...)" after installing the mounted
@@ -211,22 +219,22 @@ log "payload built: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 # probe now uses exactly the derived key, so the .pub can no longer desync
 # the guest's authorized_keys from the offered identity. The derivation also
 # proves the private key parses before the 45-minute install begins.
-ssh-keygen -y -f /root/.ssh/id_ed25519 > "$OUT_DIR/hermes-key-derived.pub" \
-  || die "cannot derive public key from /root/.ssh/id_ed25519 (missing/corrupt private key)"
-cmp -s "$OUT_DIR/hermes-key-derived.pub" "$KEYSRC" \
-  || log "WARN: /root/.ssh/id_ed25519.pub differs from key derived from id_ed25519 - installing the derived key"
+ssh-keygen -y -f /root/.ssh/id_ed25519 >"$OUT_DIR/hermes-key-derived.pub" ||
+  die "cannot derive public key from /root/.ssh/id_ed25519 (missing/corrupt private key)"
+cmp -s "$OUT_DIR/hermes-key-derived.pub" "$KEYSRC" ||
+  log "WARN: /root/.ssh/id_ed25519.pub differs from key derived from id_ed25519 - installing the derived key"
 cp "$OUT_DIR/hermes-key-derived.pub" "$OUT_DIR/payload-root/hermes-key.pub"
-tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub \
-  || die "payload tar rebuild failed"
-md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' > "$OUT_DIR/payload.md5"
+tar -czf "$OUT_DIR/payload.tgz" -C "$OUT_DIR/payload-root" live-install.sh chroot-config.sh hermes-key.pub ||
+  die "payload tar rebuild failed"
+md5sum "$OUT_DIR/payload.tgz" | awk '{print $1}' >"$OUT_DIR/payload.md5"
 PAYLOAD_MD5="$(cat "$OUT_DIR/payload.md5")"
-log "payload rebuilt with derived key: $(wc -c < "$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
+log "payload rebuilt with derived key: $(wc -c <"$OUT_DIR/payload.tgz") bytes, md5 $PAYLOAD_MD5"
 
 # ship payload staging to tower (RELAY FALLBACK ONLY: the primary route is the
 # direct runner -> guest LAN push below; if that LAN path is blocked, the
 # console driver dies at the md5 check and the job surfaces the failure)
-scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" \
-  || die "payload upload failed"
+scp $SSH_OPTS "$OUT_DIR/payload.tgz" "$TOWER_HOST:/tmp/alpine322-payload.tgz" ||
+  die "payload upload failed"
 
 # --------------------------------------------------------------- install ----
 # The persistent guest may still be running from a prior lease (it holds a
@@ -261,11 +269,12 @@ push_payload_when_ready() {
   while [ "$waited" -lt 1500 ]; do
     if grep -q 'NC_READY' "$CONSOLE_LOG" 2>/dev/null; then
       log "console reports guest nc listening - pushing payload"
-      nc -w 120 "$VM_IP" "$PAYLOAD_PORT" < "$OUT_DIR/payload.tgz" >/dev/null 2>&1
+      nc -w 120 "$VM_IP" "$PAYLOAD_PORT" <"$OUT_DIR/payload.tgz" >/dev/null 2>&1
       log "payload push rc=$?"
       return 0
     fi
-    sleep 10; waited=$((waited + 10))
+    sleep 10
+    waited=$((waited + 10))
   done
   log "WARN: never saw NC_READY"
   return 1
@@ -290,10 +299,11 @@ PUSHER=$!
 export VM_KNOWN_HOSTS
 export CONSOLE_LOG
 expect "$HERE/alpine-322-console.tcl" "$TRANSIENT" "$PAYLOAD_PORT" "$PAYLOAD_MD5" 2700 \
-  > "$OUT_DIR/expect-stdout.log" 2>&1
+  >"$OUT_DIR/expect-stdout.log" 2>&1
 CONSOLE_RC=$?
 cat "$OUT_DIR/expect-stdout.log"
-kill "$PUSHER" 2>/dev/null || true; wait "$PUSHER" 2>/dev/null || true
+kill "$PUSHER" 2>/dev/null || true
+wait "$PUSHER" 2>/dev/null || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
   log "console driver failed rc=$CONSOLE_RC (transient domain cleanup happens via trap)"
@@ -317,7 +327,11 @@ tower "sudo virsh start '$GUEST'" || die "persistent guest failed to start"
 log "waiting for TCP/22 at $VM_IP (up to 180s)"
 up=0
 for i in $(seq 1 90); do
-  if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then up=1; exec 3>&-; break; fi
+  if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then
+    up=1
+    exec 3>&-
+    break
+  fi
   sleep 2
 done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
@@ -348,8 +362,8 @@ trap 'rm -f "$VM_KEY_TMP"; cleanup' EXIT
 GUEST_SSH_OPTS="-F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS -i $VM_KEY_TMP -o IdentitiesOnly=yes"
 log "SSH probe from the runner (workforce key installed in the guest)"
 ssh $GUEST_SSH_OPTS "root@$VM_IP" \
-  "hostname; whoami; uname -a; cat /etc/alpine-release" | tee "$OUT_DIR/ssh-probe.txt" \
-  || die "SSH probe failed"
+  "hostname; whoami; uname -a; cat /etc/alpine-release" | tee "$OUT_DIR/ssh-probe.txt" ||
+  die "SSH probe failed"
 
 log "collecting acceptance evidence"
 {
@@ -365,12 +379,12 @@ log "collecting acceptance evidence"
 } | tee "$OUT_DIR/acceptance.txt"
 
 ssh $GUEST_SSH_OPTS "root@$VM_IP" \
-  "rc-service qemu-guest-agent status; rc-service sshd status; rc-update show default; ip -4 addr show eth0; grep -c ssh-ed25519 /root/.ssh/authorized_keys" \
-  | tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
+  "rc-service qemu-guest-agent status; rc-service sshd status; rc-update show default; ip -4 addr show eth0; grep -c ssh-ed25519 /root/.ssh/authorized_keys" |
+  tee -a "$OUT_DIR/acceptance.txt" || die "in-guest verification failed"
 
 echo "=== guest agent ping (virsh) ==="
-tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" \
-  | tee -a "$OUT_DIR/acceptance.txt" || log "WARN: guest-ping failed (check agent in guest)"
+tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" |
+  tee -a "$OUT_DIR/acceptance.txt" || log "WARN: guest-ping failed (check agent in guest)"
 
 log "=== provisioning complete ==="
 exit 0

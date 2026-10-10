@@ -21,13 +21,16 @@ OUT_DIR="${INVENTORY_OUT_DIR:-inventory-results}"
 mkdir -p "$OUT_DIR"
 
 VM_KNOWN_HOSTS="${CI_PROJECT_DIR:-.}/.vm-known-hosts"
-: > "$VM_KNOWN_HOSTS"
+: >"$VM_KNOWN_HOSTS"
 SSH_OPTS="-o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=$VM_KNOWN_HOSTS"
 
 tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
 
 echo "=== [inventory] tower identity ==="
-tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || { echo "FATAL: cannot reach tower"; exit 1; }
+tower "hostname; whoami; date -u" | tee "$OUT_DIR/identity.txt" || {
+  echo "FATAL: cannot reach tower"
+  exit 1
+}
 
 echo "=== [inventory] virsh list --all ==="
 tower "sudo virsh list --all" | tee "$OUT_DIR/virsh-list.txt" || echo "(virsh list failed - recording)"
@@ -47,7 +50,7 @@ tower "sudo virsh net-list --all; for n in \$(sudo virsh net-list --name --all);
 echo "=== [inventory] alpine-3.22-named guest detail ==="
 tower 'for d in $(sudo virsh list --all --name); do
   case "$d" in *alpine*3.22*|*alpine322*|*alpine-322*) echo "===== $d ====="; sudo virsh dumpxml "$d";; esac
-done' > "$OUT_DIR/alpine322-guest-dumpxml.txt" || true
+done' >"$OUT_DIR/alpine322-guest-dumpxml.txt" || true
 wc -l "$OUT_DIR/alpine322-guest-dumpxml.txt"
 
 echo "=== [inventory] ISO media inventory (alpine images) ==="
@@ -61,7 +64,7 @@ GUEST_COUNT=$(grep -cE '^ [0-9]+ +[a-zA-Z0-9._-]+ ' "$OUT_DIR/virsh-list.txt" ||
 ALPINE_NAMES=$(grep -iE 'alpine' "$OUT_DIR/virsh-list.txt" | awk '{print $2}' | tr '\n' ',')
 IP_ANSWERS=$(grep -c "answers" "$OUT_DIR/ip-occupancy.txt" 2>/dev/null || echo 0)
 
-cat > "$OUT_DIR/inventory.json" <<JSON
+cat >"$OUT_DIR/inventory.json" <<JSON
 {"hypervisor":"tower","checked_at":"$(date -u +%Y-%m-%dT%H:%M:%SZ)","vm_ip":"$VM_IP","guest_count_hint":$GUEST_COUNT,"alpine_named_guests":"${ALPINE_NAMES}","ip_126_answers_ping":$IP_ANSWERS,"ci_job":"${CI_JOB_ID:-0}","ci_pipeline":"${CI_PIPELINE_ID:-0}","ci_commit":"${CI_COMMIT_SHA:-local}"}
 JSON
 

@@ -15,7 +15,7 @@ set -ex
 echo "=== chroot-config start ==="
 
 # network mirrors on the installed system (media repo dies with the ISO)
-cat > /etc/apk/repositories <<'EOF'
+cat >/etc/apk/repositories <<'EOF'
 https://dl-cdn.alpinelinux.org/alpine/v3.22/main
 https://dl-cdn.alpinelinux.org/alpine/v3.22/community
 EOF
@@ -29,10 +29,10 @@ rc-update add qemu-guest-agent default
 apk add openssh
 install -d -m 700 /root/.ssh
 if [ -s /root/hermes-key.pub ]; then
-	install -m 600 /root/hermes-key.pub /root/.ssh/authorized_keys
+  install -m 600 /root/hermes-key.pub /root/.ssh/authorized_keys
 else
-	echo "FATAL: /root/hermes-key.pub missing in chroot" >&2
-	exit 1
+  echo "FATAL: /root/hermes-key.pub missing in chroot" >&2
+  exit 1
 fi
 passwd -l root || true
 sed -i 's/^#\{0,1\}PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
@@ -40,8 +40,8 @@ grep -n 'PermitRootLogin' /etc/ssh/sshd_config || true
 
 # serial console getty
 sed -i 's/^#ttyS0/ttyS0/' /etc/inittab
-grep -q 'ttyS0::respawn' /etc/inittab || \
-	printf 'ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100\n' >> /etc/inittab
+grep -q 'ttyS0::respawn' /etc/inittab ||
+  printf 'ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100\n' >>/etc/inittab
 
 # boot services
 rc-update add sshd default || true
