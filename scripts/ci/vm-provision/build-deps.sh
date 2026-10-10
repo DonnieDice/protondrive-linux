@@ -12,7 +12,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/../lib/_vm_common.sh"
 
 # VM targets from SSH config
-DEBIAN12_IP="192.168.1.162"
+# Issue #14 scope: debian13 only. debian12 is issue #2's scope (non-goal here).
 DEBIAN13_IP="192.168.1.120"
 
 provision_build_deps() {
@@ -170,14 +170,14 @@ _pd_ssh_init
 
 echo "Starting VM build dependency provisioning..."
 
-# Provision debian13 first (issue #14 target), then debian12
+# Issue #14 scope: debian13 only. debian12 is a non-goal ("debian12
+# verification is issue #2"); provisioning both caused the whole job to exit 1
+# when debian12 was unreachable, masking debian13 success.
 provision_build_deps "$DEBIAN13_IP" "debian13" || exit 1
-provision_build_deps "$DEBIAN12_IP" "debian12" || exit 1
 
-echo "All VMs provisioned with build dependencies. Verifying builds..."
+echo "debian13 provisioned with build dependencies. Verifying build..."
 
-# Verify builds, debian13 first
+# Verify the release build on debian13 (issue #14 acceptance criterion).
 verify_protondrive_build "$DEBIAN13_IP" "debian13" || exit 1
-verify_protondrive_build "$DEBIAN12_IP" "debian12" || exit 1
 
-echo "=== ALL VMs PROVISIONED AND VERIFIED ==="
+echo "=== debian13 BUILD DEPENDENCIES PROVISIONED AND VERIFIED ==="
