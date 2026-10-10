@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Provision build dependencies on persistent VM test hosts.
 # Runs on the GitLab runner which has SSH access to the VM subnet.
-# Targets: debian13 (192.168.1.120) first — the routed execution dependency
-# for issue #14 / parent #3 — then debian12 (192.168.1.162).
+# Targets: debian13 (192.168.1.120) — the routed execution dependency
+# for issue #14 / parent #3 (debian12 is issue #2's scope, non-goal here).
 # Transport: VM_SSH_KEY CI variable when set, else the runner-mounted
 # /root/.ssh config (see scripts/ci/lib/_vm_common.sh).
 
@@ -105,16 +105,23 @@ verify_protondrive_build() {
 
   # Deeper pre-build disk reclaim: the VMs are small (47-48G root) and
   # previous builds left apt caches, journal logs, npm caches, and stale
-  # pd-deploy trees. Vacuum journal + autoremove to maximize free space
-  # before the cargo build. No package removals; safe, idempotent.
+  # pd-deploy trees. On debian13 a release build of the full Tauri/GTK/
+  # Webkit dependency tree exhausted the 47G disk ("No space left on device",
+  # pipeline 4058 job 43516: 20G free → build died mid-compilation at gtk/
+  # webkit2gtk). Maximize free space: vacuum journal, autoremove, clean apt,
+  # remove stale cargo caches + old pd-deploy trees, strip doc/man/locale
+  # stubs. No distro package removals; safe, idempotent.
   run_on_vm "$ip" "
     sudo apt-get clean 2>/dev/null || true;
     sudo apt-get autoremove -y 2>/dev/null || true;
     sudo journalctl --vacuum-size=50M 2>/dev/null || true;
     sudo rm -rf /var/cache/apt/archives/*.deb /var/lib/apt/lists/* 2>/dev/null || true;
-    sudo rm -rf /tmp/pd-deploy /root/.cache/yarn /root/.cache/npm /root/.npm 2>/dev/null || true;
     sudo rm -rf /var/log/journal/*/system@*.journal /var/log/*.gz 2>/dev/null || true;
-    df -h /
+    sudo rm -rf /usr/share/doc /usr/share/man /usr/share/locale 2>/dev/null || true;
+    # Remove stale cargo caches from prior build attempts (no source rebuild).
+    rm -rf /root/.cargo/registry /root/.rustup/tmp 2>/dev/null || true;
+    rm -rf /tmp/pd-deploy 2>/dev/null || true;
+    df -h /;
   " || {
     echo "WARN: deep disk cleanup reported errors on $label (continuing)"
   }
@@ -139,6 +146,10 @@ verify_protondrive_build() {
   local build_script='
     set -euo pipefail
     export PATH="$HOME/.cargo/bin:$PATH"
+    # Reduce debuginfo to minimize disk usage on the 47G VM (pipeline 4058
+    # job 43516 died mid-build at gtk/webkit with "No space left on device"
+    # despite 20G free; full debuginfo on ~500 crates is too large).
+    export RUSTFLAGS="-C debuginfo=0"
     cd "$1/src-tauri"
     mkdir -p ../WebClients/applications/drive/dist
     echo "<!doctype html><html><body>dist placeholder for release build</body></html>" \
