@@ -182,7 +182,7 @@ tower "mv /tmp/ubuntu2604-user-data '$KS_DIR/user-data' && chmod 644 '$KS_DIR/us
 # issue #25) for the identical failure:
 #   1. busybox httpd          (Unraid 6.x /usr/bin/busybox — not on SSH PATH)
 #   2. python3 -m http.server  (Unraid 6.12+ /usr/bin/python3)
-#   3. perl -MHTTP::Daemon     (present on virtually all Linux installs)
+#   3. perl (core IO::Socket::INET + Fcntl) — works with NO non-core modules
 # The KS_HTTPD_PID_FILE lets the cleanup trap kill whichever server started.
 log "locating an HTTP server on tower for autoinstall serving"
 KS_SERVER=""
@@ -221,8 +221,38 @@ case "$KS_SERVER" in
     tower "nohup python3 -m http.server --directory '$KS_DIR' '$KS_PORT' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
     ;;
   perl)
-    log "starting perl HTTP::Daemon on tower port $KS_PORT"
-    tower "nohup perl -MHTTP::Daemon -e '\$d=HTTP::Daemon->new(LocalAddr=>\"0.0.0.0\",LocalPort=>$KS_PORT,ReuseAddr=>1) or die; while (\$c=\$d->accept) { \$r=\$c->get_request; \$c->send_file_response(\"$KS_DIR/user-data\"); \$c->close; }' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
+    log "starting perl HTTP server (core modules only) on tower port $KS_PORT"
+    # HTTP::Daemon is NOT a Perl core module (it ships with libwww/LWP, which
+    # is absent on the Unraid tower), so `-MHTTP::Daemon` silently dies and
+    # the healthcheck fails with HTTPD-HEALTHCHECK-FAIL. Use a minimal
+    # raw-HTTP server built only from Perl *core* modules (IO::Socket::INET +
+    # Fcntl), staged to KS_DIR via heredoc to avoid ssh inline-quoting
+    # problems. It serves only the single user-data file for any GET path.
+    cat > "$OUT_DIR/perl-httpd.pl" <<PERL
+use strict; use warnings;
+use IO::Socket::INET;
+use Fcntl;
+my \$port = \$ARGV[0]; my \$file = \$ARGV[1];
+my \$s = IO::Socket::INET->new(
+  LocalAddr => '0.0.0.0', LocalPort => \$port,
+  ReuseAddr => 1, Listen => 5, Proto => 'tcp'
+) or die "perl-httpd bind: \$!";
+while (my \$c = \$s->accept()) {
+  while (my \$l = <\$c>) { last if \$l =~ /^\s*\$/; }
+  open(my \$fh, '<', \$file) or do {
+    print \$c "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nnot found";
+    close \$c; next;
+  };
+  binmode(\$fh);
+  seek(\$fh, 0, Fcntl::SEEK_END); my \$n = tell(\$fh); seek(\$fh, 0, Fcntl::SEEK_SET);
+  print \$c "HTTP/1.1 200 OK\r\nContent-Type: text/cloud-init\r\nContent-Length: \$n\r\nConnection: close\r\n\r\n";
+  while (read(\$fh, my \$buf, 65536)) { print \$c \$buf; }
+  close \$fh; close \$c;
+}
+PERL
+    scp $SSH_OPTS "$OUT_DIR/perl-httpd.pl" "$TOWER_HOST:/tmp/ubuntu2604-perl-httpd.pl" >/dev/null 2>&1 || die "perl server staging failed"
+    tower "mv /tmp/ubuntu2604-perl-httpd.pl '$KS_DIR/perl-httpd.pl' && chmod 644 '$KS_DIR/perl-httpd.pl'" || die "perl server staging failed"
+    tower "nohup perl '$KS_DIR/perl-httpd.pl' '$KS_PORT' '$KS_DIR/user-data' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \\$! > '$KS_HTTPD_PID_FILE'"
     ;;
 esac
 sleep 3
