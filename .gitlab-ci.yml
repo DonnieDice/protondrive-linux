@@ -225,7 +225,7 @@ coverage:rust:
   extends: .rules:gate
   stage: test
   image: debian:12
-  timeout: 40m
+  timeout: 60m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-cov"
