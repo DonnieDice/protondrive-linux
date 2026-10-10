@@ -80,10 +80,12 @@ die()  { echo "FATAL: $*" >&2; exit 1; }
 CONSOLE_LOG="$OUT_DIR/console-session.log"
 
 KS_DIR="/tmp/ubuntu2604-ks.$$"
+KS_HTTPD_PID_FILE="/tmp/ubuntu2604-httpd-pid.$$"
 cleanup() {
-  # best-effort; never touch other guests. Kill the httpd we started, remove
-  # the transient domain, and wipe scratch files.
-  tower "pkill -f 'httpd.*ubuntu2604' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media' /tmp/ubuntu2604-console.tcl" \
+  # best-effort; never touch other guests. Kill the HTTP server we started
+  # (by PID file first, then pattern fallback), remove the transient domain,
+  # and wipe scratch files.
+  tower "kill \$(cat '$KS_HTTPD_PID_FILE' 2>/dev/null) 2>/dev/null; pkill -f 'httpd.*ubuntu2604' 2>/dev/null; pkill -f 'http.server.*$KS_PORT' 2>/dev/null; pkill -f 'HTTP::Daemon' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media' '$KS_HTTPD_PID_FILE' /tmp/ubuntu2604-console.tcl" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -173,21 +175,64 @@ scp $SSH_OPTS "$AUTOINSTALL_LOCAL" "$TOWER_HOST:/tmp/ubuntu2604-user-data" >/dev
 tower "mv /tmp/ubuntu2604-user-data '$KS_DIR/user-data' && chmod 644 '$KS_DIR/user-data'" \
   || die "autoinstall staging failed"
 
-# busybox httpd: Unraid ships busybox; use it directly (el10 pattern).
-# The previous 'command -v busybox' over SSH failed on tower because
-# command -v resolves against the SSH login shell PATH which may not
-# include busybox. ls /usr/bin/busybox is the reliable check.
-BUSYBOX_PATH="$(tower "ls /usr/bin/busybox 2>/dev/null || command -v busybox 2>/dev/null || echo NOTFOUND" 2>/dev/null || echo NOTFOUND)"
-echo "$BUSYBOX_PATH" | tee "$OUT_DIR/httpd.log"
-if [ "$BUSYBOX_PATH" = "NOTFOUND" ]; then
-  die "no busybox httpd found on tower; cannot serve autoinstall"
+# Serve the autoinstall user-data over HTTP from the tower. The Unraid tower
+# does not expose busybox on the SSH login PATH (provision job 40712: FATAL
+# no busybox httpd found on tower), so probe for an HTTP-capable binary in a
+# resilient order — same 3-tier fallback as the el10 harness fix (MR !16,
+# issue #25) for the identical failure:
+#   1. busybox httpd          (Unraid 6.x /usr/bin/busybox — not on SSH PATH)
+#   2. python3 -m http.server  (Unraid 6.12+ /usr/bin/python3)
+#   3. perl -MHTTP::Daemon     (present on virtually all Linux installs)
+# The KS_HTTPD_PID_FILE lets the cleanup trap kill whichever server started.
+log "locating an HTTP server on tower for autoinstall serving"
+KS_SERVER=""
+BB="$(tower "command -v busybox 2>/dev/null; ls /usr/bin/busybox /usr/sbin/busybox /bin/busybox 2>/dev/null | head -1; true")"
+BB="$(printf '%s\n' "$BB" | sed '/^$/d' | head -1)"
+if [ -n "$BB" ]; then
+  KS_SERVER="busybox"
+  echo "busybox: $BB" | tee "$OUT_DIR/httpd.log"
+else
+  PY3="$(tower "command -v python3 2>/dev/null; ls /usr/bin/python3 /usr/local/bin/python3 2>/dev/null | head -1; true")"
+  PY3="$(printf '%s\n' "$PY3" | sed '/^$/d' | head -1)"
+  if [ -n "$PY3" ]; then
+    KS_SERVER="python3"
+    echo "python3: $PY3" | tee "$OUT_DIR/httpd.log"
+  else
+    PERL_BIN="$(tower "command -v perl 2>/dev/null; ls /usr/bin/perl /usr/local/bin/perl 2>/dev/null | head -1; true")"
+    PERL_BIN="$(printf '%s\n' "$PERL_BIN" | sed '/^$/d' | head -1)"
+    if [ -n "$PERL_BIN" ]; then
+      KS_SERVER="perl"
+      echo "perl: $PERL_BIN" | tee "$OUT_DIR/httpd.log"
+    fi
+  fi
 fi
-tower "nohup $BUSYBOX_PATH httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/ubuntu2604-httpd.log 2>&1 & echo httpd-pid=\\$!" \
-  | tee -a "$OUT_DIR/httpd.log" || die "busybox httpd failed to start"
+
+if [ -z "$KS_SERVER" ]; then
+  die "no HTTP server found on tower (tried busybox, python3, perl); cannot serve autoinstall"
+fi
+
+case "$KS_SERVER" in
+  busybox)
+    log "starting busybox httpd on tower port $KS_PORT"
+    tower "nohup busybox httpd -f -v -p '$KS_PORT' -h '$KS_DIR' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
+    ;;
+  python3)
+    log "starting python3 -m http.server on tower port $KS_PORT"
+    tower "nohup python3 -m http.server --directory '$KS_DIR' '$KS_PORT' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
+    ;;
+  perl)
+    log "starting perl HTTP::Daemon on tower port $KS_PORT"
+    tower "nohup perl -MHTTP::Daemon -e '\$d=HTTP::Daemon->new(LocalAddr=>\"0.0.0.0\",LocalPort=>$KS_PORT,ReuseAddr=>1) or die; while (\$c=\$d->accept) { \$r=\$c->get_request; \$c->send_file_response(\"$KS_DIR/user-data\"); \$c->close; }' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
+    ;;
+esac
 sleep 3
-# PROVE the user-data is actually fetchable on loopback
-tower "wget -q -O- 'http://127.0.0.1:$KS_PORT/user-data' | head -3 || curl -s 'http://127.0.0.1:$KS_PORT/user-data' | head -3" \
-  | tee -a "$OUT_DIR/httpd.log" || die "autoinstall user-data not fetchable on tower"
+
+# PROVE the user-data is actually fetchable on loopback and is OUR content
+# (the autoinstall header must appear in the served bytes; a bare exit-0 from
+# wget with an error page would otherwise pass silently). wget first, curl
+# fallback: Unraid ships both, but do not depend on either one alone.
+tower "(wget -q -O- 'http://127.0.0.1:$KS_PORT/user-data' 2>/dev/null || curl -s 'http://127.0.0.1:$KS_PORT/user-data' 2>/dev/null) | head -1 | grep -q 'cloud-config' && echo HTTPD-OK || { echo 'HTTPD-HEALTHCHECK-FAIL'; exit 1; }" \
+  | tee -a "$OUT_DIR/httpd.log" || die "autoinstall user-data not fetchable on tower loopback (HTTP server did not bind or crashed)"
 
 # ------------------------------------------------------- transient domain ----
 # Ubuntu 26.04 live-server install via direct kernel boot with Subiquity
@@ -252,7 +297,8 @@ expect "$HERE/ubuntu-26.04-console.tcl" "$TRANSIENT" 2700 2>&1 | tee "$CONSOLE_L
 CONSOLE_RC="${PIPESTATUS[0]}"
 
 # stop serving the autoinstall as soon as the console session ends
-tower "pkill -f 'httpd.*ubuntu2604' 2>/dev/null" >/dev/null 2>&1 || true
+tower "kill \$(cat '$KS_HTTPD_PID_FILE' 2>/dev/null) 2>/dev/null; pkill -f 'httpd.*ubuntu2604' 2>/dev/null; pkill -f 'http.server.*$KS_PORT' 2>/dev/null; pkill -f 'HTTP::Daemon' 2>/dev/null" >/dev/null 2>&1 || true
+tower "rm -f '$KS_HTTPD_PID_FILE'" >/dev/null 2>&1 || true
 
 if [ "$CONSOLE_RC" != "0" ]; then
   log "console driver failed rc=$CONSOLE_RC (transient domain cleanup happens via trap)"
