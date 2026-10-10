@@ -196,15 +196,18 @@ log "locating Ubuntu 24.04 netboot kernel + initrd on tower"
 KERNEL_PATH=""
 INITRD_PATH=""
 
-# netboot tarball pattern
-NETBOOT_ISO="$(tower "find /mnt/pool_one/isos /mnt/user/isos -maxdepth 2 -iname '*ubuntu*24*netboot*' -type f 2>/dev/null | head -1; true")"
-SERVER_ISO="$(tower "find /mnt/pool_one/isos /mnt/user/isos -maxdepth 2 -iname '*ubuntu-24.04-server*' -type f 2>/dev/null | head -1; true")"
+# netboot tarball pattern. ISO files are symlinks (issue #24: they point into a
+# cold-archive pool); follow them with -L so -type f resolves the real file.
+# Search all three isos trees (inventory #24 lists /mnt/pool_one, /mnt/pool_two,
+# /mnt/user).
+NETBOOT_ISO="$(tower "find -L /mnt/pool_one/isos /mnt/pool_two/isos /mnt/user/isos -maxdepth 3 -iname '*ubuntu*24*netboot*' -type f 2>/dev/null | head -1; true")"
+SERVER_ISO="$(tower "find -L /mnt/pool_one/isos /mnt/pool_two/isos /mnt/user/isos -maxdepth 3 -iname '*ubuntu-24.04-server*' -type f 2>/dev/null | head -1; true")"
 
 # Use env override if set, otherwise detect
 ISO_PATH="${ISO_PATH:-${NETBOOT_ISO:-${SERVER_ISO:-}}}"
 if [ -z "$ISO_PATH" ]; then
-  # Fall back to a broader search
-  ISO_PATH="$(tower "find /mnt/pool_one/isos /mnt/user/isos -maxdepth 3 -iname '*ubuntu*24*' -type f 2>/dev/null | head -1; true")"
+  # Fall back to a broader symlink-following search across all isos trees
+  ISO_PATH="$(tower "find -L /mnt/pool_one/isos /mnt/pool_two/isos /mnt/user/isos -maxdepth 3 -iname '*ubuntu*24*' -type f 2>/dev/null | head -1; true")"
 fi
 
 log "Using ISO/netboot: ${ISO_PATH:-(not found)}"
