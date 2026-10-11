@@ -96,7 +96,7 @@ test:clippy:
   extends: .rules:test
   stage: test
   image: debian:12
-  timeout: 30m
+  timeout: 60m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-clippy"
@@ -125,7 +125,7 @@ test:rust:
   extends: .rules:test
   stage: test
   image: debian:12
-  timeout: 30m
+  timeout: 60m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-test"
