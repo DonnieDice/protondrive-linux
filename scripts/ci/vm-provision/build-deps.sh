@@ -115,6 +115,9 @@ verify_protondrive_build() {
   # webkit2gtk). Maximize free space: vacuum journal, autoremove, clean apt,
   # remove stale cargo caches + old pd-deploy trees, strip doc/man/locale
   # stubs. No distro package removals; safe, idempotent.
+  # The cargo registry cache (/root/.cargo/registry) accumulates downloaded
+  # crate source tarballs + extracted sources. It can grow to several GB.
+  # Clean it here — cargo will re-download as needed during the build.
   run_on_vm "$ip" "
     sudo apt-get clean 2>/dev/null || true;
     sudo apt-get autoremove -y 2>/dev/null || true;
@@ -125,6 +128,9 @@ verify_protondrive_build() {
     # Remove stale cargo caches from prior build attempts (no source rebuild).
     rm -rf /root/.cargo/registry /root/.rustup/tmp 2>/dev/null || true;
     rm -rf /tmp/pd-deploy 2>/dev/null || true;
+    # Remove non-essential rustup components to reclaim space for the build.
+    # rust-docs, clippy, and rustfmt are not needed for `cargo build --release`.
+    rustup component remove rust-docs clippy rustfmt 2>/dev/null || true;
     df -h /;
   " || {
     echo "WARN: deep disk cleanup reported errors on $label (continuing)"
@@ -154,11 +160,19 @@ verify_protondrive_build() {
     # job 43516 died mid-build at gtk/webkit with "No space left on device"
     # despite 20G free; full debuginfo on ~500 crates is too large).
     export RUSTFLAGS="-C debuginfo=0"
+    # Reduce parallel compilation peak disk usage on the 47G VM disks.
+    # The GTK/webkit2gtk dependency tree is the largest single compilation
+    # unit; with multiple parallel jobs it can transiently use 2-3x the
+    # final artifact size. Single-job compilation halves peak disk usage.
+    # (CARGO_BUILD_JOBS env var is NOT recognized by cargo; --jobs is the
+    # correct CLI flag — pipeline 4096 job 45745 env var was silently ignored.)
     cd "$1/src-tauri"
     mkdir -p ../WebClients/applications/drive/dist
     echo "<!doctype html><html><body>dist placeholder for release build</body></html>" \
       > ../WebClients/applications/drive/dist/index.html
-    cargo build --release
+    cargo build --release --jobs 1
+    echo "Post-build disk:"
+    df -h /
     # Cargo run from src-tauri/ puts the binary in target/release/
     BINARY=target/release/proton-drive
     [ -f "$BINARY" ] && echo "BUILD SUCCESS: $BINARY" || {
