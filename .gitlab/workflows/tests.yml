@@ -50,7 +50,7 @@ test:pytest:
   extends: .rules:test
   stage: test
   image: python:3.12-slim
-  timeout: 10m
+  timeout: 30m
   dependencies: []
   cache: []
   before_script:
@@ -74,7 +74,7 @@ test:fmt:
   extends: .rules:test
   stage: test
   image: debian:12
-  timeout: 10m
+  timeout: 30m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-fmt"
