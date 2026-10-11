@@ -154,40 +154,50 @@ tower "cp '$OVMF_VARS' '$NVRAM_INSTALL' && cp '$OVMF_VARS' '$NVRAM_PERSIST' && l
 
 # ------------------------------------------------- kernel/initrd extraction --
 # Fedora 43 may be either a DVD ISO (images/pxeboot/{vmlinuz,initrd.img}) or
-# a Workstation Live ISO. The Live ISO may have different paths. We first
-# list the ISO's images/ directory, then try known extraction paths.
-log "extracting kernel/initrd from ISO (images/pxeboot/, no loop mounts)"
+# a Workstation Live ISO. The Live ISO uses isolinux/vmlinuz + isoinux/initrd.img
+# (BIOS boot) and boot/x86_64/loader/{vmlinuz,initrd} (UEFI). We enumerate
+# candidate paths and accept the first pair that extracts.
+log "extracting kernel/initrd from ISO (no loop mounts)"
 tower "command -v bsdtar; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
 
 # Discover ISO structure first
-tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -iE 'pxeboot|vmlinuz|initrd|isolinux|boot\.iso|LiveOS' | head -30 || echo '(no standard paths found)'" |
+tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -iE 'pxeboot|isolinux|vmlinuz|initrd|boot/.*/loader|LiveOS' | head -40 || echo '(no standard paths found)'" |
   tee -a "$OUT_DIR/iso-extract.log"
 
-tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' && \
-       cd '$DOMAIN_DIR/install-media' && \
-       bsdtar -x -f '$ISO_PATH' images/pxeboot/vmlinuz images/pxeboot/initrd.img images/pxeboot/initrd 2>/dev/null; \
-       if [ -f images/pxeboot/vmlinuz ] && [ -f images/pxeboot/initrd.img ]; then \
-         mv images/pxeboot/vmlinuz images/pxeboot/initrd.img . && rmdir images/pxeboot; \
-       elif [ -f images/pxeboot/vmlinuz ] && [ -f images/pxeboot/initrd ]; then \
-         mv images/pxeboot/vmlinuz images/pxeboot/initrd . && rmdir images/pxeboot; \
-       fi; \
-       ls -la" | tee -a "$OUT_DIR/iso-extract.log"
+# Candidate kernel/initrd path pairs, in preference order. First column is the
+# pair prefix under install-media/ after extraction.
+EXTRACT_OK=""
+for KERNEL_PATH in \
+  "isolinux/vmlinuz" \
+  "images/pxeboot/vmlinuz" \
+  "boot/x86_64/loader/vmlinuz" \
+  "boot/vmlinuz" ; do
+  for INITRD_PATH in \
+    "isolinux/initrd.img" \
+    "images/pxeboot/initrd.img" \
+    "images/pxeboot/initrd" \
+    "boot/x86_64/loader/initrd" \
+    "boot/initrd" ; do
+    if tower "cd '$DOMAIN_DIR/install-media' 2>/dev/null && bsdtar -x -f '$ISO_PATH' '$KERNEL_PATH' '$INITRD_PATH' 2>/dev/null && test -f '$KERNEL_PATH' && test -f '$INITRD_PATH'"; then
+      log "extracted kernel=$KERNEL_PATH initrd=$INITRD_PATH"
+      tower "cd '$DOMAIN_DIR/install-media' && mv '$KERNEL_PATH' vmlinuz && mv '$INITRD_PATH' initrd.img && rmdir 2>/dev/null isolinux images/pxeboot boot/x86_64/loader boot; true; ls -la" |
+        tee -a "$OUT_DIR/iso-extract.log"
+      EXTRACT_OK=1
+      break 2
+    fi
+  done
+done
 
-# If direct extraction failed, try the LiveOS/squashfs approach for Live ISOs
-if ! tower "test -s '$DOMAIN_DIR/install-media/vmlinuz'"; then
-  log "WARN: direct pxeboot extraction failed; checking for Live ISO structure"
-  tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -iE 'LiveOS|boot\.iso|efi|images' | head -20" |
+if [ -z "$EXTRACT_OK" ]; then
+  log "WARN: direct extraction failed; showing ISO contents for diagnosis"
+  tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | head -60" |
     tee -a "$OUT_DIR/iso-extract.log"
+  die "kernel/initrd extraction failed (ISO layout not recognized; Live ISOs need isolinux/ or boot/x86_64/loader/ paths)"
 fi
 
-tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/install-media/initrd.img' && echo KERNEL-OK" ||
-  {
-    # Try to extract from the EFI/BOOT path which some Fedora ISOs use
-    tower "cd '$DOMAIN_DIR/install-media' && bsdtar -x -f '$ISO_PATH' images/efiboot/pxeboot/vmlinuz images/efiboot/pxeboot/initrd.img 2>/dev/null; ls -la" |
-      tee -a "$OUT_DIR/iso-extract.log" || true
-    tower "test -s '$DOMAIN_DIR/install-media/vmlinuz'" ||
-      die "kernel/initrd extraction failed (ISO may be Live format without installer kernel at standard paths)"
-  }
+tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/install-media/initrd.img' && echo KERNEL-OK" |
+  tee -a "$OUT_DIR/iso-extract.log" ||
+  die "kernel/initrd extraction failed (files not found at install-media after extraction)"
 
 # ------------------------------------------------------- kickstart serving --
 KEYSRC=""
