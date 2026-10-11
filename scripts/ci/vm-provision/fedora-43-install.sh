@@ -160,8 +160,11 @@ tower "cp '$OVMF_VARS' '$NVRAM_INSTALL' && cp '$OVMF_VARS' '$NVRAM_PERSIST' && l
 log "extracting kernel/initrd from ISO (no loop mounts)"
 tower "command -v bsdtar; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
 
+# Ensure install-media scratch dir exists before extracting into it
+tower "mkdir -p '$DOMAIN_DIR/install-media'" | tee -a "$OUT_DIR/iso-extract.log"
+
 # Discover ISO structure first
-tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -iE 'pxeboot|isolinux|vmlinuz|initrd|boot/.*/loader|LiveOS' | head -40 || echo '(no standard paths found)'" |
+tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -iE 'pxeboot|isolinux|vmlinuz|initrd|boot/x86_64/loader|LiveOS|/linux$|images/pxeboot' | head -40 || echo '(no standard paths found)'" |
   tee -a "$OUT_DIR/iso-extract.log"
 
 # Candidate kernel/initrd path pairs, in preference order. First column is the
@@ -171,6 +174,7 @@ for KERNEL_PATH in \
   "isolinux/vmlinuz" \
   "images/pxeboot/vmlinuz" \
   "boot/x86_64/loader/vmlinuz" \
+  "boot/x86_64/loader/linux" \
   "boot/vmlinuz" ; do
   for INITRD_PATH in \
     "isolinux/initrd.img" \
