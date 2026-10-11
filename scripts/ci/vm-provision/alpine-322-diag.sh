@@ -22,12 +22,19 @@ set -euo pipefail
 log() { echo "[diag] $*"; }
 die() { echo "FATAL: $*" >&2; exit 1; }
 
-GUEST="alpine322"
-VM_IP="192.168.1.126"
-OUT_DIR="provision-results"
+GUEST="${GUEST:-alpine322}"
+VM_IP="${VM_IP:-192.168.1.126}"
+OUT_DIR="${PROVISION_OUT_DIR:-provision-results}"
 mkdir -p "$OUT_DIR"
 DIAG="$OUT_DIR/in-guest-diag.txt"
 : >"$DIAG"
+
+PRIV="/root/.ssh/id_ed25519"
+PAYLOAD_TMPF="/tmp/hermes-alpine322-payload.$$.json"
+cleanup_payload() {
+  ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$VM_KNOWN_HOSTS" tower "rm -f '$PAYLOAD_TMPF'" >/dev/null 2>&1 || true
+}
+trap cleanup_payload EXIT
 
 tower() { ssh -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$VM_KNOWN_HOSTS" tower "$@"; }
 
@@ -38,11 +45,20 @@ log "guest-agent ping"
 tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" | tee -a "$DIAG" ||
   die "qemu guest agent not responding; cannot diagnose in-guest"
 
-# run a shell command in the guest, capture stdout+stderr+exitcode
-guest_exec() {
-  local script="$1"
-  local cmd_payload resp pid status out err
-  cmd_payload=$(python3 - "$script" <<'PYEOF'
+# agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
+#
+# Transport-safety: the JSON payload never appears inside the ssh command
+# string. It is piped to a temp file on tower, and virsh receives it through
+# remote command substitution - "$(cat file)" - which passes the file's bytes
+# as one argument verbatim, immune to quotes/parens/metacharacters in guest
+# commands. This was the failure mode of job 45002 (issue #21): the payload
+# was embedded in single quotes, so guest commands containing single quotes
+# (the sshd greps) broke tower's remote shell. Temp file removed on every
+# exit path (trap). Payloads carry only diagnostic shell text for the guest;
+# no key material ever crosses the transport.
+agent_exec() {
+  local cmd="$1" payload resp pid status out err
+  payload=$(python3 - "$cmd" <<'PYEOF'
 import json, sys, base64
 script = sys.argv[1]
 b64 = base64.b64encode(script.encode()).decode()
@@ -52,7 +68,10 @@ print(json.dumps({"execute": "guest-exec", "arguments": {
     "capture-output": True}}))
 PYEOF
 )
-  resp=$(tower "sudo virsh qemu-agent-command '$GUEST' '$cmd_payload'")
+  printf '%s' "$payload" | tower "cat > '$PAYLOAD_TMPF'" ||
+    { AGENT_RC=255; return 1; }
+  resp=$(tower "sudo virsh qemu-agent-command '$GUEST' \"\$(cat '$PAYLOAD_TMPF')\" && rm -f '$PAYLOAD_TMPF'") ||
+    { AGENT_RC=255; tower "rm -f '$PAYLOAD_TMPF'" >/dev/null 2>&1 || true; return 1; }
   pid=$(echo "$resp" | python3 -c "import json,sys;print(json.load(sys.stdin)['return']['pid'])")
   sleep 3
   for _ in 1 2 3 4 5; do
@@ -73,24 +92,27 @@ print(f"[diag] guest exitcode={d.get('exitcode')}")
 PYEOF
 }
 
-log "=== sshd effective config ===" | tee -a "$DIAG"
-guest_exec "/usr/sbin/sshd -T 2>&1 | grep -Ei 'permitrootlogin|pubkeyaccepted|authorizedkeysfile|passwordauthentication|strictmodes|usepam|allowusers|denygroups|pubkeyauth|kbfinteractive|challengeresponse|authenticationmethods|hostkey'" | tee -a "$DIAG"
+log "=== sshd effective config (sshd -T) ===" | tee -a "$DIAG"
+agent_exec "sshd -T 2>&1 | grep -iE '^(permitrootlogin|pubkeyauthentication|authorizedkeysfile|pubkeyacceptedalgorithms|strictmodes|allowusers|denyusers|passwordauthentication|usepam|hostkey)'" | tee -a "$DIAG" || true
+
+log "=== sshd_config Include directives ===" | tee -a "$DIAG"
+agent_exec "grep -i '^Include' /etc/ssh/sshd_config 2>/dev/null; ls /etc/ssh/sshd_config.d/ 2>/dev/null; cat /etc/ssh/sshd_config.d/*.conf 2>/dev/null || echo 'no sshd_config.d contents'" | tee -a "$DIAG" || true
 
 log "=== root home + key perms (StrictModes) ===" | tee -a "$DIAG"
-guest_exec "ls -ld /root /root/.ssh /root/.ssh/authorized_keys 2>&1; stat -c '%a %U:%G %n' /root /root/.ssh /root/.ssh/authorized_keys 2>&1" | tee -a "$DIAG"
+agent_exec "ls -ld /root /root/.ssh /root/.ssh/authorized_keys 2>&1; stat -c '%a %U:%G %n' /root /root/.ssh /root/.ssh/authorized_keys 2>&1" | tee -a "$DIAG"
 
-log "=== authorized_keys content ===" | tee -a "$DIAG"
-guest_exec "cat /root/.ssh/authorized_keys 2>&1; echo '---fingerprints---'; awk '{print \$1\" \"\$2}' /root/.ssh/authorized_keys | while read t k; do echo \"type=\$t keyprefix=\${k:0:40}...\"; done" | tee -a "$DIAG"
+log "=== authorized_keys content + fingerprint ===" | tee -a "$DIAG"
+agent_exec "cat /root/.ssh/authorized_keys 2>&1; echo '---fingerprints---'; awk '{print \$1\" \"\$2}' /root/.ssh/authorized_keys | while read t k; do echo \"type=\$t keyprefix=\${k:0:40}...\"; done" | tee -a "$DIAG"
 
 log "=== sshd_config non-comment lines ===" | tee -a "$DIAG"
-guest_exec "grep -Ev '^[[:space:]]*(#|\$)' /etc/ssh/sshd_config 2>&1; echo '--- include dir ---'; ls -la /etc/ssh/sshd_config.d 2>&1; for f in /etc/ssh/sshd_config.d/*; do [ -f \"\$f\" ] && { echo \"--- \$f ---\"; cat \"\$f\"; }; done" | tee -a "$DIAG"
+agent_exec "grep -Ev '^[[:space:]]*(#|\$)' /etc/ssh/sshd_config 2>&1; echo '--- include dir ---'; ls -la /etc/ssh/sshd_config.d 2>&1; for f in /etc/ssh/sshd_config.d/*; do [ -f \"\$f\" ] && { echo \"--- \$f ---\"; cat \"\$f\"; }; done" | tee -a "$DIAG" || true
 
 log "=== sshd foreground debug (one-shot) ===" | tee -a "$DIAG"
-guest_exec "pkill sshd; /usr/sbin/sshd -d -e >/tmp/sshd-d.log 2>&1 & sleep 1; /usr/sbin/sshd >/dev/null 2>&1 & sleep 6; pkill sshd; grep -Ei 'auth|key|denied|user|pubkey' /tmp/sshd-d.log | tail -40" | tee -a "$DIAG"
+agent_exec "pkill sshd; /usr/sbin/sshd -d -e >/tmp/sshd-d.log 2>&1 & sleep 1; /usr/sbin/sshd >/dev/null 2>&1 & sleep 6; pkill sshd; grep -Ei 'auth|key|denied|user|pubkey' /tmp/sshd-d.log | tail -40" | tee -a "$DIAG" || true
 
 log "=== restarting sshd and one verbose probe from runner ===" | tee -a "$DIAG"
 VM_KEY_TMP="$(mktemp)"
-cp /root/.ssh/id_ed25519 "$VM_KEY_TMP"
+cp "$PRIV" "$VM_KEY_TMP"
 sed -i 's/\r$//' "$VM_KEY_TMP"
 [ -n "$(tail -c1 "$VM_KEY_TMP" 2>/dev/null)" ] && printf '\n' >>"$VM_KEY_TMP"
 chmod 600 "$VM_KEY_TMP"

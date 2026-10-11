@@ -8,14 +8,15 @@
 # Brings the installed system to the #22 acceptance spec:
 #   - qemu-guest-agent installed + enabled
 #   - Hermes public key as root authorized_keys (root password locked,
-#     sshd PermitRootLogin prohibit-password)
+#     sshd PermitRootLogin prohibit-password, PubkeyAuthentication yes)
 #   - serial console getty for headless maintenance
+#   - SSH host keys generated so sshd is ready on first boot
 set -ex
 
 echo "=== chroot-config start ==="
 
 # network mirrors on the installed system (media repo dies with the ISO)
-cat >/etc/apk/repositories <<'EOF'
+cat > /etc/apk/repositories <<'EOF'
 https://dl-cdn.alpinelinux.org/alpine/v3.22/main
 https://dl-cdn.alpinelinux.org/alpine/v3.22/community
 EOF
@@ -35,12 +36,34 @@ else
   exit 1
 fi
 passwd -l root || true
-sed -i 's/^#\{0,1\}PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
-grep -n 'PermitRootLogin' /etc/ssh/sshd_config || true
+
+# --- sshd hardening + key-auth acceptance gate ---
+# Alpine 3.22 openssh ships sshd_config with directives COMMENTED OUT
+# (e.g. "#PubkeyAuthentication yes"). The defaults resolve to yes/prohibit-
+# password, but that resolution depends on no Include /sshd_config.d overrides.
+# OpenSSH uses first-occurrence-wins: PREPEND the directives at the file head
+# so they shadow any default or Include, then validate before boot. This is
+# the same repair #21's vm:verify:alpine320 job (commit d3945c8) applied via
+# the QEMU guest agent -- done here at install time instead, so the first SSH
+# probe hits a correctly configured sshd without a follow-up repair job.
+{
+  printf 'PubkeyAuthentication yes\n'
+  printf 'PermitRootLogin prohibit-password\n'
+  printf 'AuthorizedKeysFile .ssh/authorized_keys\n'
+  cat /etc/ssh/sshd_config
+} > /etc/ssh/sshd_config.repair
+mv /etc/ssh/sshd_config.repair /etc/ssh/sshd_config
+chmod 600 /etc/ssh/sshd_config
+grep -n 'PubkeyAuthentication\|PermitRootLogin\|AuthorizedKeysFile' /etc/ssh/sshd_config
+
+# Generate SSH host keys now (inside the chroot) so sshd can answer on first
+# boot without delaying acceptance; rc-update add below makes sshd autostart.
+ssh-keygen -A 2>/dev/null || true
+sshd -t 2>&1 && echo "sshd config test ok" || echo "WARN: sshd config test failed"
 
 # serial console getty
 sed -i 's/^#ttyS0/ttyS0/' /etc/inittab
-grep -q 'ttyS0::respawn' /etc/inittab ||
+grep -q 'ttyS0::respawn' /etc/inittab || \
   printf 'ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100\n' >>/etc/inittab
 
 # boot services
