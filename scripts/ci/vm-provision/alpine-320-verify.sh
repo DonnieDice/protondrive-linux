@@ -140,13 +140,13 @@ log "diagnosing sshd inside the alpine320 guest"
   echo "=== sshd process ==="
   agent_exec "ps aux 2>/dev/null | grep sshd | grep -v grep || echo 'no sshd process found'"
   echo "=== sshd_config key directives ==="
-  agent_exec "grep -E '^(PubkeyAuthentication|PermitRootLogin|AuthorizedKeysFile|PasswordAuthentication|UsePAM|KbdInteractiveAuthentication)' /etc/ssh/sshd_config 2>/dev/null || echo 'sshd_config missing or no matching directives'"
+  agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -iE '^(PubkeyAuthentication|PermitRootLogin|AuthorizedKeysFile|PasswordAuthentication|UsePAM|KbdInteractiveAuthentication|AllowUsers|DenyUsers)' || echo 'sshd_config missing or no matching directives'"
   echo "=== /root/.ssh permissions ==="
   agent_exec "ls -lad /root/.ssh 2>/dev/null && ls -la /root/.ssh/ 2>/dev/null || echo '/root/.ssh not found'"
   echo "=== /root permissions ==="
   agent_exec "ls -ld /root"
   echo "=== authorized_keys content type ==="
-  agent_exec "wc -l /root/.ssh/authorized_keys 2>/dev/null; file /root/.ssh/authorized_keys 2>/dev/null || true; head -c 40 /root/.ssh/authorized_keys 2>/dev/null; echo"
+  agent_exec "wc -l /root/.ssh/authorized_keys 2>/dev/null; head -c 40 /root/.ssh/authorized_keys 2>/dev/null; echo"
 } | tee "$OUT_DIR/sshd-diag.txt" || true
 
 # Ensure sshd is enabled at boot and started
@@ -158,6 +158,24 @@ sleep 3
 agent_exec "rc-service sshd status 2>&1 || true" >> "$OUT_DIR/sshd-diag.txt" || true
 # Also check if sshd is actually listening
 agent_exec "ss -tlnp 2>/dev/null | grep ':22' || netstat -tlnp 2>/dev/null | grep ':22 ' || echo 'no listener on :22 found'" >> "$OUT_DIR/sshd-diag.txt" || true
+
+# Repair sshd_config if key directives are missing/misconfigured
+log "repairing sshd_config for root login + pubkey auth if needed"
+NEEDS_REPAIR=0
+agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -i '^PubkeyAuthentication' | grep -v 'yes' || true" >> "$OUT_DIR/sshd-diag.txt" 2>&1
+agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -i '^PermitRootLogin' | grep -viE 'yes|prohibit-password' || true" >> "$OUT_DIR/sshd-diag.txt" 2>&1
+# Ensure PubkeyAuthentication and PermitRootLogin are set correctly, then restart
+if ! agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -qi '^PubkeyAuthentication[[:space:]]*yes'" || \
+   ! agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -qiE '^PermitRootLogin[[:space:]]+(yes|prohibit-password)'"; then
+  NEEDS_REPAIR=1
+fi
+if [ "$NEEDS_REPAIR" = "1" ]; then
+  log "sshd_config needs repair - appending PermitRootLogin and PubkeyAuthentication"
+  agent_exec "printf '\n# hermes repair\nPubkeyAuthentication yes\nPermitRootLogin prohibit-password\n' >> /etc/ssh/sshd_config && echo REPAIR_OK" >> "$OUT_DIR/sshd-diag.txt"
+  agent_exec "sshd -t 2>&1 || echo 'sshd config test failed'" >> "$OUT_DIR/sshd-diag.txt"
+  agent_exec "rc-service sshd restart 2>&1 || echo 'sshd restart returned non-zero'" >> "$OUT_DIR/sshd-diag.txt"
+  sleep 2
+fi
 
 # ------------------------------------------------------------- ssh probe ----
 log "waiting for TCP/22 at $VM_IP (up to 120s)"
