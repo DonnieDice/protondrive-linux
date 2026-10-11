@@ -45,15 +45,25 @@ provision_build_deps() {
   " || {
     echo "WARN: disk cleanup pre-flight reported errors on $label (continuing)"
   }
+  # The libjavascriptcoregtk dev package name differs between Debian 12
+  # (bookworm: libjavascriptcoregtk-4.1-0-dev) and Debian 13 (trixie:
+  # libjavascriptcoregtk-4.1-dev). Try both lists; the one containing a
+  # package that exists on this distro will succeed.
   run_on_vm "$ip" "
     DEBIAN_FRONTEND=noninteractive apt-get update -qq &&
-    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \\
-      cmake libssl-dev pkg-config build-essential \\
-      git curl wget file patchelf python3 ca-certificates \\
-      libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \\
-      librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-0 \\
-      libwebkit2gtk-4.1-0 libgtk-3-0 libsoup-3.0-0 libayatana-appindicator3-1 \\
-      libjavascriptcoregtk-4.1-0 libjavascriptcoregtk-4.1-0-dev
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+      cmake libssl-dev pkg-config build-essential \
+      git curl wget file patchelf python3 ca-certificates \
+      libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+      librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-0 \
+      libwebkit2gtk-4.1-0 libgtk-3-0 libsoup-3.0-0 libayatana-appindicator3-1 \
+      libjavascriptcoregtk-4.1-0 libjavascriptcoregtk-4.1-0-dev || \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y -q \
+      cmake libssl-dev pkg-config build-essential \
+      git curl wget file patchelf python3 ca-certificates \
+      libgtk-3-dev libwebkit2gtk-4.1-dev libayatana-appindicator3-dev \
+      librsvg2-dev libsoup-3.0-dev libjavascriptcoregtk-4.1-dev \
+      libwebkit2gtk-4.1-0 libgtk-3-0 libsoup-3.0-0 libayatana-appindicator3-1
   " || {
     echo "FAIL: apt install failed on $label"
     return 1
