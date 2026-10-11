@@ -252,7 +252,7 @@ while (my \$c = \$s->accept()) {
 PERL
     scp $SSH_OPTS "$OUT_DIR/perl-httpd.pl" "$TOWER_HOST:/tmp/ubuntu2604-perl-httpd.pl" >/dev/null 2>&1 || die "perl server staging failed"
     tower "mv /tmp/ubuntu2604-perl-httpd.pl '$KS_DIR/perl-httpd.pl' && chmod 644 '$KS_DIR/perl-httpd.pl'" || die "perl server staging failed"
-    tower "nohup perl '$KS_DIR/perl-httpd.pl' '$KS_PORT' '$KS_DIR/user-data' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \\$! > '$KS_HTTPD_PID_FILE'"
+    tower "nohup perl '$KS_DIR/perl-httpd.pl' '$KS_PORT' '$KS_DIR/user-data' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
     ;;
 esac
 sleep 3
