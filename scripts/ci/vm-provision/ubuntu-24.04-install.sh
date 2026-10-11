@@ -74,7 +74,15 @@ log "persistent guest state: ${STATE:-unknown/absent}"
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   log "removing stale transient domain $TRANSIENT"
   tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
-  tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
+  # Wait up to 30s for the domain to fully shut off before undefine — the
+  # destroy is asynchronous and an undefine on a still-running transient
+  # silently fails (caught in pipeline 4046: domain 'xxx' already exists).
+  for _ in $(seq 1 6); do
+    S="$(tower "sudo virsh domstate '$TRANSIENT'" 2>/dev/null || echo '(gone)')"
+    [ "$S" = 'shut off' ] || [ "$S" = '(gone)' ] && break
+    sleep 5
+  done
+  tower "sudo virsh undefine '$TRANSIENT' --nvram" >/dev/null 2>&1 || true
 fi
 
 # ----------------------------------------------- idempotency: already installed? --
@@ -86,26 +94,29 @@ fi
 # acceptance probes.
 log "checking for an existing Ubuntu 24.04 installation on $GUEST"
 IDEMPOTENT_SKIP=false
-# 1. Is the persistent guest running?
-if [ "${STATE:-}" = "running" ]; then
-  # 2. Does the disk carry a real (non-empty) filesystem?
-  DISK_VERSIG="$(tower "sudo qemu-img info '$DISK_PATH' 2>/dev/null | grep -i 'file format' || true")"
-  if tower "sudo blkid '$DISK_PATH' 2>/dev/null | grep -q ext4 || \
-     sudo file -s '$DISK_PATH' 2>/dev/null | grep -q 'Linux rev'"; then
-    log "disk carries a filesystem signature - checking for an existing OS"
-    # 3. Is SSH already up at the target IP?
-    if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then
-      exec 3>&-
-      log "sshd already accepting connections at $VM_IP - OS already installed"
-      IDEMPOTENT_SKIP=true
-    else
-      log "guest running but sshd not yet up - will proceed with install"
-    fi
-  else
-    log "disk appears empty/unformatted - proceeding with fresh install"
-  fi
+# 1. Is sshd already accepting connections at the target IP? If so the OS is
+#    installed regardless of whether we can read the qcow2 metadata (which
+#    fails with a lock error when the guest is running).
+if (exec 3<>"/dev/tcp/$VM_IP/22") 2>/dev/null; then
+  exec 3>&-
+  log "sshd already accepting connections at $VM_IP - OS already installed"
+  IDEMPOTENT_SKIP=true
+elif [ "${STATE:-}" = "running" ]; then
+  # Guest is running but SSH is not up — the install has not completed.
+  # We must shut it down so the qcow2 disk lock is released before we can
+  # define the transient install domain against the same disk.
+  log "guest is running but sshd not up - shutting down for fresh install"
+  tower "sudo virsh shutdown '$GUEST'" >/dev/null 2>&1 || true
+  for _ in $(seq 1 24); do
+    S="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo '(gone)')"
+    [ "$S" = "shut off" ] || [ "$S" = "(gone)" ] && break
+    sleep 5
+  done
+  log "guest is now: $(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo 'gone')"
+  SKIP_INSTALL=false
 else
-  log "guest not running (state: ${STATE:-absent}) - will ensure it is started after install"
+  SKIP_INSTALL=false
+  log "guest not running (state: ${STATE:-absent}) - proceeding with fresh install"
 fi
 
 if [ "$IDEMPOTENT_SKIP" = "true" ]; then
