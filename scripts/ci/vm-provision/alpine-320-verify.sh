@@ -42,6 +42,13 @@ tower() { ssh $SSH_OPTS "$TOWER_HOST" "$@"; }
 log()  { echo "[verify] $*"; }
 die()  { echo "FATAL: $*" >&2; exit 1; }
 
+# Payload scratch file on tower (agent_exec); removed on every exit path.
+PAYLOAD_TMPF="/tmp/hermes-alpine320-payload.$$.json"
+cleanup_payload() {
+  tower "rm -f '$PAYLOAD_TMPF'" >/dev/null 2>&1 || true
+}
+trap cleanup_payload EXIT
+
 PRIV=/root/.ssh/id_ed25519
 
 # ------------------------------------------------------------- read-only ----
@@ -62,7 +69,9 @@ echo "state: $STATE" > "$OUT_DIR/guest-state.txt"
   echo "=== virsh dumpxml (key facts) ==="
   tower "sudo virsh dumpxml '$GUEST'" | grep -E "<name>|<uuid>|<source file=|<source bridge=|<mac |<channel|guest_agent|<serial|<console" || true
   echo "=== qemu-img info ==="
-  tower "sudo qemu-img info '$DISK_PATH'"
+  # -U (force share): the disk is in active use by the running guest; a plain
+  # info open fails on the write lock (job 45002 guest-facts.txt).
+  tower "sudo qemu-img info -U '$DISK_PATH'"
   echo "=== ping occupancy (from tower) ==="
   tower "ping -c1 -W2 '$VM_IP' >/dev/null 2>&1 && echo 'PING: answers' || echo 'PING: silent'"
 } | tee "$OUT_DIR/guest-facts.txt"
@@ -82,11 +91,24 @@ tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}''" 2
   | tee -a "$OUT_DIR/guest-state.txt" || true
 
 # agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
+#
+# Transport-safety: the JSON payload never appears inside the ssh command
+# string. It is piped to a temp file on tower, and virsh receives it through
+# remote command substitution - "$(cat file)" - which passes the file's bytes
+# as one argument verbatim, immune to quotes/parens/metacharacters in guest
+# commands. This was the failure mode of job 45002: the payload was embedded
+# in single quotes, so guest commands containing single quotes (the sshd
+# greps) broke tower's remote shell ("syntax error near unexpected token
+# `('"), the sshd diagnosis printed nothing, and the "repair" ran on transport
+# failure rather than config state. The payload carries only diagnostic and
+# repair shell text for the alpine320 guest - never key material.
 agent_exec() {
   local cmd="$1" payload resp pid st ec out
   payload="$(jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["-c",$cmd],"capture-output":true}}')"
-  resp="$(tower "sudo virsh qemu-agent-command '$GUEST' '$payload'")" \
+  printf '%s' "$payload" | tower "cat > '$PAYLOAD_TMPF'" \
     || { AGENT_RC=255; return 1; }
+  resp="$(tower "sudo virsh qemu-agent-command '$GUEST' \"\$(cat '$PAYLOAD_TMPF')\" && rm -f '$PAYLOAD_TMPF'")" \
+    || { AGENT_RC=255; tower "rm -f '$PAYLOAD_TMPF'" >/dev/null 2>&1 || true; return 1; }
   pid="$(jq -r '.return.pid // empty' <<<"$resp")"
   [ -n "$pid" ] || { AGENT_RC=255; return 1; }
   for _ in $(seq 1 30); do
@@ -147,6 +169,12 @@ log "diagnosing sshd inside the alpine320 guest"
   agent_exec "ls -ld /root"
   echo "=== authorized_keys content type ==="
   agent_exec "wc -l /root/.ssh/authorized_keys 2>/dev/null; head -c 40 /root/.ssh/authorized_keys 2>/dev/null; echo"
+  echo "=== sshd -T effective config (auth-relevant) ==="
+  # sshd -T prints the EFFECTIVE config (resolves Include directives and
+  # defaults) - the ground truth the stock-file grep cannot see.
+  agent_exec "sshd -T 2>&1 | grep -iE '^(permitrootlogin|pubkeyauthentication|authorizedkeysfile|pubkeyacceptedalgorithms|strictmodes|allowusers|denyusers)' || echo 'sshd -T failed or no matches'"
+  echo "=== sshd_config Include directives ==="
+  agent_exec "grep -i '^Include' /etc/ssh/sshd_config 2>/dev/null; ls /etc/ssh/sshd_config.d/ 2>/dev/null; cat /etc/ssh/sshd_config.d/*.conf 2>/dev/null || echo 'no sshd_config.d contents'"
 } | tee "$OUT_DIR/sshd-diag.txt" || true
 
 # Ensure sshd is enabled at boot and started
@@ -159,23 +187,33 @@ agent_exec "rc-service sshd status 2>&1 || true" >> "$OUT_DIR/sshd-diag.txt" || 
 # Also check if sshd is actually listening
 agent_exec "ss -tlnp 2>/dev/null | grep ':22' || netstat -tlnp 2>/dev/null | grep ':22 ' || echo 'no listener on :22 found'" >> "$OUT_DIR/sshd-diag.txt" || true
 
-# Repair sshd_config if key directives are missing/misconfigured
-log "repairing sshd_config for root login + pubkey auth if needed"
+# Repair sshd_config if key directives are missing/misconfigured.
+# State-based triggers: each check runs IN THE GUEST and the decision uses
+# the guest's captured output, not the transport exit status - job 45002
+# "repaired" because the transport itself failed, while the config was
+# never actually read. OpenSSH uses first-occurrence-wins, so the repair
+# PREPENDS the directives at the top of sshd_config (appending after an
+# existing directive can never take effect) via a temp file + mv.
+log "checking sshd_config state for PubkeyAuthentication / PermitRootLogin"
+PUBKEY_OK=0; ROOTLOGIN_OK=0
+DIRECTIVES="$(agent_exec "grep -viE '^[[:space:]]*#|^[[:space:]]*$' /etc/ssh/sshd_config 2>/dev/null | grep -iE '^(PubkeyAuthentication|PermitRootLogin|AuthorizedKeysFile)' || true")"
+printf '%s\n' "$DIRECTIVES" >> "$OUT_DIR/sshd-diag.txt"
+printf '%s\n' "$DIRECTIVES" | grep -qiE '^PubkeyAuthentication[[:space:]]+yes' && PUBKEY_OK=1
+printf '%s\n' "$DIRECTIVES" | grep -qiE '^PermitRootLogin[[:space:]]+(yes|prohibit-password)' && ROOTLOGIN_OK=1
+log "PubkeyAuthentication=yes present: $PUBKEY_OK; PermitRootLogin=yes|prohibit-password present: $ROOTLOGIN_OK"
 NEEDS_REPAIR=0
-agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -i '^PubkeyAuthentication' | grep -v 'yes' || true" >> "$OUT_DIR/sshd-diag.txt" 2>&1
-agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -i '^PermitRootLogin' | grep -viE 'yes|prohibit-password' || true" >> "$OUT_DIR/sshd-diag.txt" 2>&1
-# Ensure PubkeyAuthentication and PermitRootLogin are set correctly, then restart
-if ! agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -qi '^PubkeyAuthentication[[:space:]]*yes'" || \
-   ! agent_exec "grep -v '^[[:space:]]*#' /etc/ssh/sshd_config 2>/dev/null | grep -qiE '^PermitRootLogin[[:space:]]+(yes|prohibit-password)'"; then
-  NEEDS_REPAIR=1
-fi
+[ "$PUBKEY_OK" = "1" ] && [ "$ROOTLOGIN_OK" = "1" ] || NEEDS_REPAIR=1
 if [ "$NEEDS_REPAIR" = "1" ]; then
-  log "sshd_config needs repair - appending PermitRootLogin and PubkeyAuthentication"
-  agent_exec "printf '\n# hermes repair\nPubkeyAuthentication yes\nPermitRootLogin prohibit-password\n' >> /etc/ssh/sshd_config && echo REPAIR_OK" >> "$OUT_DIR/sshd-diag.txt"
-  agent_exec "sshd -t 2>&1 || echo 'sshd config test failed'" >> "$OUT_DIR/sshd-diag.txt"
+  log "sshd_config needs repair - PREPENDING PermitRootLogin and PubkeyAuthentication (first-occurrence-wins)"
+  agent_exec "{ printf 'PubkeyAuthentication yes\nPermitRootLogin prohibit-password\n'; cat /etc/ssh/sshd_config; } > /etc/ssh/sshd_config.repair && mv /etc/ssh/sshd_config.repair /etc/ssh/sshd_config && chmod 600 /etc/ssh/sshd_config && echo REPAIR_OK" >> "$OUT_DIR/sshd-diag.txt"
+  agent_exec "sshd -t 2>&1 && echo 'sshd config test ok' || echo 'sshd config test failed'" >> "$OUT_DIR/sshd-diag.txt"
   agent_exec "rc-service sshd restart 2>&1 || echo 'sshd restart returned non-zero'" >> "$OUT_DIR/sshd-diag.txt"
   sleep 2
 fi
+# Post-repair confirmation: print the effective directives again so the
+# evidence shows the config state that the SSH probe actually used.
+echo "=== sshd_config key directives (post-repair) ===" >> "$OUT_DIR/sshd-diag.txt"
+agent_exec "grep -viE '^[[:space:]]*#|^[[:space:]]*$' /etc/ssh/sshd_config 2>/dev/null | grep -iE '^(PubkeyAuthentication|PermitRootLogin|AuthorizedKeysFile)' || echo 'no directives found'" >> "$OUT_DIR/sshd-diag.txt"
 
 # ------------------------------------------------------------- ssh probe ----
 log "waiting for TCP/22 at $VM_IP (up to 120s)"
@@ -187,9 +225,12 @@ done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
 log "SSH probe from the runner (publickey only, exact authorized identity)"
-ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" -o ConnectTimeout=15 "root@$VM_IP" \
-  "hostname; whoami; uname -a; cat /etc/alpine-release" | tee "$OUT_DIR/ssh-probe.txt" \
-  || die "SSH probe failed"
+ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" -o ConnectTimeout=15 -v "root@$VM_IP" \
+  "hostname; whoami; uname -a; cat /etc/alpine-release" 2> "$OUT_DIR/ssh-probe-debug.log" | tee "$OUT_DIR/ssh-probe.txt" \
+  || { echo "--- client debug (tail) ---"; tail -40 "$OUT_DIR/ssh-probe-debug.log"; die "SSH probe failed"; }
+echo "--- client debug: auth negotiation ---"
+grep -E "Authentications that can continue|Offering public key|Server accepts key|sign_and_send_pubkey|Permission denied" \
+  "$OUT_DIR/ssh-probe-debug.log" | head -20 | tee -a "$OUT_DIR/ssh-probe.txt" || true
 
 log "collecting in-guest acceptance evidence"
 ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" "root@$VM_IP" \
