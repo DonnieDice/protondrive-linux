@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Provision build dependencies on persistent VM test hosts.
 # Runs on the GitLab runner which has SSH access to the VM subnet.
-# Targets: debian13 (192.168.1.120) — the routed execution dependency
-# for issue #14 / parent #3 (debian12 is issue #2's scope, non-goal here).
+# Targets: debian13 (192.168.1.120) and debian12 (192.168.1.162) — the
+# routed execution dependencies for parent #2 (debian12) and sibling #14
+# (debian13). Both hosts share the tower transport; repair-disk and
+# repair-network scripts already start both guests (issue #14 repairs #14).
 # Transport: VM_SSH_KEY CI variable when set, else the runner-mounted
 # /root/.ssh config (see scripts/ci/lib/_vm_common.sh).
 
@@ -12,8 +14,10 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 source "$HERE/../lib/_vm_common.sh"
 
 # VM targets from SSH config
-# Issue #14 scope: debian13 only. debian12 is issue #2's scope (non-goal here).
+# Issue #26 scope: debian12 (the routed execution dependency for parent #2).
+# Issue #14 scope: debian13 (sibling work item #14 / parent #3).
 DEBIAN13_IP="192.168.1.120"
+DEBIAN12_IP="192.168.1.162"
 
 provision_build_deps() {
   local ip="$1" label="$2"
@@ -181,9 +185,7 @@ _pd_ssh_init
 
 echo "Starting VM build dependency provisioning..."
 
-# Issue #14 scope: debian13 only. debian12 is a non-goal ("debian12
-# verification is issue #2"); provisioning both caused the whole job to exit 1
-# when debian12 was unreachable, masking debian13 success.
+# Issue #14 scope: debian13 (sibling #14, parent #3).
 provision_build_deps "$DEBIAN13_IP" "debian13" || exit 1
 
 echo "debian13 provisioned with build dependencies. Verifying build..."
@@ -192,3 +194,13 @@ echo "debian13 provisioned with build dependencies. Verifying build..."
 verify_protondrive_build "$DEBIAN13_IP" "debian13" || exit 1
 
 echo "=== debian13 BUILD DEPENDENCIES PROVISIONED AND VERIFIED ==="
+
+# Issue #26 scope: debian12 (parent #2). Provision + verify as the routed
+# execution dependency for parent issue #2's acceptance criteria.
+provision_build_deps "$DEBIAN12_IP" "debian12" || exit 1
+
+echo "debian12 provisioned with build dependencies. Verifying build..."
+
+verify_protondrive_build "$DEBIAN12_IP" "debian12" || exit 1
+
+echo "=== debian12 BUILD DEPENDENCIES PROVISIONED AND VERIFIED ==="

@@ -255,14 +255,16 @@ vm:verify:rust-toolchain:
   timeout: 20m
   # Same opt-out: immediately playable manual job that verifies (without
   # modifying) the rustup default toolchain and the protondrive-linux release
-  # binary on debian13. Read-only evidence for issue #14.
-  # Issue #14 scope: debian13 only; debian12 is issue #2's scope.
+  # binary. Read-only evidence for issue #14 (debian13) and issue #26 (debian12).
+  # Both hosts share the tower transport; repair-disk and repair-network
+  # scripts already start both guests (issue #14 repairs #14).
   needs: []
   dependencies: []
   before_script:
     - apk add --no-cache openssh-client bash
   script:
     - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.120 debian13
+    - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.162 debian12
   rules:
     - when: manual
       allow_failure: true
