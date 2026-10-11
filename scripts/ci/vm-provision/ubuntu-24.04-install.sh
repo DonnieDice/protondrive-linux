@@ -107,12 +107,41 @@ elif [ "${STATE:-}" = "running" ]; then
   # define the transient install domain against the same disk.
   log "guest is running but sshd not up - shutting down for fresh install"
   tower "sudo virsh shutdown '$GUEST'" >/dev/null 2>&1 || true
+  SHUTOFF=false
   for _ in $(seq 1 24); do
     S="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo '(gone)')"
-    [ "$S" = "shut off" ] || [ "$S" = "(gone)" ] && break
+    [ "$S" = "shut off" ] || [ "$S" = "(gone)" ] && { SHUTOFF=true; break; }
     sleep 5
   done
-  log "guest is now: $(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo 'gone')"
+  if [ "$SHUTOFF" = "false" ]; then
+    # Graceful shutdown (ACPI) did not bring the guest to shut off within
+    # 120s — likely the in-guest agent is not running or the OS is wedged.
+    # Force-destroy the QEMU process so the qcow2 write lock is released.
+    log "graceful shutdown timed out (guest still running) - force-destroying for fresh install"
+    tower "sudo virsh destroy '$GUEST' 2>/dev/null; true" >/dev/null 2>&1 || true
+    for _ in $(seq 1 12); do
+      S="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo '(gone)')"
+      [ "$S" = "shut off" ] || [ "$S" = "(gone)" ] && break
+      sleep 5
+    done
+    log "guest after destroy: $(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo 'gone')"
+  else
+    log "guest is now: $(tower "sudo virsh domstate '$GUEST'" 2>/dev/null || echo 'gone')"
+  fi
+  # Wait for the qcow2 write lock to be released (up to 30s) so that
+  # qemu-img info and the transient domain start do not hit "Failed to
+  # get 'write' lock" — caught in pipeline 4073, the same issue that
+  # blocked provision in pipeline 4104.
+  for _ in $(seq 1 15); do
+    if tower "sudo qemu-img info '$DISK_PATH' 2>&1 | grep -q 'write lock'" 2>/dev/null; then
+      sleep 2
+    else
+      log "qcow2 disk lock released"
+      break
+    fi
+    log "waiting for qcow2 disk lock to release..."
+    sleep 2
+  done
   SKIP_INSTALL=false
 else
   SKIP_INSTALL=false
