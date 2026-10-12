@@ -224,12 +224,34 @@ for i in $(seq 1 60); do
 done
 [ "$up" = "1" ] || die "sshd never came up at $VM_IP"
 
+# Enable sshd debug logging ON THE GUEST so the auth-failure reason lands in
+# /var/log/messages (captured below). The client debug only shows WHAT the
+# server answered; it never shows WHY sshd rejected a key that is verifiably
+# present in authorized_keys with correct permissions and sshd -T values.
+# job 49259: key fingerprint matched, PubkeyAuthentication/PermitRootLogin/
+# AuthorizedKeysFile/StrictModes all correct, yet the probe was rejected.
+log "enabling sshd debug logging on guest to capture auth-failure reason"
+agent_exec "grep -q '^LogLevel' /etc/ssh/sshd_config 2>/dev/null && sed -i 's/^LogLevel.*/LogLevel DEBUG3/' /etc/ssh/sshd_config || printf 'LogLevel DEBUG3\\n' >> /etc/ssh/sshd_config" \
+  >> "$OUT_DIR/sshd-diag.txt"
+agent_exec "rc-service sshd restart 2>/dev/null; rc-service syslog start 2>/dev/null || true; sleep 1" \
+  >> "$OUT_DIR/sshd-diag.txt"
+
 log "SSH probe from the runner (publickey only, exact authorized identity)"
+SSH_RC=0
 ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" -o ConnectTimeout=15 -v "root@$VM_IP" \
   "hostname; whoami; uname -a; cat /etc/alpine-release" 2> "$OUT_DIR/ssh-probe-debug.log" | tee "$OUT_DIR/ssh-probe.txt" \
-  || { echo "--- client debug (tail) ---"; tail -40 "$OUT_DIR/ssh-probe-debug.log"; die "SSH probe failed"; }
+  || SSH_RC=$?
+if [ "$SSH_RC" != "0" ]; then
+  echo "--- client debug (tail) ---"
+  tail -40 "$OUT_DIR/ssh-probe-debug.log"
+  echo "--- capturing sshd server-side debug ---"
+  agent_exec "cat /var/log/messages 2>/dev/null | tail -30 || dmesg 2>/dev/null | grep -i 'sshd\|ssh' | tail -20" \
+    > "$OUT_DIR/sshd-server-debug.txt" || true
+  cat "$OUT_DIR/sshd-server-debug.txt" | head -30
+  die "SSH probe failed"
+fi
 echo "--- client debug: auth negotiation ---"
-grep -E "Authentications that can continue|Offering public key|Server accepts key|sign_and_send_pubkey|Permission denied" \
+grep -E "Authentications that can continue|Offering public key|Server accepts key|sign_and_send_pubkey|Permission denied|ssh_msg_userauth" \
   "$OUT_DIR/ssh-probe-debug.log" | head -20 | tee -a "$OUT_DIR/ssh-probe.txt" || true
 
 log "collecting in-guest acceptance evidence"
