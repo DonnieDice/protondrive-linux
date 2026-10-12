@@ -97,7 +97,22 @@ if [ "${STATE:-}" = "running" ]; then
     fi
     sleep 5
   done
-  [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" = "shut off" ] || die "persistent guest $GUEST did not reach shut off state"
+  # The guest may be running but unresponsive to ACPI shutdown (e.g., crashed
+  # OS, no acpi daemon, or interrupted install). Force it off with destroy
+  # so the transient domain can acquire the disk lock. This is the same
+  # operation el10-install.sh uses for the same reason.
+  if [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" != "shut off" ]; then
+    log "persistent guest $GUEST did not respond to ACPI shutdown after 150s — force-stopping with destroy"
+    tower "sudo virsh destroy '$GUEST'" || die "could not force-stop persistent guest $GUEST"
+    for _ in $(seq 1 6); do
+      if [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" = "shut off" ]; then
+        log "persistent guest shut off after destroy"
+        break
+      fi
+      sleep 5
+    done
+    [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" = "shut off" ] || die "persistent guest $GUEST did not reach shut off state (checked after destroy)"
+  fi
 fi
 
 # --------------------------------------------------- disk preflight/create --
