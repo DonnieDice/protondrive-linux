@@ -88,7 +88,30 @@ for i in $(seq 1 24); do
   fi
   log "agent not answering yet (attempt $i/24)"; sleep 10
 done
-[ "$AG_OK" = "1" ] || die "qemu-guest-agent not answering: run vm:provision:alpine320 (fixed script) to reinstall"
+
+# If the agent is dead despite a connected channel (host-side vs guest-side
+# mismatch), restart the guest to revive qemu-guest-agent inside the VM.
+# This is a safe lifecycle action (issue #21 requires the guest reachable);
+# the persistent domain XML is never edited.
+if [ "$AG_OK" = "0" ]; then
+  log "agent not answering after 24 attempts; restarting the guest to revive qemu-guest-agent"
+  tower "sudo virsh destroy '$GUEST' 2>/dev/null || true"
+  sleep 5
+  tower "sudo virsh start '$GUEST'"
+  sleep 20
+  STATE="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)"
+  log "guest state after restart: ${STATE:-unknown}"
+  [ "$STATE" = "running" ] || die "guest failed to restart (state: $STATE)"
+  AG_OK=0
+  for i in $(seq 1 24); do
+    if agent_guest_ping >/dev/null 2>&1; then
+      AG_OK=1; break
+    fi
+    log "agent not answering after restart (attempt $i/24)"; sleep 10
+  done
+fi
+
+[ "$AG_OK" = "1" ] || die "qemu-guest-agent not answering after restart: run vm:provision:alpine320 (fixed script) to reinstall"
 echo "guest-ping: answered" | tee -a "$OUT_DIR/guest-state.txt"
 agent_guest_ping 2>/dev/null | tee -a "$OUT_DIR/guest-state.txt" || true
 
