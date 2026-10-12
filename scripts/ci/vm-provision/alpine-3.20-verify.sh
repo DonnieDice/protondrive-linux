@@ -81,25 +81,35 @@ tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" 2>
   | tee -a "$OUT_DIR/guest-state.txt" || true
 
 # agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
+# Uses SSH stdin to pass the JSON payload, avoiding shell-level quoting
+# corruption that occurs when the payload (containing double quotes and
+# backslashes) is passed as a command-line argument through the tower SSH hop.
 agent_exec() {
-  local cmd="$1" payload resp pid st ec out
-  payload="$(jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["-c",$cmd],"capture-output":true}}')"
-  resp="$(tower "sudo virsh qemu-agent-command '$GUEST' '$payload'")" \
-    || { AGENT_RC=255; return 1; }
+  local cmd="$1" payload_file resp pid st ec out
+  payload_file="$(mktemp)"
+  jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["$cmd"],"capture-output":true}}' > "$payload_file"
+  resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$payload_file")" \
+    || { AGENT_RC=255; rm -f "$payload_file"; return 1; }
+  rm -f "$payload_file"
   pid="$(jq -r '.return.pid // empty' <<<"$resp")"
   [ -n "$pid" ] || { AGENT_RC=255; return 1; }
+  local status_file
+  status_file="$(mktemp)"
   for _ in $(seq 1 30); do
-    st="$(tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-exec-status\",\"arguments\":{\"pid\":$pid}}'")"
+    printf '{"execute":"guest-exec-status","arguments":{"pid":%s}}' "$pid" > "$status_file"
+    st="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$status_file")" \
+      || { AGENT_RC=254; rm -f "$status_file"; return 1; }
     if [ "$(jq -r '.return.exited // false' <<<"$st")" = "true" ]; then
       ec="$(jq -r '.return.exitcode // 255' <<<"$st")"
-      out="$(jq -r '.return."out-data" // ""' <<<"$st" | base64 -d)"
+      out="$(jq -r '.return."out-data" // ""' <<<"$st" | base64 -d 2>/dev/null || true)"
       AGENT_RC="$ec"
+      rm -f "$status_file"
       printf '%s' "$out"
       return 0
     fi
     sleep 2
   done
-  AGENT_RC=254; return 1;
+  AGENT_RC=254; rm -f "$status_file"; return 1;
 }
 
 # ------------------------------------------------------------- key repair ---
@@ -146,6 +156,20 @@ log "diagnosing in-guest sshd state via guest agent"
   echo "=== listening sockets (ss / netstat) ==="
   agent_exec "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || echo 'no ss/netstat'" || true
 } | tee "$OUT_DIR/sshd-diag.txt"
+
+# Diagnose root account state (ssh 'invalid user' from job 49806 server-side debug)
+log "diagnosing root account in guest (job 49806 showed 'invalid user root' from sshd)"
+agent_exec "grep root /etc/passwd; grep root /etc/shadow 2>/dev/null; ls -la /bin/ash /bin/sh /bin/bash 2>/dev/null; grep -vE '^#|^$' /etc/shells 2>/dev/null" \
+  | tee -a "$OUT_DIR/sshd-diag.txt" || true
+
+# Fix root shell if broken (ssh rejects 'invalid user root' when shell is invalid)
+ROOT_SHELL="$(agent_exec "getent passwd root 2>/dev/null | cut -d: -f7 || awk -F: '/^root:/{print \$7}' /etc/passwd")"
+log "root shell in guest: ${ROOT_SHELL}"
+if [ -z "$ROOT_SHELL" ] || [ ! -x "$ROOT_SHELL" ]; then
+  log "root shell is missing/broken ($ROOT_SHELL) - fixing to /bin/ash (Alpine default)"
+  agent_exec "sed -i 's|^root:.*|root:x:0:0:root:/root:/bin/ash|' /etc/passwd"     | tee -a "$OUT_DIR/sshd-diag.txt" || true
+  agent_exec "rc-service sshd restart 2>/dev/null || true"     | tee -a "$OUT_DIR/sshd-diag.txt" || true
+fi
 
 # start sshd if not running (PermitRootLogin prohibit-password allows pubkey)
 log "ensuring sshd is enabled + running"
