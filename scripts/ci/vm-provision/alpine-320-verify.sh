@@ -67,18 +67,30 @@ echo "state: $STATE" > "$OUT_DIR/guest-state.txt"
 } | tee "$OUT_DIR/guest-facts.txt"
 
 # ------------------------------------------------------------- agent check --
+# agent_guest_ping - send a guest-ping via the stdin-safe transport.
+# Replaces inline 'virsh qemu-agent-command <json>' calls that failed with
+# "error: command 'qemu-agent-command' requires <cmd> option" because the
+# double-quoted JSON payload was mangled through the SSH hop.
+agent_guest_ping() {
+  local pf resp
+  pf="$(mktemp)"
+  printf '{"execute":"guest-ping"}' > "$pf"
+  resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$pf")"
+  rm -f "$pf"
+  [ -n "$resp" ] && echo "$resp" | jq -e 'has("return")' >/dev/null 2>&1
+}
+
 log "probing qemu-guest-agent (guest-ping)"
 AG_OK=0
 for i in $(seq 1 24); do
-  if tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" >/dev/null 2>&1; then
+  if agent_guest_ping >/dev/null 2>&1; then
     AG_OK=1; break
   fi
   log "agent not answering yet (attempt $i/24)"; sleep 10
 done
 [ "$AG_OK" = "1" ] || die "qemu-guest-agent not answering: run vm:provision:alpine320 (fixed script) to reinstall"
 echo "guest-ping: answered" | tee -a "$OUT_DIR/guest-state.txt"
-tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" 2>/dev/null \
-  | tee -a "$OUT_DIR/guest-state.txt" || true
+agent_guest_ping 2>/dev/null | tee -a "$OUT_DIR/guest-state.txt" || true
 
 # agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
 # Uses SSH stdin to pass the JSON payload, avoiding shell-level quoting
@@ -87,7 +99,7 @@ tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" 2>
 agent_exec() {
   local cmd="$1" payload_file resp pid st ec out
   payload_file="$(mktemp)"
-  jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"sh",arg:["$cmd"],"capture-output":true}}' > "$payload_file"
+  jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"/bin/sh",arg:["-c",$cmd],"capture-output":true}}' > "$payload_file"
   resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$payload_file")" \
     || { AGENT_RC=255; rm -f "$payload_file"; return 1; }
   rm -f "$payload_file"
@@ -198,7 +210,7 @@ ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" "root@$VM_IP" \
 
 {
   echo "=== guest agent ping (virsh) ==="
-  tower "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'" && echo "guest-ping ok"
+  agent_guest_ping && echo "guest-ping ok"
   echo "=== authorized key fingerprint in guest ==="
   ssh $SSH_OPTS -o IdentitiesOnly=yes -i "$PRIV" "root@$VM_IP" \
     "ssh-keygen -lf /root/.ssh/authorized_keys 2>/dev/null | awk '{print \$1, \$2}'"
