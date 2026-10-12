@@ -34,7 +34,18 @@ else
 	echo "FATAL: /root/hermes-key.pub missing in chroot" >&2
 	exit 1
 fi
-passwd -l root || true
+# Lock root's PASSWORD login without invalidating the account for pubkey auth.
+# `passwd -l root` prepends '!' to the shadow password field; on Alpine (openssh
+# built without PAM) sshd's getpwnamallow() treats a leading '!' as an invalid
+# user and rejects ALL root pubkey auth — "userauth_pubkey: invalid user root"
+# even when authorized_keys is correct (observed in job 49885). Setting the
+# shadow field to '*' blocks password login while keeping the account valid for
+# pubkey authentication (PermitRootLogin prohibit-password below).
+if [ -w /etc/shadow ]; then
+  sed -i 's/^root:[^:]*:/root:*:/' /etc/shadow
+else
+  echo "WARN: cannot write /etc/shadow - root password lock skipped" >&2
+fi
 sed -i 's/^#\{0,1\}PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config
 grep -n 'PermitRootLogin' /etc/ssh/sshd_config || true
 

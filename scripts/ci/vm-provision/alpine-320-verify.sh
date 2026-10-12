@@ -169,8 +169,15 @@ log "diagnosing in-guest sshd state via guest agent"
   agent_exec "ss -tlnp 2>/dev/null || netstat -tlnp 2>/dev/null || echo 'no ss/netstat'" || true
 } | tee "$OUT_DIR/sshd-diag.txt"
 
-# Diagnose root account state (ssh 'invalid user' from job 49806 server-side debug)
-log "diagnosing root account in guest (job 49806 showed 'invalid user root' from sshd)"
+# Diagnose root account state (job 49885 server-side debug showed
+# 'userauth_pubkey: invalid user root'). Two Alpine sshd-root causes:
+#   (a) missing / non-executable shell -> sshd rejects root as invalid user
+#   (b) shadow password field starts with '!' -> getpwnamallow() (Alpine's
+#       openssh has no PAM) treats root as invalid even with correct keys.
+#       `passwd -l` produces this; the install's chroot-config.sh now sets the
+#       field to '*' instead, but a guest installed by an older script will
+#       still carry '!' and must be repaired here.
+log "diagnosing root account in guest (job 49885 showed 'invalid user root')"
 agent_exec "grep root /etc/passwd; grep root /etc/shadow 2>/dev/null; ls -la /bin/ash /bin/sh /bin/bash 2>/dev/null; grep -vE '^#|^$' /etc/shells 2>/dev/null" \
   | tee -a "$OUT_DIR/sshd-diag.txt" || true
 
@@ -180,12 +187,31 @@ log "root shell in guest: ${ROOT_SHELL}"
 if [ -z "$ROOT_SHELL" ] || [ ! -x "$ROOT_SHELL" ]; then
   log "root shell is missing/broken ($ROOT_SHELL) - fixing to /bin/ash (Alpine default)"
   agent_exec "sed -i 's|^root:.*|root:x:0:0:root:/root:/bin/ash|' /etc/passwd"     | tee -a "$OUT_DIR/sshd-diag.txt" || true
-  agent_exec "rc-service sshd restart 2>/dev/null || true"     | tee -a "$OUT_DIR/sshd-diag.txt" || true
+fi
+
+# Repair shadow field if '!'-locked: on Alpine (no PAM) a leading '!' makes sshd
+# reject root as an invalid user for ALL auth (incl. pubkey). `passwd -l` produces
+# this; the install's chroot-config.sh now sets the field to '*' instead, but a
+# guest installed by an older script still carries '!' and must be repaired here.
+# '*' blocks password login while keeping the account valid for pubkey auth.
+log "checking root shadow field for leading '!' (Alpine invalid-user lockout)"
+SHADOW_ROOT="$(agent_exec "sed -n '/^root:/p' /etc/shadow 2>/dev/null")"
+if [ -n "$SHADOW_ROOT" ]; then
+  if printf '%s' "$SHADOW_ROOT" | grep -q '^root:!'; then
+    log "root shadow is '!'-locked - repairing to '*' (pubkey-safe lock)"
+    agent_exec "sed -i 's/^root:[^:]*:/root:*:/' /etc/shadow && echo SHADOW_REPAIRED" \
+      | tee -a "$OUT_DIR/sshd-diag.txt" || true
+    grep -q SHADOW_REPAIRED "$OUT_DIR/sshd-diag.txt" || log "WARN: shadow repair incomplete"
+  else
+    log "root shadow field OK (no leading '!')"
+  fi
+else
+  log "root not in /etc/shadow - skipping shadow repair"
 fi
 
 # start sshd if not running (PermitRootLogin prohibit-password allows pubkey)
-log "ensuring sshd is enabled + running"
-agent_exec "rc-update add sshd default 2>/dev/null || true; rc-service sshd start 2>&1 || true; rc-service sshd status 2>&1 || true" \
+log "ensuring sshd is enabled + running (restart if shadow was repaired)"
+agent_exec "rc-update add sshd default 2>/dev/null || true; rc-service sshd restart 2>&1 || rc-service sshd start 2>&1 || true; rc-service sshd status 2>&1 || true" \
   | tee -a "$OUT_DIR/sshd-diag.txt" || true
 sleep 3
 
