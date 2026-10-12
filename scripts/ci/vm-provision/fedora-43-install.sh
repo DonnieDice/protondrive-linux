@@ -83,6 +83,23 @@ if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
 fi
 
+# The persistent guest (fedora43) may be running and holding a write lock on
+# the shared qcow2 disk (vdisk1.qcow2). The transient install domain must own
+# that disk exclusively during install; shut the persistent guest off so the
+# lock is released. We restart it (with corrections) after the install.
+if [ "${STATE:-}" = "running" ]; then
+  log "persistent guest $GUEST is running — shutting it off so the transient install domain can acquire the qcow2 disk lock"
+  tower "sudo virsh shutdown '$GUEST'" || die "could not shut off persistent guest $GUEST"
+  for _ in $(seq 1 30); do
+    if [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" = "shut off" ]; then
+      log "persistent guest shut off"
+      break
+    fi
+    sleep 5
+  done
+  [ "$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)" = "shut off" ] || die "persistent guest $GUEST did not reach shut off state"
+fi
+
 # --------------------------------------------------- disk preflight/create --
 log "domain dir contents before any change:"
 tower "ls -la '$DOMAIN_DIR/' 2>/dev/null || echo '(domain dir absent)'" | tee "$OUT_DIR/disk-preflight.txt"
@@ -326,32 +343,79 @@ log "transient domain and scratch files removed"
 
 # ------------------------------------- persistent domain: OVMF redefinition --
 # Fedora 43 supports UEFI; add the OVMF loader to the persistent domain if
-# not already present, preserving every other attribute verbatim from
-# its live dumpxml.
+# not already present. Also ensure the interface is attached to br0 with
+# IP 192.168.1.183 — the inventory (note on #18) showed the fedora43 guest's
+# bridge interface was missing <source bridge='br0'/>, causing it to fall
+# back to the default network (192.168.122.x) and remain unreachable at .183.
+# We rewrite the interface block to include <source bridge='br0'/> while
+# preserving the MAC address.
+NEEDS_REDEFINE="no"
 if ! tower "sudo virsh dumpxml '$GUEST'" | grep -q "<loader"; then
-  log "redefining persistent guest $GUEST with OVMF firmware (Fedora 43 is UEFI-capable)"
+  NEEDS_REDEFINE="yes"
+  log "persistent guest lacks OVMF loader — will redefine with UEFI firmware"
+elif ! tower "sudo virsh dumpxml '$GUEST'" | grep -q "<source bridge='br0'>"; then
+  NEEDS_REDEFINE="yes"
+  log "persistent guest lacks br0 bridge source — will redefine with <source bridge='br0'/>"
+fi
+
+if [ "$NEEDS_REDEFINE" = "yes" ]; then
+  log "redefining persistent guest $GUEST (OVMF loader + br0 network)"
   tower "sudo virsh dumpxml '$GUEST'" >"$OUT_DIR/persistent-before.xml"
   : >"$OUT_DIR/persistent-after.xml"
+  WHILE_MAC=""
   while IFS= read -r line; do
-    printf '%s\n' "$line" >>"$OUT_DIR/persistent-after.xml"
+    printf '%s\\n' "$line" >>"$OUT_DIR/persistent-after.xml"
     case "$line" in
       *"machine='pc-q35-9.2'>hvm</type>"*)
-        printf "    <loader readonly=%s type=%s>%s</loader>\n" "'yes'" "'pflash'" "$OVMF_CODE" >>"$OUT_DIR/persistent-after.xml"
-        printf "    <nvram>%s</nvram>\n" "$NVRAM_PERSIST" >>"$OUT_DIR/persistent-after.xml"
+        # Inject OVMF loader + NVRAM if not already present
+        if ! grep -q "<loader" "$OUT_DIR/persistent-after.xml" 2>/dev/null; then
+          printf "    <loader readonly=%s type=%s>%s</loader>\\n" "'yes'" "'pflash'" "$OVMF_CODE" >>"$OUT_DIR/persistent-after.xml"
+          printf "    <nvram>%s</nvram>\\n" "$NVRAM_PERSIST" >>"$OUT_DIR/persistent-after.xml"
+        fi
+        ;;
+      *"<interface type='bridge'>"*)
+        # We are inside the interface block; read the next line to find MAC,
+        # then inject <source bridge='br0'/> if missing. We handle this with
+        # a targeted sed-style rewrite below after the loop.
         ;;
     esac
   done <"$OUT_DIR/persistent-before.xml"
+
+  # Post-process: fix the network interface to ensure <source bridge='br0'/>.
+  # If the interface block lacks a <source bridge='br0'/> line, insert it
+  # right after the <interface type='bridge'> line, preserving the MAC.
+  # Use a portable approach: check and insert via awk.
+  if ! grep -q "<source bridge='br0'>" "$OUT_DIR/persistent-after.xml"; then
+    awk '
+      /^\s*<interface type=.bridge.>/ {
+        print
+        getline next_line
+        if (next_line ~ /<source bridge=.br0.>/) {
+          print next_line
+        } else {
+          print "      <source bridge='\''br0'\''/>"
+          print next_line
+        }
+        next
+      }
+      { print }
+    ' "$OUT_DIR/persistent-after.xml" >"$OUT_DIR/persistent-after-fixed.xml" \
+      && mv "$OUT_DIR/persistent-after-fixed.xml" "$OUT_DIR/persistent-after.xml"
+  fi
+
   grep -q "<loader" "$OUT_DIR/persistent-after.xml" ||
     die "failed to inject OVMF loader into persistent domain XML"
+  grep -q "<source bridge='br0'>" "$OUT_DIR/persistent-after.xml" ||
+    die "failed to inject br0 bridge source into persistent domain XML"
   ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh define /dev/stdin" \
     <"$OUT_DIR/persistent-after.xml" >"$OUT_DIR/persistent-domain-define.log" 2>&1 ||
     {
       cat "$OUT_DIR/persistent-domain-define.log"
       die "persistent domain redefine failed"
     }
-  log "persistent domain redefined with OVMF (see persistent-domain-define.log)"
+  log "persistent domain redefined with OVMF + br0 (see persistent-domain-define.log)"
 else
-  log "persistent guest already carries a firmware loader"
+  log "persistent guest already carries firmware loader and br0 bridge source"
 fi
 
 # --------------------------------------------------- boot + acceptance ------
