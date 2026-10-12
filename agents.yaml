@@ -1,0 +1,157 @@
+# agents.yaml — Hermes workforce platform runtime configuration.
+#
+# Each workforce role has its own GitLab identity (Personal Access Token
+# injected at runtime via GITLAB_TOKEN env var). No shared or privileged
+# identity exists. Each role's MCP toolset allowlist is the minimal subset
+# required for that role's duties.
+#
+# The GitLab MCP server endpoint (HTTP transport) is:
+#   https://gitlab.dicematrix.cloud/api/v4/mcp
+#
+# Per-role toolsets are enforced via the X-Gitlab-Enabled-Mcp-Server-Toolsets
+# header. The `meta` toolset is always present regardless of role.
+#
+# Isolation: no hostPath, no host networking, no privileged containers,
+# no /opt/data sharing across roles.
+
+# ─── GitLab MCP server loadout ────────────────────────────────────────────────
+# Pinned in TOOLS.md and CHECKSUMS.sha256. Do not change the version without
+# updating both files and the checksum lockstep test.
+mcp:
+  gitlab:
+    name: "GitLab"
+    type: http
+    url: "https://gitlab.dicematrix.cloud/api/v4/mcp"
+    transport: http
+    pinned_version: "2025.4.25"
+    sha256: "3d4436611ee2f7aa77ca878fb18f382534267e92ad1687c34567cd2ffa8342f9"
+
+# ─── Per-role identity & toolset wiring ───────────────────────────────────────
+roles:
+  # Dispatcher: routes issues/MRs to the correct role. Needs to read work items
+  # and basic project info but must not write code or trigger CI.
+  dispatcher:
+    identity: "workforce-dispatcher"
+    gitlab_token_env: "GITLAB_TOKEN_DISPATCHER"
+    toolsets:
+      - "core"          # always present (also in meta)
+      - "work_items"    # read issues, create/assign, view MRs
+    forbidden_toolsets:
+      - "merge_requests"  # dispatcher does not manage code review
+      - "repository"      # dispatcher does not read repo contents
+      - "ci"              # dispatcher does not trigger CI
+    description: "Route issues and MRs to the correct workforce role."
+
+  # Engineer: implements code changes, opens MRs, pushes branches.
+  engineer:
+    identity: "workforce-engineer"
+    gitlab_token_env: "GITLAB_TOKEN_ENGINEER"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "repository"
+      - "ci"
+    forbidden_toolsets:
+      - "wikis"
+      - "code_security"
+    description: "Author implementation code, open MRs, manage branches."
+
+  # QA: independently verifies acceptance criteria. Read-only on code.
+  qa:
+    identity: "workforce-qa"
+    gitlab_token_env: "GITLAB_TOKEN_QA"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "repository"
+      - "ci"
+    forbidden_toolsets:
+      - "wikis"
+      - "code_security"
+    description: "Independently verify acceptance criteria; read-only review of code."
+
+  # Reviewer: code review only. Must not approve own work.
+  reviewer:
+    identity: "workforce-reviewer"
+    gitlab_token_env: "GITLAB_TOKEN_REVIEWER"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "repository"
+    forbidden_toolsets:
+      - "ci"             # reviewer does not trigger CI
+      - "wikis"
+      - "code_security"
+    description: "Independent code review; never self-approve."
+
+  # Security: inspects for vulnerabilities. Expanded toolset including security.
+  security:
+    identity: "workforce-security"
+    gitlab_token_env: "GITLAB_TOKEN_SECURITY"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "repository"
+      - "ci"
+      - "code_security"
+    forbidden_toolsets:
+      - "wikis"
+    description: "Security audit; inspect code and dependencies for vulnerabilities."
+
+  # Platform: infrastructure, CI/CD, deployment, runtime loadout.
+  platform:
+    identity: "workforce-platform"
+    gitlab_token_env: "GITLAB_TOKEN_PLATFORM"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "repository"
+      - "ci"
+    forbidden_toolsets:
+      - "wikis"
+      - "code_security"
+    description: "Platform infrastructure, CI/CD, staging, observability, rollback."
+
+  # Release: handles tags, releases, merge coordination. No repository read.
+  release:
+    identity: "workforce-release"
+    gitlab_token_env: "GITLAB_TOKEN_RELEASE"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "ci"
+    forbidden_toolsets:
+      - "repository"      # release does not read repo file contents directly
+      - "wikis"
+      - "code_security"
+    description: "Release gate evaluation and merge coordination."
+
+  # Docs: documentation and skill accuracy. May read wikis but not code.
+  docs:
+    identity: "workforce-docs"
+    gitlab_token_env: "GITLAB_TOKEN_DOCS"
+    toolsets:
+      - "core"
+      - "work_items"
+      - "merge_requests"
+      - "wikis"
+    forbidden_toolsets:
+      - "repository"      # docs does not read source code contents
+      - "ci"              # docs does not trigger CI
+      - "code_security"
+    description: "Documentation, skill accuracy, ADRs."
+
+# ─── Runtime isolation policy ─────────────────────────────────────────────────
+runtime:
+  isolation:
+    hostPath: false          # never mount host directories
+    hostNetwork: false       # never use host networking
+    privileged: false        # never run as privileged container
+    shareOptData: false      # never share /opt/data across roles
+    secrets_in_source: false  # secrets never committed; injected via env vars
