@@ -101,24 +101,25 @@ agent_exec "grep -i '^Include' /etc/ssh/sshd_config 2>/dev/null; ls /etc/ssh/ssh
 log "=== root home + key perms (StrictModes) ===" | tee -a "$DIAG"
 agent_exec "ls -ld /root /root/.ssh /root/.ssh/authorized_keys 2>&1; stat -c '%a %U:%G %n' /root /root/.ssh /root/.ssh/authorized_keys 2>&1" | tee -a "$DIAG"
 
-log "=== authorized_keys content + fingerprint ===" | tee -a "$DIAG"
-agent_exec "cat /root/.ssh/authorized_keys 2>&1; echo '---fingerprints---'; awk '{print \$1\" \"\$2}' /root/.ssh/authorized_keys | while read t k; do echo \"type=\$t keyprefix=\${k:0:40}...\"; done" | tee -a "$DIAG"
+log "=== authorized key fingerprints (no key contents) ===" | tee -a "$DIAG"
+agent_exec "ssh-keygen -lf /root/.ssh/authorized_keys 2>&1 | awk '{print \$1,\$2,\$4}'" | tee -a "$DIAG"
+ssh-keygen -lf "$PRIV" | awk '{print "runner-key",$1,$2,$4}' | tee -a "$DIAG"
+
+log "=== root account state (no password/hash output) ===" | tee -a "$DIAG"
+agent_exec "awk -F: '\$1==\"root\" { if (\$2==\"\") print \"root_password_state=empty\"; else if (\$2 ~ /^[!*]/) print \"root_password_state=locked\"; else print \"root_password_state=hash_present\" }' /etc/shadow" | tee -a "$DIAG"
 
 log "=== sshd_config non-comment lines ===" | tee -a "$DIAG"
 agent_exec "grep -Ev '^[[:space:]]*(#|\$)' /etc/ssh/sshd_config 2>&1; echo '--- include dir ---'; ls -la /etc/ssh/sshd_config.d 2>&1; for f in /etc/ssh/sshd_config.d/*; do [ -f \"\$f\" ] && { echo \"--- \$f ---\"; cat \"\$f\"; }; done" | tee -a "$DIAG" || true
 
-log "=== sshd foreground debug (one-shot) ===" | tee -a "$DIAG"
-agent_exec "pkill sshd; /usr/sbin/sshd -d -e >/tmp/sshd-d.log 2>&1 & sleep 1; /usr/sbin/sshd >/dev/null 2>&1 & sleep 6; pkill sshd; grep -Ei 'auth|key|denied|user|pubkey' /tmp/sshd-d.log | tail -40" | tee -a "$DIAG" || true
+log "=== existing sshd service and listeners (observation only) ===" | tee -a "$DIAG"
+agent_exec "rc-service sshd status; netstat -lnt; ps -o pid,comm | grep '[s]shd'" | tee -a "$DIAG" || true
 
-log "=== restarting sshd and one verbose probe from runner ===" | tee -a "$DIAG"
-VM_KEY_TMP="$(mktemp)"
-cp "$PRIV" "$VM_KEY_TMP"
-sed -i 's/\r$//' "$VM_KEY_TMP"
-[ -n "$(tail -c1 "$VM_KEY_TMP" 2>/dev/null)" ] && printf '\n' >>"$VM_KEY_TMP"
-chmod 600 "$VM_KEY_TMP"
-ssh -vvv -F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -i "$VM_KEY_TMP" -o IdentitiesOnly=yes "root@$VM_IP" "echo PROBE_OK; hostname" >"$OUT_DIR/ssh-probe-vvv.txt" 2>&1 || true
-rm -f "$VM_KEY_TMP"
+log "=== one verbose probe from runner (no service mutation) ===" | tee -a "$DIAG"
+ssh -vvv -F /dev/null -o BatchMode=yes -o ConnectTimeout=15 -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile="$VM_KNOWN_HOSTS" -i "$PRIV" -o IdentitiesOnly=yes "root@$VM_IP" "echo PROBE_OK; hostname" >"$OUT_DIR/ssh-probe-vvv.txt" 2>&1 || true
 grep -Ei 'offering|publickey|server accepts|Authentications|denied|sign|identity|expecting|host key' "$OUT_DIR/ssh-probe-vvv.txt" | tail -40 | tee -a "$DIAG"
+
+log "=== existing authentication rejection logs ===" | tee -a "$DIAG"
+agent_exec "grep -iE 'root.*locked|bad ownership|Failed publickey|not allowed' /var/log/messages 2>/dev/null | tail -8" | tee -a "$DIAG" || true
 
 log "=== diag complete: evidence in provision-results ==="
 exit 0
