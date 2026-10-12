@@ -13,7 +13,9 @@
 # stages).
 #
 # Preconditions verified by vm:inventory:ubuntu-26.04:
-#   - guest ubuntu2604 defined, shut off (driver starts it)
+#   - guest ubuntu2604 defined (may be running or shut off; the driver
+#     destroys it if running so the transient install domain can lock the
+#     qcow2 disk, then re-starts the persistent guest after install)
 #   - br0 network exists and is active
 #   - 192.168.1.168 free (no arp entry, ping silent) unless pre-existing
 #   - Ubuntu 26.04 live ISO available on tower at /mnt/pool_one/isos/
@@ -102,6 +104,27 @@ else
   log "persistent guest state: ${STATE:-unknown}"
 fi
 { echo "pre-state: ${STATE:-not-defined}"; tower "sudo virsh dumpxml '$GUEST' 2>/dev/null"; } > "$OUT_DIR/pre-state.txt" || die "dumpxml failed"
+
+# If the persistent guest is running, destroy it so the transient install
+# domain can take write access to the qcow2 disk. A running guest holds a
+# shared write lock (or "write" exclusive lock) on the qcow2 file that
+# prevents the transient domain from attaching the same disk (see prior
+# failure: "Failed to get write lock" at job 47888). The persistent guest's
+# XML is never edited — it is re-defined (if needed) and re-started from
+# the installed disk after the autoinstall completes (see the persistent
+# domain boot section near the end of this script).
+if [ "${STATE:-}" = "running" ] || [ "${STATE:-}" = "paused" ] || [ "${STATE:-}" = "idle" ]; then
+  log "persistent guest is ${STATE} - destroying before transient install"
+  tower "sudo virsh destroy '$GUEST'" || die "destroy persistent guest failed"
+  # Wait for it to fully shut off and release the qcow2 lock
+  for _ in $(seq 1 12); do
+    S="$(tower "sudo virsh domstate '$GUEST' 2>/dev/null || true")"
+    [ "$S" = "shut off" ] && break
+    sleep 5
+  done
+  [ "$(tower "sudo virsh domstate '$GUEST' 2>/dev/null || true")" = "shut off" ] || die "persistent guest did not shut off in 60s"
+  log "persistent guest destroyed; state: $(tower "sudo virsh domstate '$GUEST'")"
+fi
 
 # transient domain must not exist
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
