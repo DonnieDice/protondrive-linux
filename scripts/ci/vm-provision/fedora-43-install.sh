@@ -57,7 +57,7 @@ KS_DIR="/tmp/fedora43-ks.$$"
 cleanup() {
   # best-effort; never touch other guests. Kill the httpd we started, remove
   # the transient domain, and wipe scratch files.
-  tower "pkill -f 'httpd.*fedora43-ks' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media'" \
+  tower "pkill -f 'httpd.*fedora43-ks' 2>/dev/null; sudo virsh destroy '$TRANSIENT' 2>/dev/null; sudo virsh undefine --nvram '$TRANSIENT' 2>/dev/null; rm -rf '$KS_DIR' '$DOMAIN_DIR/install-media'" \
     >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
@@ -80,16 +80,19 @@ log "persistent guest state: ${STATE:-not-defined}"
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   log "removing stale transient domain $TRANSIENT"
   tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
-  tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
-  # verify removal; undefine can silently fail on domains with snapshots
-  # or in a corrupted state — escalate to --remove-all-storage if needed.
+  # Fedora 43 transient uses UEFI; its domain carries an NVRAM file, so
+  # plain `virsh undefine` refuses ("cannot delete inactive domain with
+  # nvram") unless --nvram is passed. We never use --remove-all-storage:
+  # the transient shares the persistent guest's qcow2 (vdisk1.qcow2), which
+  # lives on an Unraid path outside any libvirt storage pool — removing it
+  # from the transient undefine would destroy the persistent disk. Capture
+  # stderr so a real refusal is visible in artifacts.
+  if ! tower "sudo virsh undefine --nvram '$TRANSIENT'" 2>&1 | tee "$OUT_DIR/stale-transient-undefine.log"; then
+    die "stale transient $TRANSIENT undefine --nvram refused (see stale-transient-undefine.log)"
+  fi
+  sleep 2
   if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
-    log "WARN: stale $TRANSIENT still defined after basic undefine — escalating to --remove-all-storage"
-    tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
-    tower "sudo virsh undefine --remove-all-storage '$TRANSIENT'" >/dev/null 2>&1 || true
-    if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
-      die "stale transient domain $TRANSIENT could not be removed (verify no external hold on its disk)"
-    fi
+    die "stale transient $TRANSIENT could not be removed (see stale-transient-undefine.log)"
   fi
 fi
 
@@ -362,7 +365,7 @@ for _ in $(seq 1 30); do
   [ "$S" = "shut off" ] && break
   sleep 5
 done
-tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
+tower "sudo virsh undefine --nvram '$TRANSIENT'" || die "undefine transient failed"
 tower "rm -rf '$DOMAIN_DIR/install-media' '$KS_DIR'" || true
 log "transient domain and scratch files removed"
 
