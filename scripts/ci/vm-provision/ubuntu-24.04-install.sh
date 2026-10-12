@@ -260,14 +260,19 @@ fi
 # Extract kernel and initrd
 # For netboot.tar.gz: paths are vmlinuz + initrd.gz
 # For server ISO: paths are casper/vmlinuz + casper/initrd
+# Extract kernel and initrd from the ISO/netboot media on tower.
+# Try the netboot tarball first (vmlinuz + initrd.gz), then the server ISO
+# (casper/vmlinuz + casper/initrd). Use explicit if-checks instead of
+# &&/|| chaining to avoid ambiguous precedence and shellcheck warnings.
 tower "rm -rf '$DOMAIN_DIR/install-media'; mkdir -p '$DOMAIN_DIR/install-media' && \
        cd '$DOMAIN_DIR/install-media' && \
        bsdtar -xf '$ISO_PATH' vmlinuz initrd.gz 2>/dev/null || \
-       bsdtar -xf '$ISO_PATH' casper/vmlinuz casper/initrd 2>/dev/null && \
-       [ -f vmlinuz ] && mv vmlinuz vmlinuz-installer || true && \
-       [ -f initrd.gz ] && mv initrd.gz initrd-installer || true && \
-       [ -f casper/vmlinuz ] && mv casper/vmlinuz vmlinuz-installer && rmdir casper 2>/dev/null || true && \
-       [ -f casper/initrd ] && mv casper/initrd initrd-installer && rmdir casper 2>/dev/null || true && \
+       bsdtar -xf '$ISO_PATH' casper/vmlinuz casper/initrd 2>/dev/null; \
+       if [ -f vmlinuz ]; then mv vmlinuz vmlinuz-installer; fi; \
+       if [ -f initrd.gz ]; then mv initrd.gz initrd-installer; fi; \
+       if [ -f casper/vmlinuz ]; then mv casper/vmlinuz vmlinuz-installer; fi; \
+       if [ -f casper/initrd ]; then mv casper/initrd initrd-installer; fi; \
+       rmdir casper 2>/dev/null; true; \
        ls -la" | tee -a "$OUT_DIR/iso-extract.log" || die "kernel/initrd extraction failed"
 
 KREL="$DOMAIN_DIR/install-media/vmlinuz-installer"

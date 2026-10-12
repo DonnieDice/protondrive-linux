@@ -59,11 +59,18 @@ wait_for {subiquity} 900
 
 # --- autoinstall-driven install ---------------------------------------------
 # Subiquity logs progress lines. A fatal installer error aborts early;
-# otherwise wait for completion. Ubuntu 24.04 autoinstall prints
-# "Installation complete" before rebooting, or on error may print a traceback.
+# otherwise wait for completion. Ubuntu 24.04 subiquity prints
+# "Installation complete" before rebooting. On the serial console subiquity
+# may also not flush the banner before the kernel reboots, so we accept the
+# post-install login prompt as an equivalent completion signal. A lone
+# "[FAILED]" systemd boot line (e.g. NetworkManager-wait-online.service)
+# is NOT a subiquity error - it appears during the target OS first boot,
+# not during installation.
 set timeout 300
 expect {
 	{Installation complete} { }
+	{ubuntu login:} { log "matched login prompt - install completed and system booted" }
+	{Login:} { log "matched login prompt - install completed and system booted" }
 	{Pane is dead} { die "subiquity pane died (installer error)" }
 	{Traceback (most recent call last)} { die "subiquity traceback" }
 	{Subiquity ERROR} { puts "\nEXPECT-FATAL: subiquity reported ERROR"; exit 2 }
