@@ -50,9 +50,9 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 # --- installer boot --------------------------------------------------------
 # The transient domain boots the live kernel with console=ttyS0.
 # Subiquity's first serial output is the casper live-initramfs banner,
-# followed by the installer starting. 900s is generous but bounded for
-# kernel + installer load + network bring-up.
-wait_for {"Ubuntu 26.04"} 900
+# followed by the installer starting. 1200s is generous but bounded for
+# kernel + initramfs DHCP bring-up (ip=dhcp on cmdline) + installer load.
+wait_for {"Ubuntu 26.04"} 1200
 
 # --- autoinstall-driven install ---------------------------------------------
 # The autoinstall user-data drives partitioning, package install, and the
