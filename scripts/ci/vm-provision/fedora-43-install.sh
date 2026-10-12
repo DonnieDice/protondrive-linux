@@ -76,11 +76,21 @@ log "persistent guest state: ${STATE:-not-defined}"
   fi
 } >"$OUT_DIR/pre-state.txt" || die "could not record pre-state"
 
-# transient domain must not exist
+# transient domain must not exist (stale from a previous interrupted run)
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   log "removing stale transient domain $TRANSIENT"
   tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
   tower "sudo virsh undefine '$TRANSIENT'" >/dev/null 2>&1 || true
+  # verify removal; undefine can silently fail on domains with snapshots
+  # or in a corrupted state — escalate to --remove-all-storage if needed.
+  if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
+    log "WARN: stale $TRANSIENT still defined after basic undefine — escalating to --remove-all-storage"
+    tower "sudo virsh destroy '$TRANSIENT'" >/dev/null 2>&1 || true
+    tower "sudo virsh undefine --remove-all-storage '$TRANSIENT'" >/dev/null 2>&1 || true
+    if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
+      die "stale transient domain $TRANSIENT could not be removed (verify no external hold on its disk)"
+    fi
+  fi
 fi
 
 # The persistent guest (fedora43) may be running and holding a write lock on
