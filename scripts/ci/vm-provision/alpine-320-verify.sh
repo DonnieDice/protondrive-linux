@@ -67,16 +67,13 @@ echo "state: $STATE" > "$OUT_DIR/guest-state.txt"
 } | tee "$OUT_DIR/guest-facts.txt"
 
 # ------------------------------------------------------------- agent check --
-# agent_guest_ping - send a guest-ping via the stdin-safe transport.
-# Replaces inline 'virsh qemu-agent-command <json>' calls that failed with
-# "error: command 'qemu-agent-command' requires <cmd> option" because the
-# double-quoted JSON payload was mangled through the SSH hop.
+# agent_guest_ping - send a guest-ping via the safe inline transport.
+# The provision job's inline format works (SSH client handles the JSON fine);
+# the prior stdin transport was suspected of mangling payloads and is not
+# needed here. We reuse the provision job's exact invocation pattern.
 agent_guest_ping() {
-  local pf resp
-  pf="$(mktemp)"
-  printf '{"execute":"guest-ping"}' > "$pf"
-  resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$pf")"
-  rm -f "$pf"
+  local resp
+  resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST' '{\"execute\":\"guest-ping\"}'")"
   [ -n "$resp" ] && echo "$resp" | jq -e 'has("return")' >/dev/null 2>&1
 }
 
@@ -116,35 +113,45 @@ echo "guest-ping: answered" | tee -a "$OUT_DIR/guest-state.txt"
 agent_guest_ping 2>/dev/null | tee -a "$OUT_DIR/guest-state.txt" || true
 
 # agent_exec <shell command> -> echoes decoded stdout; sets AGENT_RC
-# Uses SSH stdin to pass the JSON payload, avoiding shell-level quoting
-# corruption that occurs when the payload (containing double quotes and
-# backslashes) is passed as a command-line argument through the tower SSH hop.
+# Writes the JSON payload via SSH to a temp file on the tower host, then
+# invokes virsh with the payload as a positional argument (read from the
+# file via $(< file)). This avoids all SSH-level quoting issues since the
+# payload is never interpolated into a shell string on the tower side
+# (it is written from a quoted heredoc, which is literal).
 agent_exec() {
-  local cmd="$1" payload_file resp pid st ec out
-  payload_file="$(mktemp)"
-  jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"/bin/sh",arg:["-c",$cmd],"capture-output":true}}' > "$payload_file"
-  resp="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$payload_file")" \
-    || { AGENT_RC=255; rm -f "$payload_file"; return 1; }
-  rm -f "$payload_file"
+  local cmd="$1" payload resp pid st ec out
+  payload="$(jq -nc --arg cmd "$cmd" '{execute:"guest-exec",arguments:{path:"/bin/sh",arg:["-c",$cmd],"capture-output":true}}')"
+  # Write payload to a temp file on tower via a quoted heredoc (literal, no
+  # expansion on the remote side), then source it back into a virsh argument.
+  ssh $SSH_OPTS "$TOWER_HOST" "sudo bash -s" <<HERMES_QGA_WRITE
+cat > /tmp/qga-payload.json <<"QGA_EOF"
+$payload
+QGA_EOF
+HERMES_QGA_WRITE
+  resp="$(tower "sudo virsh qemu-agent-command '$GUEST' \"\$(< /tmp/qga-payload.json)\"")" \
+    || { AGENT_RC=255; return 1; }
   pid="$(jq -r '.return.pid // empty' <<<"$resp")"
   [ -n "$pid" ] || { AGENT_RC=255; return 1; }
-  local status_file
-  status_file="$(mktemp)"
+  local status_json
   for _ in $(seq 1 30); do
-    printf '{"execute":"guest-exec-status","arguments":{"pid":%s}}' "$pid" > "$status_file"
-    st="$(ssh $SSH_OPTS "$TOWER_HOST" "sudo virsh qemu-agent-command '$GUEST'" < "$status_file")" \
-      || { AGENT_RC=254; rm -f "$status_file"; return 1; }
+    status_json="$(printf '{"execute":"guest-exec-status","arguments":{"pid":%s}' "$pid")}"
+    ssh $SSH_OPTS "$TOWER_HOST" "sudo bash -s" <<HERMES_QGA_WRITE
+cat > /tmp/qga-payload.json <<"QGA_EOF"
+$status_json
+QGA_EOF
+HERMES_QGA_WRITE
+    st="$(tower "sudo virsh qemu-agent-command '$GUEST' \"\$(< /tmp/qga-payload.json)\"")" \
+      || { AGENT_RC=254; return 1; }
     if [ "$(jq -r '.return.exited // false' <<<"$st")" = "true" ]; then
       ec="$(jq -r '.return.exitcode // 255' <<<"$st")"
       out="$(jq -r '.return."out-data" // ""' <<<"$st" | base64 -d 2>/dev/null || true)"
       AGENT_RC="$ec"
-      rm -f "$status_file"
       printf '%s' "$out"
       return 0
     fi
     sleep 2
   done
-  AGENT_RC=254; rm -f "$status_file"; return 1;
+  AGENT_RC=254; return 1;
 }
 
 # ------------------------------------------------------------- key repair ---
