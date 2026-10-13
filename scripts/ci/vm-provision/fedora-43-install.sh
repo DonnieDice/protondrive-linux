@@ -254,14 +254,36 @@ tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/insta
 # the LiveOS/squashfs.img on the CDROM. We discover the label from the ISO
 # itself by reading the UEFI grub.cfg embedded on the disc (same value its
 # own boot menu uses), then fall back to the standard Fedora WS label.
+# NOTE: bsdtar -xOf with --include extracts matching files to stdout; on
+# Alpine busybox bsdtar does not support --include with -O, so we use a
+# two-step approach: list matching paths, then extract each candidate.
 log "discovering ISO volume label for the live root"
-ISO_LABEL="$(tower "bsdtar -xOf '$ISO_PATH' boot/x86_64/loader/grub2/grub.cfg 2>/dev/null | grep -o 'CDLABEL=[A-Za-z0-9._-]*' | head -1 | sed 's/CDLABEL=//'" 2>&1)"
+ISO_LABEL=""
+
+# Method 1: read the UEFI grub.cfg embedded on the disc.
+GRUB_CFG_PATHS=$(tower "bsdtar -t -f '$ISO_PATH' 2>/dev/null | grep -E 'boot/x86_64/loader/grub2/grub.cfg|boot/grub2/grub.cfg' | head -2; true")
+for cfg in $GRUB_CFG_PATHS; do
+  [ -z "$cfg" ] && continue
+  ISO_LABEL=$(tower "bsdtar -xOf '$ISO_PATH' '$cfg' 2>/dev/null | grep -oE 'CDLABEL=[A-Za-z0-9._-]+' | head -1 | sed 's/CDLABEL=//'" 2>/dev/null)
+  [ -n "$ISO_LABEL" ] && break
+done
+
+# Method 2: brute-scan the first 64 KiB of the ISO9660 volume descriptor
+# area for the volume label string. The label is stored in the PVD at offset
+# 32871 (40 bytes, space-padded). We avoid 'strings' (not on the runner
+# image) by using od+grep on a small byte window instead.
 if [ -z "$ISO_LABEL" ]; then
-  # read the ISO9660 volume descriptor label
-  ISO_LABEL="$(tower "bsdtar -xOf '$ISO_PATH' --include=isolinux/boot.cat 2>/dev/null | strings | grep -oE 'Fedora-WS-Live[^ ]*' | head -1; true" 2>&1)"
+  log "primary grub.cfg label discovery returned empty; scanning volume descriptor"
+  VOL_DESC_HEX=$(tower "dd if='$ISO_PATH' bs=2k skip=16 count=1 2>/dev/null | od -A x -t x1z | head -30" 2>/dev/null)
+  # Look for the label in the hex dump (offset 0x20 in a 2KiB sector is byte 40)
+  ISO_LABEL=$(echo "$VOL_DESC_HEX" | grep -oE 'Fedora[^ ]*' | head -1 | tr -d ' ' || true)
 fi
-# hard fallback: the well-known label for Fedora-Workstation-Live-43-1.6
-[ -z "$ISO_LABEL" ] && ISO_LABEL="Fedora-WS-Live-43-1.6"
+
+# Method 3: hard fallback for the known-expected ISO
+if [ -z "$ISO_LABEL" ]; then
+  ISO_LABEL="Fedora-WS-Live-43-1.6"
+  log "label discovery failed; using hardcoded fallback: $ISO_LABEL"
+fi
 log "ISO volume label: $ISO_LABEL"
 echo "$ISO_LABEL" > "$OUT_DIR/iso-label.txt"
 
