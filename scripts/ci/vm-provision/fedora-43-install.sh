@@ -346,7 +346,7 @@ cat >"$OUT_DIR/transient.xml" <<XML
     <nvram>$NVRAM_INSTALL</nvram>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd.img</initrd>
-    <cmdline>console=ttyS0,115200 inst.ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg root=live:CDLABEL=$ISO_LABEL inst.stage2=live:CDLABEL=$ISO_LABEL rd.live.image ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
+    <cmdline>console=ttyS0,115200 textinst ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg root=live:CDLABEL=$ISO_LABEL inst.stage2=live:CDLABEL=$ISO_LABEL rd.live.image ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
