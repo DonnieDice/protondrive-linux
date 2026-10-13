@@ -303,7 +303,7 @@ cat > "$OUT_DIR/transient.xml" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 ip=dhcp autoinstall url=http://$TOWER_IP:$KS_PORT/user-data</cmdline>
+    <cmdline>console=ttyS0,115200 autoinstall url=http://$TOWER_IP:$KS_PORT/user-data ip=${VM_IP}::192.168.1.1:255.255.255.0:ubuntu2604:eth0:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
