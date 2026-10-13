@@ -50,9 +50,12 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 # --- installer boot --------------------------------------------------------
 # The transient domain boots the live kernel with console=ttyS0.
 # Subiquity's first serial output is the casper live-initramfs banner,
-# followed by the installer starting. 1200s is generous but bounded for
-# kernel + initramfs DHCP bring-up (ip=dhcp on cmdline) + installer load.
-wait_for {"Ubuntu 26.04"} 1200
+# followed by the installer starting. 1800s (=30 min) accommodates slower
+# hardware where kernel+initramfs+network bring-up + installer load may
+# take several minutes. The ip= kernel arg plus net.ifnames=0 ensures eth0
+# device naming (matching ip=...:eth0:none) so the initramfs configures
+# networking immediately without DHCP retry loops.
+wait_for {"Ubuntu 26.04"} 1800
 
 # --- autoinstall-driven install ---------------------------------------------
 # The autoinstall user-data drives partitioning, package install, and the
