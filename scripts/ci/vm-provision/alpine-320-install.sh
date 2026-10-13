@@ -103,6 +103,19 @@ log "persistent guest state: ${STATE:-unknown}"
 { echo "pre-state: $STATE"; tower "sudo virsh dumpxml '$GUEST'"; } > "$OUT_DIR/pre-state.txt" \
   || die "dumpxml failed"
 
+# The transient install domain reuses the guest's qcow2 disk, so the
+# persistent guest must not hold a write lock on it. Stop the guest if it is
+# running. This is a safe lifecycle action for this guest specifically;
+# installing the OS on the guest's own disk is the point of this job.
+if [ "$STATE" = "running" ]; then
+  log "guest is running - stopping it before install (disk write lock is held)"
+  tower "sudo virsh destroy '$GUEST' 2>/dev/null || true"
+  sleep 5
+  STATE="$(tower "sudo virsh domstate '$GUEST'" 2>/dev/null)"
+  log "guest state after stop: ${STATE:-unknown}"
+  [ "$STATE" = "shut off" ] || die "guest failed to stop (state: $STATE)"
+fi
+
 # transient domain must not exist
 if tower "sudo virsh domstate '$TRANSIENT'" >/dev/null 2>&1; then
   log "removing stale transient domain $TRANSIENT"
