@@ -48,9 +48,10 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 
 # --- installer boot ---------------------------------------------------------
 # OVMF init comes first (UEFI), then the direct-boot kernel loads
-# and Anaconda starts. Kernel + stage2 load from the DVD can take several
-# minutes on this storage; 900s is generous but still bounded. The
-# Anaconda text banner is the reliable early marker on serial.
+# and Anaconda starts. Kernel + stage2 load from the Live ISO can
+# take several minutes on this storage; 900s is generous but still
+# bounded. The Anaconda text banner is the reliable early marker on
+# serial.
 wait_for {Starting installer, one moment} 900
 
 # --- kickstart-driven install ----------------------------------------------

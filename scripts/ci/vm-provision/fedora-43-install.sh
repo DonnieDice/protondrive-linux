@@ -248,6 +248,23 @@ tower "test -s '$DOMAIN_DIR/install-media/vmlinuz' && test -s '$DOMAIN_DIR/insta
   tee -a "$OUT_DIR/iso-extract.log" ||
   die "kernel/initrd extraction failed (files not found at install-media after extraction)"
 
+# ---------------------------------------------- ISO label discovery --
+# Fedora Live ISO (dracut-based initrd) requires the exact volume label in
+# the kernel cmdline: root=live:CDLABEL=<label> so the initrd can locate
+# the LiveOS/squashfs.img on the CDROM. We discover the label from the ISO
+# itself by reading the UEFI grub.cfg embedded on the disc (same value its
+# own boot menu uses), then fall back to the standard Fedora WS label.
+log "discovering ISO volume label for the live root"
+ISO_LABEL="$(tower "bsdtar -xOf '$ISO_PATH' boot/x86_64/loader/grub2/grub.cfg 2>/dev/null | grep -o 'CDLABEL=[A-Za-z0-9._-]*' | head -1 | sed 's/CDLABEL=//'" 2>&1)"
+if [ -z "$ISO_LABEL" ]; then
+  # read the ISO9660 volume descriptor label
+  ISO_LABEL="$(tower "bsdtar -xOf '$ISO_PATH' --include=isolinux/boot.cat 2>/dev/null | strings | grep -oE 'Fedora-WS-Live[^ ]*' | head -1; true" 2>&1)"
+fi
+# hard fallback: the well-known label for Fedora-Workstation-Live-43-1.6
+[ -z "$ISO_LABEL" ] && ISO_LABEL="Fedora-WS-Live-43-1.6"
+log "ISO volume label: $ISO_LABEL"
+echo "$ISO_LABEL" > "$OUT_DIR/iso-label.txt"
+
 # ------------------------------------------------------- kickstart serving --
 KEYSRC=""
 if [ -r /root/.ssh/id_ed25519.pub ]; then
@@ -307,7 +324,7 @@ cat >"$OUT_DIR/transient.xml" <<XML
     <nvram>$NVRAM_INSTALL</nvram>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd.img</initrd>
-    <cmdline>console=ttyS0,115200 inst.ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg inst.repo=cdrom:/dev/sr0 ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
+    <cmdline>console=ttyS0,115200 inst.ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg root=live:CDLABEL=$ISO_LABEL inst.stage2=live:CDLABEL=$ISO_LABEL rd.live.image ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
