@@ -38,6 +38,30 @@ test:sidebar-regression:
     - apk add --no-cache bash
     - bash tests/regression/sidebar.sh
 
+# ─── Shared Rust CI cache ─────────────────────────────────────────────────────
+# test:fmt, test:clippy and test:rust previously used separate CARGO_HOME
+# directories (.cargo-fmt, .cargo-clippy, .cargo-test), so every job
+# downloaded and installed its own full Rust toolchain plus registry, and
+# clippy/rust fought over src-tauri/target/ under different cache keys
+# (fingerprint mismatch → full Tauri rebuild per job). Clippy ran 65 minutes
+# and hit job_execution_timeout; fmt blew its 10m budget on toolchain setup.
+# One shared toolchain+registry+target cache keyed on Cargo.lock fixes the
+# cold/warm behavior for all three. First run after this change is cold by
+# design; the raised timeouts below cover it.
+
+.rust-ci-cache:
+  variables:
+    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-ci"
+  cache:
+    key:
+      files:
+        - src-tauri/Cargo.lock
+      prefix: rust-ci-v1
+    paths:
+      - .cargo-ci/
+      - src-tauri/target/
+    when: always
+
 # ─── Test: Python Unit Tests ──────────────────────────────────────────────────
 # Runs the pytest unit suite under tests/unit/ on Python 3.12. Catches drift in
 # the VM matrix, artifact-keying helpers, CI deploy lib (_common.sh), doc-audit
@@ -50,12 +74,18 @@ test:pytest:
   extends: .rules:test
   stage: test
   image: python:3.12-slim
-  timeout: 10m
+  timeout: 20m
   dependencies: []
-  cache: []
+  variables:
+    PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.pip-cache"
+  cache:
+    key: test-pytest-pip-v1
+    paths:
+      - .pip-cache/
+    when: always
   before_script:
     - apt-get update -qq && apt-get install -y -qq bash openssh-client git
-    - python -m pip install --no-cache-dir -r tests/requirements.txt
+    - python -m pip install -r tests/requirements.txt
   script:
     - python -m pytest tests/unit/ -q --no-header --junitxml=reports/pytest.xml
     - mkdir -p public/pytest || true
@@ -71,18 +101,13 @@ test:pytest:
 # ─── Test: Rust Format Check ──────────────────────────────────────────────────
 
 test:fmt:
-  extends: .rules:test
+  extends:
+    - .rules:test
+    - .rust-ci-cache
   stage: test
   image: debian:12
-  timeout: 10m
+  timeout: 20m
   dependencies: []
-  variables:
-    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-fmt"
-  cache:
-    key: test-fmt-cargo
-    paths:
-      - .cargo-fmt/
-    when: always
   before_script:
     - apt-get update && apt-get install -y bash curl
     - source scripts/ci/lib/install-rust.sh
@@ -93,19 +118,13 @@ test:fmt:
 # ─── Test: Rust Clippy Lints ──────────────────────────────────────────────────
 
 test:clippy:
-  extends: .rules:test
+  extends:
+    - .rules:test
+    - .rust-ci-cache
   stage: test
   image: debian:12
-  timeout: 60m
+  timeout: 90m
   dependencies: []
-  variables:
-    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-clippy"
-  cache:
-    key: test-clippy-cargo
-    paths:
-      - .cargo-clippy/
-      - src-tauri/target/
-    when: always
   before_script:
     - apt-get update && apt-get install -y bash curl build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
@@ -122,19 +141,13 @@ test:clippy:
 # ─── Test: Rust Unit Tests ────────────────────────────────────────────────────
 
 test:rust:
-  extends: .rules:test
+  extends:
+    - .rules:test
+    - .rust-ci-cache
   stage: test
   image: debian:12
-  timeout: 60m
+  timeout: 90m
   dependencies: []
-  variables:
-    CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-test"
-  cache:
-    key: test-rust-cargo
-    paths:
-      - .cargo-test/
-      - src-tauri/target/
-    when: always
   before_script:
     - apt-get update && apt-get install -y bash curl git wget build-essential pkg-config
         libssl-dev libwebkit2gtk-4.1-dev libgtk-3-dev libayatana-appindicator3-dev
