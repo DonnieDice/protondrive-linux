@@ -217,6 +217,31 @@ vm:provision:build-deps:
     - if: '$CI_PIPELINE_SOURCE == "schedule"'
       when: on_success
 
+# Read-only tower hypervisor inventory for the Alpine 3.22 VM bootstrap
+# (issue #22, parent #6). Immediately playable (needs: []) so it never waits
+# on build stages. Uses the runner-mounted /root/.ssh transport (alias: tower).
+vm:inventory:alpine322:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/alpine-322-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 # Issue #14: authorized debian13 guest-start job. The tower inventory (job
 # 24251, pipeline 2138) proved every guest shut off — the root cause of the
 # pipeline 2129 "Host is unreachable" failures. Issue #14 scope item 2
@@ -226,10 +251,8 @@ vm:provision:build-deps:
 vm:guest-start:debian13:
   stage: smoke
   image: alpine:latest
-  tags: [android]
   timeout: 15m
-  needs: []
-  dependencies: []
+  tags: [android]
   before_script:
     - apk add --no-cache openssh-client bash
     - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
@@ -352,6 +375,36 @@ vm:repair:vm-network:
     - when: manual
       allow_failure: true
 
+# Install Alpine 3.22 into the existing alpine322 guest on tower and bring it
+# to the #22 acceptance spec (OS on qcow2, br0 @ 192.168.1.126, sshd,
+# qemu-guest-agent, Hermes key). Headless serial-console install driven via a
+# transient alpine322-install domain that reuses the guest's real disk + NIC;
+# the persistent domain XML is never edited and the transient domain is
+# removed before the job ends. Manual + allow_failure like its inventory
+# sibling; pinned to the tower-mounted runner (tags: [android]), the same
+# transport vm:inventory:alpine322 proved in job 24251.
+vm:provision:alpine322:
+  stage: smoke
+  image: alpine:latest
+  timeout: 55m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/alpine-322-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 vm:ssh:diagnostics:
   stage: smoke
   image: alpine:latest
@@ -393,6 +446,34 @@ vm:inventory:el10:
     when: always
     paths:
       - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Read-only in-guest SSH/auth diagnosis for the alpine322 guest, issue #22.
+# The provisioning completes (INSTALL_DONE + CHROOT_RC=0) but the SSH probe
+# fails with 'Permission denied (publickey,...)'. This job uses the QEMU
+# guest-agent channel (present in the domain XML) to pull the effective sshd
+# config, authorized_keys perms, and a verbose SSH probe into artifacts. It
+# never re-runs the install.
+vm:diag:alpine322:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash python3
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/alpine-322-diag.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
     expire_in: 30 days
   rules:
     - when: manual
