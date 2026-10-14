@@ -1,0 +1,80 @@
+#cloud-config
+# scripts/ci/vm-provision/ubuntu-24.04-cloud-init.yaml
+#
+# Cloud-init user-data (autoinstall format) for the Ubuntu 24.04 install into
+# the ubuntu2404 guest on the tower hypervisor (issue #24, parent #7).
+# Served to the subiquity installer over the LAN from the tower host via
+# busybox httpd, fetched by the transient ubuntu2404-install domain kernel
+# cmdline as autoinstall url=http://192.168.1.31:<port>/user-data.
+# The workforce public key (appended by the driver) is the sole root login
+# method; no private key material is in this file.
+#
+# Target spec (issue #24 acceptance criteria):
+#   - Ubuntu 24.04 installed to the ubuntu2404 guest qcow2 disk
+#   - static 192.168.1.219/24 on br0 (tests/robot/vars/vms.py ubuntu-24.04)
+#   - ssh enabled, qemu-guest-agent installed and enabled
+#   - Hermes public key as sole root login (root password locked)
+
+version: 1
+locale: en_US.UTF-8
+keyboard:
+  layout: us
+  variant: ""
+storage:
+  layout:
+    - name: ubuntu2404-root
+      type: disk
+      ptable: gpt
+      grub: 0%
+      flags: [boot, esp]
+      partitions:
+        - fs: vfat
+          size: 512M
+          flag: boot
+          esp: true
+        - fs: ext4
+          size: 100%
+          flag: ""
+  filesystems:
+    - label: ubuntu_efi
+      mount: /boot/efi
+    - label: ubuntu_root
+      mount: /
+  swap:
+    filename: swapfile
+    size: 2G
+network:
+  version: 2
+  ethernets:
+    eth0:
+      dhcp4: false
+      addresses:
+        - 192.168.1.219/24
+      routes:
+        - to: default
+          via: 192.168.1.1
+      nameservers:
+        addresses: [192.168.1.1, 1.1.1.1]
+hostname: ubuntu2404
+domain: local
+users:
+  - name: root
+    shell: /bin/bash
+    ssh_authorized_keys:
+      - PLACEHOLDER_REPLACE_WITH_WORKFORCE_KEY
+ssh_pwauth: false
+disable_root: false
+packages:
+  - openssh-server
+  - qemu-guest-agent
+  - curl
+  - ca-certificates
+# Late-commands: run in the target chroot after base OS install
+runcmd:
+  - [ /usr/bin/chroot, /target, /bin/bash, -c, "sed -i 's/^#\\{0,1\\}PermitRootLogin.*/PermitRootLogin prohibit-password/' /etc/ssh/sshd_config; systemctl enable ssh; systemctl enable qemu-guest-agent; systemctl enable --now serial-getty@ttyS0.service" ]
+  - [ /usr/bin/chroot, /target, /bin/bash, -c, "mkdir -p /root/.ssh && chmod 700 /root/.ssh" ]
+  - [ /usr/bin/chroot, /target, /bin/bash, -c, "echo 'PLACEHOLDER_REPLACE_WITH_WORKFORCE_KEY' >> /root/.ssh/authorized_keys && chmod 600 /root/.ssh/authorized_keys" ]
+  - [ /usr/bin/chroot, /target, /bin/bash, -c, "passwd -l root" ]
+power_state:
+  delay: now
+  mode: reboot

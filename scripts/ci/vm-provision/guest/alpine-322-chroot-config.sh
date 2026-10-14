@@ -7,7 +7,7 @@
 #
 # Brings the installed system to the #22 acceptance spec:
 #   - qemu-guest-agent installed + enabled
-#   - Hermes public key as root authorized_keys (root password locked,
+#   - Hermes public key as root authorized_keys (root password unset, not locked;
 #     sshd PermitRootLogin prohibit-password, PubkeyAuthentication yes)
 #   - serial console getty for headless maintenance
 #   - SSH host keys generated so sshd is ready on first boot
@@ -35,7 +35,17 @@ else
   echo "FATAL: /root/hermes-key.pub missing in chroot" >&2
   exit 1
 fi
-passwd -l root || true
+# Hermes key: sole root login method (key-based auth via authorized_keys).
+# Do NOT lock the root account with `passwd -l`: Alpine's openssh (pam_unix with
+# UsePAM=yes default) rejects pubkey auth for a password-locked account with
+# "User root not allowed because account is locked" -- observed live in the diag
+# (issue #22 note 34063, job 52291 acceptance). The key IS the password; root
+# login is already gated to pubkey-only via the sshd_config below, so the account
+# lock is both harmful and unnecessary. See operator note 34063 for forensic
+# evidence; the prior provision replay re-introduced this defect and was confirmed
+# by the sshd debug log (Auth-req: account locked). Leaving root unlocked +
+# pubkey-only sshd = the acceptance state.
+echo "NOTE: root password remains unset (no passwd -l); pubkey-only login enforced by sshd_config"
 
 # --- sshd hardening + key-auth acceptance gate ---
 # Alpine 3.22 openssh ships sshd_config with directives COMMENTED OUT
