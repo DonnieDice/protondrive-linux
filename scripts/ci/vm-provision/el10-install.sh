@@ -135,7 +135,9 @@ if tower "sudo virsh list --all --name 2>/dev/null" | grep -qx "$TRANSIENT"; the
   # re-check using list --all --name: only prints the name if still defined
   if tower "sudo virsh list --all --name 2>/dev/null" | grep -qx "$TRANSIENT"; then
     log "WARN: $TRANSIENT still defined after destroy+undefine; forcing"
-    tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine --nvram --remove-all-storage '$TRANSIENT' 2>&1" \
+    # The installer shares the persistent guest's disk. Retry definition
+    # cleanup only; storage deletion would destroy the guest's recovery path.
+    tower "sudo virsh destroy '$TRANSIENT' 2>&1; sudo virsh undefine --nvram '$TRANSIENT' 2>&1" \
       | tee -a "$OUT_DIR/transient-cleanup.log" || true
   fi
   # final hard check: fail only if the domain definition truly persists
