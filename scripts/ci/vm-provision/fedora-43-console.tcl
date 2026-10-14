@@ -48,11 +48,16 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 
 # --- installer boot ---------------------------------------------------------
 # OVMF init comes first (UEFI), then the direct-boot kernel loads
-# and Anaconda starts. Kernel + stage2 load from the Live ISO can
-# take several minutes on this storage; 900s is generous but still
-# bounded. The Anaconda text banner is the reliable early marker on
-# serial.
-wait_for {Starting installer, one moment} 900
+# and Anaconda starts in text mode. We wait for the text-mode installer
+# banner (or the "anaconda is running" log line) on serial. The F43 Live ISO
+# boots into gdm if the kernel cmdline includes root=live:CDLABEL= or rd.live.image;
+# the install script strips those and forces installer mode with inst.ks + inst.text.
+set timeout 900
+expect {
+    -re {anaconda.*[Ii]nstaller.*running} { puts "\nEXPECT: anaconda installer detected" }
+    timeout { die "timeout waiting for: anaconda installer banner" }
+    eof     { die "console EOF waiting for: anaconda installer banner" }
+}
 
 # --- kickstart-driven install ----------------------------------------------
 # Anaconda logs progress lines (anaconda: ... scripts, packages at N/M).
