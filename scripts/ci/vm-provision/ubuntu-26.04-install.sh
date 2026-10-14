@@ -185,12 +185,15 @@ cmp -s "$OUT_DIR/hermes-key-derived.pub" "$KEYSRC" \
   || log "WARN: /root/.ssh/id_ed25519.pub differs from key derived from id_ed25519 - using derived key"
 
 # Build the autoinstall user-data: read the template and inject the workforce
-# public key into the identity.ssh_key field (replacing the empty placeholder).
+# public key into the ssh.authorized-keys placeholder (the schema-supported
+# location; identity.ssh_key is not a valid autoinstall key - job 58203).
 AUTOINSTALL_LOCAL="$OUT_DIR/user-data"
 awk -v key="$(cat "$OUT_DIR/hermes-key-derived.pub")" \
-  '{ gsub(/ssh_key: ""/, "ssh_key: \"" key "\""); print }' \
+  '{ gsub(/PLACEHOLDER_WORKFORCE_KEY/, key); print }' \
   "$HERE/ubuntu-26.04-preseed.cfg" > "$AUTOINSTALL_LOCAL"
-grep -q 'ssh_key:' "$AUTOINSTALL_LOCAL" || die "failed to inject hermes key into autoinstall user-data"
+grep -q 'ssh-ed25519' "$AUTOINSTALL_LOCAL" || die "failed to inject hermes key into autoinstall user-data"
+# Fail fast if the placeholder somehow survived (would break key auth).
+! grep -q 'PLACEHOLDER_WORKFORCE_KEY' "$AUTOINSTALL_LOCAL" || die "workforce key placeholder not replaced"
 
 # Stage the seed files on tower. NoCloud-net requires BOTH user-data and a
 # meta-data file under the seed directory (instance-id can be minimal but the
@@ -318,7 +321,7 @@ cat > "$OUT_DIR/transient.xml" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 net.ifnames=0 biosdevname=0 autoinstall "ds=nocloud-net;s=http://$TOWER_IP:$KS_PORT/" ip=${VM_IP}::192.168.1.1:255.255.255.0:ubuntu2604:eth0:none nameserver=192.168.1.1</cmdline>
+    <cmdline>console=ttyS0,115200 net.ifnames=0 biosdevname=0 autoinstall ds=nocloud-net;s=http://$TOWER_IP:$KS_PORT/ ip=${VM_IP}::192.168.1.1:255.255.255.0:ubuntu2604:eth0:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
@@ -373,13 +376,19 @@ if [ "$CONSOLE_RC" != "0" ]; then
   die "install failed"
 fi
 
-# wait for shut-off, then undefine the transient domain
+# wait for shut-off, then undefine the transient domain. With
+# on_reboot=destroy the domain is GONE the moment the installer reboots, so
+# "not found" is the SUCCESS state for a transient domain - do not die on it
+# (job 58203 class of bug: undefine of a vanished transient domain).
 for _ in $(seq 1 30); do
   S="$(tower "sudo virsh domstate '$TRANSIENT'" 2>/dev/null || true)"
+  [ -z "$S" ] && break
   [ "$S" = "shut off" ] && break
   sleep 5
 done
-tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
+if tower "sudo virsh dominfo '$TRANSIENT'" >/dev/null 2>&1; then
+  tower "sudo virsh undefine '$TRANSIENT'" || die "undefine transient failed"
+fi
 tower "rm -rf '$DOMAIN_DIR/install-media' '$KS_DIR'" || true
 log "transient domain and scratch files removed"
 

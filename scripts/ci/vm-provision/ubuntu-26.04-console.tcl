@@ -18,6 +18,11 @@
 # (e.g. {Installation complete}). A double-quoted pattern string makes Tcl
 # run command substitution on [ ... ] inside it - the exact bug that killed
 # the alpine322 driver at its md5 check (job 25904 line 100).
+# EQUALLY IMPORTANT: the pattern must NOT itself contain double quotes.
+# wait_for {"Linux version"} (job 58203) matched nothing because the glob
+# required literal quote characters around the phrase - the session died at
+# exactly 1800s while the kernel banner had been visible within one second.
+# Patterns below are brace-quoted with NO embedded quotes.
 set timeout 10
 log_user 1
 if {[info exists env(CONSOLE_LOG)]} {
@@ -52,26 +57,26 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 # 26.04 DESKTOP live image's serial output is the kernel boot log (no installer
 # banner); Subiquity writes its progress to the console once cloud-init
 # consumes the nocloud-net seed. We confirm two things on serial:
-#   (a) the kernel boots (the "Linux version" line proves the live kernel+initrd
+#   (a) the kernel boots (the Linux version line proves the live kernel+initrd
 #       loaded and that the serial console path is wired), and
 #   (b) the autoinstall late-command completion marker AUTOINSTALL_LATE_COMMAND_DONE
 #       (proving the seed was fetched and Subiquity actually ran).
 # Waiting on a graphic-installer banner ("Ubuntu 26.04") is unreliable on this
 # image - job 57074 sat for 30 min with the disk untouched because Subiquity
 # never received a config and the banner never appeared.
-wait_for {"Linux version"} 1800
+wait_for {Linux version} 1800
 
 # --- autoinstall-driven install ---------------------------------------------
-wait_for {"AUTOINSTALL_LATE_COMMAND_DONE"} 2400
+wait_for {AUTOINSTALL_LATE_COMMAND_DONE} 2400
 
 # --- reboot -----------------------------------------------------------------
 # The installer reboots after autoinstall completion. On the transient domain
 # on_reboot=destroy closes the console (virsh prints the disconnect notice).
 set timeout 180
 expect {
-	{"Done booting"} { }
-	{"rebooting"} { }
-	{"Restarting system"} { }
+	{Done booting} { }
+	{rebooting} { }
+	{Restarting system} { }
 	eof { }
 	timeout { puts "WARN: no explicit reboot notice on console" }
 }
