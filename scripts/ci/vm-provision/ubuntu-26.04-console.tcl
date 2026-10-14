@@ -48,20 +48,20 @@ spawn ssh -tt -o BatchMode=yes -o ConnectTimeout=20 -o StrictHostKeyChecking=acc
 	"sudo virsh console $guest --force"
 
 # --- installer boot --------------------------------------------------------
-# The transient domain boots the live kernel with console=ttyS0.
-# Subiquity's first serial output is the casper live-initramfs banner,
-# followed by the installer starting. 1800s (=30 min) accommodates slower
-# hardware where kernel+initramfs+network bring-up + installer load may
-# take several minutes. The ip= kernel arg plus net.ifnames=0 ensures eth0
-# device naming (matching ip=...:eth0:none) so the initramfs configures
-# networking immediately without DHCP retry loops.
-wait_for {"Ubuntu 26.04"} 1800
+# The transient domain boots the live kernel with console=ttyS0. The Ubuntu
+# 26.04 DESKTOP live image's serial output is the kernel boot log (no installer
+# banner); Subiquity writes its progress to the console once cloud-init
+# consumes the nocloud-net seed. We confirm two things on serial:
+#   (a) the kernel boots (the "Linux version" line proves the live kernel+initrd
+#       loaded and that the serial console path is wired), and
+#   (b) the autoinstall late-command completion marker AUTOINSTALL_LATE_COMMAND_DONE
+#       (proving the seed was fetched and Subiquity actually ran).
+# Waiting on a graphic-installer banner ("Ubuntu 26.04") is unreliable on this
+# image - job 57074 sat for 30 min with the disk untouched because Subiquity
+# never received a config and the banner never appeared.
+wait_for {"Linux version"} 1800
 
 # --- autoinstall-driven install ---------------------------------------------
-# The autoinstall user-data drives partitioning, package install, and the
-# late-command. The late-command prints AUTOINSTALL_LATE_COMMAND_DONE (a
-# unique marker) when it finishes; watching for it proves the autoinstall
-# was actually loaded and executed (not skipped due to a URL fetch failure).
 wait_for {"AUTOINSTALL_LATE_COMMAND_DONE"} 2400
 
 # --- reboot -----------------------------------------------------------------

@@ -192,10 +192,16 @@ awk -v key="$(cat "$OUT_DIR/hermes-key-derived.pub")" \
   "$HERE/ubuntu-26.04-preseed.cfg" > "$AUTOINSTALL_LOCAL"
 grep -q 'ssh_key:' "$AUTOINSTALL_LOCAL" || die "failed to inject hermes key into autoinstall user-data"
 
-# Stage the user-data on tower and serve it with busybox httpd
+# Stage the seed files on tower. NoCloud-net requires BOTH user-data and a
+# meta-data file under the seed directory (instance-id can be minimal but the
+# file must exist or cloud-init logs a datasource error; prior runs that
+# served only user-data never activated Subiquity).
+META_LOCAL="$OUT_DIR/meta-data"
+printf 'instance-id: ubuntu2604-autoinstall\nlocal-hostname: ubuntu2604\n' > "$META_LOCAL"
 tower "mkdir -p '$KS_DIR' && chmod 755 '$KS_DIR'" || die "KS dir creation failed"
 scp $SSH_OPTS "$AUTOINSTALL_LOCAL" "$TOWER_HOST:/tmp/ubuntu2604-user-data" >/dev/null 2>&1 || die "autoinstall upload failed"
-tower "mv /tmp/ubuntu2604-user-data '$KS_DIR/user-data' && chmod 644 '$KS_DIR/user-data'" \
+scp $SSH_OPTS "$META_LOCAL" "$TOWER_HOST:/tmp/ubuntu2604-meta-data" >/dev/null 2>&1 || die "meta-data upload failed"
+tower "mv /tmp/ubuntu2604-user-data '$KS_DIR/user-data' && mv /tmp/ubuntu2604-meta-data '$KS_DIR/meta-data' && chmod 644 '$KS_DIR/user-data' '$KS_DIR/meta-data'" \
   || die "autoinstall staging failed"
 
 # Serve the autoinstall user-data over HTTP from the tower. The Unraid tower
@@ -255,13 +261,21 @@ case "$KS_SERVER" in
 use strict; use warnings;
 use IO::Socket::INET;
 use Fcntl;
-my \$port = \$ARGV[0]; my \$file = \$ARGV[1];
+my \$port = \$ARGV[0]; my \$dir = \$ARGV[1];
 my \$s = IO::Socket::INET->new(
   LocalAddr => '0.0.0.0', LocalPort => \$port,
   ReuseAddr => 1, Listen => 5, Proto => 'tcp'
 ) or die "perl-httpd bind: \$!";
 while (my \$c = \$s->accept()) {
+  my \$path = '/';
+  if (my \$l = <\$c>) {
+    \$path = \$1 if \$l =~ m{^GET\s+(\S+)};
+  }
   while (my \$l = <\$c>) { last if \$l =~ /^\s*\$/; }
+  \$path =~ s{^/+}{};
+  \$path =~ s{[^A-Za-z0-9._-]}{}g;
+  \$path = 'user-data' if \$path eq '';
+  my \$file = "\$dir/\$path";
   open(my \$fh, '<', \$file) or do {
     print \$c "HTTP/1.1 404 Not Found\r\nContent-Length: 9\r\nConnection: close\r\n\r\nnot found";
     close \$c; next;
@@ -275,17 +289,18 @@ while (my \$c = \$s->accept()) {
 PERL
     scp $SSH_OPTS "$OUT_DIR/perl-httpd.pl" "$TOWER_HOST:/tmp/ubuntu2604-perl-httpd.pl" >/dev/null 2>&1 || die "perl server staging failed"
     tower "mv /tmp/ubuntu2604-perl-httpd.pl '$KS_DIR/perl-httpd.pl' && chmod 644 '$KS_DIR/perl-httpd.pl'" || die "perl server staging failed"
-    tower "nohup perl '$KS_DIR/perl-httpd.pl' '$KS_PORT' '$KS_DIR/user-data' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
+    tower "nohup perl '$KS_DIR/perl-httpd.pl' '$KS_PORT' '$KS_DIR' > /tmp/ubuntu2604-httpd.log 2>&1 & echo \$! > '$KS_HTTPD_PID_FILE'"
     ;;
 esac
 sleep 3
 
-# PROVE the user-data is actually fetchable on loopback and is OUR content
-# (the autoinstall header must appear in the served bytes; a bare exit-0 from
-# wget with an error page would otherwise pass silently). wget first, curl
-# fallback: Unraid ships both, but do not depend on either one alone.
+# PROVE the seed files are actually fetchable on loopback and that meta-data
+# (required by nocloud-net) is served too. A bare exit-0 from wget with an
+# error page would otherwise pass silently. wget first, curl fallback.
 tower "(wget -q -O- 'http://127.0.0.1:$KS_PORT/user-data' 2>/dev/null || curl -s 'http://127.0.0.1:$KS_PORT/user-data' 2>/dev/null) | head -1 | grep -q 'cloud-config' && echo HTTPD-OK || { echo 'HTTPD-HEALTHCHECK-FAIL'; exit 1; }" \
   | tee -a "$OUT_DIR/httpd.log" || die "autoinstall user-data not fetchable on tower loopback (HTTP server did not bind or crashed)"
+tower "(wget -q -O- 'http://127.0.0.1:$KS_PORT/meta-data' 2>/dev/null || curl -s 'http://127.0.0.1:$KS_PORT/meta-data' 2>/dev/null) | head -1 | grep -q 'instance-id' && echo META-OK || { echo 'META-HEALTHCHECK-FAIL'; exit 1; }" \
+  | tee -a "$OUT_DIR/httpd.log" || die "meta-data not fetchable on tower loopback"
 
 # ------------------------------------------------------- transient domain ----
 # Ubuntu 26.04 live-server install via direct kernel boot with Subiquity
@@ -303,7 +318,7 @@ cat > "$OUT_DIR/transient.xml" <<XML
     <type arch='x86_64' machine='pc-q35-9.2'>hvm</type>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd</initrd>
-    <cmdline>console=ttyS0,115200 net.ifnames=0 biosdevname=0 autoinstall url=http://$TOWER_IP:$KS_PORT/user-data ip=${VM_IP}::192.168.1.1:255.255.255.0:ubuntu2604:eth0:none nameserver=192.168.1.1</cmdline>
+    <cmdline>console=ttyS0,115200 net.ifnames=0 biosdevname=0 autoinstall "ds=nocloud-net;s=http://$TOWER_IP:$KS_PORT/" ip=${VM_IP}::192.168.1.1:255.255.255.0:ubuntu2604:eth0:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
