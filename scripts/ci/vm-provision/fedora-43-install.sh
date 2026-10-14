@@ -197,11 +197,27 @@ NVRAM_PERSIST="$DOMAIN_DIR/nvram.fd"
 tower "cp '$OVMF_VARS' '$NVRAM_INSTALL' && cp '$OVMF_VARS' '$NVRAM_PERSIST' && ls -la '$DOMAIN_DIR/'" |
   tee -a "$OUT_DIR/ovmf-discovery.txt" || die "could not stage NVRAM copies in $DOMAIN_DIR"
 
-# ------------------------------------------------- kernel/initrd extraction --
-# Fedora 43 may be either a DVD ISO (images/pxeboot/{vmlinuz,initrd.img}) or
-# a Workstation Live ISO. The Live ISO uses isolinux/vmlinuz + isoinux/initrd.img
-# (BIOS boot) and boot/x86_64/loader/{vmlinuz,initrd} (UEFI). We enumerate
-# candidate paths and accept the first pair that extracts.
+<<'PATCH'
+*** Begin Patch
+*** Update File: /workspace/protondrive-18/scripts/ci/vm-provision/fedora-43-install.sh
+@@
+-# ------------------------------------------------- kernel/initrd extraction --
+-# Fedora 43 may be either a DVD ISO (images/pxeboot/{vmlinuz,initrd.img}) or
+-# a Workstation Live ISO. The Live ISO uses isolinux/vmlinuz + isoinux/initrd.img
+-# (BIOS boot) and boot/x86_64/loader/{vmlinuz,initrd} (UEFI). We enumerate
+-# candidate paths and accept the first pair that extracts.
++# ------------------------------------------------- kernel/initrd extraction --
++# Fedora 43 may be either a DVD ISO (images/pxeboot/{vmlinuz,initrd.img}) or
++# a Workstation Live ISO. The Live ISO uses boot/x86_64/loader/{linux,initrd}
++# (UEFI) and boots into the live desktop environment (gdm) instead of the
++# anaconda installer. For kickstart-based automated provisioning we must
++# boot the proper installer kernel+initrd, not the live environment.
++# The Fedora Server netinstall ISO has images/pxeboot/vmlinuz+initrd.img.
++# If the Live ISO is in use, we still extract its kernel but override the
++# boot arguments to force installer mode (inst.ks + inst.text + no liveimg).
++# Candidate kernel/initrd path pairs, in preference order.
+*** End Patch
+PATCH
 log "extracting kernel/initrd from ISO (no loop mounts)"
 tower "command -v bsdtar; ls -la '$ISO_PATH'" | tee "$OUT_DIR/iso-extract.log"
 
@@ -346,7 +362,7 @@ cat >"$OUT_DIR/transient.xml" <<XML
     <nvram>$NVRAM_INSTALL</nvram>
     <kernel>$DOMAIN_DIR/install-media/vmlinuz</kernel>
     <initrd>$DOMAIN_DIR/install-media/initrd.img</initrd>
-    <cmdline>console=ttyS0,115200 inst.ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg root=live:CDLABEL=$ISO_LABEL inst.stage2=live:CDLABEL=$ISO_LABEL rd.live.image inst.repo=live:CDLABEL=$ISO_LABEL ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
+    <cmdline>console=ttyS0,115200 inst.ks=http://$TOWER_IP:$KS_PORT/fedora43-ks.cfg inst.text inst.stage2=live:CDLABEL=$ISO_LABEL inst.repo=live:CDLABEL=$ISO_LABEL ip=$VM_IP::192.168.1.1:255.255.255.0:$GUEST:none nameserver=192.168.1.1</cmdline>
   </os>
   <features><acpi/><apic/></features>
   <cpu mode='host-passthrough'/>
