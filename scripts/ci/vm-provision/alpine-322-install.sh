@@ -45,7 +45,7 @@
 #      non-interactive). setup-disk replicates the live env's /etc config,
 #      apk world, and runlevels onto the target.
 #   6. Chroot post-config: qemu-guest-agent + enabled, Hermes key as sole
-#      root login (password locked, PermitRootLogin prohibit-password),
+#      root login (password unset, not locked; PermitRootLogin prohibit-password),
 #      serial getty, boot services.
 #   7. Undefine the transient domain, boot the persistent alpine322 domain
 #      from its installed disk, and run the acceptance probes (SSH from the
