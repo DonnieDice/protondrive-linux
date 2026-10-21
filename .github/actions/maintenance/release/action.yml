@@ -367,3 +367,29 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Verify published release assets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        TAG="${{ steps.version.outputs.version }}"
+
+        test -d release || { echo "::error::Release directory is missing"; exit 1; }
+        find release -maxdepth 1 -type f -printf '%f\n' | sort > expected-assets.txt
+        gh release view "$TAG" --json assets --jq '.assets[].name' | sort > published-assets.txt
+        diff -u expected-assets.txt published-assets.txt
+
+        invalid_assets=$(gh release view "$TAG" --json assets --jq '.assets[] | select(.state != "uploaded" or .size <= 0) | .name')
+        if [ -n "$invalid_assets" ]; then
+          echo "::error::Release contains incomplete or empty assets:"
+          echo "$invalid_assets"
+          exit 1
+        fi
+
+        while IFS= read -r url; do
+          [ -n "$url" ] || continue
+          echo "Checking $url"
+          curl --head --fail --silent --show-error --location --retry 2 --max-time 45 "$url" >/dev/null
+        done < <(gh release view "$TAG" --json assets --jq '.assets[].browserDownloadUrl')
