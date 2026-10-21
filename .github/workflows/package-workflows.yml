@@ -17,6 +17,12 @@ on:
       tag:
         description: Release tag, for release workflow
         required: false
+      source_ref:
+        description: Source branch, tag, or commit SHA to build (use a SHA for historical recovery)
+        required: false
+      webclients_ref:
+        description: ProtonMail/WebClients branch, tag, or commit SHA to build against
+        required: false
       version:
         description: Version to publish
         required: false
@@ -57,13 +63,13 @@ jobs:
       DISTRO_TYPE: apk
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.20' }}
       DISTRO_SUFFIX: alpine320
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.20
@@ -84,13 +90,13 @@ jobs:
       DISTRO_TYPE: apk
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.22' }}
       DISTRO_SUFFIX: alpine322
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.22
@@ -111,13 +117,13 @@ jobs:
       DISTRO_TYPE: apk
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'alpine.3.23' }}
       DISTRO_SUFFIX: alpine323
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.23
@@ -136,13 +142,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: appimage
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/appimage/linux-baseline
@@ -161,14 +167,14 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: aur
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
       WEBCLIENTS_COMMIT: bbad1a0a482227b93a2e963a232463aede9b8abf
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/aur/arch-native
@@ -189,13 +195,13 @@ jobs:
       DISTRO_TYPE: deb
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'debian.12' }}
       DISTRO_SUFFIX: debian12
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/debian-12
@@ -215,13 +221,13 @@ jobs:
       RUST_VERSION: stable
       DISTRO_TYPE: deb
       DISTRO_SUFFIX: debian13
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/debian-13
@@ -241,13 +247,13 @@ jobs:
       RUST_VERSION: stable
       DISTRO_TYPE: deb
       DISTRO_SUFFIX: ubuntu24.04
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/ubuntu-24.04
@@ -267,13 +273,13 @@ jobs:
       RUST_VERSION: stable
       DISTRO_TYPE: deb
       DISTRO_SUFFIX: ubuntu26.04
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/ubuntu-26.04
@@ -290,13 +296,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: flatpak
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/flatpak/gnome-50
@@ -313,13 +319,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: flatpak
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/flatpak/gnome-49
@@ -338,13 +344,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: rpm
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/el10
@@ -364,13 +370,13 @@ jobs:
       RUST_VERSION: stable
       DISTRO_TYPE: rpm
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'fedora.43' }}
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/fedora-43
@@ -390,13 +396,13 @@ jobs:
       RUST_VERSION: stable
       DISTRO_TYPE: rpm
       DISTRO_PATCH: ${{ github.event.inputs.distro_patch || 'fedora.44' }}
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/fedora-44
@@ -418,13 +424,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: rpm
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/opensuse-tumbleweed
@@ -441,13 +447,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: snap
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/snap/core24
@@ -466,13 +472,13 @@ jobs:
     env:
       RUST_VERSION: stable
       DISTRO_TYPE: snap
-      WEBCLIENTS_REF: main
+      WEBCLIENTS_REF: ${{ inputs.webclients_ref || 'main' }}
   
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          ref: ${{ inputs.tag || github.ref }}
+          ref: ${{ inputs.source_ref || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/snap/core26
