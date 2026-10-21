@@ -11,29 +11,52 @@ runs:
     - name: Get version
       shell: bash
       id: version
+      env:
+        INPUT_TAG: ${{ github.event.inputs.tag }}
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          TAG="${{ github.event.inputs.tag }}"
+        set -euo pipefail
+        if [ -n "$INPUT_TAG" ]; then
+          TAG="$INPUT_TAG"
         elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
           TAG="${GITHUB_REF#refs/tags/}"
         else
           TAG="v$(node -p "require('./package.json').version")"
         fi
+        git check-ref-format "refs/tags/$TAG"
         echo "prerelease=false" >> "$GITHUB_OUTPUT"
         echo "version=${TAG}" >> "$GITHUB_OUTPUT"
         echo "Version: ${TAG}"
-
     - name: Create and push tag if needed
       shell: bash
+      env:
+        TAG: ${{ steps.version.outputs.version }}
+        SOURCE_REF: ${{ github.event.inputs.source_ref }}
       run: |
-        TAG="${{ steps.version.outputs.version }}"
-        if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-          echo "Tag ${TAG} already exists on remote, skipping creation"
+        set -euo pipefail
+
+        if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
+          if [ -n "$SOURCE_REF" ]; then
+            git fetch origin "$SOURCE_REF"
+            EXPECTED_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
+            git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}" --force
+            EXISTING_SHA="$(git rev-parse "${TAG}^{commit}")"
+            if [ "$EXISTING_SHA" != "$EXPECTED_SHA" ]; then
+              echo "::error::Tag ${TAG} points to $EXISTING_SHA, not requested source $EXPECTED_SHA. Refusing to republish the wrong source."
+              exit 1
+            fi
+          fi
+          echo "Tag ${TAG} exists and matches the requested source."
         else
-          echo "Creating tag ${TAG}..."
+          if [ -n "$SOURCE_REF" ]; then
+            git fetch origin "$SOURCE_REF"
+            TARGET_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
+          else
+            TARGET_SHA="$(git rev-parse HEAD)"
+          fi
+          echo "Creating tag ${TAG} at $TARGET_SHA..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "Release ${TAG}"
+          git tag -a "${TAG}" "$TARGET_SHA" -m "Release ${TAG}"
           git push origin "${TAG}"
           echo "Tag ${TAG} created and pushed"
         fi
@@ -341,21 +364,28 @@ runs:
 
     - name: Delete stale release assets
       shell: bash
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      if: startsWith(steps.version.outputs.version, 'v')
+      env:
+        TAG: ${{ steps.version.outputs.version }}
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
       run: |
-        TAG="${{ steps.version.outputs.version }}"
+        set -euo pipefail
+
+        IMMUTABLE=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.immutable // false' 2>/dev/null || echo false)
+        if [ "$IMMUTABLE" = "true" ]; then
+          echo "::error::Release $TAG is immutable; refusing to delete assets. Publish a corrected release under a new tag or use the repository's approved immutable-release recovery process."
+          exit 1
+        fi
+
         EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
         if [ -n "$EXISTING" ]; then
-          echo "Cleaning existing assets before upload..."
-          echo "$EXISTING" | while read -r name; do
+          echo "Cleaning existing release assets before upload..."
+          while IFS= read -r name; do
             [ -z "$name" ] && continue
             echo "  Deleting $name"
-            gh release delete-asset "$TAG" "$name" --yes || true
-          done
+            gh release delete-asset "$TAG" "$name" --yes
+          done <<< "$EXISTING"
         fi
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
-
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -367,3 +397,29 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Verify published release assets
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+        TAG: ${{ steps.version.outputs.version }}
+      run: |
+        set -euo pipefail
+
+        test -d release || { echo "::error::Release directory is missing"; exit 1; }
+        find release -maxdepth 1 -type f -printf '%f\n' | sort > expected-assets.txt
+        gh release view "$TAG" --json assets --jq '.assets[].name' | sort > published-assets.txt
+        diff -u expected-assets.txt published-assets.txt
+
+        invalid_assets=$(gh release view "$TAG" --json assets --jq '.assets[] | select(.state != "uploaded" or .size <= 0) | .name')
+        if [ -n "$invalid_assets" ]; then
+          echo "::error::Release contains incomplete or empty assets:"
+          echo "$invalid_assets"
+          exit 1
+        fi
+
+        while IFS= read -r url; do
+          [ -n "$url" ] || continue
+          echo "Checking $url"
+          curl --head --fail --silent --show-error --location --retry 2 --max-time 45 "$url" >/dev/null
+        done < <(gh release view "$TAG" --json assets --jq '.assets[].browserDownloadUrl')
