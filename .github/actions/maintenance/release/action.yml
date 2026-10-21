@@ -367,3 +367,26 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+
+    - name: Verify published release asset downloads
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        TAG="${{ steps.version.outputs.version }}"
+        ASSET_URLS="$(gh release view "$TAG" --json assets --jq '.assets[].browserDownloadUrl')"
+        if [ -z "$ASSET_URLS" ]; then
+          echo "::error::Release $TAG has no uploaded assets."
+          exit 1
+        fi
+
+        while IFS= read -r url; do
+          [ -n "$url" ] || continue
+          status="$(curl --location --silent --show-error --output /dev/null --write-out '%{http_code}' --range 0-0 "$url")"
+          case "$status" in
+            200|206) echo "OK $status $url" ;;
+            *) echo "::error::Release asset is not downloadable (HTTP $status): $url"; exit 1 ;;
+          esac
+        done <<< "$ASSET_URLS"
