@@ -367,3 +367,24 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Verify published release asset URLs
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        set -euo pipefail
+        TAG="${{ steps.version.outputs.version }}"
+        gh release view "$TAG" --json assets --jq '.assets[].browserDownloadUrl' > release-asset-urls.txt
+        test -s release-asset-urls.txt || { echo "No release assets were found for $TAG" >&2; exit 1; }
+
+        while IFS= read -r url; do
+          [ -n "$url" ] || continue
+          echo "Checking $url"
+          if ! curl --fail --silent --show-error --location --range 0-0 --output /dev/null --retry 3 --retry-all-errors --max-time 60 "$url"; then
+            echo "::error::Release asset URL is not downloadable: $url" >&2
+            exit 1
+          fi
+        done < release-asset-urls.txt
+
+        echo "All published release asset URLs responded successfully."
