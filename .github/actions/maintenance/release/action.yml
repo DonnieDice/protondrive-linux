@@ -341,17 +341,25 @@ runs:
 
     - name: Delete stale release assets
       shell: bash
-      if: startsWith(github.ref, 'refs/tags/')
+      if: startsWith(steps.version.outputs.version, 'v')
       run: |
+        set -euo pipefail
         TAG="${{ steps.version.outputs.version }}"
+
+        IMMUTABLE=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.immutable // false' 2>/dev/null || echo false)
+        if [ "$IMMUTABLE" = "true" ]; then
+          echo "::error::Release $TAG is immutable; refusing to delete assets. Publish a corrected release under a new tag or use the repository's approved immutable-release recovery process."
+          exit 1
+        fi
+
         EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
         if [ -n "$EXISTING" ]; then
-          echo "Cleaning existing assets before upload..."
-          echo "$EXISTING" | while read -r name; do
+          echo "Cleaning existing release assets before upload..."
+          while IFS= read -r name; do
             [ -z "$name" ] && continue
             echo "  Deleting $name"
-            gh release delete-asset "$TAG" "$name" --yes || true
-          done
+            gh release delete-asset "$TAG" "$name" --yes
+          done <<< "$EXISTING"
         fi
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
