@@ -578,7 +578,7 @@ jobs:
       - build_apk_alpine_3_20
       - build_apk_alpine_3_22
       - build_apk_alpine_3_23
-    if: always() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'release'
+    if: success() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
