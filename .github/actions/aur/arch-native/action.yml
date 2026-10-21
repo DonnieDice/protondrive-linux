@@ -17,6 +17,8 @@ runs:
 
     - name: Checkout repository
       uses: actions/checkout@v4
+      with:
+        ref: ${{ github.event.inputs.source_ref || github.ref }}
 
     - name: Cache Cargo
       uses: actions/cache@v4
