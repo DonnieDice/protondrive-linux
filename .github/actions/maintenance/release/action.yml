@@ -356,19 +356,6 @@ runs:
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
 
-    - name: Verify published release assets are downloadable
-      shell: bash
-      env:
-        GH_TOKEN: ${{ github.token }}
-      run: |
-        set -euo pipefail
-        TAG="${{ steps.version.outputs.version }}"
-        ASSETS=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.assets[] | [.name, .browser_download_url, (.size | tostring)] | @tsv')
-        if [ -z "$ASSETS" ]; then
-          echo "::error::Release ${TAG} has no uploaded assets."
-          exit 1
-        fi
-        while IFS=
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -405,3 +392,17 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Verify published release assets are downloadable
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        set -euo pipefail
+        TAG="${{ steps.version.outputs.version }}"
+        ASSETS=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.assets[] | [.name, .browser_download_url, (.size | tostring)] | @tsv')
+        if [ -z "$ASSETS" ]; then
+          echo "::error::Release ${TAG} has no uploaded assets."
+          exit 1
+        fi
+        while IFS=
