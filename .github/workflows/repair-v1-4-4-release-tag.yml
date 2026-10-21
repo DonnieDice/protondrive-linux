@@ -38,6 +38,12 @@ jobs:
           test "$(git show -s --format=%s "$TARGET_SHA")" = "Release v1.4.4"
           git show "$TARGET_SHA:package.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{if(JSON.parse(s).version!=="1.4.4")process.exit(1)})'
 
+          SUCCESSFUL_RUNS="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
+          if ! printf '%s' "$SUCCESSFUL_RUNS" | jq -e --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .name == "Package Workflows" and .event == "push" and .conclusion == "success")] | length > 0' >/dev/null; then
+            echo "::error::No successful Package Workflows run was found for the verified v1.4.4 commit."
+            exit 1
+          fi
+
           RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
           test "$(printf '%s' "$RELEASE_JSON" | jq -r '.tag_name')" = "$TAG"
           ASSETS="$(printf '%s' "$RELEASE_JSON" | jq -r '.assets[] | [.name, .browser_download_url] | @tsv')"
