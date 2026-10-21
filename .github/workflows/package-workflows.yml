@@ -62,6 +62,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.20
@@ -87,6 +89,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.22
@@ -112,6 +116,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/apk/alpine-3.23
@@ -135,6 +141,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/appimage/linux-baseline
@@ -159,6 +167,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/aur/arch-native
@@ -184,6 +194,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/debian-12
@@ -208,6 +220,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/debian-13
@@ -232,6 +246,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/ubuntu-24.04
@@ -256,6 +272,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/deb/ubuntu-26.04
@@ -277,6 +295,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/flatpak/gnome-50
@@ -298,6 +318,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/flatpak/gnome-49
@@ -321,6 +343,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/el10
@@ -345,6 +369,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/fedora-43
@@ -369,6 +395,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/fedora-44
@@ -395,6 +423,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/rpm/opensuse-tumbleweed
@@ -416,6 +446,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/snap/core24
@@ -439,12 +471,14 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          ref: ${{ inputs.tag || github.ref }}
 
       - name: Run workflow implementation
         uses: ./.github/actions/snap/core26
 
   generate_package_specs_generate_aur_pkgbuild:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-aur-pkgbuild'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -456,7 +490,7 @@ jobs:
         uses: ./.github/actions/maintenance/generate-package-specs/aur-pkgbuild
 
   generate_package_specs_generate_rpm_spec:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release' || inputs.workflow == 'generate-package-specs-generate-rpm-spec'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-generate-rpm-spec'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -468,7 +502,7 @@ jobs:
         uses: ./.github/actions/maintenance/generate-package-specs/rpm-spec
 
   generate_package_specs_create_source_dist:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release' || inputs.workflow == 'generate-package-specs-create-source-dist'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'generate-package-specs-create-source-dist'))
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -480,7 +514,7 @@ jobs:
         uses: ./.github/actions/maintenance/generate-package-specs/source-dist
 
   issue_auto_label:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release' || inputs.workflow == 'issue-auto-label'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'issue-auto-label'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -496,7 +530,7 @@ jobs:
         uses: ./.github/actions/maintenance/issue-auto-label
 
   pr_auto_label:
-    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'release' || inputs.workflow == 'pr-auto-label'))
+    if: github.event_name == 'pull_request' || (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && (inputs.workflow == 'all' || inputs.workflow == 'pr-auto-label'))
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -578,12 +612,14 @@ jobs:
       - build_apk_alpine_3_20
       - build_apk_alpine_3_22
       - build_apk_alpine_3_23
-    if: success() && github.event_name == 'workflow_dispatch' && startsWith(github.ref, 'refs/tags/v') && inputs.workflow == 'release'
+    if: success() && github.event_name == 'workflow_dispatch' && (startsWith(github.ref, 'refs/tags/v') || startsWith(inputs.tag, 'v')) && inputs.workflow == 'release'
     runs-on: ubuntu-latest
     timeout-minutes: 360
     permissions:
       contents: write
       packages: write
+    env:
+      GITHUB_TOKEN: ${{ github.token }}
 
   
     steps:
