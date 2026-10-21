@@ -13,7 +13,7 @@ runs:
       id: version
       run: |
         if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          TAG="${{ github.event.inputs.tag }}"
+          TAG="${{ github.event.inputs.tag || github.ref_name }}"
         elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
           TAG="${GITHUB_REF#refs/tags/}"
         else
@@ -341,7 +341,7 @@ runs:
 
     - name: Delete stale release assets
       shell: bash
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && startsWith(github.ref, 'refs/tags/')
       run: |
         TAG="${{ steps.version.outputs.version }}"
         EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
@@ -367,3 +367,20 @@ runs:
         generate_release_notes: false
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+
+    - name: Verify published release asset links
+      shell: bash
+      env:
+        GH_TOKEN: ${{ env.GITHUB_TOKEN }}
+      run: |
+        TAG="${{ steps.version.outputs.version }}"
+        ASSET_URLS=$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/${TAG}" --jq '.assets[].browser_download_url')
+        if [ -z "$ASSET_URLS" ]; then
+          echo "::error::Release ${TAG} has no uploaded assets"
+          exit 1
+        fi
+        while IFS= read -r url; do
+          [ -z "$url" ] && continue
+          echo "Checking $url"
+          curl --fail --silent --show-error --location --head "$url" --output /dev/null
+        done <<< "$ASSET_URLS"
