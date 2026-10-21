@@ -341,7 +341,7 @@ runs:
 
     - name: Delete stale release assets
       shell: bash
-      if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+      if: startsWith(github.ref, 'refs/tags/')
       run: |
         TAG="${{ steps.version.outputs.version }}"
         EXISTING=$(gh release view "$TAG" --json assets --jq '.assets[].name' 2>/dev/null || echo "")
