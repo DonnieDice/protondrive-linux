@@ -11,24 +11,28 @@ runs:
     - name: Get version
       shell: bash
       id: version
+      env:
+        INPUT_TAG: ${{ github.event.inputs.tag }}
       run: |
-        if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-          TAG="${{ github.event.inputs.tag }}"
+        set -euo pipefail
+        if [ -n "$INPUT_TAG" ]; then
+          TAG="$INPUT_TAG"
         elif [[ "$GITHUB_REF" == refs/tags/* ]]; then
           TAG="${GITHUB_REF#refs/tags/}"
         else
           TAG="v$(node -p "require('./package.json').version")"
         fi
+        git check-ref-format "refs/tags/$TAG"
         echo "prerelease=false" >> "$GITHUB_OUTPUT"
         echo "version=${TAG}" >> "$GITHUB_OUTPUT"
         echo "Version: ${TAG}"
-
     - name: Create and push tag if needed
       shell: bash
+      env:
+        TAG: ${{ steps.version.outputs.version }}
+        SOURCE_REF: ${{ github.event.inputs.source_ref }}
       run: |
         set -euo pipefail
-        TAG="${{ steps.version.outputs.version }}"
-        SOURCE_REF="${{ github.event.inputs.source_ref }}"
 
         if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
           if [ -n "$SOURCE_REF" ]; then
@@ -361,9 +365,11 @@ runs:
     - name: Delete stale release assets
       shell: bash
       if: startsWith(steps.version.outputs.version, 'v')
+      env:
+        TAG: ${{ steps.version.outputs.version }}
+        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
       run: |
         set -euo pipefail
-        TAG="${{ steps.version.outputs.version }}"
 
         IMMUTABLE=$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG" --jq '.immutable // false' 2>/dev/null || echo false)
         if [ "$IMMUTABLE" = "true" ]; then
@@ -380,9 +386,6 @@ runs:
             gh release delete-asset "$TAG" "$name" --yes
           done <<< "$EXISTING"
         fi
-      env:
-        GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
-
     - name: Create GitHub Release
       uses: softprops/action-gh-release@v1
       with:
@@ -399,9 +402,9 @@ runs:
       shell: bash
       env:
         GITHUB_TOKEN: ${{ env.GITHUB_TOKEN }}
+        TAG: ${{ steps.version.outputs.version }}
       run: |
         set -euo pipefail
-        TAG="${{ steps.version.outputs.version }}"
 
         test -d release || { echo "::error::Release directory is missing"; exit 1; }
         find release -maxdepth 1 -type f -printf '%f\n' | sort > expected-assets.txt
