@@ -26,14 +26,33 @@ runs:
     - name: Create and push tag if needed
       shell: bash
       run: |
+        set -euo pipefail
         TAG="${{ steps.version.outputs.version }}"
-        if git ls-remote --tags origin | grep -q "refs/tags/${TAG}$"; then
-          echo "Tag ${TAG} already exists on remote, skipping creation"
+        SOURCE_REF="${{ github.event.inputs.source_ref }}"
+
+        if git ls-remote --tags origin "refs/tags/${TAG}" | grep -q "refs/tags/${TAG}$"; then
+          if [ -n "$SOURCE_REF" ]; then
+            git fetch origin "$SOURCE_REF"
+            EXPECTED_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
+            git fetch origin "refs/tags/${TAG}:refs/tags/${TAG}" --force
+            EXISTING_SHA="$(git rev-parse "${TAG}^{commit}")"
+            if [ "$EXISTING_SHA" != "$EXPECTED_SHA" ]; then
+              echo "::error::Tag ${TAG} points to $EXISTING_SHA, not requested source $EXPECTED_SHA. Refusing to republish the wrong source."
+              exit 1
+            fi
+          fi
+          echo "Tag ${TAG} exists and matches the requested source."
         else
-          echo "Creating tag ${TAG}..."
+          if [ -n "$SOURCE_REF" ]; then
+            git fetch origin "$SOURCE_REF"
+            TARGET_SHA="$(git rev-parse 'FETCH_HEAD^{commit}')"
+          else
+            TARGET_SHA="$(git rev-parse HEAD)"
+          fi
+          echo "Creating tag ${TAG} at $TARGET_SHA..."
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git tag -a "${TAG}" -m "Release ${TAG}"
+          git tag -a "${TAG}" "$TARGET_SHA" -m "Release ${TAG}"
           git push origin "${TAG}"
           echo "Tag ${TAG} created and pushed"
         fi
