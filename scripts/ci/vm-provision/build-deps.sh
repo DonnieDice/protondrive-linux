@@ -55,6 +55,10 @@ _pd_bounded_cleanup() {
     apt-get clean 2>/dev/null || true
     rm -rf /var/lib/apt/lists/partial/* /var/cache/apt/archives/partial/* 2>/dev/null || true
     journalctl --vacuum-size=200M 2>/dev/null || true
+    # /var/tmp is the on-disk build root; /tmp/pd-deploy is the pre-2026-10
+    # location that landed on the 735M tmpfs and caused ENOSPC (os error 28)
+    # during cargo release builds — purge it so the tmpfs stays clean.
+    rm -rf /var/tmp/pd-deploy 2>/dev/null || true
     rm -rf /tmp/pd-deploy 2>/dev/null || true
     echo "after:"; df -h /
   ' || echo "WARN: bounded cleanup reported errors on $label (continuing)"
@@ -126,10 +130,10 @@ provision_build_deps() {
     rustc --version
     cargo --version
   '
-  run_on_vm "$ip" "mkdir -p /tmp/pd-deploy && cat > /tmp/pd-deploy/rust-install.sh <<'RUST_SCRIPT_EOF'
+  run_on_vm "$ip" "mkdir -p /var/tmp/pd-deploy && cat > /var/tmp/pd-deploy/rust-install.sh <<'RUST_SCRIPT_EOF'
 $rust_script
 RUST_SCRIPT_EOF
-chmod +x /tmp/pd-deploy/rust-install.sh && /tmp/pd-deploy/rust-install.sh" || {
+chmod +x /var/tmp/pd-deploy/rust-install.sh && /var/tmp/pd-deploy/rust-install.sh" || {
     echo "FAIL: rustup install failed on $label"
     return 1
   }
@@ -147,7 +151,7 @@ verify_protondrive_build() {
   # Transfer the runner's own checkout (excluding WebClients and .git) instead
   # of cloning from GitLab: the project is private (anonymous clone fails) and
   # VM-side DNS has been unreliable (pipeline 1916/2099-era outages).
-  local workdir=/tmp/pd-deploy/protondrive-linux
+  local workdir=/var/tmp/pd-deploy/protondrive-linux
   local srcdir="${CI_PROJECT_DIR:-$(pwd)}"
   tar -C "$srcdir" --exclude='./.git' --exclude='./WebClients' -cf - . |
     run_on_vm "$ip" "rm -rf '$workdir' && mkdir -p '$workdir' && tar -C '$workdir' -xf -"
@@ -180,10 +184,10 @@ verify_protondrive_build() {
     "$BINARY" --version 2>/dev/null || echo "binary present; no --version flag"
   '
 
-  run_on_vm "$ip" "cat > /tmp/pd-deploy/build.sh <<'BUILD_SCRIPT_EOF'
+  run_on_vm "$ip" "cat > /var/tmp/pd-deploy/build.sh <<'BUILD_SCRIPT_EOF'
 $build_script
 BUILD_SCRIPT_EOF
-chmod +x /tmp/pd-deploy/build.sh && /tmp/pd-deploy/build.sh /tmp/pd-deploy/protondrive-linux" || {
+chmod +x /var/tmp/pd-deploy/build.sh && /var/tmp/pd-deploy/build.sh /var/tmp/pd-deploy/protondrive-linux" || {
     echo "FAIL: protondrive-linux build failed on $label"
     return 1
   }
