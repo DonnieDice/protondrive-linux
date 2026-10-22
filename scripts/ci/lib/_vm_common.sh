@@ -38,6 +38,7 @@ _pd_alias_for_ip() {
     192.168.1.219) echo ubuntu2404 ;;
     192.168.1.168) echo ubuntu2604 ;;
     192.168.1.245) echo opensuse-tw ;;
+    192.168.1.183) echo fedora-43 ;;
     192.168.1.31)  echo tower ;;
     *) echo "" ;;
   esac
