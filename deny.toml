@@ -32,6 +32,16 @@ ignore = [
   # in-process strings, never parses untrusted/network XML.
   { id = "RUSTSEC-2026-0194" },
   { id = "RUSTSEC-2026-0195" },
+  # zvariant family is unmaintained as standalone crates: zvariant and
+  # zvariant_derive were merged into zbus 6.0.0 as its `wire` module
+  # (RUSTSEC-2026-0370/0372), zbus_names likewise (RUSTSEC-2026-0371) — no
+  # patched versions exist in the old crates. Pulled strictly transitively
+  # via notify-rust 4.17.0 -> zbus 5.15.0 -> zbus_names 4.3.2 / zvariant
+  # 5.11.0; revisit when notify-rust adopts zbus 6. INFO-class advisories,
+  # not vulnerabilities.
+  { id = "RUSTSEC-2026-0370" },
+  { id = "RUSTSEC-2026-0371" },
+  { id = "RUSTSEC-2026-0372" },
 ]
 
 [licenses]
