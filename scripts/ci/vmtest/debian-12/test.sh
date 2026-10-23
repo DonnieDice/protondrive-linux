@@ -12,11 +12,11 @@ distro_checks() {
   local ip="$1"
   echo "--- debian-12 specific checks ---"
   assert_on_vm "$ip" "dpkg: package is registered and status=ii" \
-    "dpkg -l proton-drive 2>/dev/null | grep -q '^ii'"
+    "dpkg -l proton-drive-linux-unofficial 2>/dev/null | grep -q '^ii'"
   assert_on_vm "$ip" "dpkg: correct package architecture (amd64)" \
-    "dpkg -l proton-drive 2>/dev/null | grep -q 'amd64\|all'"
+    "dpkg -l proton-drive-linux-unofficial 2>/dev/null | grep -q 'amd64\|all'"
   assert_on_vm "$ip" "copyright/license file present" \
-    "ls /usr/share/doc/proton-drive/copyright 2>/dev/null | head -1"
+    "ls /usr/share/doc/proton-drive-linux-unofficial/copyright 2>/dev/null | head -1"
 }
 
 test_run "debian12" "$VM_IP" "$PKG_FAMILY"

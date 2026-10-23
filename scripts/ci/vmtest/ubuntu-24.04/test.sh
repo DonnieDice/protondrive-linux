@@ -12,11 +12,11 @@ distro_checks() {
   local ip="$1"
   echo "--- ubuntu-24.04 specific checks ---"
   assert_on_vm "$ip" "dpkg: package is registered and status=ii" \
-    "dpkg -l proton-drive 2>/dev/null | grep -q '^ii'"
+    "dpkg -l proton-drive-linux-unofficial 2>/dev/null | grep -q '^ii'"
   assert_on_vm "$ip" "snapd not required (native deb install)" \
     "! snap list proton-drive 2>/dev/null | grep -q proton-drive"
   assert_on_vm "$ip" "apt-get shows package installed" \
-    "apt-cache policy proton-drive 2>/dev/null | grep -q Installed"
+    "apt-cache policy proton-drive-linux-unofficial 2>/dev/null | grep -q Installed"
 }
 
 test_run "ubuntu24.04" "$VM_IP" "$PKG_FAMILY"
