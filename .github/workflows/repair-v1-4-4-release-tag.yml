@@ -1,0 +1,83 @@
+name: Restore v1.4.4 release tag
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm_restore:
+        description: Confirm restoring the missing v1.4.4 tag to its verified release commit
+        required: true
+        type: choice
+        default: "no"
+        options:
+          - "no"
+          - "yes"
+
+permissions:
+  contents: write
+
+jobs:
+  restore-tag:
+    if: github.ref == 'refs/heads/main' && inputs.confirm_restore == 'yes'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - name: Restore tag and verify release downloads
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: v1.4.4
+          TARGET_SHA: 7ecdd9f5d89413aa402ac29cb52d513822dfd3e1
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          git cat-file -e "${TARGET_SHA}^{commit}"
+          test "$(git show -s --format=%s "$TARGET_SHA")" = "Release v1.4.4"
+          git show "$TARGET_SHA:package.json" | node -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{if(JSON.parse(s).version!=="1.4.4")process.exit(1)})'
+
+          SUCCESSFUL_RUNS="$(gh api "repos/$GITHUB_REPOSITORY/actions/runs?head_sha=$TARGET_SHA&per_page=100")"
+          if ! printf '%s' "$SUCCESSFUL_RUNS" | jq -e --arg sha "$TARGET_SHA" '[.workflow_runs[] | select(.head_sha == $sha and .name == "Package Workflows" and .event == "push" and .conclusion == "success")] | length > 0' >/dev/null; then
+            echo "::error::No successful Package Workflows run was found for the verified v1.4.4 commit."
+            exit 1
+          fi
+
+          RELEASE_JSON="$(gh api "repos/$GITHUB_REPOSITORY/releases/tags/$TAG")"
+          test "$(printf '%s' "$RELEASE_JSON" | jq -r '.tag_name')" = "$TAG"
+          ASSETS="$(printf '%s' "$RELEASE_JSON" | jq -r '.assets[] | [.name, .browser_download_url] | @tsv')"
+          test -n "$ASSETS"
+
+          EXISTING_REFS="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")"
+          if [ -n "$EXISTING_REFS" ]; then
+            EXISTING_TARGET="$(printf '%s\n' "$EXISTING_REFS" | awk '$2 ~ /\^\{\}$/ {print $1}')"
+            if [ -z "$EXISTING_TARGET" ]; then
+              EXISTING_TARGET="$(printf '%s\n' "$EXISTING_REFS" | awk -v ref="refs/tags/$TAG" '$2 == ref {print $1}')"
+            fi
+            if [ "$EXISTING_TARGET" != "$TARGET_SHA" ]; then
+              echo "::error::Tag $TAG already exists but does not point to the verified release commit."
+              exit 1
+            fi
+            echo "Tag $TAG already points to the verified release commit."
+          else
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git tag -a "$TAG" "$TARGET_SHA" -m "Restore v1.4.4 release tag"
+            git push origin "refs/tags/$TAG"
+          fi
+
+          REMOTE_REFS="$(git ls-remote --tags origin "refs/tags/$TAG" "refs/tags/$TAG^{}")"
+          REMOTE_TARGET="$(printf '%s\n' "$REMOTE_REFS" | awk '$2 ~ /\^\{\}$/ {print $1}')"
+          if [ -z "$REMOTE_TARGET" ]; then
+            REMOTE_TARGET="$(printf '%s\n' "$REMOTE_REFS" | awk -v ref="refs/tags/$TAG" '$2 == ref {print $1}')"
+          fi
+          test "$REMOTE_TARGET" = "$TARGET_SHA"
+
+          while IFS=$'\t' read -r name url; do
+            [ -n "$name" ] || continue
+            echo "Checking download: $name"
+            curl --fail --location --silent --show-error --range 0-0 --retry 2 --max-time 60 --output /dev/null "$url"
+          done <<< "$ASSETS"
+
+          echo "All release asset URLs returned successful download responses."
