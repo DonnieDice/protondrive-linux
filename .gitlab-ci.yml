@@ -227,7 +227,7 @@ coverage:rust:
   image: debian:12
   # Cold Tauri setup consumed ~53m before coverage compilation began. Match
   # native Rust's bounded cold-start budget; keep coverage fail-closed.
-  timeout: 90m
+  timeout: 150m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-cov"
