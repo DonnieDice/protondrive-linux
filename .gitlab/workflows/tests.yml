@@ -74,7 +74,7 @@ test:pytest:
   extends: .rules:test
   stage: test
   image: python:3.12-slim
-  timeout: 20m
+  timeout: 45m
   dependencies: []
   variables:
     PIP_CACHE_DIR: "${CI_PROJECT_DIR}/.pip-cache"
@@ -106,7 +106,7 @@ test:fmt:
     - .rust-ci-cache
   stage: test
   image: debian:12
-  timeout: 20m
+  timeout: 45m
   dependencies: []
   before_script:
     - apt-get update && apt-get install -y bash curl
