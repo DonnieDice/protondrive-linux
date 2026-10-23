@@ -18,11 +18,14 @@ def test_coverage_has_native_rust_cold_start_budget(repo_root):
     )
     # Coverage shares the cold Tauri prerequisite/build path. A shorter budget
     # kills coverage before the security stage even when native tests pass.
+    # Upper bound 150m: the shared tower runner exhausted the 90m budget twice
+    # on 2026-10-23 (pipelines 5499/5562) while passing its tests; 150m is the
+    # documented envelope for the loaded runner (see issues #32/#34).
     coverage_budget = _seconds(root["coverage:rust"]["timeout"])
     native_budget = max(
         _seconds(tests[name]["timeout"]) for name in ("test:rust", "test:clippy")
     )
-    assert native_budget <= coverage_budget <= 90 * 60
+    assert native_budget <= coverage_budget <= 150 * 60
 
 
 def test_coverage_remains_required_and_reports_cobertura(repo_root):

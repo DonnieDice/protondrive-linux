@@ -227,7 +227,7 @@ coverage:rust:
   image: debian:12
   # Cold Tauri setup consumed ~53m before coverage compilation began. Match
   # native Rust's bounded cold-start budget; keep coverage fail-closed.
-  timeout: 90m
+  timeout: 150m
   dependencies: []
   variables:
     CARGO_HOME: "${CI_PROJECT_DIR}/.cargo-cov"
@@ -1541,6 +1541,7 @@ spec:aur-pkgbuild:
   stage: spec
   image: node:22
   timeout: 30m
+  dependencies: []
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
@@ -1590,6 +1591,7 @@ spec:rpm-spec:
   stage: spec
   image: node:22
   timeout: 30m
+  dependencies: []
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
@@ -1644,6 +1646,7 @@ spec:source-dist:
     name: alpine/git:latest
     entrypoint: [""]
   timeout: 30m
+  dependencies: []
   script:
     - |
       if [[ "$CI_COMMIT_TAG" == v* ]]; then
