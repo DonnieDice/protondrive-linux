@@ -33,6 +33,9 @@ set deadline [expr {[clock seconds] + $budget}]
 
 proc remaining {} { global deadline; return [expr {$deadline - [clock seconds]}] }
 proc die {msg} { puts "\nEXPECT-FATAL: $msg"; exit 2 }
+# Note: expect's own `log_file`/`log_user` are builtins; a plain `log` is not.
+# Job 60189 died with `invalid command name "log"` at the login-prompt branch.
+proc log {msg} { puts "\nEXPECT: $msg" }
 
 # Drain console output until the pattern appears or the wait budget dies.
 proc wait_for {pattern secs} {
