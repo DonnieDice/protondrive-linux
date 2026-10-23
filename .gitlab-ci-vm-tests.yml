@@ -467,6 +467,34 @@ vm:inventory:el10:
     - when: manual
       allow_failure: true
 
+# Read-only tower hypervisor inventory for the Arch VM br0 migration
+# (issue #23, parent #10). Immediately playable (needs: []) so it never waits
+# on build stages. Runs on the runner, which reaches tower via the
+# runner-mounted /root/.ssh config (alias: tower). Records virsh list --all,
+# the arch guest's current network attachment, and 192.168.1.128 occupancy
+# BEFORE any mutation — following the el10 inventory pattern (#25/MR !6).
+vm:inventory:arch:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/arch-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 # Read-only in-guest SSH/auth diagnosis for the alpine322 guest, issue #22.
 # The provisioning completes (INSTALL_DONE + CHROOT_RC=0) but the SSH probe
 # fails with 'Permission denied (publickey,...)'. This job uses the QEMU
@@ -486,6 +514,31 @@ vm:diag:alpine322:
     - ': > "$VM_KNOWN_HOSTS"'
   script:
     - bash scripts/ci/vm-provision/alpine-322-diag.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Authorized Arch VM migration: detach NIC from NAT (default) network, attach
+# to br0 bridge, boot, and configure sshd + qemu-guest-agent + Hermes key
+# (issue #23, parent #10). Mutations confined to the arch guest ONLY.
+vm:provision:arch-br0:
+  stage: smoke
+  image: alpine:latest
+  timeout: 45m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/arch-br0-migration.sh
   artifacts:
     when: always
     paths:
