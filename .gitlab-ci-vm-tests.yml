@@ -6,7 +6,7 @@
 #   debian12 (192.168.1.162), debian13 (192.168.1.120),
 #   alpine320 (192.168.1.157), alpine322 (192.168.1.126),
 #   arch (192.168.1.128), ubuntu2404 (192.168.1.219),
-#   ubuntu2604 (192.168.1.168)
+#   ubuntu2604 (192.168.1.168), fedora-43 (192.168.1.183)
 
 vm:ssh:smoke:
   stage: smoke
@@ -210,6 +210,10 @@ vm:provision:build-deps:
   before_script:
     - apk add --no-cache openssh-client bash git curl
   script:
+    # PD_TARGETS scopes which persistent hosts this run provisions/verifies
+    # (comma-separated labels, default both). Issue #14's evidence runs use
+    # PD_TARGETS=debian13; issue #26's use PD_TARGETS=debian12 — one issue's
+    # evidence is never masked by the other host's reachability.
     - bash scripts/ci/vm-provision/build-deps.sh
   rules:
     - when: manual
@@ -308,14 +312,26 @@ vm:verify:rust-toolchain:
   timeout: 20m
   # Same opt-out: immediately playable manual job that verifies (without
   # modifying) the rustup default toolchain and the protondrive-linux release
-  # binary on debian13 and debian12. Read-only evidence for issue #14.
+  # binary. Read-only evidence for issue #14 (debian13) and issue #26 (debian12).
+  # VM_VERIFY_TARGETS scopes which hosts this run reports on (comma-separated
+  # labels, default both) so one host's outage never masks the other's
+  # evidence; a scoped-out host simply is not reported in that run.
   needs: []
   dependencies: []
   before_script:
     - apk add --no-cache openssh-client bash
   script:
-    - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.120 debian13
-    - bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.162 debian12
+    - |
+      targets="${VM_VERIFY_TARGETS:-debian13,debian12}"
+      rc=0
+      for t in $(echo "$targets" | tr ',' ' '); do
+        case "$t" in
+          debian13) bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.120 debian13 || rc=1 ;;
+          debian12) bash scripts/ci/vm-provision/verify-toolchain.sh 192.168.1.162 debian12 || rc=1 ;;
+          *) echo "unknown VM_VERIFY_TARGETS label: $t"; rc=1 ;;
+        esac
+      done
+      exit $rc
   rules:
     - when: manual
       allow_failure: true
@@ -566,6 +582,34 @@ vm:inventory:el10:
     - when: manual
       allow_failure: true
 
+# Read-only tower hypervisor inventory for the Arch VM br0 migration
+# (issue #23, parent #10). Immediately playable (needs: []) so it never waits
+# on build stages. Runs on the runner, which reaches tower via the
+# runner-mounted /root/.ssh config (alias: tower). Records virsh list --all,
+# the arch guest's current network attachment, and 192.168.1.128 occupancy
+# BEFORE any mutation — following the el10 inventory pattern (#25/MR !6).
+vm:inventory:arch:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/arch-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 # Read-only in-guest SSH/auth diagnosis for the alpine322 guest, issue #22.
 # The provisioning completes (INSTALL_DONE + CHROOT_RC=0) but the SSH probe
 # fails with 'Permission denied (publickey,...)'. This job uses the QEMU
@@ -594,6 +638,31 @@ vm:diag:alpine322:
     - when: manual
       allow_failure: true
 
+# Authorized Arch VM migration: detach NIC from NAT (default) network, attach
+# to br0 bridge, boot, and configure sshd + qemu-guest-agent + Hermes key
+# (issue #23, parent #10). Mutations confined to the arch guest ONLY.
+vm:provision:arch-br0:
+  stage: smoke
+  image: alpine:latest
+  timeout: 45m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/arch-br0-migration.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
 # Install CentOS Stream 10 into the existing el10 guest (issue #19, parent
 # #11): headless kickstart over the LAN, creating the missing qcow2, static
 # 192.168.1.123, sshd, qemu-guest-agent, Hermes key. Mirrors the proven
@@ -613,6 +682,92 @@ vm:provision:el10:
     - ': > "$VM_KNOWN_HOSTS"'
   script:
     - bash scripts/ci/vm-provision/el10-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Read-only tower hypervisor inventory for the openSUSE Tumbleweed VM
+# bootstrap (issue #17, parent #9). Immediately playable (needs: []) so it
+# never waits on build stages. Runs on the runner, which reaches tower via
+# the runner-mounted /root/.ssh config (alias: tower) — the same transport
+# proven by vm:inventory:alpine320 (issue #21) and vm:inventory:el10 (issue #19).
+# Inspects existing guests/disks, ISO media, br0 facts, and whether 192.168.1.245
+# (the IP wired into scripts/ci/{transfer,install,vmtest}/opensuse-tumbleweed/
+# and tests/robot/vars/vms.py) is free, before any mutation.
+vm:inventory:opensuse-tumbleweed:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/opensuse-tumbleweed-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Read-only tower hypervisor inventory for the Ubuntu 26.04 VM bootstrap
+# (issue #20, parent #8). Immediately playable (needs: []) so it never waits
+# on build stages. Runs on the tower-mounted runner (tags: [android]), the
+# same transport proven by vm:inventory:el10 (issue #19) and its siblings.
+vm:inventory:ubuntu-26.04:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/ubuntu-26.04-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Install Ubuntu 26.04 into the ubuntu-26.04 guest on tower and bring it
+# to the #20 acceptance spec (OS on qcow2, br0 @ 192.168.1.168, sshd,
+# qemu-guest-agent, Hermes key). Headless d-i preseed install driven via a
+# transient ubuntu-26.04-install domain that reuses the guest's real disk +
+# NIC; the persistent domain XML is only created when absent and is never
+# edited during install. The transient domain is removed before the job ends.
+# Manual + allow_failure like its inventory sibling; pinned to the
+# tower-mounted runner (tags: [android]).
+vm:provision:ubuntu-26.04:
+  stage: smoke
+  image: alpine:latest
+  timeout: 90m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd tar
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/ubuntu-26.04-install.sh
   artifacts:
     when: always
     paths:
@@ -704,6 +859,94 @@ vm:verify:ubuntu2404:
     when: always
     paths:
       - verify-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Read-only tower hypervisor inventory for the Fedora 43 VM bootstrap (issue
+# #18, parent #12). Immediately playable (needs: []) so it never waits on build
+# stages. Runs on the runner, which reaches tower via the runner-mounted
+# /root/.ssh config (alias: tower) — the same transport proven by
+# vm:inventory:el10 (issue #19) and vm:inventory:opensuse-tumbleweed
+# (issue #17). Inspects existing guests/disks, ISO media, br0 facts, and
+# whether 192.168.1.183 is free, before any mutation.
+vm:inventory:fedora-43:
+  stage: smoke
+  image: alpine:latest
+  timeout: 15m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/fedora-43-inventory.sh
+  artifacts:
+    when: always
+    paths:
+      - inventory-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Install openSUSE Tumbleweed into the opensuse-tw guest on the tower
+# hypervisor (issue #17, parent #9). Mirrors the proven vm:provision:el10
+# pattern (issue #19): pinned to the tower-mounted runner (tags: [android])
+# whose RO /root/.ssh provides the `tower` alias and the workforce key.
+# The job repairs the guest's NIC from libvirt NAT (network named 'br0') to a
+# direct bridge=br0, boot-straps a transient install domain that runs AutoYaST
+# from the live ISO kernel/initrd, drives the serial console via expect, then
+# starts the persistent guest and verifies sshd + qemu-guest-agent + Hermes key.
+# Manual + allow_failure so it never blocks the release-policy jobs.
+vm:provision:opensuse-tumbleweed:
+  stage: smoke
+  image: alpine:latest
+  timeout: 90m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash expect expect-dev coreutils netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/opensuse-tumbleweed-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
+    expire_in: 30 days
+  rules:
+    - when: manual
+      allow_failure: true
+
+# Install Fedora 43 into the fedora-43 guest (issue #18, parent #12):
+# headless kickstart over the LAN, creating the missing qcow2, static
+# 192.168.1.183, sshd, qemu-guest-agent, Hermes key. Mirrors the proven
+# vm:provision:el10 job wiring (issue #19): pinned to the tower-mounted
+# runner (tags: [android]) whose RO /root/.ssh provides the `tower` alias
+# and the workforce key; expect drives the serial console from the runner.
+vm:provision:fedora-43:
+  stage: smoke
+  image: alpine:latest
+  timeout: 90m
+  tags: [android]
+  needs: []
+  dependencies: []
+  before_script:
+    - apk add --no-cache openssh-client bash coreutils expect netcat-openbsd
+    - export VM_KNOWN_HOSTS="$CI_PROJECT_DIR/.vm-known-hosts"
+    - ': > "$VM_KNOWN_HOSTS"'
+  script:
+    - bash scripts/ci/vm-provision/fedora-43-install.sh
+  artifacts:
+    when: always
+    paths:
+      - provision-results/
     expire_in: 30 days
   rules:
     - when: manual
