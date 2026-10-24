@@ -36,7 +36,7 @@ run three lightweight jobs on every PR and push:
 3. **Rust unit tests** — `cargo test` for cookie, login, and live-sync modules
 
 These checks are fast (< 30 min total) and do not build or publish packages.
-See [docs/ci-authority-and-mirroring.md](../docs/ci-authority-and-mirroring.md) for the full
+See [docs/ci-authority-and-mirroring.md](../docs/ci-cd/ci-authority-and-mirroring.md) for the full
 CI authority policy.
 
 ## Trust boundary for GitHub → GitLab sync

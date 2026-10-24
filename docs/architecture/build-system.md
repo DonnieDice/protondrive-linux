@@ -98,7 +98,7 @@ flowchart LR
 
 ### AUR Package (.pkg.tar.zst)
 
-**Script:** [`scripts/ci/build/aur-package.sh`](../scripts/ci/build/aur-package.sh)
+**Script:** `scripts/ci/build/aur-package.sh` (GitLab-side, not in this mirror)
 
 Builds an Arch Linux package for distribution via the Arch User Repository or direct
 `pacman -U` install.

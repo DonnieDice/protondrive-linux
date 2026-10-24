@@ -98,7 +98,6 @@ release helper logic. Executable test cases live under `tests/` instead:
 ## Related Documentation
 
 - [Project README](../README.md)
-- [AGENTS.md](../AGENTS.md)
 - [Patches README](../patches/README.md)
 
 ---
