@@ -1,5 +1,7 @@
 ﻿name: Package Workflows
 
+# Manual only. Package builds and releases are authoritative in GitLab CI; this
+# workflow must not run automatically on GitHub PRs or pushes.
 on:
   workflow_dispatch:
     inputs:
@@ -29,9 +31,6 @@ on:
         required: false
         default: stable
 
-  pull_request:
-  push:
-    branches: [main]
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.head_ref || github.ref_name }}

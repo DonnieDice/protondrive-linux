@@ -207,7 +207,7 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 The CI uses two systems:
 - **GitHub Actions** (`.github/workflows/package-workflows.yml`) — primary packaging pipeline
-- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → transfer → install → vmtest → report → spec → release → publish on self-hosted GitLab at `192.168.1.31:8929`
+- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → transfer → install → vmtest → report → spec → release → publish on self-hosted GitLab
 
 The GitLab `.gitlab-ci.yml` is a 62-line entrypoint that includes workflows from `.gitlab/workflows/`:
 - `_shared.yml` — shared job templates
