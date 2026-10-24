@@ -21,7 +21,7 @@ The project runs **two CI systems** in parallel:
 
 | System | Entrypoint | Role |
 |--------|-----------|------|
-| **GitLab CI** | `.gitlab-ci.yml` plus included `.gitlab/workflows/*.yml` files | **Authoritative** — fast gates, protected package builds, VM smoke tests, spec, release, and publish originate here |
+| **GitLab CI** | `.gitlab-ci.yml` plus the includes `.gitlab-ci-vm-tests.yml`, `.gitlab-ci-vm-harness-15.yml` and `.gitlab/workflows/tests.yml` | **Authoritative** — fast gates, protected package builds, VM smoke tests, spec, release, and publish originate here |
 | **GitHub Actions** | `.github/workflows/package-workflows.yml` (588 lines) | **Mirror** — same build matrix on GitHub, triggerable via `workflow_dispatch` only |
 
 **GitLab CI is the source of truth** for all builds, releases, and publishes.
@@ -39,66 +39,47 @@ flowchart TD
     subgraph Triggers
         PUSH["Push (branch)"]
         TAG["Push (v* tag)"]
-        PR["PR / MR"]
-        SCHED["schedule / web/API opt-in"]
+        PR["MR"]
     end
 
     subgraph GitLab_CI["GitLab CI (authoritative)"]
         direction LR
-        GL_TEST["Fast test stage\nfmt / clippy / unit / coverage"]
-        GL_REG["Protected regression jobs\nlogin / sync / sidebar"]
-        GL_BUILD["Protected build stage\n17+ jobs"]
-        GL_GATE["Gate Stage\nbuild:gate\n(fail-fast sentinel)"]
-        GL_TRANSFER["Transfer Stage\n10 VMs"]
-        GL_INSTALL["Install Stage\n10 VMs"]
-        GL_VMTEST["Vmtest Stage\n10 VMs"]
-        GL_REPORT["Report Stage\n5 jobs (always runs)"]
-        GL_SPEC["Spec Stage"]
-        GL_REL["Release Stage"]
-        GL_PUB["Publish Stage"]
+        GL_TEST["lint / test / security\nfmt, clippy, unit, regressions"]
+        GL_WC["build:webclients\nfrontend built once"]
+        GL_BUILD["build:* package jobs\n17 distro containers"]
+        GL_SPEC["spec / sign"]
+        GL_SMOKE["smoke\nvm:install + vm:regression\non real distro VMs"]
+        GL_REL["release"]
+        GL_PUB["publish"]
+        GL_MIRROR["mirror:github\nallowlisted tree"]
     end
 
-    subgraph GitHub_Actions["GitHub Actions (manual dispatch only)"]
-        direction LR
-        GH_BUILD["Build 17 jobs\n(composite actions)"]
-        GH_MISC["Auto-label,\nsync-to-gitlab,\nmaintenance"]
-        GH_REL["Release\n(GitHub Release)"]
-        GH_PUB["Publish\nAUR, Flathub, Snap"]
+    subgraph GitHub["GitHub (public release mirror)"]
+        GH_PUBLIC["Published source + releases"]
+        GH_MISC["sanity / sync-to-gitlab\n(trusted authors only)"]
     end
 
-    GR_TRIGGER["workflow_dispatch"] --> GH_BUILD
     PUSH --> GL_TEST
     PR --> GL_TEST
     TAG --> GL_TEST
-    SCHED --> GL_REG
-    SCHED --> GL_BUILD
-    TAG --> GL_REG --> GL_BUILD
-    PUSH -->|"protected ref + source change"| GL_REG
-    PUSH -->|"protected ref + source change"| GL_BUILD
-
-    GL_BUILD --> GL_GATE
-    GL_GATE -->|"all builds passed"| GL_TRANSFER --> GL_INSTALL --> GL_VMTEST --> GL_REPORT
-    GL_GATE -->|"any build failed: skip"| GL_REPORT
-    GL_BUILD --> GL_SPEC --> GL_REL --> GL_PUB
-    GH_BUILD --> GH_REL --> GH_PUB
-    GH_MISC -.->|"issues / PRs / labels"| GH_BUILD
+    GL_TEST --> GL_WC --> GL_BUILD
+    GL_BUILD --> GL_SPEC --> GL_SMOKE --> GL_REL --> GL_PUB --> GL_MIRROR --> GH_PUBLIC
 ```
 
 ## Pipeline Stages
 
 GitLab CI uses sequential stages. The fast `test` stage always runs on MRs,
-branches, and tags. The heavier `build → gate → transfer → install → vmtest`
-artifact chain runs automatically only on protected refs, tags, schedules, or
-explicit web/API package-build pipelines. The `gate` stage acts as a fail-fast
-sentinel between the build compilers and the VM deployment chain:
+branches, and tags. `build:webclients` builds the frontend once for the whole
+pipeline; the package jobs that follow reuse it. Package builds run
+automatically on tags and `main` and are manual on other refs.
 
 ```
-test → build → gate → transfer → install → vmtest → report → spec/release/publish
+detect → audit → update → lint → test → security → build → spec → sign → smoke → release → publish → mirror
 ```
 
-If any build job fails, `build:gate` is skipped. Every `transfer/*` job needs
-`build:gate`, so a single build failure cascades silently through transfer,
-install, and vmtest (all skipped). The `report` stage always runs regardless.
+The VM install and regression jobs (`vm:install:*`, `vm:regression:*`) live in
+the `smoke` stage. If a package build fails, its install job has no artifact and
+does not run.
 
 ### Test — fast gates plus protected regressions (GitLab CI only)
 
@@ -128,91 +109,36 @@ The same regression checks also run on GitHub via `sanity.yml` (push/PR to
 — but no `fmt`, `clippy`, or GitLab Cobertura coverage checks on GitHub. No
 package building occurs there.
 
-### Gate — 1 job (GitLab CI only)
+### Smoke — install and test on real distros (GitLab CI only)
 
-`build:gate` is a lightweight Alpine job that sits between the build and
-transfer stages. It declares `needs:` for all 10 distro build jobs that feed
-into the VM deploy chain:
+The build containers exist only to link against each distro's libraries. The
+VMs are where packages are installed and tested:
 
-- `build:apk:alpine-3.20`, `build:apk:alpine-3.22`, `build:aur`
-- `build:deb:debian-12`, `build:deb:debian-13`
-- `build:deb:ubuntu-24.04`, `build:deb:ubuntu-26.04`
-- `build:rpm:el10`, `build:rpm:fedora-43`, `build:rpm:opensuse-tumbleweed`
+- `vm:install:<distro>` copies the package from the matching `build:*` job to
+  the VM and installs it with the native package manager (`apt`, `dnf`, `apk`,
+  `pacman`).
+- `vm:regression:<distro>` runs regression checks and compositor-confirmed
+  visual tests on the installed app and collects results and screenshots.
 
-If any of those jobs fail, GitLab skips `build:gate`. Because every
-`transfer/*` job also declares `needs: ["build:gate"]`, they are all skipped
-too — and the skip propagates through install and vmtest automatically.
+### Build — WebClients once, then 17 distro packages
 
-The `report` stage does **not** depend on `build:gate` and always runs,
-producing a deployment-matrix report even for failed pipelines.
+`build:webclients` runs first (on `node:22`). It checks out the pinned
+`WEBCLIENTS_COMMIT`, runs `scripts/build-webclients.sh`, and publishes the result
+as `webclients-dist/dist.tar.gz`. The output is distro-independent and is cached
+by content, so it is rebuilt only when frontend inputs change. See
+[Build Once and Artifact Reuse](./build-deduplication.md).
 
-### Transfer, Install, Vmtest, Report — VM verification chain (GitLab CI only)
-
-The old monolithic `verify` stage is replaced by four granular stages so failures
-are pinpointed and reports are separated from test execution.
-
-**Transfer** — SCPs the built artifact to each target VM. Emits a dotenv
-(`REMOTE_PKG_PATH`) consumed by the install stage.
-
-**Install** — SSHes into each VM and runs the distro-native package manager
-install (`dnf`, `apt`, `pacman`, `apk`, `zypper`).
-
-**Vmtest** — Runs regression checks and compositor-confirmed visual tests on each
-VM. Visual tests use Xvfb + xdotool + scrot + tesseract OCR to confirm the UI
-actually appears on screen (process-alive is not sufficient). Each distro defines
-a `distro_checks()` hook for package-manager-level assertions (architecture,
-SELinux audit log, EPEL status, etc.). After a window is confirmed the test polls
-OCR output for up to 15 s before asserting login-screen text, allowing the Tauri
-WebKit renderer time to hydrate the React app on the VM.
-
-**Report** — Five separate jobs aggregate results without blocking on each other:
-
-| Job | Output | Viewing |
-|-----|--------|---------|
-| `report:deployment-matrix` | JUnit + Markdown matrix | MR Tests tab |
-| `report:robot-html` | Robot Framework HTML | Artifact browser |
-| `report:pytest-html` | pytest HTML | Artifact browser |
-| `report:ui-screenshots` | Compositor screenshot gallery | Artifact browser |
-| `pages` | Aggregated dashboard | GitLab Pages (requires DNS) |
-
-**Build deduplication:** build and downstream smoke jobs use `changes:` rules so
-protected branch pipelines skip the expensive artifact chain for docs-only or
-other non-build-affecting changes. When a transfer job is manually played without
-a fresh producer artifact, `fetch-latest-artifact.sh` can restore the last
-successful package artifact for that build job. See
-[Build Deduplication and Artifact Reuse](./build-deduplication.md) for the full
-mechanism including `fetch-latest-artifact.sh` and `optional: true` semantics.
-
-**VM inventory** (10 VMs on a private network, SSH via deploy key):
-
-| Job prefix | Distro | Package format |
-|------------|--------|----------------|
-| `*:debian-12` | Debian 12 | `.deb` |
-| `*:debian-13` | Debian 13 | `.deb` |
-| `*:ubuntu-24.04` | Ubuntu 24.04 | `.deb` |
-| `*:ubuntu-26.04` | Ubuntu 26.04 | `.deb` |
-| `*:alpine-3.20` | Alpine 3.20 | `.apk.tar.gz` |
-| `*:alpine-3.22` | Alpine 3.22 | `.apk.tar.gz` |
-| `*:rpm-el10` | CentOS Stream 10 | `.rpm` |
-| `*:rpm-fedora-43` | Fedora 43 | `.rpm` |
-| `*:rpm-opensuse-tumbleweed` | openSUSE Tumbleweed | `.rpm` |
-| `*:aur` | Arch Linux | `.pkg.tar.zst` |
-
-### Build — 17 distro packages
-
-Each build job runs in a distro-specific container, clones the WebClients repo,
-applies the distro-specific patch, builds the Tauri binary, and packages the
-output. The common flow is:
+Each package job runs in a distro-specific container (only so the binary links
+against that distro's libraries) and `needs` `build:webclients`. The common flow is:
 
 1. Install system dependencies (compilers, libs, node)
 2. Install Rust toolchain
-3. Clone `WebClients` from `github.com/ProtonMail/WebClients` at `main`
-4. Apply distro patch from `patches/<format>/<variant>.patch`
-5. Run `scripts/build-webclients.sh` (web app build)
-6. Sync `package.json` version to `tauri.conf.json` and `Cargo.toml`
-7. `npm ci` + `cargo build --release`
-8. Package binary and icons into distro format
-9. Copy to `artifacts/` directory
+3. Apply distro patch from `patches/<format>/<variant>.patch`
+4. Unpack the shared WebClients dist (`scripts/ci/lib/use-webclients-dist.sh`)
+5. Sync `package.json` version to `tauri.conf.json` and `Cargo.toml`
+6. `npm ci` + `cargo build --release`
+7. Package binary and icons into distro format
+8. Copy to `artifacts/` directory
 
 | Build job | Container/Image | Output format |
 |-----------|-----------------|---------------|
@@ -422,7 +348,7 @@ steps to verify all expected artifacts are present before signing or uploading.
 
 ### Other CI Scripts
 
-Build logic is defined inline in `.gitlab/workflows/builds.yml`. The remaining
+Build logic is defined inline in `.gitlab-ci.yml` (`build:webclients` plus the `build:*` package jobs). The remaining
 CI scripts are split into subdirectories under `scripts/ci/`:
 
 | Directory | Contents |
@@ -534,12 +460,12 @@ docker run --rm -v "$PWD:/workspace" -w /workspace <image> bash -c '
 
 | Need | System | File |
 |------|--------|------|
-| Review build pipeline definition | GitLab CI | `/.gitlab-ci.yml` + `.gitlab/workflows/builds.yml` |
+| Review build pipeline definition | GitLab CI | `/.gitlab-ci.yml` |
 | Review GitHub mirror of build matrix | GitHub Actions | `/.github/workflows/package-workflows.yml` |
 | Inspect a specific build action | GitHub Actions | `/.github/workflows/<type>/<variant>/action.yml` |
 | View issue/PR sync rules | GitHub Actions | `/.github/workflows/sync-to-gitlab.yml` |
 | View auto-label rules | GitHub Actions | `/.github/actions/maintenance/` |
-| Understand the fail-fast gate | GitLab CI | `build:gate` job in `.gitlab/workflows/builds.yml` |
+| Understand build fan-out and reuse | GitLab CI | `build:webclients` and `docs/ci-cd/build-deduplication.md` |
 | Add a new build target | Both | `docs/build-packaging/new-build-checklist.md` |
 | Understand packaging conventions | Docs | `docs/build-packaging/packaging.md` |
 | Inspect CI VM scripts | GitLab CI | `scripts/ci/{install,transfer,vmtest,lib}/` |

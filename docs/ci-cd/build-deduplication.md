@@ -1,234 +1,95 @@
-# Build Deduplication and Artifact Reuse
+# Build Once and Artifact Reuse
 
-> How the pipeline avoids redundant 2-hour Tauri/Rust builds while still running
-> the full transfer → install → vmtest chain on every CI-relevant commit.
+> How the GitLab pipeline avoids repeating expensive work: the WebClients
+> frontend is built once and shared by every package job, finished packages are
+> reused by content key, and VMs are used only to install and test.
 
-## Problem
+## Roles
 
-Each of the 17 build jobs compiles Tauri + Rust from source inside a distro-specific
-container. A single build run takes 90–120 minutes. Without deduplication, every
-commit — including docs edits, vmtest script tweaks, or CI yml fixes — triggers
-all 17 builds before the transfer/install/vmtest chain can run. That is both slow
-and wasteful.
+| Layer | Where it runs | Purpose |
+|-------|---------------|---------|
+| `build:webclients` | GitLab runner (`node:22` container) | Build the Proton frontend once. Distro-independent. |
+| `build:<format>:<target>` (17 jobs) | GitLab runner, distro container | Compile the Rust/Tauri app against that distro's libraries, apply the distro patch, produce the package. |
+| `vm:install:*`, `vm:regression:*`, `smoke:*` | Target VMs over SSH (or the runner for `smoke:*`) | Install the finished package on the real distro and run regression and GUI-load tests. |
+| `release`, `publish:*`, `mirror:github` | GitLab runner | Collect artifacts, publish, and mirror an allowlisted tree to GitHub. |
 
-## Three-Tier Behaviour
+Containers exist only so each package links against the right system libraries
+(WebKitGTK 4.1, GTK, glibc or musl). They are not the test environment: the VMs are.
 
-| Commit type | Builds | Transfer/Install/Vmtest |
-|-------------|--------|------------------------|
-| Source change (`src/`, `src-tauri/`, `Cargo.lock`, `patches/`, build scripts) | All 17 rebuild | Use fresh artifact |
-| CI-only change (vmtest scripts, transfer scripts, report yml, tests/) | Skipped — last artifact reused | Still runs in full |
-| Tag push (`v*`) | All 17 rebuild | Use fresh artifact |
-| Manual override (pipeline UI) | Any job can be force-triggered | Use that artifact |
+## Why the frontend is built separately
 
-## Implementation
+The WebClients webpack build takes about 100 minutes and its output
+(`WebClients/applications/drive/dist`, which `src-tauri/tauri.conf.json` serves
+as `frontendDist`) does not depend on the distro, the Rust toolchain or the
+package format. Previously each of the 17 package jobs repeated it.
 
-### 0. Content-addressed build keys
+Now:
 
-The pipeline is moving from branch-scoped artifact reuse to content-addressed
-artifact reuse. Every package target computes a deterministic build key from the
-tracked Git blobs, file modes, and build-affecting environment values that can
-change the packaged output.
+1. `build:webclients` runs `scripts/ci/lib/fetch-webclients.sh` (pinned to
+   `WEBCLIENTS_COMMIT`) and `scripts/build-webclients.sh`, then packs the result
+   into `webclients-dist/dist.tar.gz`.
+2. Every package job declares `needs: [build:webclients]` (set once on
+   `.rules:build`) and calls `scripts/ci/lib/use-webclients-dist.sh`, which
+   unpacks the archive into `WebClients/applications/drive/dist`. Package jobs
+   never clone or build WebClients.
+3. `build:webclients` runs automatically on merge requests, branches and tags.
+   Package jobs are automatic on tags and `main`, and manual elsewhere.
 
-The key is produced by `scripts/ci/lib/compute-build-key.sh` and has this shape:
+## Content-addressed reuse
+
+`scripts/ci/lib/compute-build-key.sh` produces a deterministic key from tracked
+Git blobs (`git ls-files -s`) plus build-affecting environment values:
 
 ```text
 <package-type>-<target-label>-<sha256>
 ```
 
-The script intentionally uses `git ls-files -s` instead of filesystem traversal.
-That hashes Git blob IDs and executable bits in a deterministic order, avoiding
-accidental cache misses caused by runner-dependent `find` ordering.
+`scripts/ci/lib/build-artifact-cache.sh` uses that key as the version of a
+`proton-drive-build-cache` package in the GitLab Generic Package Registry:
 
-Build-affecting environment values included in the hash stream include
-`WEBCLIENTS_COMMIT`, `WEBCLIENTS_REF`, `RUST_VERSION`, `RUSTFLAGS`,
-`CARGO_BUILD_JOBS`, `NODE_OPTIONS`, `TARGET_TRIPLE`, `DISTRO_TYPE`,
-`DISTRO_PATCH`, `APPIMAGE_TARGET`, `FLATPAK_TARGET`, `SNAP_BASE`, and
-`CI_RUNNER_EXECUTABLE_ARCH`.
+- `restore` (in `before_script`) downloads and verifies the archive for the
+  exact key (embedded key and SHA-256 checksums). On a hit the job exits
+  successfully before installing any toolchain.
+- `publish` (in `after_script`) uploads the verified output on success. Upload
+  failures are warnings; the job artifact stays authoritative.
 
-The shared build template uses this key as the version of a
-`proton-drive-build-cache` package in the GitLab Generic Package Registry. This
-makes reuse independent of branch name or pipeline status while keeping it tied
-to the exact build inputs.
+Because reuse is keyed by inputs rather than pipeline status, a fix pipeline
+reuses outputs from earlier pipelines, including failed or canceled ones.
 
-### Run-again and cross-pipeline reuse
+The `webclients` package type is keyed **only** on frontend inputs
+(`scripts/build-webclients.sh`, the `fix_deps`/`create_stubs`/`patch_drive_linux_*`
+scripts, `patches/common`, `WEBCLIENTS_COMMIT`, `WEBCLIENTS_REF`, `NODE_OPTIONS`).
+Rust, toolchain or packaging changes therefore never invalidate it. Its archive
+lives in `webclients-dist/` (`BUILD_ARTIFACT_DIR`) so it cannot be mistaken for a
+finished package in `artifacts/`.
 
-Every package build runs `build-artifact-cache.sh restore` in `before_script`,
-before the distro toolchain is installed. The helper:
+Controls: `FORCE_REBUILD=true` bypasses all hits; `REUSE_BUILD_ARTIFACTS=false`
+disables lookup and publication.
 
-1. Resolves the package type and target from the build job.
-2. Computes the deterministic build key.
-3. Downloads `artifact-cache.tar.gz` for that exact key from the Generic Package
-   Registry using `CI_JOB_TOKEN`.
-4. Verifies the embedded key and SHA-256 checksums.
-5. Restores `artifacts/` and exits the build job successfully on a hit.
+## Pipeline hygiene
 
-On a miss, the normal build runs. Its shared `after_script` packages the output,
-writes the existing artifact manifest metadata, and uploads the verified archive
-under the build key. Upload failures are warnings: the freshly built GitLab job
-artifact remains authoritative and downstream jobs are unaffected.
+- A push to a branch that has an open merge request creates only the merge
+  request pipeline (`workflow:rules` skips the duplicate branch pipeline).
+- `auto_cancel: on_new_commit: interruptible` cancels superseded runs.
+- Branch tips already merged should not keep pipelines running; cancel them.
 
-This is the run-again path for superseding fix pipelines. A new pipeline can
-reuse successful package outputs from an earlier pipeline even if that earlier
-pipeline ultimately failed or was canceled, because reuse is keyed by build
-inputs rather than overall pipeline status.
-
-Set `FORCE_REBUILD=true` when starting a pipeline to bypass all package artifact
-hits. Set `REUSE_BUILD_ARTIFACTS=false` to disable both lookup and publication.
-
-### 1. `changes:` rules on `.rules:build`
-
-Defined in `.gitlab/workflows/_shared.yml`:
-
-```yaml
-.rules:build:
-  rules:
-    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
-      changes: &src_globs
-        - src/**/*
-        - src-tauri/**/*
-        - patches/**/*
-        - package.json
-        - package-lock.json
-        - Cargo.toml
-        - Cargo.lock
-        - scripts/build-*.sh
-        - scripts/ci/lib/install-rust.sh
-        - scripts/ci/lib/fetch-webclients.sh
-        - .gitlab/workflows/builds.yml
-        - .gitlab/workflows/_shared.yml
-    - if: $CI_COMMIT_BRANCH
-      changes: *src_globs
-    - if: $CI_COMMIT_TAG         # release tags always rebuild
-    - when: manual               # escape hatch — force any build from pipeline UI
-      allow_failure: true
-```
-
-GitLab evaluates `changes:` against the MR diff (for MR pipelines) or the push
-diff (for branch pipelines). If no listed file changed, the job is not
-auto-started. It appears in the pipeline UI as a manual job, not hidden — this is
-intentional so developers can force a rebuild without pushing a source change.
-
-### 2. WebClients commit-pinned cache
-
-Each build job previously cloned the entire WebClients repo (~1–2 GB) from
-GitHub on every run. Now all jobs call `scripts/ci/lib/fetch-webclients.sh`,
-which checks the CI cache first:
-
-```yaml
-cache:
-  - key:
-      files: [Cargo.lock, src-tauri/Cargo.toml]
-      prefix: deb-debian12            # distro-specific prefix
-    paths: [.cargo/, src-tauri/target/]
-    when: always
-  - key: "webclients-${WEBCLIENTS_COMMIT}"  # invalidates when WEBCLIENTS_COMMIT changes
-    paths: [WebClients/]
-    policy: pull-push
-```
-
-`fetch-webclients.sh` checks whether the pinned commit is already checked out in
-the runner cache. Cache hit: instant. Cache miss: single `filter=blob:none`
-clone at the exact `WEBCLIENTS_COMMIT` hash, no branch tracking.
-
-### 3. Content-keyed Cargo cache
-
-Previously each job used a static cache key (`deb-debian12-cargo`). This cached
-the `target/` directory indefinitely, mixing incremental artifacts from different
-dependency states. Now the key uses `key: files:` with the lockfiles:
-
-```
-key: files: [Cargo.lock, src-tauri/Cargo.toml], prefix: deb-debian12
-```
-
-The cache is automatically invalidated when `Cargo.lock` or `src-tauri/Cargo.toml`
-changes (dependency update). It is reused across pipeline runs when they do not
-change, making subsequent builds of the same dep graph incremental.
-
-### 4. `optional: true` + `fetch-latest-artifact.sh` for CI-only changes
-
-When a build job is skipped (no source change), GitLab would normally cascade-skip
-all downstream jobs (`needs:` the skipped job). To prevent this, every transfer
-job declares its build dependency as optional:
-
-```yaml
-transfer:debian-12:
-  variables:
-    BUILD_JOB_NAME: "build:deb:debian-12"
-  needs:
-    - job: "build:deb:debian-12"
-      artifacts: true
-      optional: true       # do not cascade-skip if build was skipped
-```
-
-The transfer base template then calls `fetch-latest-artifact.sh` as the first
-step in `before_script`:
-
-```yaml
-.transfer:base:
-  before_script:
-    - apk add --no-cache bash openssh-client coreutils curl unzip
-    - bash scripts/ci/lib/fetch-latest-artifact.sh "${BUILD_JOB_NAME}"
-```
-
-`fetch-latest-artifact.sh` checks whether `artifacts/` is already populated
-(fresh build passed its artifacts through). If not, it calls the GitLab Jobs API:
-
-```
-GET /api/v4/projects/:id/jobs/artifacts/:ref/download?job=<job_name>
-Authorization: JOB-TOKEN: $CI_JOB_TOKEN
-```
-
-This downloads a zip of the artifact directory from the last successful pipeline
-for the same branch/ref, extracts it, and lets the transfer script proceed
-normally with the restored artifact.
-
-## Failure Modes
+## Failure modes
 
 | Scenario | Behaviour |
 |----------|-----------|
-| Source changed, build succeeds | Normal path — fresh artifact flows through |
-| Source changed, build fails | Transfer, install, vmtest are skipped (no artifact) |
-| CI-only change, prior build exists on this branch | Fetch succeeds — full chain runs |
-| CI-only change, no prior build on this branch | Fetch returns 404 — transfer fails with clear error |
-| Tag push | `changes:` rule does not apply — all 17 builds run unconditionally |
-| Manual override in UI | Developer clicks the skipped build job — it runs, produces artifact |
-
-## Known Limitations
-
-**1. Legacy branch-scoped fallback.**
-`fetch-latest-artifact.sh` still supports transfer jobs created without a fresh
-or registry-restored build job. That fallback selects the last successful job on
-the ref. Normal and run-again build jobs use the content-addressed registry path,
-including embedded-key and checksum verification.
-
-**2. First-build cliff on new branches.**
-A new branch that has never had a successful build and receives only a CI-only
-change commit will fail at the fetch step (HTTP 404). The developer must push a
-source-touching commit or manually trigger the build from the pipeline UI.
-
-**3. Docs-only commits still run transfer/install/vmtest.**
-Only the build stage has `changes:` rules. Transfer, install, and vmtest always
-run (they fetch the last artifact if needed). A docs-only commit will consume VM
-resources running vmtest against the unchanged binary. This is conservative — it
-catches regressions introduced by infrastructure changes — but can be optimised
-later by adding `changes:` rules to the transfer base template if runner cost
-becomes a concern.
-
-**4. Manual-not-skipped presentation.**
-When builds are skipped due to `changes:`, they appear in the pipeline UI as
-yellow manual jobs, not greyed-out skipped jobs. This is the GitLab behaviour for
-a rule that matches the `if:` condition but not the `changes:` condition — the
-`when: manual` fallback activates. It provides a one-click force-rebuild escape
-hatch but may look noisy on CI-only commits.
+| Frontend inputs unchanged | `build:webclients` restores from the registry in seconds |
+| Frontend inputs changed | `build:webclients` runs the full build once for the whole pipeline |
+| `build:webclients` fails | Package jobs do not start (their `needs` is unmet) |
+| Package inputs unchanged | The package job restores its verified artifact and exits early |
+| Registry unavailable | Warnings only; jobs build normally |
 
 ## Files
 
 | File | Purpose |
 |------|---------|
-| `.gitlab/workflows/_shared.yml` | `.rules:build` with `changes:` and YAML anchor |
-| `.gitlab/workflows/builds.yml` | All 17 build jobs — cache blocks and `fetch-webclients.sh` calls |
-| `.gitlab/workflows/transfer/_base.yml` | `optional` fetch logic in `before_script` |
-| `.gitlab/workflows/transfer/*.yml` | `BUILD_JOB_NAME` variable + `optional: true` per distro |
-| `scripts/ci/lib/fetch-webclients.sh` | Cache-aware WebClients checkout |
-| `scripts/ci/lib/fetch-latest-artifact.sh` | GitLab API artifact download for skipped builds |
-| `scripts/ci/lib/build-artifact-cache.sh` | Verified Generic Package Registry restore/publish path |
+| `.gitlab-ci.yml` | `build:webclients`, the 17 package jobs, `.rules:build`, `.use_webclients_dist` |
+| `.gitlab-ci-vm-tests.yml` | `vm:install:*`, `vm:regression:*` and related VM jobs |
+| `scripts/ci/lib/use-webclients-dist.sh` | Unpack the shared dist in package jobs |
+| `scripts/ci/lib/fetch-webclients.sh` | Pinned WebClients checkout |
+| `scripts/ci/lib/compute-build-key.sh` | Deterministic content key |
+| `scripts/ci/lib/build-artifact-cache.sh` | Verified registry restore/publish |

@@ -347,7 +347,7 @@ Each package format has a dedicated set of CI scripts:
 All package builds run through two parallel CI systems:
 
 - **GitLab CI** (`.gitlab-ci.yml`) — Authoritative per project policy. Stages:
-  `test` → `build` → `transfer` → `install` → `vmtest` → `report` → `spec` → `release` → `publish`
+  `test` → `build` → `spec` → `sign` → `smoke` (VM install + regression) → `release` → `publish` → `mirror`
   Each stage runs per-distro (Alpine 3.20, 3.22, Debian 12/13, Ubuntu 24.04/26.04,
   EL10, Fedora 43/44, openSUSE Tumbleweed, Arch).
 - **GitHub Actions** (`.github/workflows/`) — Composite actions under
@@ -371,7 +371,7 @@ To add a new distro/package format, follow the checklist in
 3. Update the compatibility map in `packaging/compatibility-map.yml`
 4. Create a GitHub Actions composite workflow under `.github/workflows/<format>/<target>/action.yml`
 5. Create CI transfer, install, and vmtest scripts under `scripts/ci/{transfer,install,vmtest}/<target>/`
-6. Add GitLab CI includes under `.gitlab/workflows/{transfer,install,vmtest}/<target>.yml`
+6. Add the `build:<format>:<target>` job to `.gitlab-ci.yml` (it needs `build:webclients` via `.rules:build`) and the matching `vm:install:*` / `vm:regression:*` jobs to `.gitlab-ci-vm-tests.yml`
 7. Integrate with the release pipeline
 
 ---

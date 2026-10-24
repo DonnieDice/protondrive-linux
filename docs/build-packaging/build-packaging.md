@@ -205,61 +205,48 @@ rustflags = ["-C", "target-feature=-crt-static"]
 
 ## CI/CD Pipeline
 
-The CI uses two systems:
-- **GitHub Actions** (`.github/workflows/package-workflows.yml`) — primary packaging pipeline
-- **GitLab CI** (`.gitlab-ci.yml` + `.gitlab/workflows/*.yml`) — test → build → transfer → install → vmtest → report → spec → release → publish on self-hosted GitLab
-
-The GitLab `.gitlab-ci.yml` is a 62-line entrypoint that includes workflows from `.gitlab/workflows/`:
-- `_shared.yml` — shared job templates
-- `tests.yml` — unit and integration tests
-- `builds.yml` — per-distro build jobs
-- `transfer/*.yml` — SCP build artifacts to target VMs (alpine, debian, ubuntu, fedora, el10, opensuse, arch)
-- `install/*.yml` — distro-specific package manager install on each VM
-- `vmtest/*.yml` — regression + GUI load tests on each VM
-- `report.yml` — aggregate deployment matrix + JUnit report
-- `release.yml` — spec generation + GitHub release creation
+GitLab CI (`.gitlab-ci.yml`, with the includes `.gitlab-ci-vm-tests.yml`,
+`.gitlab-ci-vm-harness-15.yml` and `.gitlab/workflows/tests.yml`) is
+authoritative for builds, tests, releases and publishing. GitHub is the public
+release mirror: the `mirror:github` job publishes the allowlisted tree listed in
+`.github-publish`, and the GitHub package workflow is manual-only.
 
 ### Stages
 
 ```
-test → build → transfer → install → vmtest → report → spec → release → publish
+detect → audit → update → lint → test → security → build → spec → sign → smoke → release → publish → mirror
 ```
+
+The VM install and regression jobs (`vm:install:*`, `vm:regression:*`) run in the
+`smoke` stage. See [Build Once and Artifact Reuse](../ci-cd/build-deduplication.md).
 
 ### Rules
 
-The workflow entrypoint runs on merge requests, branch pushes, and tag pushes. Per-job rules in individual workflow files determine which stages run in each context.
-
 | Pipeline source | Pipelines |
 |-----------------|-----------|
-| Merge request | Full pipeline (test through report) |
-| Branch push | Full pipeline (test through report) |
-| `main` push | Full pipeline (test through publish) |
+| Merge request | Gates, tests, `build:webclients`; package builds and VM jobs are manual |
+| Branch push (no open MR) | Same as a merge request |
+| `main` push | Gates and tests, package builds, VM install/regression, release |
 | `v*` tag | Full pipeline with publish (manual) |
 
-### Per-platform build jobs
+A branch with an open merge request gets only the merge request pipeline.
 
-Each platform has its own Docker-based build job with:
-- Distro-specific base image (e.g., `alpine:3.20`, `fedora:44`)
-- Distro-specific dependencies (WebKitGTK 4.1 dev, Rust toolchain, build tools)
-- Python patch scripts applied via `scripts/fix_deps.py`, `scripts/patch_drive_linux_drawer.py`
-- Cargo build with correct `DISTRO_TYPE`
-- Artifact packaging (APK, DEB, RPM, AppImage, Flatpak)
+### Build jobs
 
-### Transfer stage
+`build:webclients` builds the Proton frontend once (distro-independent). Each of
+the 17 package jobs then runs in a distro-specific container solely so the app
+links against that distro's system libraries. A package job:
+- unpacks the shared WebClients dist (`scripts/ci/lib/use-webclients-dist.sh`)
+- applies its distro patch from `patches/<format>/`
+- runs the Cargo/Tauri build with the right `DISTRO_TYPE`
+- emits the package (APK, DEB, RPM, AppImage, Flatpak, Snap or AUR)
 
-The `transfer` stage SCPs build artifacts from the build job to matching target VMs. Each target distro has its own workflow file in `.gitlab/workflows/transfer/`.
+### Install and VM test jobs
 
-### Install stage
-
-The `install` stage runs distro-specific package manager commands (apt, dnf, apk, pacman) to install the built package on each target VM, using workflow files from `.gitlab/workflows/install/`.
-
-### VM test stage
-
-The `vmtest` stage runs regression and GUI load tests on each target VM, using workflow files from `.gitlab/workflows/vmtest/`. Tests cover sync commands, SSO login routing, and basic application lifecycle.
-
-### Report stage
-
-The `report` stage aggregates test results into a deployment matrix and JUnit report, surfacing pass/fail per distro.
+The VMs are used only for install and testing. `vm:install:<distro>` copies the
+built package to the matching VM and installs it with the native package manager
+(apt, dnf, apk, pacman). `vm:regression:<distro>` then runs the regression and
+GUI load tests on that VM and collects results and screenshots.
 
 ### Spec stage
 
@@ -268,7 +255,7 @@ The `spec` stage generates package specifications:
 - **RPM spec** — Fedora/EL/openSUSE `.spec` files
 - **Source distribution** — tarballs and checksums for source-based distros
 
-This is implemented in `.gitlab/workflows/release.yml`.
+This is implemented in `.gitlab-ci.yml`.
 
 ### Release stage
 

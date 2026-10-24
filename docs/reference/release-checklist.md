@@ -108,15 +108,13 @@ All CI builds must be green before proceeding. The project uses **two CI systems
 
 Per-target builds (check on either CI system, both must be green):
 
-GitLab CI runs eight stages — confirm each in sequence:
+GitLab CI stages to confirm in sequence:
 
-- [ ] **`test` stage** — all 5 jobs pass (fmt, clippy, rust, login-routing, sync).
-- [ ] **`build` stage** — all distro builds pass.
-- [ ] **`gate` stage** — `build:gate` passes. A skipped gate means a build failed; do not proceed.
-- [ ] **`transfer` stage** — artifact SCPed to all 10 VMs.
-- [ ] **`install` stage** — package installed on all 10 VMs.
-- [ ] **`vmtest` stage** — GUI loads, OCR confirms login screen, regression checks clean on all VMs.
-- [ ] **`report` stage** — deployment matrix report generated.
+- [ ] **`test` stage** — fmt, clippy, rust, login-routing, sync and sidebar checks pass.
+- [ ] **`build` stage** — `build:webclients` and all distro package builds pass.
+- [ ] **`smoke` stage** — `vm:install:*` installs the package on every VM, and `vm:regression:*` shows GUI loads, OCR confirms the login screen, and regression checks are clean.
+- [ ] **`release` stage** — release assets created.
+- [ ] **`mirror` stage** — `mirror:github` published the allowlisted tree.
 
 Per-target build checks (both CI systems):
 

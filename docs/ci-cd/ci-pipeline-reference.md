@@ -59,7 +59,7 @@ The pipeline is triggered for:
 
 ## Variables
 
-All shared variables are defined in `.gitlab/workflows/_shared.yml` and sourced into
+All shared variables are defined in `.gitlab-ci.yml` and sourced into
 the pipeline via the `include:` directive at the top of `.gitlab-ci.yml`.
 
 | Variable | Value | Purpose |
@@ -76,7 +76,7 @@ the pipeline via the `include:` directive at the top of `.gitlab-ci.yml`.
 
 ## Rule Templates (YAML Anchors)
 
-All rule templates below are defined in `.gitlab/workflows/_shared.yml` and shared
+All rule templates below are defined in `.gitlab-ci.yml` and shared
 across all workflow files via `include:`.
 
 ### `.rules:build`
@@ -106,7 +106,7 @@ Applied to all **doc audit** jobs (`docs:detect-changes`, `docs:resolve-mapping`
 
 ## Reusable Script Fragments
 
-The following YAML anchors are defined in `.gitlab/workflows/_shared.yml`.
+The following YAML anchors are defined in `.gitlab-ci.yml`.
 
 ### `.install_rust`
 A `before_script` block reused by every build job. Installs the Rust toolchain via rustup if
@@ -365,9 +365,11 @@ before running tests.
 
 ## Stage: `build`
 
-> All build jobs share the pattern: install system deps → install Rust → clone
-> WebClients → apply distro patch → build web clients → sync version → npm ci
-> → cargo build → extract binary → package → drop into `artifacts/`.
+> `build:webclients` builds the Proton frontend once and publishes
+> `webclients-dist/dist.tar.gz`. Every package job then follows the pattern:
+> install system deps → install Rust → apply distro patch → unpack the shared
+> WebClients dist → sync version → npm ci → cargo build → extract binary →
+> package → drop into `artifacts/`. See [Build Once and Artifact Reuse](./build-deduplication.md).
 >
 > Artifacts expire in **30 days** and all outputs land in `artifacts/`.
 
@@ -461,208 +463,22 @@ Core26 also patches snapcraft.yaml to `base: core26`, `grade: devel`,
 
 ---
 
-## Stage: `gate`
+## Stage: `smoke`
 
-> Confirms all distro builds succeeded before any deploy/VM stages run.
-> One job only: `build:gate`. Report jobs do **not** depend on this gate
-> and always run regardless of its result.
+> Install and test on real distros. The build containers only provide the right
+> system libraries; these jobs are where a package is actually installed and run.
+> VM jobs reach target VMs over SSH and are defined in `.gitlab-ci-vm-tests.yml`.
 
-### `build:gate`
-
-| Image | Timeout | Rules |
+| Job | Where | Description |
 |---|---|---|
-| `alpine:latest` | — | MR, branch push, tag push |
+| `vm:install:<distro>` | Target VM | Copies the package from the matching `build:*` job to the VM and installs it with the native package manager (apt, dnf, apk, pacman). |
+| `vm:regression:<distro>` | Target VM | Runs regression and GUI-load tests on the installed app; collects `test-results/` and UI screenshots. Automatic on `main`, manual elsewhere. |
+| `vm:ssh:smoke` | Runner | SSH reachability matrix for the VMs. |
+| `smoke:deb:debian-12`, `smoke:rpm:fedora-43`, `smoke:appimage` | Runner | Quick sanity checks on the built artifacts. |
+| `security:trivy-artifacts` | Runner | Scans the AppImage artifact. |
+| `vm:provision:*`, `vm:inventory:*`, `vm:diag:*`, `vm:repair:*` | Runner / VM | Manual maintenance and diagnostics. |
 
-**Dependencies (needs):** All 10 build jobs that feed into the transfer/install/vmtest pipeline
-(APK Alpine 3.20 + 3.22, AUR, DEB Debian 12 + 13, DEB Ubuntu 24.04 + 26.04,
-RPM EL10 + Fedora 43 + openSUSE Tumbleweed).
-
-**What happens:**
-
-If any upstream build job failed, `build:gate` is skipped, which cascades:
-- `transfer/*` (all need `build:gate`) → skipped
-- `install/*` (needs transfer) → skipped
-- `vmtest/*` (needs install) → skipped
-- Report jobs are unaffected and always run.
-
-If all builds passed, the gate prints a confirmation message and the deploy stages proceed.
-
----
-
-## Stage: `transfer`
-
-> SCPs the build artifact to each target VM. One job per distro.
-> All jobs extend `.transfer:base` with shared rules (MR, branch push, tag push, or manual).
-> Image: `alpine:latest`. Artifacts include a JSON result record and a dotenv file (`REMOTE_PKG_PATH`)
-> consumed by the `install` stage.
-
-### Jobs
-
-| Job | VM |
-|---|---|
-| `transfer:alpine-3.20` | Alpine 3.20 |
-| `transfer:alpine-3.22` | Alpine 3.22 |
-| `transfer:debian-12` | Debian 12 |
-| `transfer:debian-13` | Debian 13 |
-| `transfer:ubuntu-24.04` | Ubuntu 24.04 |
-| `transfer:ubuntu-26.04` | Ubuntu 26.04 |
-| `transfer:el10` | CentOS Stream 10 (EPEL+CRB enabled) |
-| `transfer:fedora-43` | Fedora 43 |
-| `transfer:opensuse-tumbleweed` | openSUSE Tumbleweed |
-| `transfer:arch` | Arch Linux |
-
-Each job locates the build artifact by distro, SCPs it to the target VM, and emits
-`transfer-results/<label>.json` + `transfer-results/<label>.env` dotenv with the
-remote package path for the downstream `install` job.
-
----
-
-## Stage: `install`
-
-> Installs the package on each VM using distro-specific package managers.
-> One job per distro. Reads `REMOTE_PKG_PATH` from the transfer stage dotenv artifact.
-> Re-exports `transfer-results/` so the report stage can aggregate all three result sets.
-> Image: `alpine:latest`. Rules: MR, branch push, tag push, or manual.
-
-### Jobs
-
-| Job | Package Manager |
-|---|---|
-| `install:alpine-3.20` | `apk` |
-| `install:alpine-3.22` | `apk` |
-| `install:debian-12` | `apt` |
-| `install:debian-13` | `apt` |
-| `install:ubuntu-24.04` | `apt` |
-| `install:ubuntu-26.04` | `apt` |
-| `install:el10` | `dnf` |
-| `install:fedora-43` | `dnf` |
-| `install:opensuse-tumbleweed` | `zypper` |
-| `install:arch` | `pacman` |
-
-Install scripts live under `scripts/ci/install/<distro>/install.sh`. Each is a
-minimal distro-specific script — dependency resolution is delegated to the
-package manager. After install, the job writes `install-results/<label>.json`.
-
----
-
-## Stage: `vmtest`
-
-> Runs regression checks and GUI load tests on each VM after the install stage.
-> One job per distro. Re-exports all three result directories (`transfer-results/`,
-> `install-results/`, `test-results/`) so the `report` stage only depends on vmtest
-> jobs to get the full picture.
->
-> Image: `alpine:latest`. Rules: MR, branch push, tag push, or manual.
-> Artifacts expire in **30 days** and also include compositor test screenshots
-> (`verify-results/ui-screenshots/`) for OCR debugging.
-
-### Jobs
-
-| Job | VM |
-|---|---|
-| `vmtest:alpine-3.20` | Alpine 3.20 |
-| `vmtest:alpine-3.22` | Alpine 3.22 |
-| `vmtest:debian-12` | Debian 12 |
-| `vmtest:debian-13` | Debian 13 |
-| `vmtest:ubuntu-24.04` | Ubuntu 24.04 |
-| `vmtest:ubuntu-26.04` | Ubuntu 26.04 |
-| `vmtest:rpm-el10` | CentOS Stream 10 |
-| `vmtest:rpm-fedora-43` | Fedora 43 |
-| `vmtest:rpm-opensuse-tumbleweed` | openSUSE Tumbleweed |
-| `vmtest:aur` | Arch Linux |
-
-Test scripts live under `scripts/ci/vmtest/<distro>/test.sh` and run both
-regression checks (handled by `scripts/ci/lib/_test_common.sh`) and a GUI load
-test via `xdotool` + screenshot OCR.
-
----
-
-## Stage: `report`
-
-> The report stage aggregates results from all upstream VM stages and generates
-> browsable artifacts. It has **five jobs**: the deployment matrix (JUnit for MR
-> Tests tab), Robot Framework HTML, pytest HTML, a UI screenshots gallery, and
-> GitLab Pages aggregating everything into a single browsable site.
->
-> All report jobs use `when: always` so reports exist even when upstream stages fail.
-> Artifacts expire in **90 days** (except Pages at 30 days).
-
-### `report:deployment-matrix`
-
-| Image | Dependencies |
-|---|---|
-| `python:3.12-slim` | All 10 vmtest jobs (artifacts: true) |
-
-**What it does:**
-
-1. Collects `transfer-results/`, `install-results/`, `test-results/` from all
-   vmtest job artifacts.
-2. Runs `scripts/ci/lib/verify-matrix.py` to produce:
-   - `reports/deployment-matrix.md` — Markdown table showing per-distro transfer/install/test status
-   - `reports/deployment-matrix.json` — structured JSON for downstream tooling
-   - `reports/deployment-matrix.junit.xml` — JUnit XML report surfaced in the GitLab MR Tests tab
-
-**Output artifacts:**
-
-| Artifact | Always? |
-|---|---|
-| `reports/deployment-matrix.md` | Yes (`when: always`) |
-| `reports/deployment-matrix.json` | Yes (`when: always`) |
-| `reports/deployment-matrix.junit.xml` | Yes (via `reports: junit`) |
-
-### `report:robot-html`
-
-| Image | Dependencies |
-|---|---|
-| `python:3.12-slim` | `vmtest:debian-12` (artifacts: true) |
-
-Generates a Robot Framework HTML report from test results using
-`scripts/ci/lib/generate-robot-report.py`. Output lands in `reports/robot/` and
-is browsable via the GitLab artifact browser (`CI/CD → Jobs → Browse`).
-
-### `report:pytest-html`
-
-| Image | Dependencies |
-|---|---|
-| `python:3.12-slim` | None |
-
-Runs `pytest` on `tests/unit/` with `--html` and `--junit-xml` reporters.
-Uses `|| true` so test failures in unit tests don't block the report.
-Output lands in `reports/pytest/` (both HTML and JUnit XML).
-
-### `report:ui-screenshots`
-
-| Image | Dependencies |
-|---|---|
-| `python:3.12-slim` | `vmtest:debian-12`, `vmtest:ubuntu-24.04` (artifacts: true) |
-
-Generates a browsable screenshot gallery using
-`scripts/ci/lib/generate-screenshot-gallery.py`. Reads compositor test
-screenshots from `verify-results/ui-screenshots/` and writes an `index.html`
-gallery to `reports/screenshots/`.
-
-### `pages` — GitLab Pages
-
-| Image | Dependencies |
-|---|---|
-| `python:3.12-slim` | `report:deployment-matrix`, `report:robot-html`, `report:pytest-html`, `report:ui-screenshots` (all artifacts: true) |
-
-> The job name `pages` is special in GitLab — GitLab recognises it and serves the
-> `public/` directory as a static site.
-
-**Rules:** Only runs on `main` branch pushes or tag pushes (not on every branch
-or MR).
-
-**What it does:**
-
-1. Copies all report artifacts into `public/` under subdirectories (`robot/`,
-   `pytest/`, `screenshots/`).
-2. Generates a landing page index from the deployment matrix JSON.
-3. Publishes to **GitLab Pages** on the self-hosted instance.
-
-**Infrastructure requirements:**
-- Wildcard DNS for the Pages domain pointing at the GitLab host
-- `gitlab.rb` config: `pages_external_url` set, `gitlab_pages['enable'] = true`
+Details of the install and regression flow: [Build Once and Artifact Reuse](./build-deduplication.md).
 
 ---
 
