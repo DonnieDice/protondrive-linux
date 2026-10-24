@@ -58,6 +58,7 @@ install_test_deps() {
       run_on_vm "$ip" 'apk add --no-cache tesseract-ocr 2>/dev/null || true'
       run_on_vm "$ip" 'apk add --no-cache imagemagick  2>/dev/null || true'
       run_on_vm "$ip" 'apk add --no-cache python3 py3-pip 2>/dev/null || true'
+      run_on_vm "$ip" 'apk add --no-cache dbus          2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     deb)
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q ca-certificates curl 2>/dev/null || true'
@@ -67,6 +68,7 @@ install_test_deps() {
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q scrot       2>/dev/null || true'
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q tesseract-ocr 2>/dev/null || true'
       run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q imagemagick  2>/dev/null || true'
+      run_on_vm "$ip" 'DEBIAN_FRONTEND=noninteractive apt-get install -y -q dbus        2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || pip install --quiet pyotp 2>/dev/null || true' ;;
     rpm-dnf)
       run_on_vm "$ip" 'dnf install -y ca-certificates curl 2>/dev/null || true'
@@ -77,6 +79,7 @@ install_test_deps() {
       run_on_vm "$ip" 'dnf install -y scrot                   2>/dev/null || true'
       run_on_vm "$ip" 'dnf install -y tesseract tesseract-langpack-eng 2>/dev/null || true'
       run_on_vm "$ip" 'dnf install -y ImageMagick             2>/dev/null || true'
+      run_on_vm "$ip" 'dnf install -y dbus                    2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     rpm-zypper)
       run_on_vm "$ip" 'zypper --non-interactive install ca-certificates curl 2>/dev/null || true'
@@ -85,6 +88,7 @@ install_test_deps() {
       run_on_vm "$ip" 'zypper --non-interactive install scrot         2>/dev/null || true'
       run_on_vm "$ip" 'zypper --non-interactive install tesseract-ocr 2>/dev/null || true'
       run_on_vm "$ip" 'zypper --non-interactive install ImageMagick   2>/dev/null || true'
+      run_on_vm "$ip" 'zypper --non-interactive install dbus         2>/dev/null || true'
       run_on_vm "$ip" 'pip3 install --quiet pyotp 2>/dev/null || true' ;;
     aur)
       run_on_vm "$ip" 'pacman -S --noconfirm --needed ca-certificates curl 2>/dev/null || true'
@@ -94,6 +98,7 @@ install_test_deps() {
       run_on_vm "$ip" 'pacman -S --noconfirm --needed scrot              2>/dev/null || true'
       run_on_vm "$ip" 'pacman -S --noconfirm --needed tesseract          2>/dev/null || true'
       run_on_vm "$ip" 'pacman -S --noconfirm --needed imagemagick        2>/dev/null || true'
+      run_on_vm "$ip" 'pacman -S --noconfirm --needed dbus             2>/dev/null || true'
       run_on_vm "$ip" 'pip install --quiet pyotp 2>/dev/null || true' ;;
   esac
   return 0

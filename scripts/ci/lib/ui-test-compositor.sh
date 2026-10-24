@@ -40,6 +40,8 @@ ARTIFACT_DIR="${2:-/tmp/pd-ui-artifacts}"
 BIN="$(command -v proton-drive 2>/dev/null || echo /usr/bin/proton-drive)"
 DISPLAY_NUM=":88"
 XVFB_PID=""
+SESSION_BUS_PID=""
+SESSION_BUS_ADDR=""
 APP_PID=""
 _PASS=0; _FAIL=0; _SKIP=0
 LOG_DIR="$ARTIFACT_DIR/logs"
@@ -53,7 +55,9 @@ have() { command -v "$1" >/dev/null 2>&1; }
 cleanup() {
   [ -n "$APP_PID" ]  && kill "$APP_PID"  2>/dev/null || true
   [ -n "$XVFB_PID" ] && kill "$XVFB_PID" 2>/dev/null || true
+  [ -n "$SESSION_BUS_PID" ] && kill "$SESSION_BUS_PID" 2>/dev/null || true
   pkill -f "Xvfb $DISPLAY_NUM" 2>/dev/null || true
+  pkill -f "dbus-daemon --session" 2>/dev/null || true
 }
 trap cleanup EXIT
 
@@ -150,6 +154,28 @@ type_into_focused() {
 
 # ── Compositor setup ──────────────────────────────────────────────────────────
 
+start_session_bus() {
+  # Headless CI fix (issue #35): GTK/GIO create D-Bus proxies synchronously
+  # during GApplication registration. With no session bus reachable via
+  # DBUS_SESSION_BUS_ADDRESS / XDG_RUNTIME_DIR, that synchronous proxy
+  # creation blocks indefinitely on the main thread — before the WebKit
+  # webview is ever created — leaving a "running" app with a blank/black
+  # window (pure-black screenshots, empty OCR). Starting a session bus and
+  # pointing the app at it unblocks startup so WebKit renders normally.
+  have dbus-daemon || { echo "WARNING: dbus-daemon not installed — cannot provide session bus"; return 0; }
+  export XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}"
+  mkdir -p "$XDG_RUNTIME_DIR" 2>/dev/null || true
+  SESSION_BUS_ADDR="$(dbus-daemon --session --fork --print-address=1 2>/dev/null | tail -n1 | tr -d '[:space:]')"
+  if [ -z "$SESSION_BUS_ADDR" ] || [ "$SESSION_BUS_ADDR" = "unix:path=/org/freedesktop/DBus" ]; then
+    echo "WARNING: failed to start dbus session bus — GUI may render blank"
+    SESSION_BUS_ADDR=""
+    return 0
+  fi
+  export DBUS_SESSION_BUS_ADDRESS="$SESSION_BUS_ADDR"
+  SESSION_BUS_PID="$(pgrep -n -f 'dbus-daemon --session' 2>/dev/null || echo)"
+  return 0
+}
+
 start_xvfb() {
   have Xvfb || { echo "ERROR: Xvfb not installed" >&2; exit 2; }
   pkill -f "Xvfb $DISPLAY_NUM" 2>/dev/null || true
@@ -171,6 +197,8 @@ start_xvfb() {
 launch_app() {
   [ -x "$BIN" ] || { echo "ERROR: $BIN not found/executable" >&2; exit 3; }
   DISPLAY="$DISPLAY_NUM" \
+  XDG_RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp}" \
+  DBUS_SESSION_BUS_ADDRESS="${DBUS_SESSION_BUS_ADDRESS:-}" \
   LIBGL_ALWAYS_SOFTWARE=1 \
   WEBKIT_DISABLE_COMPOSITING_MODE=1 \
   WEBKIT_DISABLE_DMABUF_RENDERER=1 \
@@ -378,6 +406,7 @@ have tesseract || { echo "WARNING: tesseract not installed — OCR checks will b
 have scrot || have import || { echo "WARNING: no screenshot tool (scrot/imagemagick) — screenshots disabled"; }
 
 echo "=== ui-test-compositor: suite=$SUITE binary=$BIN display=$DISPLAY_NUM ==="
+start_session_bus
 start_xvfb
 launch_app
 
