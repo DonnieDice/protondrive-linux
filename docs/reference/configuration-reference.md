@@ -44,7 +44,7 @@ Set at compile time (via Cargo or shell). These become baked into the binary.
 
 | Variable | Possible Values | Where Used | Purpose |
 |---|---|---|---|
-| `DISTRO_TYPE` | `aur`, `deb`, `rpm`, `appimage`, `apk`, `snap`, unset | `main.rs`, `build-system.md` | Controls Web Worker handling at runtime. See [Build System](build-system.md) §DISTRO_TYPE for the per-distro behavior matrix. |
+| `DISTRO_TYPE` | `aur`, `deb`, `rpm`, `appimage`, `apk`, `snap`, unset | `main.rs`, `build-system.md` | Controls Web Worker handling at runtime. See [Build System](../architecture/build-system.md) §DISTRO_TYPE for the per-distro behavior matrix. |
 
 Example:
 
@@ -198,7 +198,7 @@ are hard-coded for routing decisions:
 | `api.proton.me` | Proton API | Proxied through Rust `reqwest` client |
 | `drive-api.proton.me` | Drive-specific API | Proxied through Rust `reqwest` client |
 
-See [Proxy System](proxy-system.md) and [Proton Navigation](proton-navigation.md)
+See [Proxy System](../architecture/proxy-system.md) and [Proton Navigation](../architecture/proton-navigation.md)
 for the full routing decision tree.
 
 ---
@@ -212,7 +212,7 @@ for the full routing decision tree.
 | Concurrent downloads | Unlimited (practical: JS heap) | Each download holds the full file in memory. See [Blob Downloads](blob-downloads.md). |
 | Proxy request ID counter | `u64` | Monotonically increasing, used for log correlation only. Wraps at 2⁶⁴. |
 | Concurrent proxy requests | Unlimited (practical: Rust async) | Reqwest client uses connection pooling. |
-| Concurrent sync operations | Single-threaded | One watcher thread + one poller thread. See [Live Sync Module](live-sync-module.md). |
+| Concurrent sync operations | Single-threaded | One watcher thread + one poller thread. See [Live Sync Module](../sync/live-sync-module.md). |
 
 ---
 
@@ -236,9 +236,9 @@ To view logs, run the app from a terminal. There is no log file written to disk.
 
 ## See Also
 
-- **[Architecture](ARCHITECTURE.md)** — How all modules and constants fit together
-- **[Sync System](sync-system.md)** — Full sync pipeline, Tauri command wiring
-- **[Proxy System](proxy-system.md)** — Proxy architecture and request lifecycle
-- **[Build System](build-system.md)** — DISTRO_TYPE, feature flags, platform matrix
-- **[CI Pipeline Reference](ci-pipeline-reference.md)** — CI jobs, env vars, artifact naming
-- **[Live Sync Module](live-sync-module.md)** — Watcher/poller threads, event contract
+- **[Architecture](../architecture/architecture.md)** — How all modules and constants fit together
+- **[Sync System](../sync/sync-system.md)** — Full sync pipeline, Tauri command wiring
+- **[Proxy System](../architecture/proxy-system.md)** — Proxy architecture and request lifecycle
+- **[Build System](../architecture/build-system.md)** — DISTRO_TYPE, feature flags, platform matrix
+- **[CI Pipeline Reference](../ci-cd/ci-pipeline-reference.md)** — CI jobs, env vars, artifact naming
+- **[Live Sync Module](../sync/live-sync-module.md)** — Watcher/poller threads, event contract

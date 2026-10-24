@@ -95,7 +95,7 @@ Two link styles are acceptable:
 
 1. **Markdown links** (preferred for build-time static site generation):
    ```markdown
-   [Live Sync Module](live-sync-module.md)
+   [Live Sync Module](sync/live-sync-module.md)
    ```
 
 2. **WikiLinks** (preferred for knowledge-base tools that resolve them):
@@ -105,7 +105,7 @@ Two link styles are acceptable:
 
 Use descriptive link text that includes the document title and a one-line
 purpose summary, e.g.:
-> **[Live Sync Module](live-sync-module.md)** — Core engine: watcher/poller threads, suppression cache, event contract
+> **[Live Sync Module](sync/live-sync-module.md)** — Core engine: watcher/poller threads, suppression cache, event contract
 
 ## Index Structure
 

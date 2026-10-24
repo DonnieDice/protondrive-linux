@@ -33,7 +33,7 @@ Linux distributions.
 | Snap            | `.snap`                | core24, core26 (Snap Store)                                                      |
 | AppImage        | `.AppImage`            | linux-baseline (pre-compiled)                                                    |
 
-> All targets above are actively built in CI. The [compatibility map](../packaging/compatibility-map.yml)
+> All targets above are actively built in CI. The [compatibility map](../../packaging/compatibility-map.yml)
 > tracks per-target status (release-gated vs rollout). Additional packaging targets
 > are added as their patch files and CI workflows land.
 
@@ -214,7 +214,7 @@ surgery to make the Proton web UI work inside a Tauri desktop shell.
 
 ### `fix_deps.py` — Dependency Surgery
 
-**Path:** [`scripts/fix_deps.py`](../scripts/fix_deps.py)
+**Path:** [`scripts/fix_deps.py`](../../scripts/fix_deps.py)
 
 This script runs **before** `yarn install` and fixes several issues:
 
@@ -229,7 +229,7 @@ This script runs **before** `yarn install` and fixes several issues:
 
 ### `create_stubs.py` — Private Package Stubs
 
-**Path:** [`scripts/create_stubs.py`](../scripts/create_stubs.py)
+**Path:** [`scripts/create_stubs.py`](../../scripts/create_stubs.py)
 
 Creates no-op stub packages under `WebClients/node_modules/` for Proton-internal npm
 packages that are never published. Each stub has a minimal `package.json` and an
@@ -243,7 +243,7 @@ packages that are never published. Each stub has a minimal `package.json` and an
 
 ### Common Patches
 
-**Path:** [`patches/common/`](../patches/common/)
+**Path:** [`patches/common/`](../../patches/common/)
 
 Patches applied before the WebClients build:
 
@@ -258,7 +258,7 @@ Patches applied before the WebClients build:
 
 ### `build-webclients.sh` — Build Orchestration
 
-**Path:** [`scripts/build-webclients.sh`](../scripts/build-webclients.sh)
+**Path:** [`scripts/build-webclients.sh`](../../scripts/build-webclients.sh)
 
 The central WebClients build orchestrator. Key responsibilities:
 

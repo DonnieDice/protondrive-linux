@@ -19,6 +19,11 @@ SKIP_PATTERNS = [
     re.compile(r"/node_modules/"),
     re.compile(r"/target/"),
     re.compile(r"/\.git/"),
+    # Private/agent-only content: never indexed (the index is published to GitHub).
+    re.compile(r"/\.(claude|codex|copilot|gemini|opencode|gitlab)/"),
+    re.compile(r"/(AGENTS|CLAUDE|GEMINI|TOOLS)\.md$"),
+    re.compile(r"/tests/"),
+    re.compile(r"/scripts/ci/"),
 ]
 
 def should_skip(path):

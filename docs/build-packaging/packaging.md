@@ -2,7 +2,7 @@
 
 This is the canonical human-readable Linux packaging policy. Machine-readable
 target metadata lives in
-[`packaging/compatibility-map.yml`](../packaging/compatibility-map.yml). Keep
+[`packaging/compatibility-map.yml`](../../packaging/compatibility-map.yml). Keep
 this file, the compatibility map, the patch tree, and GitHub Actions workflows
 in sync.
 

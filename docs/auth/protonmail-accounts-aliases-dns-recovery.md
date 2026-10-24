@@ -21,7 +21,7 @@ desktop client.
 A Proton account is the single identity used across Proton services (Mail,
 Drive, Calendar, VPN). Signing in to ProtonDrive Linux uses the same
 credentials and the same SRP authentication flow described in the
-[Auth Module](auth-module) and [SSO Authentication](sso-authentication)
+[Auth Module](auth-module.md) and [SSO Authentication](sso-authentication.md)
 guides.
 
 Key points:
@@ -133,5 +133,5 @@ Key points:
 
 ## See Also
 
-- [Auth Module](auth-module) — Rust-side SRP login, sessions, and token refresh
-- [SSO Authentication](sso-authentication) — web-wide SSO navigation and CAPTCHA handling
+- [Auth Module](auth-module.md) — Rust-side SRP login, sessions, and token refresh
+- [SSO Authentication](sso-authentication.md) — web-wide SSO navigation and CAPTCHA handling
